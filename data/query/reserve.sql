@@ -75,3 +75,28 @@ create unique index cc_member_attempt_id_uindex
 	on call_center.cc_member_attempt (id)
 ;
 
+
+
+select *
+from cc_queue_is_working q
+  inner join lateral (
+             select *
+             from cc_member m
+               inner join lateral (
+                          select
+                            id as cc_id,
+                            queue_id,
+                            number,
+                            communication_id
+                          from cc_member_communications c
+
+                          where c.member_id = m.id and c.state = 0 and last_calle_at <= q.sec_between_retries
+                          order by last_calle_at, priority
+                          limit 1
+                          ) as c on true
+
+             where m.queue_id = q.id and pg_try_advisory_xact_lock('cc_member_communications' :: regclass :: oid :: integer, m.id)
+             order by m.priority asc
+             limit 0 --q.max_calls
+             ) m on true
+order by q.priority desc;

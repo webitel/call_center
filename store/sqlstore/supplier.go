@@ -32,6 +32,7 @@ const (
 
 type SqlSupplierOldStores struct {
 	session            store.SessionStore
+	queue            store.QueueStore
 }
 
 type SqlSupplier struct {
@@ -56,6 +57,9 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.initConnection()
 
 	supplier.oldStores.session = NewSqlSessionStore(supplier)
+	supplier.oldStores.queue = NewSqlQueueStore(supplier)
+	NewSqlQueueStore(supplier)
+	NewSqlQueueStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -169,6 +173,9 @@ func (ss *SqlSupplier) DriverName() string {
 
 func (ss *SqlSupplier) Session() store.SessionStore {
 	return ss.oldStores.session
+}
+func (ss *SqlSupplier) Queue() store.QueueStore {
+	return ss.oldStores.queue
 }
 
 type typeConverter struct{}

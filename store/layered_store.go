@@ -40,3 +40,6 @@ func (s *LayeredStore) RunQuery(queryFunction QueryFunction) StoreChannel {
 func (s *LayeredStore) Session() SessionStore {
 	return s.DatabaseLayer.Session()
 }
+func (s *LayeredStore) Queue() QueueStore {
+	return s.DatabaseLayer.Queue()
+}

@@ -17,7 +17,7 @@ var (
 
 func LoadConfig(fileName string) (*model.Config, string, map[string]interface{}, *model.AppError) {
 	var envConfig = make(map[string]interface{})
-	dbDatasource := "postgres://webitel:webitel@10.10.10.200:5432/webitel?sslmode=disable&connect_timeout=10"
+	dbDatasource := "postgres://webitel:webitel@10.10.10.200:5432/webitel?search_path=call_center&fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
 	dbDriverName := "postgres"
 	maxIdleConns := 100
 	maxOpenConns := 100
@@ -32,7 +32,6 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 		},
 		ServiceSettings: model.ServiceSettings{
 			ListenAddress:         model.NewString(":10023"),
-			ListenInternalAddress: model.NewString(":10021"),
 			SessionCacheInMinutes: &sessionCacheInMinutes,
 		},
 		SqlSettings: model.SqlSettings{
@@ -41,7 +40,7 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			MaxIdleConns:                &maxIdleConns,
 			MaxOpenConns:                &maxOpenConns,
 			ConnMaxLifetimeMilliseconds: &connMaxLifetimeMilliseconds,
-			Trace: true,
+			Trace: false,
 		},
 	}, "", envConfig, nil
 }

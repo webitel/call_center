@@ -16,7 +16,6 @@ import (
 type App struct {
 	id               *string
 	Srv              *Server
-	InternalSrv      *Server
 	Store            store.Store
 	Log              *mlog.Logger
 	configFile       string
@@ -27,20 +26,15 @@ type App struct {
 
 func New(options ...string) (outApp *App, outErr error) {
 	rootRouter := mux.NewRouter()
-	internalRootRouter := mux.NewRouter()
 
 	app := &App{
 		id: model.NewString("todo-pid"),
 		Srv: &Server{
 			RootRouter: rootRouter,
 		},
-		InternalSrv: &Server{
-			RootRouter: internalRootRouter,
-		},
 		sessionCache: utils.NewLru(model.SESSION_CACHE_SIZE),
 	}
 	app.Srv.Router = app.Srv.RootRouter.PathPrefix("/").Subrouter()
-	app.InternalSrv.Router = app.InternalSrv.RootRouter.PathPrefix("/").Subrouter()
 
 	defer func() {
 		if outErr != nil {
@@ -84,7 +78,6 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.Srv.Store
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
-	app.InternalSrv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
 	return app, outErr
 }

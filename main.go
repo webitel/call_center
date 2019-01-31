@@ -28,12 +28,6 @@ func main() {
 	}
 	apis.Init(a, a.Srv.Router)
 
-	serverErr = a.StartInternalServer()
-	if serverErr != nil {
-		mlog.Critical(serverErr.Error())
-		return
-	}
-
 	setDebug()
 	// wait for kill signal before attempting to gracefully shutdown
 	// the running service

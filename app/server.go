@@ -101,38 +101,3 @@ func (a *App) StartServer() error {
 
 	return nil
 }
-
-func (a *App) StartInternalServer() error {
-	mlog.Info("Starting Internal Server...")
-
-	var handler http.Handler = &CorsWrapper{a.InternalSrv.RootRouter}
-
-	a.InternalSrv.Server = &http.Server{
-		Handler:  handlers.RecoveryHandler(handlers.RecoveryLogger(&RecoveryLogger{}), handlers.PrintRecoveryStack(true))(handler),
-		ErrorLog: a.Log.StdLog(mlog.String("source", "httpserver")),
-	}
-
-	addr := *a.Config().ServiceSettings.ListenInternalAddress
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		errors.Wrapf(err, utils.T("api.server.start_server.starting.critical"), err)
-		return err
-	}
-
-	a.InternalSrv.ListenAddr = listener.Addr().(*net.TCPAddr)
-	mlog.Info(fmt.Sprintf("Server internal is listening on %v", listener.Addr().String()))
-	a.InternalSrv.didFinishListen = make(chan struct{})
-
-	go func() {
-		var err error
-
-		err = a.InternalSrv.Server.Serve(listener)
-		if err != nil && err != http.ErrServerClosed {
-			mlog.Critical(fmt.Sprintf("Error starting server, err:%v", err))
-			time.Sleep(time.Second)
-		}
-		close(a.InternalSrv.didFinishListen)
-	}()
-
-	return nil
-}

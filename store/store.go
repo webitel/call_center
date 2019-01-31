@@ -37,9 +37,14 @@ func Must(sc StoreChannel) interface{} {
 
 type Store interface {
 	Session() SessionStore
+	Queue() QueueStore
 }
 
 type SessionStore interface {
 	Get(sessionIdOrToken string) StoreChannel
+}
+
+type QueueStore interface {
+
 }
 
