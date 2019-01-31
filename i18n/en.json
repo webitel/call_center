@@ -1,0 +1,50 @@
+[
+  {
+    "id": "api.server.start_server.starting.critical",
+    "translation": "Error starting server, err:%v"
+  },
+  {
+    "id": "api.context.404.app_error",
+    "translation": "Not found page."
+  },
+  {
+    "id": "api.context.session_expired.app_error",
+    "translation": "Invalid or expired session, please login again."
+  },
+  {
+    "id": "api.file.no_driver.app_error",
+    "translation": "No file driver selected."
+  },
+  {
+    "id": "utils.file.locally.create_dir.app_error",
+    "translation": "Encountered an error creating the directory for the new file"
+  },
+  {
+    "id": "utils.file.locally.writing.app_error",
+    "translation": "Encountered an error writing to local server storage"
+  },
+  {
+    "id": "utils.file.locally.removing.app_error",
+    "translation": "Encountered an error removing file from local server storage."
+  },
+  {
+    "id": "store.sql_upload_job.save.app_error",
+    "translation": "We couldn't save the upload job"
+  },
+  {
+    "id": "store.sql_upload_job.list.app_error",
+    "translation": "Failed to retrieve the upload jobs"
+  },
+  {
+    "id": "store.sql.convert_string_map",
+    "translation": "FromDb: Unable to convert StringMap to *string"
+  },
+  {
+    "id": "store.sql.convert_string_array",
+    "translation": "FromDb: Unable to convert StringArray to *string"
+  },
+  {
+    "id": "store.sql.convert_string_interface",
+    "translation": "FromDb: Unable to convert StringInterface to *string"
+  }
+]
