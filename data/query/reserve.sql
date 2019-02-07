@@ -52,12 +52,11 @@ BEGIN;
 COMMIT;
 
 
+drop table call_center.cc_member_attempt;
 
-create table call_center.cc_member_attempt
+create UNLOGGED table call_center.cc_member_attempt
 (
-	id serial not null
-		constraint cc_member_attempt_pkey
-			primary key,
+	id serial not null,
 	communication_id integer not null
 		constraint cc_member_attempt_cc_member_communications_id_fk
 			references cc_member_communications
@@ -67,13 +66,39 @@ create table call_center.cc_member_attempt
 			references cc_resource_in_routing,
 	timing_id integer
 		constraint cc_member_attempt_cc_queue_timing_id_fk
-			references cc_queue_timing
+			references cc_queue_timing,
+	queue_id integer not null
+		constraint cc_member_attempt_cc_queue_id_fk
+			references cc_queue
+				on update cascade on delete cascade,
+	state integer default 0 not null,
+	member_id integer not null
+		constraint cc_member_attempt_cc_member_id_fk
+			references cc_member
+				on update cascade on delete cascade,
+	created_at bigint default ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint not null,
+	weight integer default 0 not null
 )
 ;
 
 create unique index cc_member_attempt_id_uindex
 	on call_center.cc_member_attempt (id)
 ;
+
+create index cc_member_attempt_state_queue_id_index
+	on call_center.cc_member_attempt (state, queue_id)
+;
+
+create index cc_member_attempt_member_id_state_index
+	on call_center.cc_member_attempt (member_id, state)
+	where (state = 0)
+;
+
+create index cc_member_attempt_state_created_at_weight_index
+	on call_center.cc_member_attempt (state asc, created_at desc, weight asc)
+;
+
+
 
 
 

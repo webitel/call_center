@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package fs;
+
+service Api {
+    rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
+    rpc Hangup(HangupRequest) returns (HangupResponse) {}
+    rpc Originate(OriginateRequest) returns (OriginateResponse) {}
+}
+
+message ErrorExecute {
+    enum Type {
+        ERROR = 0;
+        USAGE = 1;
+    }
+    string message = 1;
+    Type type = 2;
+}
+
+message ExecuteRequest {
+    string command = 1;
+    string args = 2;
+}
+
+message ExecuteResponse {
+    string data = 1;
+    ErrorExecute error = 2;
+}
+
+message HangupRequest {
+    string uuid = 1;
+    string cause = 2;
+}
+
+message HangupResponse {
+    ErrorExecute error = 1;
+}
+
+message OriginateRequest {
+    map<string, string> variables = 1;
+    repeated string endpoints = 2;
+    string destination = 3;
+    int32 timeout = 4;
+    string callerNumber = 5;
+    string callerName = 6;
+    string context = 7;
+    string dialplan = 8;
+}
+message OriginateResponse {
+    string uuid = 1;
+    ErrorExecute error = 2;
+}

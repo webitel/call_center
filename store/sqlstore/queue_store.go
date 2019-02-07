@@ -29,14 +29,14 @@ func testRemove(sqlStore SqlStore)  {
 		var err error
 		for {
 			_, err = sqlStore.GetMaster().Exec(`UPDATE cc_member_attempt
-SET    state = -1
+SET    state = -1, hangup_at = 100
 WHERE  id in (
          SELECT id
          FROM   cc_member_attempt
          WHERE  state = 0
-         AND    pg_try_advisory_xact_lock(id)
+         --AND    pg_try_advisory_xact_lock(id)
          order by created_at desc , weight asc
-         LIMIT  1
+         LIMIT  100
 
          FOR    UPDATE
          )

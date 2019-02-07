@@ -27,7 +27,7 @@ CREATE OR REPLACE FUNCTION get_count_call(int)
 $BODY$
 BEGIN
   RETURN QUERY SELECT count(*) :: integer
-               FROM cc_member_attempt
+               FROM call_center.cc_member_attempt
                WHERE state > -1 AND queue_id = $1;
   RETURN;
 END
@@ -67,3 +67,36 @@ BEGIN
 END
 $BODY$
 LANGUAGE plpgsql;
+
+
+
+create table cc_member_attempt
+(
+	id serial not null,
+	communication_id integer not null
+		constraint cc_member_attempt_cc_member_communications_id_fk
+			references cc_member_communications
+				on update cascade on delete cascade,
+	resource_routing_id integer
+		constraint cc_member_attempt_cc_resource_in_routing_id_fk
+			references cc_resource_in_routing,
+	timing_id integer
+		constraint cc_member_attempt_cc_queue_timing_id_fk
+			references cc_queue_timing,
+	queue_id integer not null
+		constraint cc_member_attempt_cc_queue_id_fk
+			references cc_queue
+				on update cascade on delete cascade,
+	state integer default 0 not null,
+	member_id integer not null
+		constraint cc_member_attempt_cc_member_id_fk
+			references cc_member
+				on update cascade on delete cascade,
+	created_at bigint default ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint not null,
+	weight integer default 0 not null
+);
+
+alter table cc_queue_is_working owner to webitel;
+
+select *
+from cc_member_attempt;

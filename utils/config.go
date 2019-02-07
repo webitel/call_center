@@ -17,7 +17,7 @@ var (
 
 func LoadConfig(fileName string) (*model.Config, string, map[string]interface{}, *model.AppError) {
 	var envConfig = make(map[string]interface{})
-	dbDatasource := "postgres://webitel:webitel@10.10.10.200:5432/webitel?search_path=call_center&fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
+	dbDatasource := "postgres://webitel:webitel@10.10.10.25:5432/webitel?search_path=call_center&fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
 	dbDriverName := "postgres"
 	maxIdleConns := 100
 	maxOpenConns := 100

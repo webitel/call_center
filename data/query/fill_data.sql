@@ -5,6 +5,12 @@ SELECT id, 'name', md5(random()::text), 'name2'
 FROM generate_series(1,100) id;
 
 
+
+select sum(r.id) from  (
+                select log(id) as id
+                from generate_series(1, 10000000) id
+              ) as r;
+
 select *
 from calendar;
 

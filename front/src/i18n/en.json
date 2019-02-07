@@ -1,0 +1,29 @@
+{
+  "link": {
+    "home": "Home",
+    "calendar": "Calendar",
+    "about": "About"
+  },
+  "base": {
+    "page": {
+      "indicatesRequiredField": "indicates required field",
+      "save": "Save",
+      "close": "Close"
+    },
+    "error": {
+      "fieldRequired": "This field is required"
+    }
+  },
+  "calendar": {
+    "grid": {
+
+    },
+    "page": {
+      "header": "Calendar",
+      "name": "Name",
+      "timezone": "Timezone",
+      "start": "Start",
+      "finish": "Finish"
+    }
+  }
+}
