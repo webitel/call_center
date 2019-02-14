@@ -22,13 +22,6 @@ select *
 from cc_queue_resources_is_working;
 
 
-
-
-
-
-
-
-
 CREATE OR REPLACE FUNCTION get_count_active_resources(int)
   RETURNS SETOF integer AS
 $BODY$
@@ -40,3 +33,34 @@ BEGIN
 END
 $BODY$
 LANGUAGE plpgsql;
+
+
+
+explain analyse
+select r.*, res.*
+from cc_outbound_resource r
+,lateral (
+  select *
+  from cc_resource_in_routing rr
+  where rr.resource_id = r.id
+) as res
+order by res.priority desc
+limit 10;
+
+
+
+explain (analyse, buffers )
+select m.*
+from cc_member m
+  inner join lateral (
+    select *
+    from cc_member_communications c
+    where c.member_id = m.id and state = 0 and c.routing_ids @> ARRAY[1]
+    order by c.last_calle_at, c.priority asc
+    limit 1
+  ) c on true
+  inner join cc_queue cq on cq.id = 1
+where m.queue_id = 1
+order by cq.priority,  m.priority desc
+limit 100;
+
