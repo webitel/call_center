@@ -1,13 +1,11 @@
 package sqlstore
 
-
 import (
-	"github.com/webitel/call_center/store"
-	"fmt"
-	"time"
-	"runtime"
 	"bytes"
+	"github.com/webitel/call_center/store"
+	"runtime"
 	"strconv"
+	"time"
 )
 
 type SqlQueueStore struct {
@@ -23,7 +21,7 @@ func getGID() uint64 {
 	return n
 }
 
-func testRemove(sqlStore SqlStore)  {
+func testRemove(sqlStore SqlStore) {
 
 	go func() {
 		var err error
@@ -53,23 +51,24 @@ RETURNING *`)
 
 func NewSqlQueueStore(sqlStore SqlStore) store.QueueStore {
 	us := &SqlQueueStore{sqlStore}
-	testRemove(sqlStore)
-	go func() {
-		var err error
-		var count int64
-		fmt.Printf("Start [%v]\n", getGID())
-		for {
-			count, err = sqlStore.GetMaster().SelectInt(`select * from f_add_task_for_call()`)
-			if err != nil {
-				panic(err)
+	/*
+		testRemove(sqlStore)
+		go func() {
+			var err error
+			var count int64
+			fmt.Printf("Start [%v]\n", getGID())
+			for {
+				count, err = sqlStore.GetMaster().SelectInt(`select * from f_add_task_for_call()`)
+				if err != nil {
+					panic(err)
+				}
+				if count > 0  {
+					fmt.Printf("New tasks %v [%v]\n", count, getGID())
+				}
+				time.Sleep(time.Millisecond * 200)
 			}
-			if count > 0  {
-				fmt.Printf("New tasks %v [%v]\n", count, getGID())
-			}
-			time.Sleep(time.Millisecond * 200)
-		}
-	}()
-
+		}()
+	*/
 	return us
 }
 

@@ -7,6 +7,8 @@ import router from './router'
 import store from './store'
 import { Application } from './core/app'
 import i18n from './plugins/i18n'
+import  './plugins/amcharts'
+import  './plugins/infiniteScroll'
 
 Vue.config.productionTip = false;
 

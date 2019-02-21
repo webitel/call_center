@@ -28,6 +28,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.IpAddress = utils.GetIpAddress(r)
 	c.Path = r.URL.Path
 	c.Log = c.App.Log
+	c.Params = ParamsFromRequest(r)
 
 	token, _ := app.ParseAuthTokenFromRequest(r)
 

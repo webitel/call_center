@@ -19,6 +19,7 @@ type Context struct {
 	IpAddress     string
 	Path          string
 	siteURLHeader string
+	Params        *Params
 }
 
 func (c *Context) LogError(err *model.AppError) {

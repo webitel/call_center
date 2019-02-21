@@ -27,14 +27,13 @@
             </v-flex>
           </v-layout>
           <v-divider
-                  dark
                   v-else-if="item.divider"
                   class="my-3"
                   :key="i"
           ></v-divider>
           <v-list-tile
-                  :key="i"
                   v-else
+                  :key="i"
                   @click="()=>{goTo(item)}"
           >
             <v-list-tile-action>
@@ -53,16 +52,26 @@
       <v-toolbar-side-icon @click.native="drawer = !drawer"></v-toolbar-side-icon>
       <span class="title ml-3 mr-5">Call&nbsp;<span class="text">center</span></span>
       <v-spacer></v-spacer>
+
+        <v-avatar
+                size="36px"
+        >
+            <v-icon >account_circle</v-icon>
+        </v-avatar>
+
     </v-toolbar>
-    <v-content>
-      <v-container fluid fill-height class="lighten-4">
-        <v-layout >
-          <v-flex >
-            <router-view/>
-          </v-flex>
-        </v-layout>
-      </v-container>
-    </v-content>
+
+    <v-layout >
+      <v-content class="content-scroll">
+        <v-container fluid fill-height class="lighten-4">
+          <v-layout >
+            <v-flex >
+              <router-view/>
+            </v-flex>
+          </v-layout>
+        </v-container>
+      </v-content>
+    </v-layout>
   </v-app>
 </template>
 
@@ -99,14 +108,45 @@
     }
 </script>
 
+<style scoped>
+  #inspire {
+    overflow-y: hidden;
+  }
+  .content-scroll {
+    overflow-y: scroll;
+  }
+</style>
+
 <style>
-    #keep main .container {
-        height: 660px;
+
+    ::-webkit-scrollbar {
+        width: 8px;
     }
-    .navigation-drawer__border {
+    ::-webkit-scrollbar-thumb:vertical {
+        margin: 50px;
+        background-color: #999;
+        -webkit-border-radius: 5px;
+    }
+    ::-webkit-scrollbar-button:start:decrement,
+    ::-webkit-scrollbar-button:end:increment {
+        height: 5px;
+        display: block;
+    }
+
+    .alert-right_position {
+        position: fixed;
+        right: 15px;
+        top: 15px;
+        z-index: 4;
+        width: 420px;
+    }
+
+    /*
+    table  tbody tr:hover  .datatable-auto-show-row > * {
+        display: flex;
+    }
+    table  tbody tr  .datatable-auto-show-row > * {
         display: none;
     }
-    .text {
-        font-weight: 400;
-    }
+    */
 </style>

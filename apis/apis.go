@@ -12,24 +12,27 @@ type RoutesPublic struct {
 	Root    *mux.Router // ''
 	ApiRoot *mux.Router // 'api/v2'
 
-	Profile *mux.Router // 'api/v2/profiles'
+	Profile  *mux.Router // 'api/v2/profiles'
+	Calendar *mux.Router // 'api/v2/calendar'
 }
 
 type API struct {
-	App          *app.App
-	PublicRoutes *RoutesPublic
+	App    *app.App
+	Routes *RoutesPublic
 }
 
 func Init(a *app.App, root *mux.Router) *API {
 	api := &API{
-		App:          a,
-		PublicRoutes: &RoutesPublic{},
+		App:    a,
+		Routes: &RoutesPublic{},
 	}
-	api.PublicRoutes.Root = root
-	api.PublicRoutes.ApiRoot = root.PathPrefix(model.API_URL_SUFFIX).Subrouter()
-	api.PublicRoutes.Profile = api.PublicRoutes.ApiRoot.PathPrefix("/profiles").Subrouter()
+	api.Routes.Root = root
+	api.Routes.ApiRoot = root.PathPrefix(model.API_URL_SUFFIX).Subrouter()
+	api.Routes.Profile = api.Routes.ApiRoot.PathPrefix("/profiles").Subrouter()
+	api.Routes.Calendar = api.Routes.ApiRoot.PathPrefix("/calendars").Subrouter()
 
 	api.InitProfile()
+	api.InitCalendar()
 	return api
 }
 

@@ -31,8 +31,9 @@ const (
 )
 
 type SqlSupplierOldStores struct {
-	session            store.SessionStore
-	queue            store.QueueStore
+	session  store.SessionStore
+	queue    store.QueueStore
+	calendar store.CalendarStore
 }
 
 type SqlSupplier struct {
@@ -57,9 +58,8 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.initConnection()
 
 	supplier.oldStores.session = NewSqlSessionStore(supplier)
+	supplier.oldStores.calendar = NewSqlCalendarStore(supplier)
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
-	NewSqlQueueStore(supplier)
-	NewSqlQueueStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -174,8 +174,13 @@ func (ss *SqlSupplier) DriverName() string {
 func (ss *SqlSupplier) Session() store.SessionStore {
 	return ss.oldStores.session
 }
+
 func (ss *SqlSupplier) Queue() store.QueueStore {
 	return ss.oldStores.queue
+}
+
+func (ss *SqlSupplier) Calendar() store.CalendarStore {
+	return ss.oldStores.calendar
 }
 
 type typeConverter struct{}
@@ -253,4 +258,11 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	}
 
 	return gorp.CustomScanner{}, false
+}
+
+func GetOrderType(desc bool) string {
+	if desc {
+		return "DESC"
+	}
+	return "ASC"
 }

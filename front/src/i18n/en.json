@@ -16,7 +16,7 @@
   },
   "calendar": {
     "grid": {
-
+      "name": "Calendar grid"
     },
     "page": {
       "header": "Calendar",

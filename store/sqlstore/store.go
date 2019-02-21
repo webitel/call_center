@@ -13,5 +13,6 @@ type SqlStore interface {
 	GetAllConns() []*gorp.DbMap
 
 	Session() store.SessionStore
+	Calendar() store.CalendarStore
 	Queue() store.QueueStore
 }

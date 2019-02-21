@@ -1,18 +1,7 @@
 <template>
     <v-form v-model="valid">
         <v-layout row justify-center>
-        <v-dialog v-model="dialog" persistent max-width="600px">
-            <v-btn
-                    fixed
-                    dark
-                    fab
-                    bottom
-                    right
-                    color="pink"
-                    slot="activator"
-            >
-                <v-icon>add</v-icon>
-            </v-btn>
+        <v-dialog :value="calendar" persistent max-width="600px">
             <v-card>
                 <v-card-title>
                     <span class="headline">{{$t('calendar.page.header')}}</span>
@@ -96,7 +85,7 @@
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer></v-spacer>
-                    <v-btn color="blue darken-1" flat @click="close()">{{$t('base.page.close')}}</v-btn>
+                    <v-btn color="blue darken-1" flat @click="cancel()">{{$t('base.page.close')}}</v-btn>
                     <v-btn color="blue darken-1" :disabled="!valid" flat @click="save()">{{$t('base.page.save')}}</v-btn>
                 </v-card-actions>
             </v-card>
@@ -108,9 +97,8 @@
 <script>
     export default {
         name: "NewCalendar",
-        data: ()=> {
+        data: () => {
             return {
-                dialog: false,
                 name: null,
                 start: null,
                 finish: null,
@@ -118,7 +106,15 @@
                 showStart: false,
                 showFinish: false,
                 valid: false,
-                timezones: [],
+                timezones: ["A"],
+            }
+        },
+        props: {
+            dialog: Boolean
+        },
+        computed: {
+            calendar() {
+                return !!this.$store.getters['calendar/calendar']
             }
         },
         methods: {
@@ -134,8 +130,8 @@
                 const [month, day, year] = date.split('/');
                 return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
             },
-            close() {
-                this.dialog = false
+            cancel() {
+                this.$store.dispatch('calendar/cancelNew')
             },
             save() {
 

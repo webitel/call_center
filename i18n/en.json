@@ -46,5 +46,14 @@
   {
     "id": "store.sql.convert_string_interface",
     "translation": "FromDb: Unable to convert StringInterface to *string"
+  },
+
+  {
+    "id": "store.sql_calendar.save.app_error",
+    "translation": "We couldn't save the upload calendar"
+  },
+  {
+    "id": "store.sql_calendar.get_all.app_error",
+    "translation": "Unable to get all the calendar"
   }
 ]

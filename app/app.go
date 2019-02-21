@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
+	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
@@ -14,14 +16,15 @@ import (
 )
 
 type App struct {
-	id               *string
-	Srv              *Server
-	Store            store.Store
-	Log              *mlog.Logger
-	configFile       string
-	config           atomic.Value
-	sessionCache     *utils.Cache
-	newStore         func() store.Store
+	id           *string
+	Srv          *Server
+	Store        store.Store
+	MQ           mq.MQ
+	Log          *mlog.Logger
+	configFile   string
+	config       atomic.Value
+	sessionCache *utils.Cache
+	newStore     func() store.Store
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -65,7 +68,6 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, errors.Wrapf(err, "unable to load Mattermost translation files")
 	}
 
-
 	mlog.Info("Server is initializing...")
 
 	if app.newStore == nil {
@@ -76,6 +78,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Srv.Store = app.newStore()
 	app.Store = app.Srv.Store
+	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings))
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
@@ -84,6 +87,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 func (app *App) Shutdown() {
 	mlog.Info("Stopping Server...")
+	app.MQ.Close()
 }
 
 func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {

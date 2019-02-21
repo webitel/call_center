@@ -38,13 +38,16 @@ func Must(sc StoreChannel) interface{} {
 type Store interface {
 	Session() SessionStore
 	Queue() QueueStore
+	Calendar() CalendarStore
 }
 
 type SessionStore interface {
 	Get(sessionIdOrToken string) StoreChannel
 }
 
-type QueueStore interface {
-
+type CalendarStore interface {
+	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
 }
 
+type QueueStore interface {
+}

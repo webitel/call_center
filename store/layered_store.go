@@ -43,3 +43,7 @@ func (s *LayeredStore) Session() SessionStore {
 func (s *LayeredStore) Queue() QueueStore {
 	return s.DatabaseLayer.Queue()
 }
+
+func (s *LayeredStore) Calendar() CalendarStore {
+	return s.DatabaseLayer.Calendar()
+}

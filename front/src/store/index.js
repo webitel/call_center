@@ -4,7 +4,7 @@ import Vuex from 'vuex'
 //TODO
 import {calendarStore} from '../modules/calendar/calendatStore'
 
-Vue.use(Vuex)
+Vue.use(Vuex);
 
 export default new Vuex.Store({
     debug: true,
