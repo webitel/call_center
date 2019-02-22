@@ -37,11 +37,7 @@ func NewRabbitMQ(settings model.MQSettings) mq.LayeredMQLayer {
 
 func (a *AMQP) initConnection() {
 	var err error
-	if a.settings.Url == nil {
-		mlog.Critical(fmt.Sprintf("Failed settings AMQP connection url"))
-		time.Sleep(time.Second)
-		os.Exit(1)
-	}
+
 	if a.connectionAttempts >= MAX_ATTEMPTS_CONNECT {
 		mlog.Critical(fmt.Sprintf("Failed to open AMQP connection..."))
 		time.Sleep(time.Second)
@@ -108,6 +104,11 @@ func (a *AMQP) subscribe() {
 		panic(err)
 	}
 
+	err = a.channel.QueueBind(a.queueName, "*.CHANNEL_ANSWER.*.*.*", model.EXCHANGE_MQ, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
 	err = a.channel.QueueBind(a.queueName, "*.CHANNEL_PARK.*.*.*", model.EXCHANGE_MQ, false, nil)
 	if err != nil {
 		panic(err)
@@ -129,14 +130,18 @@ func (a *AMQP) subscribe() {
 	go func() {
 		var err error
 		for m := range msgs {
-			e := &mq.Event{}
+			if m.ContentType != "text/json" {
+				mlog.Warn(fmt.Sprintf("Failed receive event content type: %v\n%s", m.ContentType, m.Body))
+				continue
+			}
+			e := &REvent{}
 			err = json.Unmarshal(m.Body, e)
 			if err != nil {
 				mlog.Warn(err.Error())
 				mlog.Warn(fmt.Sprintf("Failed parse json event, skip %s", m.Body))
 				continue
 			}
-			mlog.Debug(fmt.Sprintf("Receive event %v", e.Name()))
+			mlog.Debug(fmt.Sprintf("Receive event %v [%v]", e.Name(), e.Id()))
 			m.Ack(false)
 		}
 

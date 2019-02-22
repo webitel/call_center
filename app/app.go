@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/webitel/call_center/externalCommands"
+	"github.com/webitel/call_center/externalCommands/grpc"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
@@ -16,15 +18,16 @@ import (
 )
 
 type App struct {
-	id           *string
-	Srv          *Server
-	Store        store.Store
-	MQ           mq.MQ
-	Log          *mlog.Logger
-	configFile   string
-	config       atomic.Value
-	sessionCache *utils.Cache
-	newStore     func() store.Store
+	id               *string
+	Srv              *Server
+	Store            store.Store
+	MQ               mq.MQ
+	ExternalCommands externalCommands.Commands
+	Log              *mlog.Logger
+	configFile       string
+	config           atomic.Value
+	sessionCache     *utils.Cache
+	newStore         func() store.Store
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -80,6 +83,8 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.Srv.Store
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings))
 
+	app.ExternalCommands = grpc.NewCommands(app.Config().ExternalCommandsSettings)
+
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
 	return app, outErr
@@ -88,6 +93,7 @@ func New(options ...string) (outApp *App, outErr error) {
 func (app *App) Shutdown() {
 	mlog.Info("Stopping Server...")
 	app.MQ.Close()
+	app.ExternalCommands.Close()
 }
 
 func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {

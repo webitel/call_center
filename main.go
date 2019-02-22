@@ -9,9 +9,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"syscall"
-	g "./grpc"
 	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -32,8 +31,6 @@ func main() {
 	setDebug()
 	// wait for kill signal before attempting to gracefully shutdown
 	// the running service
-
-	g.NewClient()
 
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptChan

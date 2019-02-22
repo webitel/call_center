@@ -49,9 +49,14 @@ type MQSettings struct {
 	Url *string
 }
 
+type ExternalCommandsSettings struct {
+	Url *string
+}
+
 type Config struct {
-	LocalizationSettings LocalizationSettings
-	ServiceSettings      ServiceSettings
-	SqlSettings          SqlSettings
-	MQSettings           MQSettings
+	LocalizationSettings     LocalizationSettings
+	ServiceSettings          ServiceSettings
+	SqlSettings              SqlSettings
+	MQSettings               MQSettings
+	ExternalCommandsSettings ExternalCommandsSettings
 }
