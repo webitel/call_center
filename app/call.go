@@ -6,7 +6,7 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-func (a *App) NewCall(params *model.CallRequest) {
+func (a *App) NewCall(params *model.CallRequest) (string, *model.AppError) {
 	s, err := a.ExternalCommands.NewCall(params)
 	fmt.Println(s)
 	if err != nil {
@@ -14,4 +14,5 @@ func (a *App) NewCall(params *model.CallRequest) {
 	} else {
 		mlog.Debug(fmt.Sprintf("Success create call %s", s))
 	}
+	return s, err
 }

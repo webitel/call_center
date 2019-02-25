@@ -10,6 +10,8 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
+	"github.com/webitel/call_center/service/dialing"
+	"github.com/webitel/call_center/service/engine"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
@@ -28,13 +30,15 @@ type App struct {
 	config           atomic.Value
 	sessionCache     *utils.Cache
 	newStore         func() store.Store
+	engine           engine.Engine
+	dialing          dialing.Dialing
 }
 
 func New(options ...string) (outApp *App, outErr error) {
 	rootRouter := mux.NewRouter()
 
 	app := &App{
-		id: model.NewString("todo-pid"),
+		id: model.NewString("node-1"),
 		Srv: &Server{
 			RootRouter: rootRouter,
 		},
@@ -87,11 +91,24 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
+	app.engine = engine.NewEngine(*app.id, app.Store)
+	app.engine.Start()
+
+	app.dialing = dialing.NewDialing(app)
+	app.dialing.Start()
+
 	return app, outErr
+}
+
+func (app *App) IsReady() bool {
+	//TODO check connect to db, rabbit, grpc
+	return true
 }
 
 func (app *App) Shutdown() {
 	mlog.Info("Stopping Server...")
+	app.engine.Stop()
+	app.dialing.Stop()
 	app.MQ.Close()
 	app.ExternalCommands.Close()
 }

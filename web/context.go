@@ -65,3 +65,23 @@ func (c *Context) SessionRequired() {
 		return
 	}
 }
+
+func (c *Context) RequireId() *Context {
+	if c.Err != nil {
+		return c
+	}
+
+	if c.Params.Id == 0 {
+		c.SetInvalidUrlParam("id")
+	}
+	return c
+}
+
+func (c *Context) SetInvalidUrlParam(parameter string) {
+	c.Err = NewInvalidUrlParamError(parameter)
+}
+
+func NewInvalidUrlParamError(parameter string) *model.AppError {
+	err := model.NewAppError("Context", "api.context.invalid_url_param.app_error", map[string]interface{}{"Name": parameter}, "", http.StatusBadRequest)
+	return err
+}

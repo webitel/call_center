@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/gorilla/mux"
 	"github.com/webitel/call_center/model"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ const (
 )
 
 type Params struct {
+	Id            int
 	Page          int
 	PerPage       int
 	SortFieldName string
@@ -23,6 +25,7 @@ type Params struct {
 func ParamsFromRequest(r *http.Request) *Params {
 	params := &Params{}
 	query := r.URL.Query()
+	props := mux.Vars(r)
 
 	if val := query.Get(model.API_URL_FILTER_NAME); val != "" {
 		params.Filter = val
@@ -48,6 +51,12 @@ func ParamsFromRequest(r *http.Request) *Params {
 		params.PerPage = PER_PAGE_MAXIMUM
 	} else {
 		params.PerPage = val
+	}
+
+	if val, ok := props["id"]; ok {
+		if id, err := strconv.Atoi(val); err == nil {
+			params.Id = id
+		}
 	}
 
 	return params

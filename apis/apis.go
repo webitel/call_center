@@ -39,3 +39,5 @@ func Init(a *app.App, root *mux.Router) *API {
 func (api *API) Handle404(w http.ResponseWriter, r *http.Request) {
 	web.Handle404(api.App, w, r)
 }
+
+var ReturnStatusOK = web.ReturnStatusOK

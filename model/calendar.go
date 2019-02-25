@@ -32,3 +32,8 @@ func CalendarsToJson(calendars []*Calendar) string {
 	b, _ := json.Marshal(calendars)
 	return string(b)
 }
+
+func (c *Calendar) ToJson() string {
+	b, _ := json.Marshal(c)
+	return string(b)
+}

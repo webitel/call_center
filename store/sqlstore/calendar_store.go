@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
@@ -59,6 +60,34 @@ func (s SqlCalendarStore) GetAllPage(filter string, offset, limit int, sortField
 			result.Err = model.NewAppError("SqlCalendarStore.GetAllPage", "store.sql_calendar.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)
 		} else {
 			result.Data = calendars
+		}
+	})
+}
+
+func (s SqlCalendarStore) Get(id int) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var calendar *model.Calendar
+		if err := s.GetReplica().SelectOne(&calendar, `
+			select * from calendar where id = :Id		
+		`, map[string]interface{}{"Id": id}); err != nil {
+			if err == sql.ErrNoRows {
+				result.Err = model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
+					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
+			} else {
+				result.Err = model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
+					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+			}
+		} else {
+			result.Data = calendar
+		}
+	})
+}
+
+func (s SqlCalendarStore) Delete(id int) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`delete from calendar where id=:Id`, map[string]interface{}{"Id": id}); err != nil {
+			result.Err = model.NewAppError("SqlCalendarStore.Delete", "store.sql_calendar.delete.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
 	})
 }

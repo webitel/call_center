@@ -61,6 +61,29 @@
 
     </v-toolbar>
 
+    <v-snackbar
+            v-model="notification"
+            :bottom="false"
+            :left="false"
+            :color="toast.color"
+            :multi-line="true"
+            :right="true"
+            :timeout="toast.timeout"
+            :top="true"
+            :vertical="false"
+    >
+      <v-avatar>
+        <v-icon large>error</v-icon>
+      </v-avatar>
+
+      <div style="width: 250px">
+        {{toast.text}}
+      </div>
+      <v-btn flat icon @click.native="notification = false">
+        <v-icon>close</v-icon>
+      </v-btn>
+    </v-snackbar>
+
     <v-layout >
       <v-content class="content-scroll">
         <v-container fluid fill-height class="lighten-4">
@@ -77,8 +100,10 @@
 
 
 <script>
+    import toast from './mixins/toast'
     export default {
         name: 'App',
+        mixins: [toast],
         components: {
 
         },
@@ -90,6 +115,10 @@
                 icon,
                 path
             }));
+        },
+        mounted() {
+           // this.addNotification({text: 'Some Text', color: 'red', timeout: 5000})
+            //this.addNotification({text: 'Some Text error', color: 'red', timeout: 50000})
         },
         data: () => {
             return {

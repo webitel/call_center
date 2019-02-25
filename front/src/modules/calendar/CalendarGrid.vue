@@ -1,17 +1,5 @@
 <template>
     <div>
-        <v-alert
-                :value="error"
-                type="error"
-                dismissible
-                class="alert-right_position"
-        >
-            {{error}}
-            <v-btn flat icon>
-                <v-icon>close</v-icon>
-            </v-btn>
-        </v-alert>
-
         <v-toolbar color="transparent">
             <v-toolbar-title>{{$t('calendar.grid.name')}}</v-toolbar-title>
             <v-spacer></v-spacer>

@@ -47,7 +47,11 @@ type SessionStore interface {
 
 type CalendarStore interface {
 	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
+	Get(id int) StoreChannel
+	Delete(id int) StoreChannel
 }
 
 type QueueStore interface {
+	ReserveMembersByNode(nodeId string) StoreChannel
+	UnReserveMembersByNode(nodeId, cause string) StoreChannel
 }
