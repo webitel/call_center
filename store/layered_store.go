@@ -47,3 +47,7 @@ func (s *LayeredStore) Queue() QueueStore {
 func (s *LayeredStore) Calendar() CalendarStore {
 	return s.DatabaseLayer.Calendar()
 }
+
+func (s *LayeredStore) Member() MemberStore {
+	return s.DatabaseLayer.Member()
+}

@@ -8,7 +8,7 @@ import (
 )
 
 func (e *EngineImp) ReserveMembers() {
-	result := <-e.store.Queue().ReserveMembersByNode(e.nodeId)
+	result := <-e.store.Member().ReserveMembersByNode(e.nodeId)
 	if result.Err != nil {
 		mlog.Error(result.Err.Error())
 		time.Sleep(time.Second)
@@ -20,7 +20,7 @@ func (e *EngineImp) ReserveMembers() {
 }
 
 func (e *EngineImp) UnReserveMembers() {
-	result := <-e.store.Queue().UnReserveMembersByNode(e.nodeId, model.CAUSE_SYSTEM_SHUTDOWN)
+	result := <-e.store.Member().UnReserveMembersByNode(e.nodeId, model.CAUSE_SYSTEM_SHUTDOWN)
 	if result.Err != nil {
 		mlog.Error(result.Err.Error())
 	} else {

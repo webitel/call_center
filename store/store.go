@@ -39,6 +39,7 @@ type Store interface {
 	Session() SessionStore
 	Queue() QueueStore
 	Calendar() CalendarStore
+	Member() MemberStore
 }
 
 type SessionStore interface {
@@ -52,6 +53,9 @@ type CalendarStore interface {
 }
 
 type QueueStore interface {
+}
+
+type MemberStore interface {
 	ReserveMembersByNode(nodeId string) StoreChannel
 	UnReserveMembersByNode(nodeId, cause string) StoreChannel
 }
