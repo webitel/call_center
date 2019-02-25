@@ -29,4 +29,5 @@ CREATE TRIGGER tg_set_routing_ids_on_insert
 alter table cc_queue_routing owner to webitel;
 
 DROP index cc_member_communications_routing_ids_gin;
-CREATE INDEX cc_member_communications_routing_ids_gin ON cc_member_communications using gin(routing_ids gin__int_ops);
+CREATE INDEX cc_member_communications_routing_ids_gin
+  ON cc_member_communications using gin(routing_ids gin__int_ops) where (state = 0) ;

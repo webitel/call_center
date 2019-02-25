@@ -5,8 +5,9 @@ CREATE OR REPLACE VIEW cc_queue_is_working AS
     c1.*,
     cc_queue_require_agents(c1.type) as require_agent,
     cc_queue_require_resources(c1.type) as require_resource,
-    get_count_call(c1.id) as active_calls
-  from cc_queue c1
+    case when c1.max_calls - tmp.active_calls <= 0 then 0 else c1.max_calls - tmp.active_calls end as need_call
+  from cc_queue c1,
+    lateral ( select get_count_call(c1.id) as active_calls ) tmp(active_calls)
   where c1.enabled = true and exists(select *
                                      from calendar_accept_of_day d
                                        inner join calendar c2 on d.calendar_id = c2.id
@@ -21,13 +22,20 @@ set enable_seqscan = on;
 
 drop view cc_queue_is_working;
 
+select *
+from cc_member_attempt
+where state > -1;
+
+update cc_member_attempt
+set state = -1
+where state > -1;
 
 CREATE OR REPLACE FUNCTION get_count_call(int)
   RETURNS SETOF integer AS
 $BODY$
 BEGIN
   RETURN QUERY SELECT count(*) :: integer
-               FROM call_center.cc_member_attempt
+               FROM cc_member_attempt
                WHERE state > -1 AND queue_id = $1;
   RETURN;
 END
