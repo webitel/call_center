@@ -75,5 +75,9 @@
   {
     "id": "store.sql_queue.un_reserve_member_resources.app_error",
     "translation": "Unable to un reserve members and resources: {{.Error}}"
+  },
+  {
+    "id": "store.sql_outbound_resource.get.app_error",
+    "translation": "Unable to get outbound resource"
   }
 ]

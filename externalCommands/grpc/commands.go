@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,10 @@ func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Comma
 	r := &CommandsImpl{
 		client: client,
 		api:    api,
+	}
+
+	if version, err := r.GetServerVersion(); err == nil {
+		mlog.Info(version)
 	}
 
 	mlog.Debug(fmt.Sprintf("Success open grpc connection %v", *settings.Url))
@@ -82,6 +87,19 @@ func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
 			http.StatusInternalServerError)
 	}
 	return nil
+}
+
+func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "version",
+	})
+
+	if err != nil {
+		return "", model.NewAppError("ServerVersion", "external.get_server_version.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	return strings.TrimSpace(res.Data), nil
 }
 
 func (c *CommandsImpl) Close() {

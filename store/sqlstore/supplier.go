@@ -31,10 +31,11 @@ const (
 )
 
 type SqlSupplierOldStores struct {
-	session  store.SessionStore
-	queue    store.QueueStore
-	calendar store.CalendarStore
-	member   store.MemberStore
+	session          store.SessionStore
+	queue            store.QueueStore
+	calendar         store.CalendarStore
+	member           store.MemberStore
+	outboundResource store.OutboundResourceStore
 }
 
 type SqlSupplier struct {
@@ -62,6 +63,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.calendar = NewSqlCalendarStore(supplier)
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
 	supplier.oldStores.member = NewSqlMemberStore(supplier)
+	supplier.oldStores.outboundResource = NewSqlOutboundResourceStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -175,6 +177,10 @@ func (ss *SqlSupplier) DriverName() string {
 
 func (ss *SqlSupplier) Session() store.SessionStore {
 	return ss.oldStores.session
+}
+
+func (ss *SqlSupplier) OutboundResource() store.OutboundResourceStore {
+	return ss.oldStores.outboundResource
 }
 
 func (ss *SqlSupplier) Queue() store.QueueStore {

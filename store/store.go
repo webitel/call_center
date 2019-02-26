@@ -40,6 +40,7 @@ type Store interface {
 	Queue() QueueStore
 	Calendar() CalendarStore
 	Member() MemberStore
+	OutboundResource() OutboundResourceStore
 }
 
 type SessionStore interface {
@@ -50,6 +51,10 @@ type CalendarStore interface {
 	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
 	Get(id int) StoreChannel
 	Delete(id int) StoreChannel
+}
+
+type OutboundResourceStore interface {
+	GetById(id int64) StoreChannel
 }
 
 type QueueStore interface {

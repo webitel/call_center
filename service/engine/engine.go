@@ -26,7 +26,7 @@ func NewEngine(id string, s store.Store) Engine {
 }
 
 func (e *EngineImp) Start() {
-	mlog.Info("Starting workers")
+	mlog.Info("Starting engine service")
 	e.watcher = utils.MakeWatcher("Engine", e.pollingInterval, e.ReserveMembers)
 	e.UnReserveMembers()
 	e.startOnce.Do(func() {
