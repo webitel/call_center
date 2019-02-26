@@ -7,6 +7,7 @@ import (
 	goi18n "github.com/nicksnyder/go-i18n/i18n"
 	"github.com/pborman/uuid"
 	"io"
+	"time"
 )
 
 type StringInterface map[string]interface{}
@@ -124,4 +125,8 @@ func ArrayFromJson(data io.Reader) []string {
 func StringInterfaceToJson(objmap map[string]interface{}) string {
 	b, _ := json.Marshal(objmap)
 	return string(b)
+}
+
+func GetMillis() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }

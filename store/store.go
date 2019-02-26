@@ -63,4 +63,6 @@ type QueueStore interface {
 type MemberStore interface {
 	ReserveMembersByNode(nodeId string) StoreChannel
 	UnReserveMembersByNode(nodeId, cause string) StoreChannel
+	GetActiveMembersAttempt(nodeId string) StoreChannel
+	SetEndMemberAttempt(id int64, state int, hangupAt int64, result string) StoreChannel
 }

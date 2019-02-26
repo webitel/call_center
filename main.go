@@ -40,7 +40,7 @@ func setDebug() {
 	//debug.SetGCPercent(-1)
 
 	go func() {
-		fmt.Println("Start debug server on :8090")
+		fmt.Println("Start debug server on http://localhost:8090/debug/pprof/")
 		fmt.Println("Debug: ", http.ListenAndServe(":8090", nil))
 	}()
 

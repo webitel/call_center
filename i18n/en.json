@@ -69,12 +69,20 @@
     "translation": "Unable to delete calendar"
   },
   {
-    "id": "store.sql_queue.reserve_member_resources.app_error",
+    "id": "store.sql_member.reserve_member_resources.app_error",
     "translation": "Unable to reserve members and resources: {{.Error}}"
   },
   {
-    "id": "store.sql_queue.un_reserve_member_resources.app_error",
+    "id": "store.sql_member.un_reserve_member_resources.app_error",
     "translation": "Unable to un reserve members and resources: {{.Error}}"
+  },
+  {
+    "id": "store.sql_member.get_active.app_error",
+    "translation": "Unable to get active members: {{.Error}}"
+  },
+  {
+    "id": "store.sql_member.set_end.app_error",
+    "translation": "Unable to set end member status: {{.Error}}"
   },
   {
     "id": "store.sql_outbound_resource.get.app_error",

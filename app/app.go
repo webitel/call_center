@@ -94,7 +94,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine = engine.NewEngine(*app.id, app.Store)
 	app.engine.Start()
 
-	app.dialing = dialing.NewDialing(app)
+	app.dialing = dialing.NewDialing(app, app.Store)
 	app.dialing.Start()
 
 	return app, outErr
