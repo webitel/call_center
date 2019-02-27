@@ -103,5 +103,11 @@
   {
     "id": "store.sql_outbound_resource.get.app_error",
     "translation": "Unable to get outbound resource"
+  },
+
+
+  {
+    "id": "store.sql_queue.get.app_error",
+    "translation": "Unable to get queue"
   }
 ]

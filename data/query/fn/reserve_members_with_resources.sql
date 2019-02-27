@@ -34,4 +34,7 @@ BEGIN
     END LOOP;
     return count;
 END;
-$$ LANGUAGE plpgsql;;
+$$ LANGUAGE plpgsql;
+
+select count(*)
+from cc_member_attempt;

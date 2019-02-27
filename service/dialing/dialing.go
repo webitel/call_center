@@ -24,7 +24,7 @@ func NewDialing(app App, s store.Store) Dialing {
 	var dialing DialingImpl
 	dialing.app = app
 	dialing.store = s
-	dialing.queueManager = NewQueueManager(s)
+	dialing.queueManager = NewQueueManager(app, s)
 	dialing.resource = NewResourceManager(app)
 	return &dialing
 }

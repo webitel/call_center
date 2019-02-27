@@ -3,12 +3,14 @@ package dialing
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/utils"
 )
 
 type Resource struct {
-	id        int
-	updatedAt int64
-	rps       int
+	id          int
+	updatedAt   int64
+	rps         int
+	rateLimiter *utils.RateLimiter
 }
 
 func NewResource(config *model.OutboundResource) *Resource {
