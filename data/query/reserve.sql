@@ -178,7 +178,9 @@ from get_free_resources() re;
 
 drop function get_free_resources;
 
-
+select *
+from cc_member_attempt
+order by id desc;
 
 
 with rr as (

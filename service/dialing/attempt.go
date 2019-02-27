@@ -1,17 +1,20 @@
 package dialing
 
-import "github.com/webitel/call_center/model"
+import (
+	"fmt"
+	"github.com/webitel/call_center/model"
+)
 
 type Attempt struct {
-	queue    *Queue
-	resource *Resource
-	member   *model.MemberAttempt
+	member *model.MemberAttempt
 }
 
-func NewAttempt(queue *Queue, resource *Resource, member *model.MemberAttempt) *Attempt {
+func NewAttempt(member *model.MemberAttempt) *Attempt {
 	return &Attempt{
-		queue:    queue,
-		resource: resource,
-		member:   member,
+		member: member,
 	}
+}
+
+func (a *Attempt) Name() string {
+	return fmt.Sprintf("%v", a.member.MemberId)
 }

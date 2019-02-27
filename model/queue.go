@@ -1,5 +1,10 @@
 package model
 
+const (
+	QUEUE_TYPE_INBOUND = iota
+	QUEUE_TYPE_VOICE_BROADCAST
+)
+
 type Queue struct {
 	Id        int                     `json:"id" db:"id"`
 	Type      int                     `json:"type" db:"type"`

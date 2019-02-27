@@ -57,6 +57,6 @@ func (d *DialingImpl) PollAndNotify() {
 	}
 
 	for _, v := range result.Data.([]*model.MemberAttempt) {
-		d.queueManager.AddMember(v)
+		d.queueManager.RouteMember(v)
 	}
 }

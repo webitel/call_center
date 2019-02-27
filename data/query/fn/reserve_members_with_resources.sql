@@ -36,5 +36,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-select count(*)
-from cc_member_attempt;
+
+explain analyse
+select *
+       from cc_member m
+          inner join lateral (
+            select
+                   c.id as communication_id
+            from cc_member_communications c
+            where c.member_id = m.id and c.state = 0 and c.routing_ids && array[1,3,16]
+              and c.last_calle_at < 1
+            order by c.last_calle_at, c.priority desc
+            limit 1
+          ) c on true
+        where m.queue_id = 1
+          and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.hangup_at = 0)
+        order by m.priority desc
+        limit 500;
+
+

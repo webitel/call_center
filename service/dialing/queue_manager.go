@@ -23,7 +23,6 @@ type QueueManager struct {
 	stop         chan struct{}
 	stopped      chan struct{}
 	input        chan *model.MemberAttempt
-	output       chan *model.MemberAttempt
 	queuesCache  utils.ObjectCache
 	store        store.Store
 	sync.Mutex
@@ -34,7 +33,6 @@ func NewQueueManager(app App, s store.Store) *QueueManager {
 		store:       s,
 		app:         app,
 		input:       make(chan *model.MemberAttempt),
-		output:      make(chan *model.MemberAttempt),
 		stop:        make(chan struct{}),
 		stopped:     make(chan struct{}),
 		queuesCache: utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
@@ -55,33 +53,11 @@ func (queueManager *QueueManager) Start() {
 		case <-queueManager.stop:
 			mlog.Debug("QueueManager received stop signal")
 			close(queueManager.input)
-			return //TODO output channel
+			return
 		case m := <-queueManager.input:
 			queueManager.attemptCount++
 			queueManager.wg.Add(1)
-			mlog.Debug(fmt.Sprintf("Make attempt call [%d] to %v", queueManager.attemptCount, m.Id))
-
-			q, e := queueManager.GetQueue(m.QueueId, m.QueueUpdatedAt)
-			if e != nil {
-				panic(e)
-			}
-
-			if q != nil {
-
-			}
-
-			go func() {
-				time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-				queueManager.output <- m
-			}()
-
-		case m := <-queueManager.output:
-			mlog.Debug(fmt.Sprintf("End call to %v", m.Id))
-			res := <-queueManager.store.Member().SetEndMemberAttempt(m.Id, model.MEMBER_STATE_END, model.GetMillis(), "OK")
-			if res.Err != nil {
-				panic(res.Err)
-			}
-			queueManager.wg.Done()
+			queueManager.JoinMember(m)
 		}
 	}
 }
@@ -94,18 +70,18 @@ func (queueManager *QueueManager) Stop() {
 	<-queueManager.stopped
 }
 
-func (queueManager *QueueManager) AddMember(attempt *model.MemberAttempt) {
+func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 	queueManager.input <- attempt
 }
 
-func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (*Queue, *model.AppError) {
+func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppError) {
 	queueManager.Lock()
 	defer queueManager.Unlock()
-	var queue *Queue
+	var queue QueueObject
 
 	item, ok := queueManager.queuesCache.Get(id)
 	if ok {
-		queue, ok = item.(*Queue)
+		queue, ok = item.(QueueObject)
 		if ok && !queue.IsExpire(updatedAt) {
 			return queue, nil
 		}
@@ -114,10 +90,54 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (*Queue, *mo
 	if config, err := queueManager.app.GetQueueById(id); err != nil {
 		return nil, err
 	} else {
-		queue = NewQueue(config)
+		//TODO RESOURCE MANAGER
+		queue, err = NewQueue(queueManager, nil, config)
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	queueManager.queuesCache.AddWithDefaultExpires(id, queue)
 	mlog.Debug(fmt.Sprintf("Add queue %s to cache", queue.Name()))
 	return queue, nil
+}
+
+func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
+	queue, err := queueManager.GetQueue(member.QueueId, member.QueueUpdatedAt)
+	if err != nil {
+		mlog.Error(err.Error())
+		//TODO added to model
+		if err.Id == "dialing.queue.new_queue.app_error" {
+			queueManager.SetMemberError(member, model.MEMBER_STATE_END, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
+		} else {
+			queueManager.SetMemberError(member, model.MEMBER_STATE_END, model.MEMBER_CAUSE_DATABASE_ERROR)
+		}
+		return
+	}
+
+	memberAttempt := NewAttempt(member)
+	queue.AddMemberAttempt(memberAttempt)
+
+	mlog.Debug(fmt.Sprintf("Join member %s to queue %s", memberAttempt.Name(), queue.Name()))
+}
+
+func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
+	mlog.Debug(fmt.Sprintf("Leaving member %s from queue %s", attempt.Name(), queue.Name()))
+	queueManager.wg.Done()
+}
+
+func (queueManager *QueueManager) SetMemberError(member *model.MemberAttempt, cause int, result string) {
+	res := <-queueManager.store.Member().SetEndMemberAttempt(member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
+	if res.Err != nil {
+		panic(res.Err)
+	}
+}
+
+//TODO remove
+func (queueManager *QueueManager) SetAttemptError(attempt *Attempt, cause int, result string) {
+	res := <-queueManager.store.Member().SetEndMemberAttempt(attempt.member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
+	if res.Err != nil {
+		panic(res.Err)
+	}
 }
