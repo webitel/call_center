@@ -427,7 +427,7 @@ WHERE ((c1.enabled = true) AND (EXISTS(SELECT d.id,
                                               c2.id,
                                               c2.timezone,
                                               c2.start,
-                                              c2."end",
+                                              c2.finish,
                                               c2.name
                                        FROM (call_center.calendar_accept_of_day d
                                               JOIN call_center.calendar c2 ON ((d.calendar_id = c2.id)))

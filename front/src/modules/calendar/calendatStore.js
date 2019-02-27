@@ -133,6 +133,19 @@ export const calendarStore = {
         resetPagination({dispatch, commit}) {
             commit(SET_PAGINATION, DEFAULT_PAGINATION);
             return dispatch('getData');
+        },
+        createCalendar({state, commit}, calendar = {}) {
+            commit(LOADING);
+            return axios.post(`http://10.10.10.25:10023/api/v2/calendars`, calendar)
+                .then(response => {
+                    if (response.data instanceof Array) {
+                        commit(SET_ITEMS, response.data)
+                    }
+                    commit(SUCCESS);
+                })
+                .catch(err => {
+                    commit(ERROR, err);
+                });
         }
     }
 };

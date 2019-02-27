@@ -48,15 +48,15 @@ func (o *QueueManager) Start() {
 	for {
 		select {
 		case <-o.stop:
-			close(o.input)
 			mlog.Debug("QueueManager received stop signal")
+			close(o.input)
 			return
 		case m := <-o.input:
 			o.attemptCount++
 			o.wg.Add(1)
 			mlog.Debug(fmt.Sprintf("Make attempt call [%d] to %v", o.attemptCount, m.Id))
 			go func(m *model.MemberAttempt) {
-				time.Sleep(time.Duration(rand.Int31n(10000)) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Int31n(100)) * time.Millisecond)
 				res := <-o.store.Member().SetEndMemberAttempt(m.Id, model.MEMBER_STATE_END, model.GetMillis(), "OK")
 				if res.Err != nil {
 					panic(res.Err)

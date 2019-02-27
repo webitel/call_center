@@ -34,6 +34,15 @@ func (a *App) DeleteCalendar(id int) *model.AppError {
 	return nil
 }
 
-func (a *App) CreateCalendar() {
+func (a *App) CreateCalendar(calendar *model.Calendar) (*model.Calendar, *model.AppError) {
+	err := calendar.IsValid()
+	if err != nil {
+		return nil, err
+	}
 
+	if result := <-a.Store.Calendar().Create(calendar); result.Err != nil {
+		return nil, result.Err
+	} else {
+		return result.Data.(*model.Calendar), nil
+	}
 }

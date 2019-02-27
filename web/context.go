@@ -85,3 +85,12 @@ func NewInvalidUrlParamError(parameter string) *model.AppError {
 	err := model.NewAppError("Context", "api.context.invalid_url_param.app_error", map[string]interface{}{"Name": parameter}, "", http.StatusBadRequest)
 	return err
 }
+
+func (c *Context) SetInvalidParam(parameter string) {
+	c.Err = NewInvalidParamError(parameter)
+}
+
+func NewInvalidParamError(parameter string) *model.AppError {
+	err := model.NewAppError("Context", "api.context.invalid_body_param.app_error", map[string]interface{}{"Name": parameter}, "", http.StatusBadRequest)
+	return err
+}

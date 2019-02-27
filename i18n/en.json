@@ -20,6 +20,12 @@
     "translation": "Invalid or missing {{.Name}} parameter in request URL"
   },
   {
+    "id": "api.context.invalid_body_param.app_error",
+    "translation": "Invalid or missing {{.Name}} in request body"
+  },
+
+
+  {
     "id": "utils.file.locally.create_dir.app_error",
     "translation": "Encountered an error creating the directory for the new file"
   },
@@ -31,6 +37,16 @@
     "id": "utils.file.locally.removing.app_error",
     "translation": "Encountered an error removing file from local server storage."
   },
+
+  {
+    "id": "model.calendar.is_valid.name.app_error",
+    "translation": "Invalid name"
+  },
+  {
+    "id": "model.calendar.is_valid.timezone.app_error",
+    "translation": "Invalid timezone"
+  },
+
   {
     "id": "store.sql_upload_job.save.app_error",
     "translation": "We couldn't save the upload job"

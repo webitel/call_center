@@ -25,7 +25,7 @@ func NewSqlCalendarStore(sqlStore SqlStore) store.CalendarStore {
 	return us
 }
 
-func (s SqlCalendarStore) Save(calendar *model.Calendar) store.StoreChannel {
+func (s SqlCalendarStore) Create(calendar *model.Calendar) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if err := s.GetMaster().Insert(calendar); err != nil {
 			result.Err = model.NewAppError("SqlCalendarStore.Save", "store.sql_calendar.save.app_error", nil,
@@ -54,8 +54,7 @@ func (s SqlCalendarStore) GetAllPage(filter string, offset, limit int, sortField
 
 		if _, err := s.GetReplica().Select(&calendars,
 			`SELECT id, name, timezone, start, finish
-			FROM get_calendars(:OrderByField, :OrderType, :Limit, :Offset)
-			WHERE (:Filter = '' OR name like :Filter)
+			FROM get_calendars(:Filter::text, :OrderByField::text, :OrderType, :Limit, :Offset)
 			`, q); err != nil {
 			result.Err = model.NewAppError("SqlCalendarStore.GetAllPage", "store.sql_calendar.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)
 		} else {

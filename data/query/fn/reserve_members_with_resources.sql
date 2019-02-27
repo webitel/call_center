@@ -25,7 +25,7 @@ BEGIN
             limit 1
           ) c on true
         where m.queue_id = rec.queue_id
-          and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.state = 0)
+          and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.hangup_at = 0)
         order by m.priority desc
         limit rec.call_count;
 
@@ -34,4 +34,4 @@ BEGIN
     END LOOP;
     return count;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;;

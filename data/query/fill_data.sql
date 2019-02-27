@@ -14,11 +14,22 @@ select sum(r.id) from  (
 select *
 from calendar;
 
+--agents
+
+--calendar
+insert into cc_agent(name)
+SELECT md5(random()::TEXT)::varchar(20)
+FROM generate_series(1,1000) id;
+
+
+select *
+from cc_agent;
+
 
 --calendar
 insert into calendar(timezone, name)
 SELECT 'Europe/Kiev', md5(random()::TEXT)::varchar(20)
-FROM generate_series(1,10) id;
+FROM generate_series(1,100) id;
 
 insert into calendar_accept_of_day (calendar_id, week_day)
 select c.id, a.c

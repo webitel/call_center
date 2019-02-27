@@ -36,11 +36,13 @@ $BODY$
 BEGIN
   RETURN QUERY SELECT count(*) :: integer
                FROM cc_member_attempt
-               WHERE state > -1 AND queue_id = $1;
+               WHERE hangup_at = 0 AND queue_id = $1;
   RETURN;
 END
 $BODY$
 LANGUAGE plpgsql;
+
+
 
 /*
 queue types

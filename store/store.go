@@ -48,6 +48,7 @@ type SessionStore interface {
 }
 
 type CalendarStore interface {
+	Create(calendar *model.Calendar) StoreChannel
 	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
 	Get(id int) StoreChannel
 	Delete(id int) StoreChannel

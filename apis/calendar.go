@@ -7,6 +7,7 @@ import (
 
 func (api *API) InitCalendar() {
 	api.Routes.Calendar.Handle("", api.ApiHandler(listCalendars)).Methods("GET")
+	api.Routes.Calendar.Handle("", api.ApiHandler(createCalendar)).Methods("POST")
 	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiHandler(getCalendar)).Methods("GET")
 	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiHandler(deleteCalendar)).Methods("DELETE")
 }
@@ -49,4 +50,21 @@ func deleteCalendar(c *Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	ReturnStatusOK(w)
+}
+
+func createCalendar(c *Context, w http.ResponseWriter, r *http.Request) {
+	calendar := model.CalendarFromJson(r.Body)
+	if calendar == nil {
+		c.SetInvalidParam("calendar")
+		return
+	}
+
+	calendar, err := c.App.CreateCalendar(calendar)
+	if err != nil {
+		c.Err = err
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(calendar.ToJson()))
 }

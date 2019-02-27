@@ -126,6 +126,11 @@
                     this.$store.dispatch('calendar/getData');
                 },
                 deep: true
+            },
+            error(err) {
+                if (err) {
+
+                }
             }
         },
         computed: {
@@ -144,7 +149,7 @@
                 return this.$store.getters['calendar/loading'];
             },
             error() {
-                return 'TEST' // this.$store.getters['calendar/error'];
+                return this.$store.getters['calendar/error'];
             }
         },
         methods: {
