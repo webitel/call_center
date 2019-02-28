@@ -17,25 +17,27 @@ const (
 )
 
 type QueueManager struct {
-	wg           sync.WaitGroup
-	app          App
-	attemptCount int64
-	stop         chan struct{}
-	stopped      chan struct{}
-	input        chan *model.MemberAttempt
-	queuesCache  utils.ObjectCache
-	store        store.Store
+	wg              sync.WaitGroup
+	app             App
+	attemptCount    int64
+	stop            chan struct{}
+	stopped         chan struct{}
+	input           chan *model.MemberAttempt
+	queuesCache     utils.ObjectCache
+	store           store.Store
+	resourceManager *ResourceManager
 	sync.Mutex
 }
 
-func NewQueueManager(app App, s store.Store) *QueueManager {
+func NewQueueManager(app App, s store.Store, resourceManager *ResourceManager) *QueueManager {
 	return &QueueManager{
-		store:       s,
-		app:         app,
-		input:       make(chan *model.MemberAttempt),
-		stop:        make(chan struct{}),
-		stopped:     make(chan struct{}),
-		queuesCache: utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
+		store:           s,
+		app:             app,
+		resourceManager: resourceManager,
+		input:           make(chan *model.MemberAttempt),
+		stop:            make(chan struct{}),
+		stopped:         make(chan struct{}),
+		queuesCache:     utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -91,7 +93,7 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 		return nil, err
 	} else {
 		//TODO RESOURCE MANAGER
-		queue, err = NewQueue(queueManager, nil, config)
+		queue, err = NewQueue(queueManager, queueManager.resourceManager, config)
 
 		if err != nil {
 			return nil, err
@@ -101,6 +103,10 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 	queueManager.queuesCache.AddWithDefaultExpires(id, queue)
 	mlog.Debug(fmt.Sprintf("Add queue %s to cache", queue.Name()))
 	return queue, nil
+}
+
+func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObject, *model.AppError) {
+	return queueManager.resourceManager.Get(id, updatedAt)
 }
 
 func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {

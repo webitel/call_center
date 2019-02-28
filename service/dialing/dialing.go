@@ -12,20 +12,20 @@ import (
 var DEFAULT_WATCHER_POLLING_INTERVAL = 400
 
 type DialingImpl struct {
-	app          App
-	store        store.Store
-	watcher      *utils.Watcher
-	queueManager *QueueManager
-	resource     *ResourceManager
-	startOnce    sync.Once
+	app             App
+	store           store.Store
+	watcher         *utils.Watcher
+	queueManager    *QueueManager
+	resourceManager *ResourceManager
+	startOnce       sync.Once
 }
 
 func NewDialing(app App, s store.Store) Dialing {
 	var dialing DialingImpl
 	dialing.app = app
 	dialing.store = s
-	dialing.queueManager = NewQueueManager(app, s)
-	dialing.resource = NewResourceManager(app)
+	dialing.resourceManager = NewResourceManager(app)
+	dialing.queueManager = NewQueueManager(app, s, dialing.resourceManager)
 	return &dialing
 }
 

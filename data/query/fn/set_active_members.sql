@@ -37,7 +37,7 @@ $$ LANGUAGE 'plpgsql';
 
 select *
 from set_active_members('aaa');
-
+8
 drop function set_active_members;
 
 show log_min_duration_statement;

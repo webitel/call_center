@@ -13,18 +13,20 @@ type QueueObject interface {
 }
 
 type BaseQueue struct {
-	id           int
-	updatedAt    int64
-	name         string
-	queueManager *QueueManager
+	id              int
+	updatedAt       int64
+	name            string
+	resourceManager *ResourceManager
+	queueManager    *QueueManager
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := BaseQueue{
-		id:           settings.Id,
-		updatedAt:    settings.UpdatedAt,
-		name:         "TODO-NAME",
-		queueManager: queueManager,
+		id:              settings.Id,
+		updatedAt:       settings.UpdatedAt,
+		name:            "TODO-NAME",
+		queueManager:    queueManager,
+		resourceManager: resourceManager,
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_VOICE_BROADCAST:

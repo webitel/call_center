@@ -26,13 +26,13 @@ func NewResourceManager(app App) *ResourceManager {
 	}
 }
 
-func (r *ResourceManager) Get(id int64, updatedAt int64) (*Resource, *model.AppError) {
+func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model.AppError) {
 	r.Lock()
 	defer r.Unlock()
-	var dialResource *Resource
+	var dialResource ResourceObject
 	item, ok := r.cache.Get(id)
 	if ok {
-		dialResource, ok = item.(*Resource)
+		dialResource, ok = item.(ResourceObject)
 		if ok && !dialResource.IsExpire(updatedAt) {
 			return dialResource, nil
 		}

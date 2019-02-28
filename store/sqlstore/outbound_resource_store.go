@@ -29,7 +29,7 @@ func (s SqlOutboundResourceStore) GetById(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var resource *model.OutboundResource
 		if err := s.GetReplica().SelectOne(&resource, `
-			select * from cc_outbound_resource where id = :Id		
+			select id, max_call_count, enabled, updated_at, rps from cc_outbound_resource where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
 				result.Err = model.NewAppError("SqlOutboundResourceStore.GetById", "store.sql_outbound_resource.get.app_error", nil,

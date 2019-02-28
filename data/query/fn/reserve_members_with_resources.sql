@@ -25,7 +25,7 @@ BEGIN
             limit 1
           ) c on true
         where m.queue_id = rec.queue_id
-          and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.hangup_at = 0)
+          and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.hangup_at = 0 and a.state > -1)
         order by m.priority desc
         limit rec.call_count;
 
@@ -49,9 +49,16 @@ select *
             order by c.last_calle_at, c.priority desc
             limit 1
           ) c on true
-        where m.queue_id = 1
+        where m.queue_id = 1 and m.id = 81
           and not exists (select * from cc_member_attempt a where a.member_id = m.id and a.hangup_at = 0)
         order by m.priority desc
         limit 500;
 
+
+select *
+from reserve_members_with_resources();
+
+select *
+from cc_member_attempt
+where state = 0;
 

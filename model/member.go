@@ -26,7 +26,7 @@ type MemberAttempt struct {
 	CreatedAt         int64   `json:"created_at" db:"created_at"`
 	HangupAt          int64   `json:"hangup_at" db:"hangup_at"`
 	BridgedAt         int64   `json:"bridged_at" db:"bridged_at"`
-	ResourceId        *int    `json:"resource_id" db:"resource_id"`
+	ResourceId        *int64  `json:"resource_id" db:"resource_id"`
 	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
 	Result            *string `json:"result" db:"result"`
 }
