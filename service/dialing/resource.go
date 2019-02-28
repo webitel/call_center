@@ -24,7 +24,7 @@ func NewResource(config *model.OutboundResource) ResourceObject {
 		id:          config.Id,
 		updatedAt:   config.UpdatedAt,
 		rps:         config.Rps,
-		rateLimiter: ratelimit.New(config.Rps),
+		rateLimiter: ratelimit.New(config.Rps), // check rps zero
 	}
 }
 

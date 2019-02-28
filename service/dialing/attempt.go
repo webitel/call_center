@@ -18,3 +18,7 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 func (a *Attempt) Name() string {
 	return fmt.Sprintf("%v", a.member.MemberId)
 }
+
+func (a *Attempt) Id() int64 {
+	return a.member.Id
+}

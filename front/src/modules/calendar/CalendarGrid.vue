@@ -4,7 +4,7 @@
             <v-toolbar-title>{{$t('calendar.grid.name')}}</v-toolbar-title>
             <v-spacer></v-spacer>
 
-            <ThrottleSearch :currentValue="pagination.filter" dispatchName="calendar/setFilter"></ThrottleSearch>
+            <ThrottleSearch :value.sync="filter"></ThrottleSearch>
 
             <v-btn icon @click="resetPagination()">
                 <v-icon>refresh</v-icon>
@@ -35,9 +35,11 @@
                 :items="calendars"
                 :hide-actions="true"
                 :loading="loading"
-                :pagination.sync="pagination"
+                class="elevation-1 table__fixed"
                 :disable-initial-sort="true"
-                class="elevation-1"
+                :pagination.sync="pagination"
+                v-infinite-scroll="loadMore"
+                infinite-scroll-disabled="loading"
         >
             <template slot="items" slot-scope="props">
                 <tr class="">
@@ -47,21 +49,29 @@
                     <td class="">{{ props.item.timezone }}</td>
                     <td class="">{{ props.item.start }}</td>
                     <td class="">{{ props.item.finish }}</td>
-                    <td class="text-xs-right justify-center px-0">
-                        <v-icon
-                                small
-                                class="mr-2"
-                                @click="editItem(props.item)"
-                        >
-                            edit
-                        </v-icon>
-                        <v-icon
-                                small
-                                class="mr-2"
-                                @click="deleteItem(props.item)"
-                        >
-                            delete
-                        </v-icon>
+                    <td class="text-xs-right">
+                        <v-menu bottom left>
+                            <v-btn
+                                    color="transparent"
+                                    small
+                                    icon
+                                    slot="activator"
+                            >
+                                <v-icon>more_vert</v-icon>
+                            </v-btn>
+                            <v-list>
+                                <v-list-tile
+                                        @click="editItem(props.item)"
+                                >
+                                    <v-list-tile-title>Edit</v-list-tile-title>
+                                </v-list-tile>
+                                <v-list-tile
+                                        @click="deleteItem(props.item)"
+                                >
+                                    <v-list-tile-title>Delete</v-list-tile-title>
+                                </v-list-tile>
+                            </v-list>
+                        </v-menu>
                     </td>
                 </tr>
             </template>
@@ -73,8 +83,8 @@
 
 <script>
     import CalendarCreateDialog from './CalendarCreate'
-    import {SET_PAGINATION} from './calendatStore'
-    //TODO add app
+    import {SET_PAGINATION, SET_FILTER} from './calendatStore'
+
     import ThrottleSearch from '../../components/ThrottleSearch'
 
     export default {
@@ -90,31 +100,36 @@
                         text: this.$t('calendar.page.name'),
                         align: 'left',
                         sortable: true,
-                        value: 'name'
+                        value: 'name',
+                        width: '40%'
                     },
                     {
                         text: this.$t('calendar.page.timezone'),
                         //align: 'center',
                         sortable: true,
-                        value: 'timezone'
+                        value: 'timezone',
+                        width: '20%'
                     },
                     {
                         text: this.$t('calendar.page.start'),
                         //align: 'center',
                         sortable: true,
-                        value: 'start'
+                        value: 'start',
+                        width: '20%'
                     },
                     {
                         text: this.$t('calendar.page.finish'),
                         //align: 'center',
                         sortable: true,
-                        value: 'finish'
+                        value: 'finish',
+                        width: '20%'
                     },
                     {
                         text: '',
-                        value: 'name',
+                        value: '',
                         align: 'right',
-                        sortable: false
+                        sortable: false,
+                        width: '120px'
                     }
 
                 ]
@@ -122,14 +137,14 @@
         },
         watch: {
             pagination: {
-                handler () {
-                    this.$store.dispatch('calendar/getData');
+                async handler () {
+                    await this.$store.dispatch('calendar/getData');
                 },
                 deep: true
             },
             error(err) {
                 if (err) {
-
+                    this.$store.commit('ADD_NOTIFICATION', {text: err.message, color: 'red', timeout: 5000});
                 }
             }
         },
@@ -139,7 +154,16 @@
                     return this.$store.getters[`calendar/pagination`]
                 },
                 set: function (value) {
-                    this.$store.commit(`calendar/${SET_PAGINATION}`, value)
+                    this.$store.commit(`calendar/${SET_PAGINATION}`, value);
+                }
+            },
+            filter: {
+                get: function() {
+                    return this.$store.getters[`calendar/filter`]
+                },
+                set: function(value) {
+                    this.$store.commit(`calendar/${SET_FILTER}`, value);
+                    this.$store.dispatch('calendar/getData');
                 }
             },
             calendars() {
@@ -148,13 +172,23 @@
             loading() {
                 return this.$store.getters['calendar/loading'];
             },
+            eof() {
+                return this.$store.getters['calendar/eof'];
+            },
             error() {
                 return this.$store.getters['calendar/error'];
             }
         },
         methods: {
+            loadMore() {
+                if (this.eof || this.error) {
+                    return
+                }
+
+                this.pagination.page++;
+            },
             resetPagination() {
-                this.$store.dispatch('calendar/resetPagination')
+                this.$store.dispatch(`calendar/reload`);
             },
             editItem(item) {
                 this.$router.push({path: `/calendar/${item.id}`})

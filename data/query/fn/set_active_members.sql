@@ -12,8 +12,8 @@ $$
 BEGIN
   RETURN QUERY
     update cc_member_attempt a
-      set state = 1,
-        node_id = node
+      set state = 1
+        --,node_id = node
       from (
         select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at
         from cc_member_attempt c
@@ -37,7 +37,7 @@ $$ LANGUAGE 'plpgsql';
 
 select *
 from set_active_members('aaa');
-8
+
 drop function set_active_members;
 
 show log_min_duration_statement;

@@ -68,7 +68,7 @@
             :color="toast.color"
             :multi-line="true"
             :right="true"
-            :timeout="toast.timeout"
+            :timeout="1000000"
             :top="true"
             :vertical="false"
     >
@@ -85,8 +85,8 @@
     </v-snackbar>
 
     <v-layout >
-      <v-content class="content-scroll">
-        <v-container fluid fill-height class="lighten-4">
+      <v-content class="content-scroll" >
+        <v-container fluid fill-height class="lighten-4" >
           <v-layout >
             <v-flex >
               <router-view/>
@@ -117,8 +117,7 @@
             }));
         },
         mounted() {
-           // this.addNotification({text: 'Some Text', color: 'red', timeout: 5000})
-            //this.addNotification({text: 'Some Text error', color: 'red', timeout: 50000})
+
         },
         data: () => {
             return {
@@ -139,14 +138,28 @@
 
 <style scoped>
   #inspire {
-    overflow-y: hidden;
+    /*overflow-y: hidden;*/
   }
   .content-scroll {
-    overflow-y: scroll;
+    /*overflow-y: scroll;*/
   }
+
 </style>
 
 <style>
+    html {
+      /*overflow-y: hidden;*/
+    }
+
+    .table__fixed table {
+      table-layout: fixed;
+    }
+    .table__fixed table .table_data_view__on_hover {
+      display: none;
+    }
+    .table__fixed table tr:hover .table_data_view__on_hover {
+      display: block;
+    }
 
     ::-webkit-scrollbar {
         width: 8px;

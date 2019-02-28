@@ -42,5 +42,5 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 }
 
 func (queue *BaseQueue) Name() string {
-	return fmt.Sprintf("%v", queue.id)
+	return queue.name
 }

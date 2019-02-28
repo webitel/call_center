@@ -14,7 +14,7 @@
         name: "throttleSearch",
         data() {
             return {
-                searchValue: this.$props.currentValue || ""
+                searchValue: this.$props.value || ""
             }
         },
         computed: {
@@ -24,12 +24,11 @@
         },
         methods: {
             onSearch() {
-                this.$store.dispatch(this.$props.dispatchName, this.searchValue)
+                this.$emit('update:value', this.searchValue)
             }
         },
         props: {
-            dispatchName: String,
-            currentValue: String
+            value: String
         }
     }
 </script>

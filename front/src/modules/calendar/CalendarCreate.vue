@@ -105,8 +105,7 @@
                 timezone: null,
                 showStart: false,
                 showFinish: false,
-                valid: false,
-                timezones: ["A"],
+                valid: false
             }
         },
         props: {
@@ -115,6 +114,9 @@
         computed: {
             calendar() {
                 return !!this.$store.getters['calendar/calendar']
+            },
+            timezones() {
+                return this.$store.getters.timezonesIds
             }
         },
         methods: {

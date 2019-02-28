@@ -453,7 +453,7 @@ alter table members_in_queue
 
 create view cc_queue_resources_is_working as
 SELECT r.id,
-       r.max_call_count,
+       r."limit",
        r.enabled,
        call_center.get_count_active_resources(r.id) AS reserved_count
 FROM call_center.cc_outbound_resource r

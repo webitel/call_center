@@ -6,23 +6,23 @@ export const NEW_RECORD = "NEW_RECORD";
 export const CANCEL_NEW_RECORD = "CANCEL_NEW_RECORD";
 export const SET_PAGINATION = "SET_PAGINATION";
 export const SET_ITEMS = "SET_ITEMS";
+export const SET_FILTER = "SET_FILTER";
+export const RELOAD = "RELOAD";
 
 const ROW_PER_PAGE = 20;
 
 const DEFAULT_PAGINATION = {
     page: 1,
     descending: false,
-    rowsPerPage: ROW_PER_PAGE,
-    sortBy: "name",
-    filter: ""
+    rowsPerPage: -1,
+    sortBy: "name"
 };
-
-import axios from 'axios'
 
 export const calendarStore = {
     namespaced: true,
     state: {
         calendars: [],
+        filter: "",
         pagination: DEFAULT_PAGINATION,
         eof: false,
         calendar: null,
@@ -34,6 +34,7 @@ export const calendarStore = {
     },
     getters: {
         pagination: state => state.pagination,
+        filter: state => state.filter,
         eof: state => state.eof,
         calendar: state => state.calendar,
         list: state => state.calendars,
@@ -48,14 +49,14 @@ export const calendarStore = {
                 error: false
             };
         },
-        [SUCCESS](state){
+        [SUCCESS](state) {
             state.status = {
                 loading: false,
                 success: true,
                 error: false
             };
         },
-        [ERROR](state,payload){
+        [ERROR](state,payload) {
             state.status = {
                 loading: false,
                 success: false,
@@ -63,7 +64,7 @@ export const calendarStore = {
             };
             state.end = true;
         },
-        [CLEAR_ERROR](state){
+        [CLEAR_ERROR](state) {
             state.status = {
                 loading: false,
                 success: false,
@@ -79,11 +80,22 @@ export const calendarStore = {
             state.calendar = null
         },
         [SET_PAGINATION](state, payload) {
-            state.pagination = payload
+            state.calendars.length = 0;
+            state.pagination = payload;
+
         },
         [SET_ITEMS](state, items) {
             state.eof = items.length < ROW_PER_PAGE;
-            state.calendars = [].concat(items);
+            state.calendars = state.calendars.concat(items);
+        },
+        [SET_FILTER](state, filter) {
+            state.filter = filter || "";
+            state.pagination.page = 1;
+            state.calendars.length = 0;
+        },
+        [RELOAD](state) {
+            state.calendars= [];
+            state.pagination.page = 1;
         }
     },
     actions: {
@@ -93,17 +105,17 @@ export const calendarStore = {
         cancelNew({commit}) {
             commit(CANCEL_NEW_RECORD)
         },
+
         clearError({ commit }) {
             commit(CLEAR_ERROR);
         },
-        setFilter({state, commit}, value) {
-            state.pagination.filter = value || "";
-            commit(SET_PAGINATION, state.pagination)
-        },
-        getData({state, commit}) {
+
+        getData({state, commit, rootGetters}) {
             commit(LOADING);
-            const {descending, sortBy, page, filter} = state.pagination;
-            const params = [];
+            const {descending, sortBy, page} = state.pagination;
+
+            const filter = state.filter;
+            const params = [`page=${page - 1}`];
             if (descending) {
                 params.push('desc=1');
             }
@@ -119,7 +131,7 @@ export const calendarStore = {
                 }
             }
 
-            return axios.get(`http://10.10.10.25:10023/api/v2/calendars?&per_page=40&${params.join('&')}`)
+            return rootGetters.core.request('get', `/api/v2/calendars?&per_page=${ROW_PER_PAGE}&${params.join('&')}`)
                 .then(response => {
                     if (response.data instanceof Array) {
                         commit(SET_ITEMS, response.data)
@@ -130,13 +142,14 @@ export const calendarStore = {
                     commit(ERROR, err);
                 });
         },
-        resetPagination({dispatch, commit}) {
-            commit(SET_PAGINATION, DEFAULT_PAGINATION);
-            return dispatch('getData');
+
+        reload({dispatch, commit}) {
+            commit("RELOAD");
+            return dispatch("getData")
         },
-        createCalendar({state, commit}, calendar = {}) {
+        createCalendar({state, commit, rootGetters}, calendar = {}) {
             commit(LOADING);
-            return axios.post(`http://10.10.10.25:10023/api/v2/calendars`, calendar)
+            return rootGetters.core.request('post', `/api/v2/calendars`, calendar)
                 .then(response => {
                     if (response.data instanceof Array) {
                         commit(SET_ITEMS, response.data)

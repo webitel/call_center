@@ -72,7 +72,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	mlog.InitGlobalLogger(app.Log)
 
 	if err := utils.InitTranslations(app.Config().LocalizationSettings); err != nil {
-		return nil, errors.Wrapf(err, "unable to load Mattermost translation files")
+		return nil, errors.Wrapf(err, "unable to load translation files")
 	}
 
 	mlog.Info("Server is initializing...")

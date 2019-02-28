@@ -41,8 +41,8 @@ explain (analyze )
 
 explain (analyse ) select r.id,
                           qr.pattern,
-                          r.max_call_count,
-                          r.max_call_count - row_number() over (partition by qr.pattern)
+                          r."limit",
+                          r."limit" - row_number() over (partition by qr.pattern)
                    from cc_outbound_resource r
                           join cc_outbound_resource r2 on r2.id = r.id
                           join cc_queue_routing qr on true
@@ -335,7 +335,7 @@ explain (analyse )
        ) as m
          inner join cc_queue qq on m.queue_id = qq.id
          inner join cc_outbound_resource ro on ro.id = m.resource_id
-  where m.rn between 1 AND ro.max_call_count
+  where m.rn between 1 AND ro."limit"
   order by qq.priority desc;
 
 
@@ -429,7 +429,7 @@ from cc_outbound_resource r,
 ;
 
 explain (analyse )
-  select r.id, r.max_call_count, cqr.id, cqr.pattern, cqr.queue_id
+  select r.id, r."limit", cqr.id, cqr.pattern, cqr.queue_id
   from cc_outbound_resource r
          inner join cc_resource_in_routing crir on r.id = crir.resource_id
          inner join cc_queue_routing cqr on crir.routing_id = cqr.id
@@ -531,7 +531,7 @@ select * from cc_member_communications c where c.state = 0 and c.routing_ids && 
 explain (analyse, buffers, timing )
 select rr.* --, cc.number
 from (
-  select r.id, r.max_call_count, array_agg(crir.routing_id) as routing_ids
+  select r.id, r."limit", array_agg(crir.routing_id) as routing_ids
   from cc_outbound_resource r
     inner join cc_resource_in_routing crir on r.id = crir.resource_id
   where exists(select * from cc_member_communications c where c.state = 0 and c.routing_ids && array[crir.routing_id] limit 1)
@@ -559,7 +559,7 @@ inner join lateral (
      ) c on true
     where m.queue_id = q.id
     order by m.priority desc
-    limit r.max_call_count
+    limit r."limit"
   ) m
   where q.enabled = true AND exists(select *
     from cc_queue_routing qr
@@ -703,7 +703,7 @@ where 1=1;
 explain analyse
 select *
   from (
-      select r.id, r.max_call_count, r.priority, array_agg(crir.routing_id) as routing_ids
+      select r.id, r."limit", r.priority, array_agg(crir.routing_id) as routing_ids
   from cc_outbound_resource r
     inner join cc_resource_in_routing crir on r.id = crir.resource_id
   group by r.id
@@ -740,7 +740,7 @@ where c.member_id = 1 and c.state = 0 and ARRAY[9,57,8] && c.routing_ids::int[] 
 
 
 
-select r.id, r.max_call_count, array_agg(DISTINCT cqr.id) as routings, array_agg(DISTINCT cqr.queue_id)
+select r.id, r."limit", array_agg(DISTINCT cqr.id) as routings, array_agg(DISTINCT cqr.queue_id)
 from cc_outbound_resource r
   inner join cc_resource_in_routing crir on r.id = crir.resource_id
   inner join cc_queue_routing cqr on crir.routing_id = cqr.id
@@ -845,7 +845,7 @@ select r.*, r.max_q - r.max_r as q --, LEAD(r.max_q -1) over (partition by r.id 
 from (
   select
          r.id,
-         r.max_call_count as max_r,
+         r."limit" as max_r,
          cq.id as queue_id,
          cq.max_calls as max_q,
          array_agg(DISTINCT cqr.id) routes_ids
@@ -869,7 +869,7 @@ from cc_outbound_resource r
 
 select *
 from (
-  select r.id, r.max_call_count, cqr.queue_id, c.count, array_agg(distinct crir.routing_id) r_ids
+  select r.id, r."limit", cqr.queue_id, c.count, array_agg(distinct crir.routing_id) r_ids
   from cc_outbound_resource r
     inner join cc_resource_in_routing crir on r.id = crir.resource_id
     inner join cc_queue_routing cqr on crir.routing_id = cqr.id

@@ -1,14 +1,21 @@
 export default {
     data: () => ({
-        toast: {
-            text: '',
-            color: 'success',
-            timeout: 5000
-        },
-        notificationQueue: [],
-        notification: false
     }),
     computed: {
+        notificationQueue() {
+            return this.$store.getters.notificationQueue;
+        },
+        toast() {
+            return this.$store.getters.toast;
+        },
+        notification:  {
+            get: function () {
+                return this.$store.getters.notification;
+            },
+            set: function (val) {
+                this.$store.commit('SET_NOTIFICATION', val);
+            }
+        },
         hasNotificationsPending () {
             return this.notificationQueue.length > 0
         }
@@ -16,21 +23,14 @@ export default {
     watch: {
         notification () {
             if (!this.notification && this.hasNotificationsPending) {
-                this.toast = this.notificationQueue.shift()
-                this.$nextTick(() => { this.notification = true })
+                this.$store.commit('SHIFT_NOTIFICATION_QUEUE');
+                this.$nextTick(() => {
+                    this.notification = true
+                })
             }
         }
     },
     methods: {
-        addNotification (toast) {
-            if (typeof toast !== 'object') return
-            this.notificationQueue.push(toast)
-
-            if (!this.notification) {
-                this.toast = this.notificationQueue.shift()
-                this.notification = true
-            }
-        },
         makeToast (text, color = 'info', timeout = 6000, top = true, bottom = false, right = false, left = false, multiline = false, vertical = false) {
             return {
                 text,

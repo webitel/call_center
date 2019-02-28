@@ -125,11 +125,11 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	memberAttempt := NewAttempt(member)
 	queue.AddMemberAttempt(memberAttempt)
 
-	mlog.Debug(fmt.Sprintf("Join member %s to queue %s", memberAttempt.Name(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
-	mlog.Debug(fmt.Sprintf("Leaving member %s from queue %s", attempt.Name(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("Leaving member %s [%d] from queue %s", attempt.Name(), attempt.Id(), queue.Name()))
 	queueManager.wg.Done()
 }
 

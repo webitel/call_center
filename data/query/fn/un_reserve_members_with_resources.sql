@@ -13,3 +13,9 @@ BEGIN
     return count;
 END;
 $$ LANGUAGE plpgsql;
+
+select id, "limit", enabled, priority, updated_at, rps, domain_id, reserve, variables, number, max_successively_errors
+from cc_outbound_resource;
+
+select count(*)
+from calendar;
