@@ -2,6 +2,7 @@
   "link": {
     "home": "Home",
     "calendar": "Calendar",
+    "resource": "Resource",
     "about": "About"
   },
   "base": {
@@ -24,6 +25,19 @@
       "timezone": "Timezone",
       "start": "Start",
       "finish": "Finish"
+    }
+  },
+  "resource": {
+    "grid": {
+      "name": "Resource grid"
+    },
+    "page": {
+      "name": "Name",
+      "limit": "Limit",
+      "reserve": "Reserve",
+      "rps": "RPS",
+      "number": "Caller ID number",
+      "max_successively_errors": "Successively Errors"
     }
   }
 }

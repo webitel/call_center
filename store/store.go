@@ -56,6 +56,7 @@ type CalendarStore interface {
 
 type OutboundResourceStore interface {
 	GetById(id int64) StoreChannel
+	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
 }
 
 type QueueStore interface {

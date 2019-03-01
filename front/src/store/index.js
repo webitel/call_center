@@ -3,6 +3,7 @@ import Vuex from 'vuex'
 
 //TODO
 import {calendarStore} from '../modules/calendar/calendatStore'
+import {resourceStore} from '../modules/resource/resourceStore'
 import {Application} from '../core/app'
 
 Vue.use(Vuex);
@@ -14,7 +15,8 @@ export const SET_NOTIFICATION = "SET_NOTIFICATION";
 export default new Vuex.Store({
     debug: true,
     modules: {
-        calendar: calendarStore
+        calendar: calendarStore,
+        resource: resourceStore
     },
     state: {
         notificationQueue: [],

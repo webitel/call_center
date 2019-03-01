@@ -28,7 +28,6 @@ func GetIpAddress(r *http.Request) string {
 	if len(address) == 0 {
 		address, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}
-
 	return address
 }
 

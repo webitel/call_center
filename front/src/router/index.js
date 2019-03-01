@@ -1,12 +1,8 @@
 import Vue from 'vue'
 import Router from 'vue-router'
-import Home from '@/views/Home.vue'
 import NotFound from '@/views/NotFound.vue'
 
-import CalendarGrid from '@/modules/calendar/CalendarGrid.vue'
-import CalendarPage from '@/modules/calendar/CalendarPage.vue'
-
-Vue.use(Router)
+Vue.use(Router);
 
 export default new Router({
     mode: 'history',
@@ -17,20 +13,27 @@ export default new Router({
             icon: 'home',
             main: true,
             name: 'home',
-            component: Home
+            component: () => import('@/views/Home.vue')
+        },
+        {
+            path: '/resource',
+            icon: 'sim_card',
+            main: true,
+            name: 'resource',
+            component: () => import('@/modules/resource/ResourceGrid.vue')
         },
         {
             path: '/calendar',
             icon: 'calendar_today',
             main: true,
             name: 'calendar',
-            component: CalendarGrid
+            component: () => import('@/modules/calendar/CalendarGrid.vue')
         },
         {
             path: '/calendar/:id',
             main: false,
             name: 'calendarPage',
-            component: CalendarPage
+            component: () => import('@/modules/calendar/CalendarPage.vue')
         },
         {
             path: '*',

@@ -6,6 +6,8 @@ import {timezones} from './timezones'
 export class Application {
     constructor() {
         this.baseApiServer =  `http://10.10.10.25:10023`;
+        this.apiVersionUrl = `/api/v2`;
+
         this.log = new Logger()
     }
 
@@ -13,11 +15,16 @@ export class Application {
         this.log.debug(`request[${method}] to ${path}`);
         return axios({
             method,
-            url: `${this.baseApiServer}/${path}`,
+            url: `${this.baseApiServer}/${this.apiVersionUrl}/${path}`,
             data
         }).catch((e) => {
-            this.log.error(`request[${method}] to ${path} error: `, e.message);
-            throw e;
+            if (e.response && e.response.data instanceof Object) {
+                this.log.error(`request[${method}] to ${path} error: `, JSON.stringify(e.response.data));
+                throw new Error(`${e.response.data.message} \nDetail: ${e.response.data.detailed_error}`)
+            } else {
+                this.log.error(`request[${method}] to ${path} error: `, e.message);
+                throw e;
+            }
         })
     }
 

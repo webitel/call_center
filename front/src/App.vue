@@ -68,7 +68,7 @@
             :color="toast.color"
             :multi-line="true"
             :right="true"
-            :timeout="1000000"
+            :timeout="toast.timeout"
             :top="true"
             :vertical="false"
     >
@@ -76,8 +76,8 @@
         <v-icon large>error</v-icon>
       </v-avatar>
 
-      <div style="width: 250px">
-        {{toast.text}}
+      <div class="toast_note">
+          <span>{{toast.text}}</span>
       </div>
       <v-btn flat icon @click.native="notification = false">
         <v-icon>close</v-icon>
@@ -89,7 +89,12 @@
         <v-container fluid fill-height class="lighten-4" >
           <v-layout >
             <v-flex >
-              <router-view/>
+              <transition name="fade">
+                <router-view/>
+                <!--<keep-alive>-->
+                  <!--<router-view/>-->
+                <!--</keep-alive>-->
+              </transition>
             </v-flex>
           </v-layout>
         </v-container>
@@ -144,11 +149,29 @@
     /*overflow-y: scroll;*/
   }
 
+    .toast_note {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
 </style>
 
 <style>
     html {
       /*overflow-y: hidden;*/
+    }
+
+    .fade-enter-active, .fade-leave-active {
+      transition-property: opacity;
+      transition-duration: .2s;
+    }
+
+    .fade-enter-active {
+      transition-delay: .2s;
+    }
+
+    .fade-enter, .fade-leave-active {
+      opacity: 0
     }
 
     .table__fixed table {

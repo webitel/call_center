@@ -30,11 +30,38 @@ func NewSqlOutboundResourceStore(sqlStore SqlStore) store.OutboundResourceStore 
 	return us
 }
 
+func (s SqlOutboundResourceStore) GetAllPage(filter string, offset, limit int, sortField string, desc bool) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var resources []*model.OutboundResource
+
+		q := map[string]interface{}{
+			"Limit":        limit,
+			"Offset":       offset,
+			"OrderByField": sortField,
+			"OrderType":    desc,
+			"Filter":       filter,
+		}
+
+		if q["OrderByField"] == "" {
+			q["OrderByField"] = "id"
+		}
+
+		if _, err := s.GetReplica().Select(&resources,
+			`SELECT id, "limit", enabled, priority, rps, reserve, name
+			FROM get_outbound_resources(:Filter::text, :OrderByField::text, :OrderType, :Limit, :Offset)
+			`, q); err != nil {
+			result.Err = model.NewAppError("SqlOutboundResourceStore.GetAllPage", "store.sql_outbound_resource.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)
+		} else {
+			result.Data = resources
+		}
+	})
+}
+
 func (s SqlOutboundResourceStore) GetById(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var resource *model.OutboundResource
 		if err := s.GetReplica().SelectOne(&resource, `
-			select id, "limit", enabled, priority, updated_at, rps, reserve, variables, number, max_successively_errors
+			select id, name, "limit", enabled, priority, updated_at, rps, reserve, variables, number, max_successively_errors
 			from cc_outbound_resource where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {

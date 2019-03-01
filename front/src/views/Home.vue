@@ -27,7 +27,7 @@
 
     /* Chart code */
     // Themes begin
-    am4core.useTheme(am4themes_dark);
+   // am4core.useTheme(am4themes_dark);
     export default {
         name: 'home',
         mounted() {
