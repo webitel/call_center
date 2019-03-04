@@ -92,7 +92,6 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 	if config, err := queueManager.app.GetQueueById(id); err != nil {
 		return nil, err
 	} else {
-		//TODO RESOURCE MANAGER
 		queue, err = NewQueue(queueManager, queueManager.resourceManager, config)
 
 		if err != nil {

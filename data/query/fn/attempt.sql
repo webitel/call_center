@@ -73,4 +73,5 @@ having count(*) > 1 ;
 truncate table cc_member_attempt;
 
 select *
-from cc_member_attempt where id in (401, 394);
+from cc_member_attempt
+order by id desc;

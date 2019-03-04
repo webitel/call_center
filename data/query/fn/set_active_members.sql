@@ -13,7 +13,7 @@ BEGIN
   RETURN QUERY
     update cc_member_attempt a
       set state = 1
-        --,node_id = node
+        ,node_id = node
       from (
         select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at
         from cc_member_attempt c
@@ -41,3 +41,14 @@ from set_active_members('aaa');
 drop function set_active_members;
 
 show log_min_duration_statement;
+
+
+
+select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at
+        from cc_member_attempt c
+               inner join cc_member cm on c.member_id = cm.id
+               inner join cc_queue cq on cm.queue_id = cq.id
+               left join cc_outbound_resource r on r.id = c.resource_id
+        where c.state = 0 and c.hangup_at = 0
+        order by cq.priority desc, cm.priority desc
+        for update of c

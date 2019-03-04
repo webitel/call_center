@@ -22,3 +22,7 @@ func (a *Attempt) Name() string {
 func (a *Attempt) Id() int64 {
 	return a.member.Id
 }
+
+func (a *Attempt) SetState() {
+
+}

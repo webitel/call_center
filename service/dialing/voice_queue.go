@@ -3,7 +3,6 @@ package dialing
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"math/rand"
 	"time"
 )
 
@@ -30,7 +29,7 @@ func (voice *VoiceBroadcastQueue) AddMemberAttempt(attempt *Attempt) {
 	go func() {
 
 		fmt.Println(r.GetDialString())
-		time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+		time.Sleep(time.Duration(5000) * time.Millisecond)
 		voice.queueManager.LeavingMember(attempt, voice)
 		voice.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, model.MEMBER_CAUSE_ABANDONED)
 	}()

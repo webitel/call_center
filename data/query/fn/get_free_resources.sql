@@ -42,6 +42,7 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
+
 explain (analyse, timing )
  select q.id as q_id,
              cor.id resource_id,
@@ -62,7 +63,7 @@ explain (analyse, timing )
 
 
 select *
-from cc_queue_is_working;;
+from cc_queue_is_working;
 
 select *
 from cc_queue_resources_is_working;

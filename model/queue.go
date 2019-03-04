@@ -8,6 +8,7 @@ const (
 type Queue struct {
 	Id        int                     `json:"id" db:"id"`
 	Type      int                     `json:"type" db:"type"`
+	Name      string                  `json:"name" db:"name"`
 	Strategy  string                  `json:"strategy" db:"strategy"`
 	Payload   *map[string]interface{} `json:"payload" db:"payload"`
 	UpdatedAt int64                   `json:"updated_at" db:"updated_at"`

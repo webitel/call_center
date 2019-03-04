@@ -3,12 +3,15 @@
 CREATE OR REPLACE VIEW cc_queue_is_working AS
   SELECT
     c1.*,
-    cc_queue_require_agents(c1.type) as require_agent,
-    cc_queue_require_resources(c1.type) as require_resource,
-    case when c1.max_calls - tmp.active_calls <= 0 then 0 else c1.max_calls - tmp.active_calls end as need_call
+    case when c1.max_calls - tmp.active_calls <= 0 then 0 else c1.max_calls - tmp.active_calls end as need_call,
+    a as available_agents
   from cc_queue c1,
     lateral ( select get_count_call(c1.id) as active_calls ) tmp(active_calls)
-  where c1.enabled = true and exists(select *
+  left join lateral (
+      select get_agents_available_count_by_queue_id(c1.id) as a
+      where c1.type != 1
+  ) a on true
+  where  c1.enabled = true and exists(select *
                                      from calendar_accept_of_day d
                                        inner join calendar c2 on d.calendar_id = c2.id
                                      where d.calendar_id = c1.calendar_id AND
