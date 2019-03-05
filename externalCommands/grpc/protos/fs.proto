@@ -6,6 +6,7 @@ service Api {
     rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc Originate(OriginateRequest) returns (OriginateResponse) {}
+    rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
 }
 
 message ErrorExecute {
@@ -37,17 +38,40 @@ message HangupResponse {
 }
 
 message OriginateRequest {
+    enum Strategy {
+        FAILOVER = 0;
+        MULTIPLE = 1;
+    }
+
+    message Extension {
+        string appName = 1;
+        string args = 2;
+    }
+
     map<string, string> variables = 1;
     repeated string endpoints = 2;
-    string destination = 3;
-    int32 timeout = 4;
-    string callerNumber = 5;
-    string callerName = 6;
-    string context = 7;
-    string dialplan = 8;
+    Strategy strategy = 3;
+    string destination = 4;
+    int32 timeout = 5;
+    string callerNumber = 6;
+    string callerName = 7;
+    string context = 8;
+    string dialplan = 9;
+    repeated Extension extensions = 10;
 }
 
 message OriginateResponse {
+    string uuid = 1;
+    ErrorExecute error = 2;
+}
+
+message BridgeRequest {
+    string leg_a_id = 1;
+    string leg_b_id = 2;
+    string leg_b_reserve_id = 3;
+}
+
+message BridgeResponse {
     string uuid = 1;
     ErrorExecute error = 2;
 }

@@ -53,7 +53,7 @@ func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Comma
 }
 
 func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, *model.AppError) {
-	response, err := c.api.Originate(context.Background(), &fs.OriginateRequest{
+	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,
 		Destination:  settings.Destination,
 		CallerNumber: settings.CallerNumber,
@@ -62,15 +62,37 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, *model.AppE
 		Context:      settings.Context,
 		Dialplan:     settings.Dialplan,
 		Variables:    settings.Variables,
-	})
+	}
+
+	if len(settings.Extensions) > 0 {
+		request.Extensions = []*fs.OriginateRequest_Extension{}
+
+		for _, v := range settings.Extensions {
+			request.Extensions = append(request.Extensions, &fs.OriginateRequest_Extension{
+				AppName: v.AppName,
+				Args:    v.Args,
+			})
+		}
+	}
+
+	switch settings.Strategy {
+	case model.CALL_STRATEGY_FAILOVER:
+		request.Strategy = fs.OriginateRequest_FAILOVER
+		break
+	case model.CALL_STRATEGY_MULTIPLE:
+		request.Strategy = fs.OriginateRequest_MULTIPLE
+		break
+	}
+
+	response, err := c.api.Originate(context.Background(), request)
 
 	if err != nil {
-		return "", model.NewAppError("NewCall", "external.NewCall.app_error", nil, err.Error(),
+		return "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
 	}
 
 	if response.Error != nil {
-		return "", model.NewAppError("NewCall", "external.NewCall.app_error", nil, response.Error.String(),
+		return "", model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
 			http.StatusInternalServerError)
 	}
 
@@ -83,10 +105,29 @@ func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
 	})
 
 	if err != nil {
-		return model.NewAppError("HangupCall", "external.HangupCall.app_error", nil, err.Error(),
+		return model.NewAppError("HangupCall", "external.hangup_call.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
 	}
 	return nil
+}
+
+func (c *CommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
+	response, err := c.api.Bridge(context.Background(), &fs.BridgeRequest{
+		LegAId:        legAId,
+		LegBId:        legBId,
+		LegBReserveId: legBReserveId,
+	})
+	if err != nil {
+		return "", model.NewAppError("BridgeCall", "external.bridge_call.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if response.Error != nil {
+		return "", model.NewAppError("BridgeCall", "external.bridge_call.app_error", nil, response.Error.String(),
+			http.StatusInternalServerError)
+	}
+
+	return response.Uuid, nil
 }
 
 func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
