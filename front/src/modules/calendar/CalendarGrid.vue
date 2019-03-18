@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-toolbar color="transparent">
+        <v-toolbar color="transparent" >
             <v-toolbar-title>{{$t('calendar.grid.name')}}</v-toolbar-title>
             <v-spacer></v-spacer>
 

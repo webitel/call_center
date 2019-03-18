@@ -22,13 +22,17 @@ type AMQP struct {
 	connection         *amqp.Connection
 	channel            *amqp.Channel
 	queueName          string
+	nodeName           string
 	connectionAttempts int
 	stopping           bool
+	callEvent          chan mq.Event
 }
 
-func NewRabbitMQ(settings model.MQSettings) mq.LayeredMQLayer {
+func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
 	mq_ := &AMQP{
-		settings: &settings,
+		settings:  &settings,
+		callEvent: make(chan mq.Event),
+		nodeName:  nodeName,
 	}
 	mq_.initConnection()
 
@@ -66,7 +70,7 @@ func (a *AMQP) initQueues() {
 	var queue amqp.Queue
 	err = a.channel.ExchangeDeclare(
 		model.EXCHANGE_MQ,
-		"topic",
+		"direct",
 		true,
 		false,
 		false,
@@ -94,22 +98,7 @@ func (a *AMQP) initQueues() {
 }
 
 func (a *AMQP) subscribe() {
-	err := a.channel.QueueBind(a.queueName, "*.CHANNEL_CREATE.*.*.*", model.EXCHANGE_MQ, false, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	err = a.channel.QueueBind(a.queueName, "*.CHANNEL_HANGUP.*.*.*", model.EXCHANGE_MQ, false, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	err = a.channel.QueueBind(a.queueName, "*.CHANNEL_ANSWER.*.*.*", model.EXCHANGE_MQ, false, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	err = a.channel.QueueBind(a.queueName, "*.CHANNEL_PARK.*.*.*", model.EXCHANGE_MQ, false, nil)
+	err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.EXCHANGE_MQ, false, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -118,7 +107,7 @@ func (a *AMQP) subscribe() {
 		a.queueName,
 		"",
 		false,
-		false,
+		true,
 		false,
 		false,
 		nil,
@@ -142,6 +131,7 @@ func (a *AMQP) subscribe() {
 				continue
 			}
 			mlog.Debug(fmt.Sprintf("Receive event %v [%v]", e.Name(), e.Id()))
+			a.callEvent <- e
 			m.Ack(false)
 		}
 
@@ -185,6 +175,10 @@ func (a *AMQP) UnBind(uuid string) *model.AppError {
 
 func (a *AMQP) Send(name string, data map[string]interface{}) *model.AppError {
 	return nil
+}
+
+func (a *AMQP) ConsumeCallEvent() <-chan mq.Event {
+	return a.callEvent
 }
 
 func makeRK(uuid string) string {

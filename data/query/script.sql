@@ -389,14 +389,15 @@ create index cc_member_attempt_queue_id_hangup_at_index
   on cc_member_attempt (queue_id, hangup_at)
   where (hangup_at = 0);
 
-create view cc_member_communications_is_working as
+drop view cc_member_communications_is_working;
+create or replace  view cc_member_communications_is_working as
 SELECT row_number()
-           OVER (PARTITION BY cc_member_communications.member_id ORDER BY cc_member_communications.last_calle_at, cc_member_communications.priority) AS "position",
+           OVER (PARTITION BY cc_member_communications.member_id ORDER BY cc_member_communications.last_originate_at, cc_member_communications.priority) AS "position",
        cc_member_communications.id,
        cc_member_communications.member_id,
        cc_member_communications.priority,
        cc_member_communications.number,
-       cc_member_communications.last_calle_at,
+       cc_member_communications.last_originate_at,
        cc_member_communications.state,
        cc_member_communications.communication_id
 FROM call_center.cc_member_communications

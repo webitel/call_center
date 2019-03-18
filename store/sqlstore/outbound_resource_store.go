@@ -20,7 +20,6 @@ func NewSqlOutboundResourceStore(sqlStore SqlStore) store.OutboundResourceStore 
 		table.ColMap("Enabled")
 		table.ColMap("UpdatedAt")
 		table.ColMap("Limit")
-		table.ColMap("Priority")
 		table.ColMap("Rps")
 		table.ColMap("Reserve")
 		table.ColMap("Variables")
@@ -61,7 +60,7 @@ func (s SqlOutboundResourceStore) GetById(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var resource *model.OutboundResource
 		if err := s.GetReplica().SelectOne(&resource, `
-			select id, name, "limit", enabled, priority, updated_at, rps, reserve, variables, number, max_successively_errors
+			select id, name, "limit", enabled, updated_at, rps, reserve, variables, number, max_successively_errors, dial_string
 			from cc_outbound_resource where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
@@ -73,6 +72,26 @@ func (s SqlOutboundResourceStore) GetById(id int64) store.StoreChannel {
 			}
 		} else {
 			result.Data = resource
+		}
+	})
+}
+
+func (s SqlOutboundResourceStore) Create(resource *model.OutboundResource) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if err := s.GetMaster().Insert(resource); err != nil {
+			result.Err = model.NewAppError("SqlOutboundResourceStore.Save", "store.sql_outbound_resource.save.app_error", nil,
+				fmt.Sprintf("id=%v, %v", resource.Id, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = resource
+		}
+	})
+}
+
+func (s SqlOutboundResourceStore) Delete(id int64) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`delete from cc_outbound_resource where id=:Id`, map[string]interface{}{"Id": id}); err != nil {
+			result.Err = model.NewAppError("SqlOutboundResourceStore.Delete", "store.sql_outbound_resource.delete.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
 	})
 }

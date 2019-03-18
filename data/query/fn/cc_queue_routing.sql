@@ -7,10 +7,10 @@ BEGIN
     update cc_member_communications c
     set routing_ids = c.routing_ids - ARRAY [old.id]
     where c.id in (
-      select id
+      select c1.id
       from cc_member_communications c1
-      where c1.routing_ids @> ARRAY [old.id]
-        and c1.member_id in (select id from cc_member m where m.queue_id = old.queue_id)
+      	inner join cc_member cm on c1.member_id = cm.id
+      where c1.routing_ids @> ARRAY [old.id] and cm.queue_id = old.queue_id
     );
   end if;
 
@@ -19,10 +19,10 @@ BEGIN
     update cc_member_communications c
     set routing_ids = c.routing_ids | ARRAY [new.id]
     where c.id in (
-      select id
+      select c1.id
       from cc_member_communications c1
-      where not c1.routing_ids @> ARRAY [new.id]
-        and c1.member_id in (select id from cc_member m where m.queue_id = new.queue_id)
+        inner join cc_member cm on c1.member_id = cm.id
+      where cm.queue_id = new.queue_id and not c1.routing_ids @> ARRAY [new.id]
         and c1.number ~* new.pattern
     );
   end if;

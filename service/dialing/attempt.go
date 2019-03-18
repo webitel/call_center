@@ -7,6 +7,12 @@ import (
 
 type Attempt struct {
 	member *model.MemberAttempt
+	logs   []LogItem
+}
+
+type LogItem struct {
+	Time int64  `json:"time"`
+	Info string `json:"info"`
 }
 
 func NewAttempt(member *model.MemberAttempt) *Attempt {
@@ -23,6 +29,25 @@ func (a *Attempt) Id() int64 {
 	return a.member.Id
 }
 
+func (a *Attempt) MemberId() int64 {
+	return a.member.MemberId
+}
+
+func (a *Attempt) CommunicationId() int64 {
+	return a.member.CommunicationId
+}
+
+func (a *Attempt) GetCommunicationPattern() *string {
+	return a.member.RoutingPattern
+}
+
 func (a *Attempt) SetState() {
 
+}
+
+func (a *Attempt) Log(info string) {
+	a.logs = append(a.logs, LogItem{
+		Time: model.GetMillis(),
+		Info: info,
+	})
 }

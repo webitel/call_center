@@ -31,67 +31,81 @@
         </v-toolbar>
 
 
-        <v-data-table
-                :headers="headers"
-                :items="resources"
-                :hide-actions="true"
-                :loading="loading"
-                class="elevation-1 table__fixed"
-                :disable-initial-sort="true"
-                :pagination.sync="pagination"
-                v-infinite-scroll="loadMore"
-                infinite-scroll-disabled="loading"
-        >
-            <template slot="items" slot-scope="props">
-                <tr class="">
-                    <td>
-                        <v-btn flat small  @click="editItem(props.item)">{{ props.item.name }}</v-btn>
-                    </td>
-                    <td class="">{{ props.item.limit }}</td>
-                    <td class="">
-                        <v-icon v-if="props.item.reserve">
-                            radio_button_checked
-                        </v-icon>
-                        <v-icon v-else="!props.item.reserve">
-                            radio_button_unchecked
-                        </v-icon>
-                    </td>
-                    <td class="">{{ props.item.rps }}</td>
-                    <td class="text-xs-right">
-                        <v-btn icon small >
-                            <v-icon color="green" v-if="props.item.enabled">toggle_on</v-icon>
-                            <v-icon v-if="!props.item.enabled">toggle_off</v-icon>
-                        </v-btn>
-
-
-                        <v-menu bottom left>
-                            <v-btn
-                                    color="transparent"
-                                    small
-                                    icon
-                                    slot="activator"
-                            >
-                                <v-icon>more_vert</v-icon>
+        <v-flex pt-2>
+            <v-data-table
+                    :headers="headers"
+                    :items="resources"
+                    :hide-actions="true"
+                    :loading="loading"
+                    class="elevation-1 table__fixed"
+                    :disable-initial-sort="true"
+                    :pagination.sync="pagination"
+                    v-infinite-scroll="loadMore"
+                    infinite-scroll-disabled="loading"
+            >
+                <template slot="items" slot-scope="props">
+                    <tr class="">
+                        <td>
+                            <v-btn flat small  @click="editItem(props.item)">{{ props.item.name }}</v-btn>
+                        </td>
+                        <td class="">{{ props.item.limit }}</td>
+                        <td class="">
+                            <v-icon v-if="props.item.reserve">
+                                radio_button_checked
+                            </v-icon>
+                            <v-icon v-else="!props.item.reserve">
+                                radio_button_unchecked
+                            </v-icon>
+                        </td>
+                        <td class="">{{ props.item.rps }}</td>
+                        <td class="text-xs-right">
+                            <v-btn icon small >
+                                <v-icon color="green" v-if="props.item.enabled">toggle_on</v-icon>
+                                <v-icon v-if="!props.item.enabled">toggle_off</v-icon>
                             </v-btn>
-                            <v-list>
-                                <v-list-tile
-                                        @click="editItem(props.item)"
-                                >
-                                    <v-list-tile-title>Edit</v-list-tile-title>
-                                </v-list-tile>
-                                <v-list-tile
-                                        @click="deleteItem(props.item)"
-                                >
-                                    <v-list-tile-title>Delete</v-list-tile-title>
-                                </v-list-tile>
-                            </v-list>
-                        </v-menu>
-                    </td>
-                </tr>
-            </template>
-        </v-data-table>
 
-        <ResourcePage></ResourcePage>
+
+                            <v-menu bottom left>
+                                <v-btn
+                                        color="transparent"
+                                        small
+                                        icon
+                                        slot="activator"
+                                >
+                                    <v-icon>more_vert</v-icon>
+                                </v-btn>
+                                <v-list>
+                                    <v-list-tile
+                                            @click="editItem(props.item)"
+                                    >
+                                        <v-list-tile-title>Edit</v-list-tile-title>
+                                    </v-list-tile>
+                                    <v-list-tile
+                                            @click="deleteItem(props.item)"
+                                    >
+                                        <v-list-tile-title>Delete</v-list-tile-title>
+                                    </v-list-tile>
+                                </v-list>
+                            </v-menu>
+                        </td>
+                    </tr>
+                </template>
+            </v-data-table>
+        </v-flex>
+
+        <v-dialog v-if="deleteResource" :value="deleteResource" persistent max-width="290">
+            <v-card>
+                <v-card-title class="headline">{{$t('resource.deleteDialog.header')}}</v-card-title>
+                <v-card-text>
+                    {{$t('resource.deleteDialog.text', {name: deleteResource.name})}}
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="green darken-1" v-if="deleteResource" autofocus flat @click="deleteResource = null">{{$t('base.dialog.cancel')}}</v-btn>
+                    <v-btn color="error darken-1" flat @click="confirmDelete()">{{$t('base.dialog.delete')}}</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -99,15 +113,14 @@
     import ThrottleSearch from '../../components/ThrottleSearch'
 
     import {SET_PAGINATION, SET_FILTER, NEW_RECORD} from './resourceStore'
-    import ResourcePage from './ResourcePage'
     export default {
         name: "ResourceGrid",
         components: {
-            ThrottleSearch,
-            ResourcePage
+            ThrottleSearch
         },
         data() {
             return {
+                deleteResource: null,
                 headers: [
                     {
                         text: this.$t('resource.page.name'),
@@ -204,10 +217,15 @@
                 this.$store.dispatch(`resource/reload`);
             },
             editItem(item) {
-                this.$store.dispatch('resource/getItem', item.id);
+                this.$router.push({path: `/resource/${item.id}`});
             },
             deleteItem(item) {
-
+                this.deleteResource = item;
+            },
+            async confirmDelete() {
+                await this.$store.dispatch('resource/deleteResource', this.deleteResource.id);
+                this.refresh();
+                this.deleteResource = null;
             },
             create() {
                 this.$store.commit(`resource/${NEW_RECORD}`)

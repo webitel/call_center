@@ -52,7 +52,7 @@ func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Comma
 	return r
 }
 
-func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, *model.AppError) {
+func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
 	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,
 		Destination:  settings.Destination,
@@ -87,16 +87,16 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, *model.AppE
 	response, err := c.api.Originate(context.Background(), request)
 
 	if err != nil {
-		return "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
+		return "", "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
 	}
 
 	if response.Error != nil {
-		return "", model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
+		return "", response.Error.Message, model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
 			http.StatusInternalServerError)
 	}
 
-	return response.Uuid, nil
+	return response.Uuid, "", nil
 }
 
 func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
@@ -146,4 +146,19 @@ func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
 func (c *CommandsImpl) Close() {
 	mlog.Debug(fmt.Sprintf("Receive close grpc connection"))
 	c.client.Close()
+}
+
+func (c *CommandsImpl) test() {
+	c.NewCall(&model.CallRequest{
+		Endpoints: []string{"user/1003@10.10.10.25"},
+		Extensions: []*model.CallRequestExtension{
+			{
+				AppName: "sleep",
+				Args:    "5000",
+			},
+			{
+				AppName: "hangup",
+			},
+		},
+	})
 }

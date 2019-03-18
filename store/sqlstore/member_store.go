@@ -62,7 +62,7 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) store.StoreChanne
 		var members []*model.MemberAttempt
 		if _, err := s.GetMaster().Select(&members, `select *
 			from set_active_members($1) s`, nodeId); err != nil {
-			result.Err = model.NewAppError("SqlQueueStore.UnReserveMembers", "store.sql_member.get_active.app_error",
+			result.Err = model.NewAppError("SqlQueueStore.GetActiveMembersAttempt", "store.sql_member.get_active.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)
 		} else {
@@ -80,6 +80,66 @@ func (s SqlMemberStore) SetEndMemberAttempt(id int64, state int, hangupAt int64,
 			where id = :Id`, map[string]interface{}{"Id": id, "State": state, "HangupAt": hangupAt, "Result": cause}); err != nil {
 			result.Err = model.NewAppError("SqlMemberStore.SetEndMemberAttempt", "store.sql_member.set_end.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+		}
+	})
+}
+
+func (s SqlMemberStore) SetAttemptState(id int64, state int) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`update cc_member_attempt
+			set state = :State
+			where id = :Id`, map[string]interface{}{"Id": id, "State": state}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SetAttemptState", "store.sql_member.set_attempt_state.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+		}
+	})
+}
+
+func (s SqlMemberStore) SetBridged(id, bridgedAt int64, legAId, legBId *string) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`update cc_member_attempt
+			set state = :State,
+				bridged_at = :BridgedAt,
+				leg_a_id = coalesce(leg_a_id, :LegAId),
+				leg_b_id = coalesce(leg_b_id, :LegBId)
+			where id = :Id`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_ACTIVE, "BridgedAt": bridgedAt,
+			"LegAId": legAId, "LegBId": legBId}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SettBridged", "store.sql_member.set_bridged.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+		}
+	})
+}
+
+func (s SqlMemberStore) AttemptOriginate(attemptId, memberId, communicationId int64) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var originateInfo *model.AttemptOriginateInfo
+
+		if err := s.GetMaster().SelectOne(&originateInfo, `select name, variables, number, description
+				from cc_originate_communication(:AttemptId::bigint, :MemberId::bigint, :CommunicationId::bigint, :State::smallint)`,
+			map[string]interface{}{"AttemptId": attemptId, "MemberId": memberId, "CommunicationId": communicationId,
+				"State": model.MEMBER_STATE_ORIGINATE}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.ToOriginate", "store.sql_member.originate.app_error", nil,
+				fmt.Sprintf("Attempt Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = originateInfo
+		}
+	})
+}
+
+func (s SqlMemberStore) StopAttempt(attemptId int64, delta, state int, hangupAt int64, cause string) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if i, err := s.GetMaster().SelectNullInt(`select * from cc_stop_attempt(:AttemptId::bigint, :Delta::smallint, :State::smallint,
+      			:HangupAt::bigint, :Cause::varchar(50))`,
+			map[string]interface{}{"AttemptId": attemptId, "Delta": delta, "State": state,
+				"HangupAt": hangupAt, "Cause": cause}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.StopAttempt", "store.sql_member.stop_attempt.app_error", nil,
+				fmt.Sprintf("Attempt Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
+		} else {
+			if i.Valid {
+				result.Data = i.Int64
+			} else {
+				result.Data = nil
+			}
 		}
 	})
 }

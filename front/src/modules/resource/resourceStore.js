@@ -138,6 +138,17 @@ export const resourceStore = {
                 });
         },
 
+        deleteResource({state, commit, rootGetters}, id) {
+            commit(LOADING);
+            return rootGetters.core.request('delete', `/resources/${id}`)
+                .then(response => {
+                    commit(SUCCESS);
+                })
+                .catch(err => {
+                    commit(ERROR, err);
+                })
+        },
+
         getItem({state, commit, rootGetters}, id) {
             commit(LOADING);
             return rootGetters.core.request('get', `/resources/${id}`)

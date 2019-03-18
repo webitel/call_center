@@ -10,6 +10,8 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 	AddMemberAttempt(attempt *Attempt)
+	FoundAgentForAttempt(attempt *Attempt)
+	SetHangupCall(attempt *Attempt)
 }
 
 type BaseQueue struct {
@@ -32,9 +34,13 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_INBOUND:
-		return NewInboundQueue(base, settings), nil
+		return NewInboundQueue(CallingQueue{
+			BaseQueue: base,
+		}, settings), nil
 	case model.QUEUE_TYPE_VOICE_BROADCAST:
-		return NewVoiceBroadcastQueue(base, settings), nil
+		return NewVoiceBroadcastQueue(CallingQueue{
+			BaseQueue: base,
+		}, settings), nil
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)

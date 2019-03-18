@@ -46,7 +46,6 @@ $BODY$
 LANGUAGE plpgsql;
 
 
-
 /*
 queue types
 1 - inbound
@@ -112,4 +111,4 @@ create table cc_member_attempt
 alter table cc_queue_is_working owner to webitel;
 
 select *
-from cc_member_attempt;
+from cc_member_attempt a;

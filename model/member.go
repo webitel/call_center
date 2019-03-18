@@ -4,16 +4,19 @@ const (
 	MEMBER_CAUSE_SYSTEM_SHUTDOWN     = "SYSTEM_SHUTDOWN"
 	MEMBER_CAUSE_DATABASE_ERROR      = "DATABASE_ERROR"
 	MEMBER_CAUSE_ABANDONED           = "ABANDONED"
+	MEMBER_CAUSE_SUCCESSFUL          = "SUCCESSFUL"
 	MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT = "QUEUE_NOT_IMPLEMENT"
 )
 
 const (
 	MEMBER_STATE_END          = -1
-	MEMBER_STATE_IDLE         = 0
+	MEMBER_STATE_IDLE         = 0 // ~Reserved resource
 	MEMBER_STATE_RESERVED     = 1
-	MEMBER_STATE_PROGRESS     = 2
-	MEMBER_STATE_ACTIVE       = 3
-	MEMBER_STATE_POST_PROCESS = 4
+	MEMBER_STATE_ORIGINATE    = 2
+	MEMBER_STATE_FIND_AGENT   = 3
+	MEMBER_STATE_PROGRESS     = 4
+	MEMBER_STATE_ACTIVE       = 5
+	MEMBER_STATE_POST_PROCESS = 6
 )
 
 type MemberAttempt struct {
@@ -28,5 +31,13 @@ type MemberAttempt struct {
 	BridgedAt         int64   `json:"bridged_at" db:"bridged_at"`
 	ResourceId        *int64  `json:"resource_id" db:"resource_id"`
 	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
+	RoutingPattern    *string `json:"routing_pattern" db:"routing_pattern"`
 	Result            *string `json:"result" db:"result"`
+}
+
+type AttemptOriginateInfo struct {
+	Name        string `json:"name" db:"name"`
+	Variables   []byte `json:"variables" db:"variables"`
+	Number      string `json:"number" db:"number"`
+	Description string `json:"description" db:"description"`
 }

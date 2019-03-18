@@ -23,6 +23,12 @@ export default new Router({
             component: () => import('@/modules/resource/ResourceGrid.vue')
         },
         {
+            path: '/resource/:id',
+            main: false,
+            name: 'resource_page',
+            component: () => import('@/modules/resource/ResourcePage.vue')
+        },
+        {
             path: '/calendar',
             icon: 'calendar_today',
             main: true,

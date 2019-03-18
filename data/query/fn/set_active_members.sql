@@ -1,12 +1,16 @@
+drop function set_active_members;
+
 CREATE OR REPLACE FUNCTION set_active_members(node varchar(20))
   RETURNS TABLE
           (
             id          bigint,
             member_id   bigint,
+            communication_id bigint,
             queue_id    int,
             queue_updated_at bigint,
             resource_id int,
-            resource_updated_at bigint
+            resource_updated_at bigint,
+            routing_pattern varchar(50)
           ) AS
 $$
 BEGIN
@@ -15,10 +19,11 @@ BEGIN
       set state = 1
         ,node_id = node
       from (
-        select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at
+        select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at, qr.pattern as routing_pattern
         from cc_member_attempt c
                inner join cc_member cm on c.member_id = cm.id
                inner join cc_queue cq on cm.queue_id = cq.id
+               left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
         where c.state = 0 and c.hangup_at = 0
         order by cq.priority desc, cm.priority desc
@@ -28,10 +33,12 @@ BEGIN
       returning
         a.id::bigint as id,
         a.member_id::bigint as member_id,
+        a.communication_id::bigint as communication_id,
         a.queue_id::int as qeueue_id,
         c.queue_updated_at::bigint as queue_updated_at,
         a.resource_id::int as resource_id,
-        c.resource_updated_at::bigint as resource_updated_at;
+        c.resource_updated_at::bigint as resource_updated_at,
+        c.routing_pattern;
 END;
 $$ LANGUAGE 'plpgsql';
 
@@ -51,4 +58,33 @@ select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated
                left join cc_outbound_resource r on r.id = c.resource_id
         where c.state = 0 and c.hangup_at = 0
         order by cq.priority desc, cm.priority desc
-        for update of c
+        for update of c;
+
+
+select *
+from (
+       select row_number() over (order by cq.priority desc, cm.priority desc) arn, a.*
+       from cc_member_attempt a
+              inner join cc_member cm on a.member_id = cm.id
+              inner join cc_queue cq on cm.queue_id = cq.id
+       where a.hangup_at = 0
+     ) as at
+       inner join (
+  select q.id as queue_id, array_agg(aq.agent_id) agent_ids, row_number() over () as rn
+  from available_agent_in_queue aq
+         inner join cc_agent a on a.id = aq.agent_id
+         inner join cc_queue q on q.id = aq.queue_id
+  --where not exists(select * from cc_member_attempt at where at.hangup_at = 0 and at.agent_id = q.id)
+  group by q.id, case q.strategy when 'ring-all' then q.id else aq.agent_id end
+  order by q.priority desc
+) as a on true --a.rn = at.arn;
+
+
+truncate table cc_member_attempt;
+
+select *
+from cc_member_attempt
+where hangup_at = 0;
+
+
+

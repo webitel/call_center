@@ -30,4 +30,29 @@ alter table cc_queue_routing owner to webitel;
 
 DROP index cc_member_communications_routing_ids_gin;
 CREATE INDEX cc_member_communications_routing_ids_gin
-  ON cc_member_communications using gin(routing_ids gin__int_ops) where (state = 0) ;
+  ON cc_member_communications using gin(routing_ids gin__int_ops); -- TODO where (state = 0) ;
+
+
+drop index cc_member_communications_routing_ids_gin2;
+CREATE INDEX cc_member_communications_routing_ids_gin2
+  ON cc_member_communications using gin(routing_ids gin__int_ops, number gin_trgm_ops);
+
+select relname, reloptions, pg_namespace.nspname
+from pg_class
+join pg_namespace on pg_namespace.oid = pg_class.relnamespace
+where relname like 'cc_member_communications';
+/*
+The below autovacuum settings are very crucial.
+
+1. autovacuum_vacuum_threshold
+
+2. autovacuum_vacuum_scale_factor
+
+3. autovacuum_vacuum_cost_delay
+
+4. autovacuum_vacuum_cost_limit
+
+5. autovacuum_max_workers
+
+6. autovacuum_naptime
+ */

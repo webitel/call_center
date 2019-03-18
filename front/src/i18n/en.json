@@ -11,6 +11,10 @@
       "save": "Save",
       "close": "Close"
     },
+    "dialog": {
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
     "error": {
       "fieldRequired": "This field is required"
     }
@@ -31,13 +35,23 @@
     "grid": {
       "name": "Resource grid"
     },
+    "deleteDialog": {
+      "header": "Delete resource ?",
+      "text": "Delete the resource `{name}`"
+    },
     "page": {
+      "tabGeneral": "General",
+      "tabVariables": "Variables",
+      "variableWindowHeader": "Add variable",
+      "variableName": "Name",
+      "variableValue": "Value",
       "name": "Name",
       "limit": "Limit",
       "reserve": "Reserve",
       "rps": "RPS",
       "number": "Caller ID number",
-      "max_successively_errors": "Successively Errors"
+      "max_successively_errors": "Successively Errors",
+      "dialString": "Dial string"
     }
   }
 }

@@ -28,3 +28,7 @@ func (l *LayeredMQ) Send(name string, data map[string]interface{}) *model.AppErr
 func (l *LayeredMQ) Close() {
 	l.MQLayer.Close()
 }
+
+func (l *LayeredMQ) ConsumeCallEvent() <-chan Event {
+	return l.MQLayer.ConsumeCallEvent()
+}

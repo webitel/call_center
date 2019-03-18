@@ -108,10 +108,28 @@
     "id": "store.sql_outbound_resource.get_all.app_error",
     "translation": "Unable to get all the outbound resources"
   },
+  {
+    "id": "store.sql_outbound_resource.save.app_error",
+    "translation": "We couldn't save the upload resource"
+  },
+  {
+    "id": "model.outbound_resource.is_valid.name.app_error",
+    "translation": "Invalid name"
+  },
+  {
+    "id": "store.sql_outbound_resource.delete.app_error",
+    "translation": "Unable to delete resource"
+  },
 
 
   {
     "id": "store.sql_queue.get.app_error",
     "translation": "Unable to get queue"
+  },
+
+
+  {
+    "id": "dialing.resource.new_resource.dial_string_err",
+    "translation": "Invalid dial string (bad RegExp)"
   }
 ]

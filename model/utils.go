@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	goi18n "github.com/nicksnyder/go-i18n/i18n"
 	"github.com/pborman/uuid"
 	"io"
@@ -129,4 +130,13 @@ func StringInterfaceToJson(objmap map[string]interface{}) string {
 
 func GetMillis() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
+}
+
+func MapStringInterfaceToString(source map[string]interface{}) map[string]string {
+	result := make(map[string]string)
+
+	for k, v := range source {
+		result[k] = fmt.Sprintf("%v", v)
+	}
+	return result
 }

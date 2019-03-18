@@ -21,3 +21,23 @@ func (a *App) GetOutboundResources(filter string, offset, limit int, sortField s
 	}
 	return result.Data.([]*model.OutboundResource), nil
 }
+
+func (a *App) CreateOutboundResource(resource *model.OutboundResource) (*model.OutboundResource, *model.AppError) {
+	if result := <-a.Srv.Store.OutboundResource().Create(resource); result.Err != nil {
+		return nil, result.Err
+	} else {
+		return result.Data.(*model.OutboundResource), nil
+	}
+}
+
+func (a *App) DeleteOutboundResource(id int64) *model.AppError {
+	_, err := a.GetOutboundResourceById(id)
+	if err != nil {
+		return err
+	}
+
+	if result := <-a.Srv.Store.OutboundResource().Delete(id); result.Err != nil {
+		return result.Err
+	}
+	return nil
+}

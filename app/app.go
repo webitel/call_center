@@ -85,7 +85,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Srv.Store = app.newStore()
 	app.Store = app.Srv.Store
-	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings))
+	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
 	app.ExternalCommands = grpc.NewCommands(app.Config().ExternalCommandsSettings)
 

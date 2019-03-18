@@ -7,7 +7,9 @@ import (
 
 func (api *API) InitOutboundResources() {
 	api.Routes.OutboundResources.Handle("", api.ApiHandler(listOutboundResources)).Methods("GET")
+	api.Routes.OutboundResources.Handle("", api.ApiHandler(createOutboundResource)).Methods("POST")
 	api.Routes.OutboundResources.Handle("/{id:[0-9]+}", api.ApiHandler(getOutboundResources)).Methods("GET")
+	api.Routes.OutboundResources.Handle("/{id:[0-9]+}", api.ApiHandler(deleteOutboundResources)).Methods("DELETE")
 }
 
 func listOutboundResources(c *Context, w http.ResponseWriter, r *http.Request) {
@@ -34,4 +36,40 @@ func getOutboundResources(c *Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(resource.ToJson()))
+}
+
+func createOutboundResource(c *Context, w http.ResponseWriter, r *http.Request) {
+	resource := model.OutboundResourceFromJson(r.Body)
+	if resource == nil {
+		c.SetInvalidParam("resource")
+		return
+	}
+
+	if err := resource.IsValid(); err != nil {
+		c.Err = err
+		return
+	}
+
+	resource, err := c.App.CreateOutboundResource(resource)
+	if err != nil {
+		c.Err = err
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(resource.ToJson()))
+}
+
+func deleteOutboundResources(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireId()
+	if c.Err != nil {
+		return
+	}
+
+	c.Err = c.App.DeleteOutboundResource(int64(c.Params.Id))
+	if c.Err != nil {
+		return
+	}
+
+	ReturnStatusOK(w)
 }

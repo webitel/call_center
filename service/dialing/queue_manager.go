@@ -24,6 +24,7 @@ type QueueManager struct {
 	stopped         chan struct{}
 	input           chan *model.MemberAttempt
 	queuesCache     utils.ObjectCache
+	membersCache    utils.ObjectCache
 	store           store.Store
 	resourceManager *ResourceManager
 	sync.Mutex
@@ -38,6 +39,7 @@ func NewQueueManager(app App, s store.Store, resourceManager *ResourceManager) *
 		stop:            make(chan struct{}),
 		stopped:         make(chan struct{}),
 		queuesCache:     utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
+		membersCache:    utils.NewLruWithParams(MAX_QUEUES_CACHE, "MembersInQueue", MAX_QUEUES_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -49,6 +51,8 @@ func (queueManager *QueueManager) Start() {
 		mlog.Debug("Stopped QueueManager")
 		close(queueManager.stopped)
 	}()
+
+	go queueManager.StartListenEvents()
 
 	for {
 		select {
@@ -72,7 +76,16 @@ func (queueManager *QueueManager) Stop() {
 	<-queueManager.stopped
 }
 
+func (queueManager *QueueManager) GetNodeId() string {
+	return queueManager.app.GetInstanceId()
+}
+
 func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
+	if _, ok := queueManager.membersCache.Get(attempt.Id); ok {
+		mlog.Error(fmt.Sprintf("Attempt %v in queue", attempt.Id))
+		return
+	}
+
 	queueManager.input <- attempt
 }
 
@@ -93,7 +106,6 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 		return nil, err
 	} else {
 		queue, err = NewQueue(queueManager, queueManager.resourceManager, config)
-
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +134,8 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	}
 
 	memberAttempt := NewAttempt(member)
+	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
+
 	queue.AddMemberAttempt(memberAttempt)
 
 	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
@@ -129,20 +143,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
 	mlog.Debug(fmt.Sprintf("Leaving member %s [%d] from queue %s", attempt.Name(), attempt.Id(), queue.Name()))
+
+	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
-}
-
-func (queueManager *QueueManager) SetMemberError(member *model.MemberAttempt, cause int, result string) {
-	res := <-queueManager.store.Member().SetEndMemberAttempt(member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
-	if res.Err != nil {
-		panic(res.Err)
-	}
-}
-
-//TODO remove
-func (queueManager *QueueManager) SetAttemptError(attempt *Attempt, cause int, result string) {
-	res := <-queueManager.store.Member().SetEndMemberAttempt(attempt.member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
-	if res.Err != nil {
-		panic(res.Err)
-	}
 }
