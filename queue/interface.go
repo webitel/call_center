@@ -1,4 +1,4 @@
-package dialing
+package queue
 
 type Dialing interface {
 	Start()

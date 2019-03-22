@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/webitel/call_center/dialing"
 	"github.com/webitel/call_center/engine"
 	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/externalCommands/grpc"
@@ -12,6 +11,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
+	"github.com/webitel/call_center/queue"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
@@ -31,7 +31,7 @@ type App struct {
 	sessionCache     *utils.Cache
 	newStore         func() store.Store
 	engine           engine.Engine
-	dialing          dialing.Dialing
+	dialing          queue.Dialing
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -94,7 +94,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine = engine.NewEngine(*app.id, app.Store)
 	app.engine.Start()
 
-	app.dialing = dialing.NewDialing(app, app.Store)
+	app.dialing = queue.NewDialing(app, app.Store)
 	app.dialing.Start()
 
 	return app, outErr

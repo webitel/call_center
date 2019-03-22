@@ -1,4 +1,4 @@
-package dialing
+package queue
 
 import (
 	"github.com/webitel/call_center/mlog"

@@ -1,4 +1,4 @@
-package dialing
+package queue
 
 import (
 	"fmt"
