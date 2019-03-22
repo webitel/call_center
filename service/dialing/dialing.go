@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 400
+var DEFAULT_WATCHER_POLLING_INTERVAL = 500
 
 type DialingImpl struct {
 	app             App

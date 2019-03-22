@@ -140,3 +140,13 @@ func MapStringInterfaceToString(source map[string]interface{}) map[string]string
 	}
 	return result
 }
+
+func UnionStringMaps(src ...map[string]string) map[string]string {
+	res := make(map[string]string)
+	for _, m := range src {
+		for k, v := range m {
+			res[k] = v
+		}
+	}
+	return res
+}

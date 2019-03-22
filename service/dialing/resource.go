@@ -11,6 +11,7 @@ type ResourceObject interface {
 	IsExpire(updatedAt int64) bool
 	GetDialString() string
 	Id() int
+	Variables() map[string]string
 	Take()
 }
 
@@ -50,6 +51,10 @@ func (r *Resource) IsExpire(updatedAt int64) bool {
 
 func (r *Resource) Id() int {
 	return r.id
+}
+
+func (r *Resource) Variables() map[string]string {
+	return r.variables
 }
 
 func (r *Resource) Take() {

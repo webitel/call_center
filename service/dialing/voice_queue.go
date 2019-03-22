@@ -22,19 +22,27 @@ func (voice *VoiceBroadcastQueue) FoundAgentForAttempt(attempt *Attempt) {
 
 func (voice *VoiceBroadcastQueue) AddMemberAttempt(attempt *Attempt) {
 	if attempt.member.ResourceId == nil || attempt.member.ResourceUpdatedAt == nil {
+		//todo
 		panic(123)
 	}
 
 	r, e := voice.resourceManager.Get(*attempt.member.ResourceId, *attempt.member.ResourceUpdatedAt)
 	if e != nil {
+		//todo
 		panic(e.Error())
 	}
 
 	if attempt.GetCommunicationPattern() == nil {
+		//todo
 		panic("no pattern")
 	}
 
 	endpoint, e := voice.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
+
+	if e != nil {
+		//TODO
+		panic(e)
+	}
 
 	go voice.makeCall(attempt, r.(ResourceObject), endpoint)
 }
@@ -47,7 +55,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 	}
 
 	dst := endpoint.Parse(r.GetDialString(), info.Number)
-	fmt.Println(dst)
+	attempt.Log(`dial string: ` + dst)
 
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{dst},
@@ -55,29 +63,37 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 		CallerName:   info.Name,
 		//Timeout:      5,
 		//Strategy: model.CALL_STRATEGY_MULTIPLE,
-		Variables: map[string]string{
-			"domain_name": "10.10.10.25",
-			//"ignore_early_media": "true",
-			//"progress_timeout":           "5",
-			"call_timeout":               "50",
-			model.QUEUE_NODE_ID_FILD:     voice.queueManager.GetNodeId(),
-			model.QUEUE_ID_FILD:          fmt.Sprintf("%d", voice.id),
-			model.QUEUE_NAME_FILD:        voice.name,
-			model.QUEUE_SIDE_FILD:        model.QUEUE_SIDE_MEMBER,
-			model.QUEUE_MEMBER_ID_FILD:   fmt.Sprintf("%d", attempt.member.Id),
-			model.QUEUE_ATTEMPT_ID_FILD:  fmt.Sprintf("%d", attempt.Id()),
-			model.QUEUE_RESOURCE_ID_FILD: fmt.Sprintf("%d", r.Id()),
+		Variables: model.UnionStringMaps(
+			r.Variables(),
+			map[string]string{
+				//"progress_timeout":           "5",
+				"absolute_codec_string":                     "PCMU",
+				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
+				model.CALL_DOMAIN_VARIABLE_NAME:             "10.10.10.25",
+				model.CALL_TIMEOUT_VARIABLE_NAME:            "50",
+				model.QUEUE_NODE_ID_FILD:                    voice.queueManager.GetNodeId(),
+				model.QUEUE_ID_FILD:                         fmt.Sprintf("%d", voice.id),
+				model.QUEUE_NAME_FILD:                       voice.name,
+				model.QUEUE_SIDE_FILD:                       model.QUEUE_SIDE_MEMBER,
+				model.QUEUE_MEMBER_ID_FILD:                  fmt.Sprintf("%d", attempt.member.Id),
+				model.QUEUE_ATTEMPT_ID_FILD:                 fmt.Sprintf("%d", attempt.Id()),
+				model.QUEUE_RESOURCE_ID_FILD:                fmt.Sprintf("%d", r.Id()),
+			},
+		),
+		//Destination: "1003",
+		Extensions: []*model.CallRequestExtension{
+			{
+				AppName: "bridge",
+				Args:    "user/1000@10.10.10.25",
+			},
+			{
+				AppName: "park",
+				Args:    "",
+			},
+			{
+				AppName: "hangup",
+			},
 		},
-		Destination: "1003",
-		//Extensions: []*model.CallRequestExtension{
-		//	{
-		//		AppName: "park",
-		//		Args:    "",
-		//	},
-		//	{
-		//		AppName: "hangup",
-		//	},
-		//},
 	}
 
 	r.Take() // rps
@@ -92,6 +108,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 
 	err = voice.queueManager.SetBridged(attempt, model.NewString(uuid), nil)
 	if err != nil {
+		//todo
 		panic(err.Error())
 	}
 }
@@ -99,6 +116,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt) {
 	i, err := voice.queueManager.StopAttempt(attempt.Id(), 1, model.MEMBER_STATE_END, model.GetMillis(), model.MEMBER_CAUSE_SUCCESSFUL)
 	if err != nil {
+		//todo
 		panic("todo")
 	} else if i != nil {
 		fmt.Println(i)

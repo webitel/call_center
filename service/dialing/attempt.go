@@ -2,6 +2,7 @@ package dialing
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 )
 
@@ -46,6 +47,7 @@ func (a *Attempt) SetState() {
 }
 
 func (a *Attempt) Log(info string) {
+	mlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
 	a.logs = append(a.logs, LogItem{
 		Time: model.GetMillis(),
 		Info: info,
