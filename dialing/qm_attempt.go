@@ -1,6 +1,8 @@
 package dialing
 
-import "github.com/webitel/call_center/model"
+import (
+	"github.com/webitel/call_center/model"
+)
 
 func (queueManager *QueueManager) SetAttemptState(attemptId int64, state int) *model.AppError {
 	res := <-queueManager.store.Member().SetAttemptState(attemptId, state)
@@ -23,7 +25,7 @@ func (queueManager *QueueManager) Originate(a *Attempt) (*model.AttemptOriginate
 func (queueManager *QueueManager) SetMemberError(member *model.MemberAttempt, cause int, result string) {
 	res := <-queueManager.store.Member().SetEndMemberAttempt(member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
 	if res.Err != nil {
-		panic(res.Err)
+		panic(res.Err.Error())
 	}
 }
 

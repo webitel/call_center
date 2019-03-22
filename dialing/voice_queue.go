@@ -54,7 +54,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		panic(err.Error())
 	}
 
-	dst := endpoint.Parse(r.GetDialString(), info.Number)
+	dst := endpoint.Parse(resource.GetDialString(), info.Number)
 	attempt.Log(`dial string: ` + dst)
 
 	callRequest := &model.CallRequest{
@@ -78,7 +78,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 				model.QUEUE_SIDE_FILD:                       model.QUEUE_SIDE_MEMBER,
 				model.QUEUE_MEMBER_ID_FILD:                  fmt.Sprintf("%d", attempt.member.Id),
 				model.QUEUE_ATTEMPT_ID_FILD:                 fmt.Sprintf("%d", attempt.Id()),
-				model.QUEUE_RESOURCE_ID_FILD:                fmt.Sprintf("%d", r.Id()),
+				model.QUEUE_RESOURCE_ID_FILD:                fmt.Sprintf("%d", resource.Id()),
 			},
 		),
 		//Destination: "1000",
