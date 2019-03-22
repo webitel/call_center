@@ -22,13 +22,18 @@ const (
 )
 
 type Queue struct {
-	Id        int                     `json:"id" db:"id"`
-	Type      int                     `json:"type" db:"type"`
-	Name      string                  `json:"name" db:"name"`
-	Strategy  string                  `json:"strategy" db:"strategy"`
-	Payload   *map[string]interface{} `json:"payload" db:"payload"`
-	UpdatedAt int64                   `json:"updated_at" db:"updated_at"`
-	MaxCalls  int                     `json:"max_calls" db:"max_calls"`
-	Variables map[string]string       `json:"variables" db:"variables"`
-	Timeout   int                     `json:"timeout" db:"timeout"`
+	Id        int                    `json:"id" db:"id"`
+	Type      int                    `json:"type" db:"type"`
+	Name      string                 `json:"name" db:"name"`
+	Strategy  string                 `json:"strategy" db:"strategy"`
+	Payload   map[string]interface{} `json:"payload" db:"payload"`
+	UpdatedAt int64                  `json:"updated_at" db:"updated_at"`
+	MaxCalls  int                    `json:"max_calls" db:"max_calls"`
+	Variables map[string]string      `json:"variables" db:"variables"`
+	Timeout   int                    `json:"timeout" db:"timeout"`
+}
+
+type QueueDialingSettings struct {
+	MinCallDuration int  `json:"min_call_duration"`
+	Recordings      bool `json:"recordings"`
 }

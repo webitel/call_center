@@ -62,7 +62,6 @@ func (queueManager *QueueManager) Start() {
 			return
 		case m := <-queueManager.input:
 			queueManager.attemptCount++
-			queueManager.wg.Add(1)
 			queueManager.JoinMember(m)
 		}
 	}
@@ -135,7 +134,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 
 	memberAttempt := NewAttempt(member)
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
-
+	queueManager.wg.Add(1)
 	queue.AddMemberAttempt(memberAttempt)
 
 	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
