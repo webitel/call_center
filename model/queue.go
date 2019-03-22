@@ -25,7 +25,7 @@ const (
 
 type Queue struct {
 	Id        int               `json:"id" db:"id"`
-	Type      int               `json:"type" db:"type"`
+	Type      uint8             `json:"type" db:"type"`
 	Name      string            `json:"name" db:"name"`
 	Strategy  string            `json:"strategy" db:"strategy"`
 	Payload   []byte            `json:"payload" db:"payload"`

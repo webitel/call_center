@@ -58,7 +58,7 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *mo
 		Destination:  settings.Destination,
 		CallerNumber: settings.CallerNumber,
 		CallerName:   settings.CallerName,
-		Timeout:      settings.Timeout,
+		Timeout:      int32(settings.Timeout),
 		Context:      settings.Context,
 		Dialplan:     settings.Dialplan,
 		Variables:    settings.Variables,

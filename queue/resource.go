@@ -18,7 +18,7 @@ type Resource struct {
 	id          int
 	updatedAt   int64
 	name        string
-	rps         int
+	rps         uint16
 	rateLimiter ratelimit.Limiter
 	variables   map[string]string
 	dialString  string
@@ -37,7 +37,7 @@ func NewResource(config *model.OutboundResource) (ResourceObject, *model.AppErro
 	}
 
 	if r.rps > 0 {
-		r.rateLimiter = ratelimit.New(config.Rps)
+		r.rateLimiter = ratelimit.New(int(config.Rps))
 	}
 
 	return r, nil

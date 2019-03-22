@@ -62,7 +62,7 @@ type OutboundResourceStore interface {
 }
 
 type QueueStore interface {
-	GetById(id int) StoreChannel
+	GetById(id int64) StoreChannel
 }
 
 type MemberStore interface {

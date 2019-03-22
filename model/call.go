@@ -27,10 +27,10 @@ type CallRequestExtension struct {
 
 type CallRequest struct {
 	Endpoints    []string
-	Strategy     int8
+	Strategy     uint8
 	Destination  string
 	Variables    map[string]string
-	Timeout      int32
+	Timeout      uint16
 	CallerName   string
 	CallerNumber string
 	Dialplan     string

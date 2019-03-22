@@ -10,14 +10,14 @@ type OutboundResource struct {
 	Id                    int                    `json:"id" db:"id"`
 	Name                  string                 `json:"name" db:"name"`
 	Enabled               bool                   `json:"enabled" db:"enabled"`
-	Limit                 int                    `json:"limit" db:"limit"`
-	Rps                   int                    `json:"rps" db:"rps"`
+	Limit                 uint16                 `json:"limit" db:"limit"`
+	Rps                   uint16                 `json:"rps" db:"rps"`
 	Reserve               bool                   `json:"reserve" db:"reserve"`
 	UpdatedAt             int64                  `json:"updated_at,omitempty" db:"updated_at"`
 	Variables             map[string]interface{} `json:"variables,omitempty" db:"variables"`
 	DialString            string                 `json:"dial_string" db:"dial_string"`
 	Number                string                 `json:"number,omitempty" db:"number"`
-	MaxSuccessivelyErrors int                    `json:"max_successively_errors" db:"max_successively_errors"`
+	MaxSuccessivelyErrors uint16                 `json:"max_successively_errors" db:"max_successively_errors"`
 }
 
 func (resource *OutboundResource) IsValid() *AppError {

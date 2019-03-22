@@ -66,7 +66,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		Endpoints:    []string{dst},
 		CallerNumber: info.Number,
 		CallerName:   info.Name,
-		Timeout:      int32(voice.Timeout()),
+		Timeout:      voice.Timeout(),
 		//Strategy: model.CALL_STRATEGY_MULTIPLE,
 		Variables: model.UnionStringMaps(
 			resource.Variables(),

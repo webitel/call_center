@@ -22,9 +22,9 @@ const (
 type MemberAttempt struct {
 	Id                int64   `json:"id" db:"id"`
 	CommunicationId   int64   `json:"communication_id" db:"communication_id"`
-	QueueId           int     `json:"queue_id" db:"queue_id"`
+	QueueId           int64   `json:"queue_id" db:"queue_id"`
 	QueueUpdatedAt    int64   `json:"queue_updated_at" db:"queue_updated_at"`
-	State             int     `json:"state" db:"state"`
+	State             uint8   `json:"state" db:"state"`
 	MemberId          int64   `json:"member_id" db:"member_id"`
 	CreatedAt         int64   `json:"created_at" db:"created_at"`
 	HangupAt          int64   `json:"hangup_at" db:"hangup_at"`

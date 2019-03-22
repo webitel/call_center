@@ -101,7 +101,7 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 		}
 	}
 
-	if config, err := queueManager.app.GetQueueById(id); err != nil {
+	if config, err := queueManager.app.GetQueueById(int64(id)); err != nil {
 		return nil, err
 	} else {
 		queue, err = NewQueue(queueManager, queueManager.resourceManager, config)
@@ -120,7 +120,7 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 }
 
 func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
-	queue, err := queueManager.GetQueue(member.QueueId, member.QueueUpdatedAt)
+	queue, err := queueManager.GetQueue(int(member.QueueId), member.QueueUpdatedAt)
 	if err != nil {
 		mlog.Error(err.Error())
 		//TODO added to model

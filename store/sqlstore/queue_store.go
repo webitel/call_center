@@ -33,7 +33,7 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 
 }
 
-func (s SqlQueueStore) GetById(id int) store.StoreChannel {
+func (s SqlQueueStore) GetById(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var queue *model.Queue
 		if err := s.GetReplica().SelectOne(&queue, `
