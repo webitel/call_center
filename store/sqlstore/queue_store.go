@@ -23,6 +23,7 @@ func NewSqlQueueStore(sqlStore SqlStore) store.QueueStore {
 		table.ColMap("Payload")
 		table.ColMap("UpdatedAt")
 		table.ColMap("MaxCalls")
+		table.ColMap("Variables")
 	}
 	return us
 }
@@ -35,7 +36,7 @@ func (s SqlQueueStore) GetById(id int) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var queue *model.Queue
 		if err := s.GetReplica().SelectOne(&queue, `
-			select id, type, name, strategy, payload, updated_at, max_calls from cc_queue where id = :Id		
+			select id, type, name, strategy, payload, updated_at, max_calls, variables from cc_queue where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
 				result.Err = model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,

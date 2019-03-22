@@ -12,6 +12,7 @@ type QueueObject interface {
 	AddMemberAttempt(attempt *Attempt)
 	FoundAgentForAttempt(attempt *Attempt)
 	SetHangupCall(attempt *Attempt)
+	Variables() map[string]string
 }
 
 type BaseQueue struct {
@@ -21,6 +22,7 @@ type BaseQueue struct {
 	name            string
 	resourceManager *ResourceManager
 	queueManager    *QueueManager
+	variables       map[string]string
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -31,6 +33,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		name:            settings.Name,
 		queueManager:    queueManager,
 		resourceManager: resourceManager,
+		variables:       settings.Variables,
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_INBOUND:
@@ -64,4 +67,8 @@ func (queue *BaseQueue) TypeName() string {
 	default:
 		return "NOT_IMPLEMENT"
 	}
+}
+
+func (queue *BaseQueue) Variables() map[string]string {
+	return queue.variables
 }

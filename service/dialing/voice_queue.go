@@ -47,7 +47,7 @@ func (voice *VoiceBroadcastQueue) AddMemberAttempt(attempt *Attempt) {
 	go voice.makeCall(attempt, r.(ResourceObject), endpoint)
 }
 
-func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, endpoint *Endpoint) {
+func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceObject, endpoint *Endpoint) {
 
 	info, err := voice.queueManager.Originate(attempt)
 	if err != nil {
@@ -64,7 +64,8 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 		//Timeout:      5,
 		//Strategy: model.CALL_STRATEGY_MULTIPLE,
 		Variables: model.UnionStringMaps(
-			r.Variables(),
+			resource.Variables(),
+			voice.Variables(),
 			map[string]string{
 				//"progress_timeout":           "5",
 				"absolute_codec_string":                     "PCMU",
@@ -80,7 +81,8 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 				model.QUEUE_RESOURCE_ID_FILD:                fmt.Sprintf("%d", r.Id()),
 			},
 		),
-		//Destination: "1003",
+		//Destination: "1000",
+		//Context:     "default",
 		Extensions: []*model.CallRequestExtension{
 			{
 				AppName: "bridge",
@@ -96,7 +98,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, r ResourceObject, e
 		},
 	}
 
-	r.Take() // rps
+	resource.Take() // rps
 	uuid, cause, err := voice.queueManager.app.NewCall(callRequest)
 	if err != nil {
 		voice.queueManager.LeavingMember(attempt, voice)
@@ -119,7 +121,7 @@ func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt) {
 		//todo
 		panic("todo")
 	} else if i != nil {
-		fmt.Println(i)
+		//fmt.Println(i)
 	}
 
 	voice.queueManager.LeavingMember(attempt, voice)

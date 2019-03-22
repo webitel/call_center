@@ -69,3 +69,7 @@ func (r *ResourceManager) GetEndpoint(pattern string) (*Endpoint, *model.AppErro
 
 	return endpoint, nil
 }
+
+func (r *ResourceManager) SetResourceError(resource ResourceObject) {
+
+}

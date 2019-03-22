@@ -28,4 +28,5 @@ type Queue struct {
 	Payload   *map[string]interface{} `json:"payload" db:"payload"`
 	UpdatedAt int64                   `json:"updated_at" db:"updated_at"`
 	MaxCalls  int                     `json:"max_calls" db:"max_calls"`
+	Variables map[string]string       `json:"variables" db:"variables"`
 }
