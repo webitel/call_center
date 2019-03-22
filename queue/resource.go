@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"github.com/webitel/call_center/model"
 	"go.uber.org/ratelimit"
 )
@@ -28,21 +27,24 @@ type Resource struct {
 
 func NewResource(config *model.OutboundResource) (ResourceObject, *model.AppError) {
 	r := &Resource{
-		id:          config.Id,
-		updatedAt:   config.UpdatedAt,
-		name:        config.Name,
-		rps:         config.Rps,
-		dialString:  config.DialString,
-		rateLimiter: ratelimit.New(config.Rps), // check rps zero
-		variables:   model.MapStringInterfaceToString(config.Variables),
-		number:      []string{config.Number},
+		id:         config.Id,
+		updatedAt:  config.UpdatedAt,
+		name:       config.Name,
+		rps:        config.Rps,
+		dialString: config.DialString,
+		variables:  model.MapStringInterfaceToString(config.Variables),
+		number:     []string{config.Number},
+	}
+
+	if r.rps > 0 {
+		r.rateLimiter = ratelimit.New(config.Rps)
 	}
 
 	return r, nil
 }
 
 func (r *Resource) Name() string {
-	return fmt.Sprintf("%v", r.name)
+	return r.name
 }
 
 func (r *Resource) IsExpire(updatedAt int64) bool {
@@ -58,7 +60,7 @@ func (r *Resource) Variables() map[string]string {
 }
 
 func (r *Resource) Take() {
-	if r.rps > 0 {
+	if r.rateLimiter != nil {
 		r.rateLimiter.Take()
 	}
 }
