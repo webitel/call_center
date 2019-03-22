@@ -56,7 +56,7 @@ func (queueManager *QueueManager) getCachedQueueFromEvent(e mq.Event) (queue Que
 	var queueId int
 	var _queue interface{}
 
-	queueId, ok = e.GetIntVariable(model.QUEUE_ID_FILD)
+	queueId, ok = e.GetIntVariable(model.QUEUE_ID_FIELD)
 	if !ok {
 		return
 	}
@@ -71,7 +71,7 @@ func (queueManager *QueueManager) getCachedAttemptFromEvent(e mq.Event) (attempt
 	var attemptId int
 	var _attempt interface{}
 
-	attemptId, ok = e.GetIntVariable(model.QUEUE_ATTEMPT_ID_FILD)
+	attemptId, ok = e.GetIntVariable(model.QUEUE_ATTEMPT_ID_FIELD)
 	if !ok {
 		return
 	}

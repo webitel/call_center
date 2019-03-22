@@ -11,13 +11,14 @@ const (
 )
 
 const (
-	QUEUE_SIDE_FILD        = "cc_side"
-	QUEUE_ID_FILD          = "cc_queue_id"
-	QUEUE_NAME_FILD        = "cc_queue_name"
-	QUEUE_MEMBER_ID_FILD   = "cc_member_id"
-	QUEUE_ATTEMPT_ID_FILD  = "cc_attempt_id"
-	QUEUE_RESOURCE_ID_FILD = "cc_resource_id"
-	QUEUE_NODE_ID_FILD     = "cc_node_id"
+	QUEUE_SIDE_FIELD        = "cc_side"
+	QUEUE_ID_FIELD          = "cc_queue_id"
+	QUEUE_NAME_FIELD        = "cc_queue_name"
+	QUEUE_TYPE_NAME_FIELD   = "cc_queue_type"
+	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"
+	QUEUE_ATTEMPT_ID_FIELD  = "cc_attempt_id"
+	QUEUE_RESOURCE_ID_FIELD = "cc_resource_id"
+	QUEUE_NODE_ID_FIELD     = "cc_node_id"
 )
 
 type Queue struct {
