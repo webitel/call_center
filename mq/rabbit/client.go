@@ -17,6 +17,12 @@ const (
 	RECONNECT_SEC        = 5
 )
 
+const (
+	EXIT_DECLARE_EXCHANGE = 110
+	EXIT_DECLARE_QUEUE    = 111
+	EXIT_BIND             = 112
+)
+
 type AMQP struct {
 	settings           *model.MQSettings
 	connection         *amqp.Connection
@@ -81,7 +87,7 @@ func (a *AMQP) initQueues() {
 	if err != nil {
 		mlog.Critical(fmt.Sprintf("Failed to declare AMQP exchange to err:%v", err.Error()))
 		time.Sleep(time.Second)
-		os.Exit(1)
+		os.Exit(EXIT_DECLARE_EXCHANGE)
 	}
 
 	queue, err = a.channel.QueueDeclare(fmt.Sprintf("cc.%s", model.NewId()),
@@ -89,7 +95,7 @@ func (a *AMQP) initQueues() {
 	if err != nil {
 		mlog.Critical(fmt.Sprintf("Failed to declare AMQP queue %v to err:%v", model.QUEUE_MQ, err.Error()))
 		time.Sleep(time.Second)
-		os.Exit(1)
+		os.Exit(EXIT_DECLARE_QUEUE)
 	}
 
 	a.queueName = queue.Name
@@ -100,7 +106,9 @@ func (a *AMQP) initQueues() {
 func (a *AMQP) subscribe() {
 	err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.EXCHANGE_MQ, false, nil)
 	if err != nil {
-		panic(err)
+		mlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.EXCHANGE_MQ, err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(EXIT_BIND)
 	}
 
 	msgs, err := a.channel.Consume(
@@ -113,7 +121,9 @@ func (a *AMQP) subscribe() {
 		nil,
 	)
 	if err != nil {
-		panic(err)
+		mlog.Critical(fmt.Sprintf("Error create consume for queue %s: %s", a.queueName, err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(EXIT_BIND)
 	}
 
 	go func() {
