@@ -23,6 +23,7 @@ type BaseQueue struct {
 	resourceManager *ResourceManager
 	queueManager    *QueueManager
 	variables       map[string]string
+	timeout         int
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -34,6 +35,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		queueManager:    queueManager,
 		resourceManager: resourceManager,
 		variables:       settings.Variables,
+		timeout:         settings.Timeout,
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_INBOUND:
@@ -56,6 +58,10 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 
 func (queue *BaseQueue) Name() string {
 	return fmt.Sprintf("%s-%s", queue.TypeName(), queue.name)
+}
+
+func (queue *BaseQueue) Timeout() int {
+	return queue.timeout
 }
 
 func (queue *BaseQueue) TypeName() string {

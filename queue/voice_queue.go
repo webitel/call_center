@@ -57,22 +57,24 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	dst := endpoint.Parse(resource.GetDialString(), info.Number)
 	attempt.Log(`dial string: ` + dst)
 
+	/*
+		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
+	*/
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{dst},
 		CallerNumber: info.Number,
 		CallerName:   info.Name,
-		//Timeout:      5,
+		Timeout:      int32(voice.Timeout()),
 		//Strategy: model.CALL_STRATEGY_MULTIPLE,
 		Variables: model.UnionStringMaps(
 			resource.Variables(),
 			voice.Variables(),
 			map[string]string{
-				//"progress_timeout":           "5",
-				"absolute_codec_string":                     "PCMU",
-				model.CALL_DIRECTION_VARIABLE_NAME:          model.CALL_DIRECTION_DIALER,
+				"absolute_codec_string": "PCMU",
+				//model.CALL_PROGRESS_TIMEOUT_VARIABLE_NAME:   fmt.Sprintf("%d", voice.Timeout()),
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
+				model.CALL_DIRECTION_VARIABLE_NAME:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE_NAME:             "10.10.10.25",
-				model.CALL_TIMEOUT_VARIABLE_NAME:            "50",
 				model.QUEUE_NODE_ID_FIELD:                   voice.queueManager.GetNodeId(),
 				model.QUEUE_ID_FIELD:                        fmt.Sprintf("%d", voice.id),
 				model.QUEUE_NAME_FIELD:                      voice.name,

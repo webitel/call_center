@@ -14,6 +14,7 @@ const (
 
 const (
 	CALL_TIMEOUT_VARIABLE_NAME            = "call_timeout"
+	CALL_PROGRESS_TIMEOUT_VARIABLE_NAME   = "progress_timeout"
 	CALL_DOMAIN_VARIABLE_NAME             = "domain_name"
 	CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME = "ignore_early_media"
 	CALL_DIRECTION_VARIABLE_NAME          = "webitel_direction"
