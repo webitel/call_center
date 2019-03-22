@@ -23,7 +23,7 @@ type BaseQueue struct {
 	resourceManager *ResourceManager
 	queueManager    *QueueManager
 	variables       map[string]string
-	timeout         int
+	timeout         uint16
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -60,7 +60,7 @@ func (queue *BaseQueue) Name() string {
 	return fmt.Sprintf("%s-%s", queue.TypeName(), queue.name)
 }
 
-func (queue *BaseQueue) Timeout() int {
+func (queue *BaseQueue) Timeout() uint16 {
 	return queue.timeout
 }
 

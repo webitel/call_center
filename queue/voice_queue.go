@@ -8,11 +8,13 @@ import (
 
 type VoiceBroadcastQueue struct {
 	CallingQueue
+	settings model.QueueVoiceSettings
 }
 
 func NewVoiceBroadcastQueue(callQueue CallingQueue, settings *model.Queue) QueueObject {
 	return &VoiceBroadcastQueue{
 		CallingQueue: callQueue,
+		settings:     model.QueueVoiceSettingsFromBytes(settings.Payload),
 	}
 }
 
@@ -70,8 +72,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 			resource.Variables(),
 			voice.Variables(),
 			map[string]string{
-				"absolute_codec_string": "PCMU",
-				//model.CALL_PROGRESS_TIMEOUT_VARIABLE_NAME:   fmt.Sprintf("%d", voice.Timeout()),
+				"absolute_codec_string":                     "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
 				model.CALL_DIRECTION_VARIABLE_NAME:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE_NAME:             "10.10.10.25",
