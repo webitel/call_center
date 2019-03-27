@@ -8,4 +8,7 @@ type Dialing interface {
 }
 
 type Event interface {
+	Name() string
+	Id() string
+	GetVariable(name string) (string, bool)
 }

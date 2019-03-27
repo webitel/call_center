@@ -59,6 +59,8 @@ type OutboundResourceStore interface {
 	GetAllPage(filter string, offset, limit int, sortField string, desc bool) StoreChannel
 	Create(resource *model.OutboundResource) StoreChannel
 	Delete(id int64) StoreChannel
+	SetError(id int64, routingId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) StoreChannel
+	SetSuccessivelyErrorsById(id int64, successivelyErrors uint16) StoreChannel
 }
 
 type QueueStore interface {

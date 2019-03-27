@@ -5,7 +5,7 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-func (queueManager *QueueManager) changedQueueLength(queue QueueObject) {
+func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	//todo
 	return
 

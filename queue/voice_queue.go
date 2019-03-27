@@ -83,9 +83,13 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		//Destination: "1000",
 		//Context:     "default",
 		Applications: []*model.CallRequestApplication{
+			//{
+			//	AppName: "sleep",
+			//	Args:    "50000",
+			//},
 			{
-				AppName: "sleep",
-				Args:    "50000",
+				AppName: "bridge",
+				Args:    "user/1000@10.10.10.25",
 			},
 			{
 				AppName: "hangup",
@@ -96,11 +100,14 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	resource.Take() // rps
 	uuid, cause, err := voice.queueManager.app.NewCall(callRequest)
 	if err != nil {
+		voice.queueManager.SetResourceError(resource, voice, cause)
+
 		voice.queueManager.LeavingMember(attempt, voice)
 		voice.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, cause)
 		return
 	}
 
+	voice.queueManager.SetResourceSuccessful(resource)
 	mlog.Debug(fmt.Sprintf("Create call %s for member id %v", uuid, attempt.Id()))
 
 	err = voice.queueManager.SetBridged(attempt, model.NewString(uuid), nil)
@@ -110,7 +117,8 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	}
 }
 
-func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt) {
+func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt, event Event) {
+
 	i, err := voice.queueManager.StopAttempt(attempt.Id(), 1, model.MEMBER_STATE_END, model.GetMillis(), model.MEMBER_CAUSE_SUCCESSFUL)
 	if err != nil {
 		//todo

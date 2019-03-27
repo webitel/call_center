@@ -61,7 +61,7 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) store.StoreChanne
 	return store.Do(func(result *store.StoreResult) {
 		var members []*model.MemberAttempt
 		if _, err := s.GetMaster().Select(&members, `select *
-			from set_active_members($1) s`, nodeId); err != nil {
+			from cc_set_active_members($1) s`, nodeId); err != nil {
 			result.Err = model.NewAppError("SqlQueueStore.GetActiveMembersAttempt", "store.sql_member.get_active.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)

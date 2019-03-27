@@ -36,6 +36,6 @@ func (queue *InboundQueue) AddMemberAttempt(attempt *Attempt) {
 	}()
 }
 
-func (voice *InboundQueue) SetHangupCall(attempt *Attempt) {
+func (voice *InboundQueue) SetHangupCall(attempt *Attempt, event Event) {
 
 }

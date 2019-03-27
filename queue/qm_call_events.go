@@ -22,9 +22,9 @@ func (queueManager *QueueManager) StartListenEvents() {
 				return
 			}
 			switch e.Name() {
-			case "CHANNEL_HANGUP":
+			case model.CALL_EVENT_HANGUP:
 				queueManager.handleChannelHangup(e)
-			case "CHANNEL_ANSWER":
+			case model.CALL_EVENT_ANSWER:
 
 			}
 		}
@@ -37,7 +37,7 @@ func (queueManager *QueueManager) handleChannelHangup(e mq.Event) {
 	var attempt *Attempt
 
 	if _, ok = e.GetVariable("grpc_originate_success"); !ok {
-		mlog.Warn(fmt.Sprintf("Skip event %s [%s]", e.Name(), e.Id()))
+		mlog.Debug(fmt.Sprintf("Skip event %s [%s]", e.Name(), e.Id()))
 		return
 	}
 
@@ -49,7 +49,7 @@ func (queueManager *QueueManager) handleChannelHangup(e mq.Event) {
 		return
 	}
 
-	queue.SetHangupCall(attempt)
+	queue.SetHangupCall(attempt, e)
 }
 
 func (queueManager *QueueManager) getCachedQueueFromEvent(e mq.Event) (queue QueueObject, ok bool) {

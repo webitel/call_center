@@ -70,6 +70,6 @@ func (r *ResourceManager) GetEndpoint(pattern string) (*Endpoint, *model.AppErro
 	return endpoint, nil
 }
 
-func (r *ResourceManager) SetResourceError(resource ResourceObject) {
-
+func (r *ResourceManager) RemoveFromCacheById(id int64) {
+	r.resourcesCache.Remove(id)
 }

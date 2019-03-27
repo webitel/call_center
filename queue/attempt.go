@@ -53,6 +53,10 @@ func (a *Attempt) CommunicationId() int64 {
 	return a.member.CommunicationId
 }
 
+func (a *Attempt) GetCommunicationRoutingId() *int {
+	return a.member.RoutingId
+}
+
 func (a *Attempt) GetCommunicationPattern() *string {
 	return a.member.RoutingPattern
 }

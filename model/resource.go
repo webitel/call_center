@@ -6,6 +6,14 @@ import (
 	"net/http"
 )
 
+const (
+	OUTBOUND_RESOURCE_STRATEGY_RANDOM   = "random"
+	OUTBOUND_RESOURCE_STRATEGY_TOP_DOWN = "top_down"
+	OUTBOUND_RESOURCE_STRATEGY_BY_LIMIT = "by_limit"
+)
+
+type OutboundResourceUnReserveStrategy string
+
 type OutboundResource struct {
 	Id                    int                    `json:"id" db:"id"`
 	Name                  string                 `json:"name" db:"name"`
@@ -17,7 +25,15 @@ type OutboundResource struct {
 	Variables             map[string]interface{} `json:"variables,omitempty" db:"variables"`
 	DialString            string                 `json:"dial_string" db:"dial_string"`
 	Number                string                 `json:"number,omitempty" db:"number"`
+	SuccessivelyErrors    uint16                 `json:"successively_errors" db:"successively_errors"`
 	MaxSuccessivelyErrors uint16                 `json:"max_successively_errors" db:"max_successively_errors"`
+	ErrorIds              StringArray            `json:"error_ids" db:"error_ids"`
+}
+
+type OutboundResourceErrorResult struct {
+	CountSuccessivelyError *int   `json:"count_successively_error" db:"count_successively_error"`
+	Stopped                *bool  `json:"stopped" db:"stopped"`
+	UnReserveResourceId    *int64 `json:"un_reserve_resource_id" db:"un_reserve_resource_id"`
 }
 
 func (resource *OutboundResource) IsValid() *AppError {

@@ -1,6 +1,6 @@
-drop function set_active_members;
+drop function cc_set_active_members;
 
-CREATE OR REPLACE FUNCTION set_active_members(node varchar(20))
+CREATE OR REPLACE FUNCTION cc_set_active_members(node varchar(20))
   RETURNS TABLE
           (
             id          bigint,
@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION set_active_members(node varchar(20))
             queue_updated_at bigint,
             resource_id int,
             resource_updated_at bigint,
+            routing_id int,
             routing_pattern varchar(50),
 
             destination varchar(50),
@@ -28,6 +29,7 @@ BEGIN
                c.id,
                cq.updated_at as queue_updated_at,
                r.updated_at as resource_updated_at,
+               qr.id as routing_id,
                qr.pattern as routing_pattern,
                cmc.number as destination,
                cmc.description as description,
@@ -52,6 +54,7 @@ BEGIN
         c.queue_updated_at::bigint as queue_updated_at,
         a.resource_id::int as resource_id,
         c.resource_updated_at::bigint as resource_updated_at,
+        c.routing_id,
         c.routing_pattern,
         c.destination,
         c.description,

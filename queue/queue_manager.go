@@ -119,6 +119,36 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 	return queueManager.resourceManager.Get(id, updatedAt)
 }
 
+func (queueManager *QueueManager) SetResourceError(resource ResourceObject, queue QueueObject, errorId string) {
+	if resource.CheckIfError(errorId) {
+		mlog.Warn(fmt.Sprintf("Resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
+		if result := <-queueManager.store.OutboundResource().
+			SetError(int64(resource.Id()), int64(queue.Id()), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); result.Err != nil {
+
+			mlog.Error(result.Err.Error())
+		} else {
+			responseError := result.Data.(*model.OutboundResourceErrorResult)
+			if responseError.Stopped != nil && *responseError.Stopped {
+				mlog.Info(fmt.Sprintf("Resource %s [%d] stopped from queue %s, because: %s", resource.Name(), resource.Id(),
+					queue.Name(), errorId))
+			}
+
+			if responseError.UnReserveResourceId != nil {
+				mlog.Info(fmt.Sprintf("Un reserved resource %d", *responseError.UnReserveResourceId))
+			}
+			queueManager.resourceManager.RemoveFromCacheById(int64(resource.Id()))
+		}
+	}
+}
+
+func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject) {
+	if resource.SuccessivelyErrors() > 0 {
+		if res := <-queueManager.store.OutboundResource().SetSuccessivelyErrorsById(int64(resource.Id()), 0); res.Err != nil {
+			mlog.Error(res.Err.Error())
+		}
+	}
+}
+
 func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queue, err := queueManager.GetQueue(int(member.QueueId), member.QueueUpdatedAt)
 	if err != nil {
@@ -136,7 +166,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
 	queueManager.wg.Add(1)
 	queue.AddMemberAttempt(memberAttempt)
-	queueManager.changedQueueLength(queue)
+	queueManager.notifyChangedQueueLength(queue)
 	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
 }
 
@@ -145,5 +175,5 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
-	queueManager.changedQueueLength(queue)
+	queueManager.notifyChangedQueueLength(queue)
 }

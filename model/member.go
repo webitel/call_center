@@ -31,6 +31,7 @@ type MemberAttempt struct {
 	BridgedAt         int64   `json:"bridged_at" db:"bridged_at"`
 	ResourceId        *int64  `json:"resource_id" db:"resource_id"`
 	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
+	RoutingId         *int    `json:"routing_id" db:"routing_id"`
 	RoutingPattern    *string `json:"routing_pattern" db:"routing_pattern"`
 	Result            *string `json:"result" db:"result"`
 	Destination       string  `json:"destination" db:"destination"`

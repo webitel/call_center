@@ -25,6 +25,7 @@ func NewSqlOutboundResourceStore(sqlStore SqlStore) store.OutboundResourceStore 
 		table.ColMap("Variables")
 		table.ColMap("Number")
 		table.ColMap("MaxSuccessivelyErrors")
+		table.ColMap("ErrorIds")
 	}
 	return us
 }
@@ -60,7 +61,8 @@ func (s SqlOutboundResourceStore) GetById(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var resource *model.OutboundResource
 		if err := s.GetReplica().SelectOne(&resource, `
-			select id, name, "limit", enabled, updated_at, rps, reserve, variables, number, max_successively_errors, dial_string
+			select id, name, "limit", enabled, updated_at, rps, reserve, variables, number, max_successively_errors, 
+				dial_string, error_ids, successively_errors
 			from cc_outbound_resource where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
@@ -91,6 +93,37 @@ func (s SqlOutboundResourceStore) Delete(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if _, err := s.GetMaster().Exec(`delete from cc_outbound_resource where id=:Id`, map[string]interface{}{"Id": id}); err != nil {
 			result.Err = model.NewAppError("SqlOutboundResourceStore.Delete", "store.sql_outbound_resource.delete.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+		}
+	})
+}
+
+func (s SqlOutboundResourceStore) SetError(id int64, routingId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var resErr *model.OutboundResourceErrorResult
+		if err := s.GetMaster().SelectOne(&resErr, `
+			select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(:Id, :RoutingId, :ErrorId, :Strategy)
+  				as (count_successively_error smallint, stopped boolean, un_reserve_resource_id bigint)	
+		`, map[string]interface{}{"Id": id, "RoutingId": routingId, "ErrorId": errorId, "Strategy": strategy}); err != nil {
+			if err == sql.ErrNoRows {
+				result.Err = model.NewAppError("SqlOutboundResourceStore.SetError", "store.sql_outbound_resource.set_error.app_error", nil,
+					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
+			} else {
+				result.Err = model.NewAppError("SqlOutboundResourceStore.SetError", "store.sql_outbound_resource.set_error.app_error", nil,
+					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+			}
+		} else {
+			result.Data = resErr
+		}
+	})
+}
+
+func (s SqlOutboundResourceStore) SetSuccessivelyErrorsById(id int64, successivelyErrors uint16) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`update cc_outbound_resource
+			set successively_errors = :SuccessivelyErrors
+			where id = :Id`, map[string]interface{}{"Id": id, "SuccessivelyErrors": successivelyErrors}); err != nil {
+			result.Err = model.NewAppError("SqlOutboundResourceStore.SetSuccessivelyErrorsById", "store.sql_outbound_resource.set_successively_error.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
 	})

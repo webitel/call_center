@@ -238,7 +238,7 @@ from (
       and cm.queue_id = 1
       and c.member_id = cm.id
       and c.state = 0
-      and c.routing_ids && array[26,1,2,4]
+      and c.routing_ids && array[26]
 
     order by cm.priority desc
     limit 150
