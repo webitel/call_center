@@ -64,10 +64,10 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *mo
 		Variables:    settings.Variables,
 	}
 
-	if len(settings.Extensions) > 0 {
+	if len(settings.Applications) > 0 {
 		request.Extensions = []*fs.OriginateRequest_Extension{}
 
-		for _, v := range settings.Extensions {
+		for _, v := range settings.Applications {
 			request.Extensions = append(request.Extensions, &fs.OriginateRequest_Extension{
 				AppName: v.AppName,
 				Args:    v.Args,
@@ -143,6 +143,18 @@ func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
 	return strings.TrimSpace(res.Data), nil
 }
 
+func (c *CommandsImpl) HangupMatchingVars() {
+	res, _ := c.api.HangupMatchingVars(context.Background(), &fs.HangupMatchingVarsReqeust{
+		Variables: map[string]string{
+			"a": "1",
+			"b": "2",
+		},
+	})
+
+	fmt.Println(res.Count)
+	panic(1)
+}
+
 func (c *CommandsImpl) Close() {
 	mlog.Debug(fmt.Sprintf("Receive close grpc connection"))
 	c.client.Close()
@@ -151,7 +163,7 @@ func (c *CommandsImpl) Close() {
 func (c *CommandsImpl) test() {
 	c.NewCall(&model.CallRequest{
 		Endpoints: []string{"user/1003@10.10.10.25"},
-		Extensions: []*model.CallRequestExtension{
+		Applications: []*model.CallRequestApplication{
 			{
 				AppName: "sleep",
 				Args:    "5000",

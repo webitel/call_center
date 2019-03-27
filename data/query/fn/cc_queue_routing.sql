@@ -16,15 +16,13 @@ BEGIN
 
 --  raise notice 'end delete';
   if (tg_op = 'UPDATE' or tg_op = 'INSERT') then
+
     update cc_member_communications c
     set routing_ids = c.routing_ids | ARRAY [new.id]
-    where c.id in (
-      select c1.id
-      from cc_member_communications c1
-        inner join cc_member cm on c1.member_id = cm.id
-      where cm.queue_id = new.queue_id and not c1.routing_ids @> ARRAY [new.id]
-        and c1.number ~* new.pattern
-    );
+		from cc_member_communications c1
+			inner join cc_member cm on c1.member_id = cm.id
+		where c1.id = c.id and cm.queue_id = new.queue_id and not c1.routing_ids @> ARRAY [new.id]
+        and c1.number ~* new.pattern;
   end if;
 
 --  raise notice 'end add';

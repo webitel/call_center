@@ -30,8 +30,14 @@ alter table cc_queue_routing owner to webitel;
 
 DROP index cc_member_communications_routing_ids_gin;
 CREATE INDEX cc_member_communications_routing_ids_gin
-  ON cc_member_communications using gin(routing_ids gin__int_ops); -- TODO where (state = 0) ;
+  ON cc_member_communications using gin(member_id, routing_ids gin__int_ops) where state = 0 ;
 
+
+select *
+from pg_stat_activity;
+
+select *
+from pg_cancel_backend(21332);
 
 drop index cc_member_communications_routing_ids_gin2;
 CREATE INDEX cc_member_communications_routing_ids_gin2

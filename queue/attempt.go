@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
@@ -22,12 +23,26 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 	}
 }
 
-func (a *Attempt) Name() string {
-	return fmt.Sprintf("%v", a.member.MemberId)
-}
-
 func (a *Attempt) Id() int64 {
 	return a.member.Id
+}
+
+func (a *Attempt) Name() string {
+	return a.member.Name
+}
+
+func (a *Attempt) Destination() string {
+	return a.member.Destination
+}
+
+func (a *Attempt) Description() string {
+	return a.member.Description
+}
+
+func (a *Attempt) Variables() map[string]string {
+	vars := make(map[string]interface{})
+	json.Unmarshal(a.member.Variables, vars)
+	return model.MapStringInterfaceToString(vars)
 }
 
 func (a *Attempt) MemberId() int64 {

@@ -11,7 +11,6 @@ func (e *EngineImp) ReserveMembers() {
 	result := <-e.store.Member().ReserveMembersByNode(e.nodeId)
 	if result.Err != nil {
 		mlog.Error(result.Err.Error())
-		panic(1)
 		time.Sleep(time.Second * 5)
 	} else {
 		if result.Data.(int64) > 0 {

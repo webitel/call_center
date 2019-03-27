@@ -33,11 +33,8 @@ type MemberAttempt struct {
 	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
 	RoutingPattern    *string `json:"routing_pattern" db:"routing_pattern"`
 	Result            *string `json:"result" db:"result"`
-}
-
-type AttemptOriginateInfo struct {
-	Name        string `json:"name" db:"name"`
-	Variables   []byte `json:"variables" db:"variables"`
-	Number      string `json:"number" db:"number"`
-	Description string `json:"description" db:"description"`
+	Destination       string  `json:"destination" db:"destination"`
+	Description       string  `json:"description" db:"description"`
+	Variables         []byte  `json:"variables" db:"variables"`
+	Name              string  `json:"name" db:"name"`
 }

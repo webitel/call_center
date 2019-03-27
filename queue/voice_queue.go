@@ -50,13 +50,7 @@ func (voice *VoiceBroadcastQueue) AddMemberAttempt(attempt *Attempt) {
 }
 
 func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceObject, endpoint *Endpoint) {
-
-	info, err := voice.queueManager.Originate(attempt)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	dst := endpoint.Parse(resource.GetDialString(), info.Number)
+	dst := endpoint.Parse(resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 
 	/*
@@ -64,13 +58,14 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	*/
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{dst},
-		CallerNumber: info.Number,
-		CallerName:   info.Name,
+		CallerNumber: attempt.Destination(),
+		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
 		//Strategy: model.CALL_STRATEGY_MULTIPLE,
 		Variables: model.UnionStringMaps(
 			resource.Variables(),
 			voice.Variables(),
+			attempt.Variables(),
 			map[string]string{
 				"absolute_codec_string":                     "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
@@ -87,10 +82,10 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		),
 		//Destination: "1000",
 		//Context:     "default",
-		Extensions: []*model.CallRequestExtension{
+		Applications: []*model.CallRequestApplication{
 			{
-				AppName: "bridge",
-				Args:    "user/1000@10.10.10.25",
+				AppName: "sleep",
+				Args:    "50000",
 			},
 			{
 				AppName: "hangup",

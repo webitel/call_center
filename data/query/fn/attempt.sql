@@ -184,15 +184,23 @@ where id = 6164765;
 
 update cc_queue_routing
 set pattern = '(.*)'
-where id = 17;
+where id = 18;
+
+
+select number, routing_ids
+from cc_member_communications
+where number ~* '^1111';
 
 
 explain analyse
+update cc_member_communications c
+    set routing_ids = c.routing_ids - ARRAY [old.id]
+    where c.id in (
       select c1.id
       from cc_member_communications c1
       	inner join cc_member cm on c1.member_id = cm.id
-      where c1.routing_ids @> ARRAY [3] and cm.queue_id = 1;
-        --and c1.member_id in (select id from cc_member m where m.queue_id = 1);
+      where c1.routing_ids @> ARRAY [18] and cm.queue_id = 1
+    );;
 
 vacuum full cc_member_communications;
 

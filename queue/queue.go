@@ -13,6 +13,8 @@ type QueueObject interface {
 	FoundAgentForAttempt(attempt *Attempt)
 	SetHangupCall(attempt *Attempt)
 	Variables() map[string]string
+	Domain() string
+	Id() int
 }
 
 type BaseQueue struct {
@@ -77,4 +79,12 @@ func (queue *BaseQueue) TypeName() string {
 
 func (queue *BaseQueue) Variables() map[string]string {
 	return queue.variables
+}
+
+func (qeueu *BaseQueue) Domain() string {
+	return "TODO" //todo add domain
+}
+
+func (queue *BaseQueue) Id() int {
+	return queue.id
 }

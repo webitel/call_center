@@ -10,7 +10,12 @@ CREATE OR REPLACE FUNCTION set_active_members(node varchar(20))
             queue_updated_at bigint,
             resource_id int,
             resource_updated_at bigint,
-            routing_pattern varchar(50)
+            routing_pattern varchar(50),
+
+            destination varchar(50),
+            description varchar(50),
+            variables jsonb,
+            name varchar(50)
           ) AS
 $$
 BEGIN
@@ -19,9 +24,18 @@ BEGIN
       set state = 1
         ,node_id = node
       from (
-        select c.id, cq.updated_at as queue_updated_at, r.updated_at as resource_updated_at, qr.pattern as routing_pattern
+        select
+               c.id,
+               cq.updated_at as queue_updated_at,
+               r.updated_at as resource_updated_at,
+               qr.pattern as routing_pattern,
+               cmc.number as destination,
+               cmc.description as description,
+               cm.variables as variables,
+               cm.name as member_name
         from cc_member_attempt c
                inner join cc_member cm on c.member_id = cm.id
+               inner join cc_member_communications cmc on cmc.id = c.communication_id
                inner join cc_queue cq on cm.queue_id = cq.id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
@@ -38,9 +52,22 @@ BEGIN
         c.queue_updated_at::bigint as queue_updated_at,
         a.resource_id::int as resource_id,
         c.resource_updated_at::bigint as resource_updated_at,
-        c.routing_pattern;
+        c.routing_pattern,
+        c.destination,
+        c.description,
+        c.variables,
+        c.member_name;
 END;
 $$ LANGUAGE 'plpgsql';
+
+
+select *
+from cc_member_attempt
+order by id desc ;
+
+truncate table cc_member_attempt;
+select *
+from reserve_members_with_resources('aaa');
 
 select *
 from set_active_members('aaa');
@@ -48,6 +75,25 @@ from set_active_members('aaa');
 drop function set_active_members;
 
 show log_min_duration_statement;
+
+select
+       c.id,
+       cq.updated_at as queue_updated_at,
+       r.updated_at as resource_updated_at,
+       qr.pattern as routing_pattern,
+       cm.name as member_name,
+       cm.variables as member_variables,
+       cmc.number as member_number,
+       cmc.description as member_number_description
+  from cc_member_attempt c
+     inner join cc_member cm on c.member_id = cm.id
+     inner join cc_member_communications cmc on cmc.id = c.communication_id
+     inner join cc_queue cq on cm.queue_id = cq.id
+     left join cc_queue_routing qr on qr.id = c.routing_id
+     left join cc_outbound_resource r on r.id = c.resource_id
+        --where c.state = 0 and c.hangup_at = 0
+order by cq.priority desc, cm.priority desc
+for update of c;
 
 
 

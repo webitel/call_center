@@ -21,7 +21,7 @@ BEGIN
 
              --todo absolute to calc priority!!!
              round(100.0 * (q.need_call + 1) / NULLIF(SUM(q.need_call + 1) OVER(partition by cor.id),0)) AS "ratio",
-              array_agg(r.id order by r.priority desc, crir2.priority desc) as routing_ids
+             array_agg(r.id order by r.priority desc, crir2.priority desc) as routing_ids
       from cc_queue_is_working q
              inner join cc_queue_routing r on q.id = r.queue_id
              inner join cc_resource_in_routing crir2 on r.id = crir2.routing_id

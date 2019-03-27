@@ -7,6 +7,7 @@ service Api {
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc Originate(OriginateRequest) returns (OriginateResponse) {}
     rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
+    rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
 }
 
 message ErrorExecute {
@@ -74,4 +75,13 @@ message BridgeRequest {
 message BridgeResponse {
     string uuid = 1;
     ErrorExecute error = 2;
+}
+
+message HangupMatchingVarsReqeust {
+    string cause = 1;
+    map<string, string> variables = 2;
+}
+
+message HangupMatchingVarsResponse {
+    int32 count = 1;
 }

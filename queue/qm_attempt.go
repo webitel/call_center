@@ -14,14 +14,6 @@ func (queueManager *QueueManager) SetBridged(a *Attempt, legAId, legBId *string)
 	return res.Err
 }
 
-func (queueManager *QueueManager) Originate(a *Attempt) (*model.AttemptOriginateInfo, *model.AppError) {
-	if result := <-queueManager.store.Member().AttemptOriginate(a.Id(), a.MemberId(), a.CommunicationId()); result.Err != nil {
-		return nil, result.Err
-	} else {
-		return result.Data.(*model.AttemptOriginateInfo), nil
-	}
-}
-
 func (queueManager *QueueManager) SetMemberError(member *model.MemberAttempt, cause int, result string) {
 	res := <-queueManager.store.Member().SetEndMemberAttempt(member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
 	if res.Err != nil {

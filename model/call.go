@@ -20,7 +20,7 @@ const (
 	CALL_DIRECTION_VARIABLE_NAME          = "webitel_direction"
 )
 
-type CallRequestExtension struct {
+type CallRequestApplication struct {
 	AppName string
 	Args    string
 }
@@ -35,7 +35,7 @@ type CallRequest struct {
 	CallerNumber string
 	Dialplan     string
 	Context      string
-	Extensions   []*CallRequestExtension
+	Applications []*CallRequestApplication
 }
 
 type Call struct {

@@ -136,7 +136,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
 	queueManager.wg.Add(1)
 	queue.AddMemberAttempt(memberAttempt)
-
+	queueManager.changedQueueLength(queue)
 	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
 }
 
@@ -145,4 +145,5 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
+	queueManager.changedQueueLength(queue)
 }
