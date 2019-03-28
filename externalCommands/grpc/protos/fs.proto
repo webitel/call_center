@@ -3,10 +3,11 @@ syntax = "proto3";
 package fs;
 
 service Api {
-    rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
-    rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc Originate(OriginateRequest) returns (OriginateResponse) {}
+    rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
+    rpc SetVariables(SetVariablesReqeust) returns (SetVariablesResponse) {}
     rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
+    rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
 }
 
@@ -75,6 +76,15 @@ message BridgeRequest {
 message BridgeResponse {
     string uuid = 1;
     ErrorExecute error = 2;
+}
+
+message SetVariablesReqeust {
+    string uuid = 1;
+    map<string, string> variables = 2;
+}
+
+message SetVariablesResponse {
+    ErrorExecute error = 1;
 }
 
 message HangupMatchingVarsReqeust {

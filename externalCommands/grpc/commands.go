@@ -111,6 +111,26 @@ func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
 	return nil
 }
 
+func (c *CommandsImpl) SetCallVariables(id string, variables map[string]string) *model.AppError {
+
+	res, err := c.api.SetVariables(context.Background(), &fs.SetVariablesReqeust{
+		Uuid:      id,
+		Variables: variables,
+	})
+
+	if err != nil {
+		return model.NewAppError("SetCallVariables", "external.set_call_variables.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return model.NewAppError("SetCallVariables", "external.set_call_variables.app_error", nil, res.Error.String(),
+			http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (c *CommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
 	response, err := c.api.Bridge(context.Background(), &fs.BridgeRequest{
 		LegAId:        legAId,
@@ -158,19 +178,4 @@ func (c *CommandsImpl) HangupMatchingVars() {
 func (c *CommandsImpl) Close() {
 	mlog.Debug(fmt.Sprintf("Receive close grpc connection"))
 	c.client.Close()
-}
-
-func (c *CommandsImpl) test() {
-	c.NewCall(&model.CallRequest{
-		Endpoints: []string{"user/1003@10.10.10.25"},
-		Applications: []*model.CallRequestApplication{
-			{
-				AppName: "sleep",
-				Args:    "5000",
-			},
-			{
-				AppName: "hangup",
-			},
-		},
-	})
 }

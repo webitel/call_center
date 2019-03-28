@@ -78,14 +78,15 @@ $$ LANGUAGE 'plpgsql';
 select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(1, 1, 'tst', 'random')
   as (count_successively_error smallint, stopped boolean, un_reserve_resource_id bigint);
 
-select id, enabled, successively_errors
-from cc_outbound_resource
-where id = 1;
 
-update cc_outbound_resource
-set enabled = true,
-    successively_errors = 0
-where id =1;
+select *
+from cc_member_attempt
+order by id desc ;
+
+select *
+from cc_outbound_resource
+order by id asc ;
+
 
 select id
 from cc_outbound_resource r

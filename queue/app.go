@@ -11,6 +11,7 @@ type App interface {
 	GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError)
 	GetQueueById(id int64) (*model.Queue, *model.AppError)
 	NewCall(params *model.CallRequest) (uuid, cause string, err *model.AppError)
+	SetCallVariables(id string, variables map[string]string) *model.AppError
 
 	ConsumeCallEvent() <-chan mq.Event
 }

@@ -17,6 +17,10 @@ func (a *App) NewCall(params *model.CallRequest) (uuid, cause string, err *model
 	return
 }
 
+func (a *App) SetCallVariables(id string, variables map[string]string) *model.AppError {
+	return a.ExternalCommands.SetCallVariables(id, variables)
+}
+
 func (a *App) ConsumeCallEvent() <-chan mq.Event {
 	return a.MQ.ConsumeCallEvent()
 }

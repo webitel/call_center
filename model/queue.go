@@ -20,6 +20,7 @@ const (
 	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"
 	QUEUE_ATTEMPT_ID_FIELD  = "cc_attempt_id"
 	QUEUE_RESOURCE_ID_FIELD = "cc_resource_id"
+	QUEUE_ROUTING_ID_FIELD  = "cc_routing_id"
 	QUEUE_NODE_ID_FIELD     = "cc_node_id"
 )
 

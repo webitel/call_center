@@ -119,11 +119,11 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 	return queueManager.resourceManager.Get(id, updatedAt)
 }
 
-func (queueManager *QueueManager) SetResourceError(resource ResourceObject, queue QueueObject, errorId string) {
+func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, queue QueueObject, errorId string) {
 	if resource.CheckIfError(errorId) {
 		mlog.Warn(fmt.Sprintf("Resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
 		if result := <-queueManager.store.OutboundResource().
-			SetError(int64(resource.Id()), int64(queue.Id()), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); result.Err != nil {
+			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); result.Err != nil {
 
 			mlog.Error(result.Err.Error())
 		} else {
@@ -131,10 +131,12 @@ func (queueManager *QueueManager) SetResourceError(resource ResourceObject, queu
 			if responseError.Stopped != nil && *responseError.Stopped {
 				mlog.Info(fmt.Sprintf("Resource %s [%d] stopped from queue %s, because: %s", resource.Name(), resource.Id(),
 					queue.Name(), errorId))
+
+				queueManager.notifyStoppedResource(resource)
 			}
 
 			if responseError.UnReserveResourceId != nil {
-				mlog.Info(fmt.Sprintf("Un reserved resource %d", *responseError.UnReserveResourceId))
+				mlog.Info(fmt.Sprintf("New resource ResourceId=%d from reserve", *responseError.UnReserveResourceId))
 			}
 			queueManager.resourceManager.RemoveFromCacheById(int64(resource.Id()))
 		}
@@ -167,7 +169,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queueManager.wg.Add(1)
 	queue.AddMemberAttempt(memberAttempt)
 	queueManager.notifyChangedQueueLength(queue)
-	mlog.Debug(fmt.Sprintf("Join member %s [%d] to queue %s", memberAttempt.Name(), memberAttempt.Id(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("Join member %s[%d] attempr %d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {

@@ -5,6 +5,10 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject) {
+	//TODO
+}
+
 func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	//todo
 	return

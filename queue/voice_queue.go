@@ -61,7 +61,6 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
-		//Strategy: model.CALL_STRATEGY_MULTIPLE,
 		Variables: model.UnionStringMaps(
 			resource.Variables(),
 			voice.Variables(),
@@ -78,19 +77,18 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 				model.QUEUE_MEMBER_ID_FIELD:                 fmt.Sprintf("%d", attempt.member.Id),
 				model.QUEUE_ATTEMPT_ID_FIELD:                fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD:               fmt.Sprintf("%d", resource.Id()),
+				model.QUEUE_ROUTING_ID_FIELD:                fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
 			},
 		),
-		//Destination: "1000",
-		//Context:     "default",
 		Applications: []*model.CallRequestApplication{
-			//{
-			//	AppName: "sleep",
-			//	Args:    "50000",
-			//},
 			{
-				AppName: "bridge",
-				Args:    "user/1000@10.10.10.25",
+				AppName: "sleep",
+				Args:    "50000",
 			},
+			//{
+			//	AppName: "bridge",
+			//	Args:    "user/10000@10.10.10.25",
+			//},
 			{
 				AppName: "hangup",
 			},
@@ -100,7 +98,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	resource.Take() // rps
 	uuid, cause, err := voice.queueManager.app.NewCall(callRequest)
 	if err != nil {
-		voice.queueManager.SetResourceError(resource, voice, cause)
+		voice.queueManager.SetResourceError(resource, attempt.GetCommunicationRoutingId(), voice, cause)
 
 		voice.queueManager.LeavingMember(attempt, voice)
 		voice.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, cause)
@@ -119,7 +117,13 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 
 func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt, event Event) {
 
-	i, err := voice.queueManager.StopAttempt(attempt.Id(), 1, model.MEMBER_STATE_END, model.GetMillis(), model.MEMBER_CAUSE_SUCCESSFUL)
+	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE_NAME)
+	if cause == "" {
+		//TODO
+		cause = model.MEMBER_CAUSE_SUCCESSFUL
+	}
+
+	i, err := voice.queueManager.StopAttempt(attempt.Id(), 1, model.MEMBER_STATE_END, model.GetMillis(), cause)
 	if err != nil {
 		//todo
 		panic("todo")
