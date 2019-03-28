@@ -119,7 +119,7 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 	return queueManager.resourceManager.Get(id, updatedAt)
 }
 
-func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, queue QueueObject, errorId string) {
+func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, errorId string) {
 	if resource.CheckIfError(errorId) {
 		mlog.Warn(fmt.Sprintf("Resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
 		if result := <-queueManager.store.OutboundResource().
@@ -129,8 +129,7 @@ func (queueManager *QueueManager) SetResourceError(resource ResourceObject, rout
 		} else {
 			responseError := result.Data.(*model.OutboundResourceErrorResult)
 			if responseError.Stopped != nil && *responseError.Stopped {
-				mlog.Info(fmt.Sprintf("Resource %s [%d] stopped from queue %s, because: %s", resource.Name(), resource.Id(),
-					queue.Name(), errorId))
+				mlog.Info(fmt.Sprintf("Resource %s [%d] stopped, because: %s", resource.Name(), resource.Id(), errorId))
 
 				queueManager.notifyStoppedResource(resource)
 			}

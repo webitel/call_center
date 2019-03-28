@@ -11,7 +11,6 @@ type QueueObject interface {
 	IsExpire(int64) bool
 	AddMemberAttempt(attempt *Attempt)
 	FoundAgentForAttempt(attempt *Attempt)
-	SetHangupCall(attempt *Attempt, event Event)
 	Variables() map[string]string
 	Domain() string
 	Id() int

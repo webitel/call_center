@@ -131,43 +131,6 @@ returning
 
 select ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint;
 
-drop function cc_originate_communication(_attempt_id bigint, _member_id bigint, _communication_id bigint, _state smallint);
-
-CREATE OR REPLACE FUNCTION cc_originate_communication(_attempt_id bigint, _member_id bigint, _communication_id bigint, _state smallint)
-	RETURNS table (
-	  name varchar(100),
-	  variables jsonb,
-	  number varchar(50),
-	  description varchar(100)
-	) AS
-$$
-BEGIN
-	return query with att as (
-		update cc_member_attempt
-			set state = _state,
-				originate_at = ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint
-			where id = _attempt_id and communication_id = _communication_id and member_id = _member_id
-			returning id, originate_at::bigint
-	)
-	select m.name, m.variables, c.number, c.description
-	from cc_member m,
-		 lateral (
-				select *
-				from cc_member_communications
-				where id = _communication_id
-			) c
-	where m.id = _member_id and exists(select * from att);
-END;
-$$ LANGUAGE 'plpgsql';
-
-select name, variables, number, description
-from cc_originate_communication(1951770::bigint, 81::bigint, 212::bigint, 100::smallint);
-
-select cmc.*
-from cc_member_attempt a
-	inner join cc_member cm on a.member_id = cm.id
-	inner join cc_member_communications cmc on a.communication_id = cmc.id
-where a.id = 1951801;
 
 
 update cc_queue_routing
@@ -189,7 +152,7 @@ where id = 18;
 
 select number, routing_ids
 from cc_member_communications
-where number ~* '^1111';
+where state = 0 and number ~* '^1111';
 
 
 explain analyse

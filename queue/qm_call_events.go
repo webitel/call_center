@@ -23,7 +23,7 @@ func (queueManager *QueueManager) StartListenEvents() {
 			}
 			switch e.Name() {
 			case model.CALL_EVENT_HANGUP:
-				queueManager.handleChannelHangup(e)
+				queueManager.handleCallHangup(e)
 			case model.CALL_EVENT_ANSWER:
 
 			}
@@ -31,9 +31,9 @@ func (queueManager *QueueManager) StartListenEvents() {
 	}
 }
 
-func (queueManager *QueueManager) handleChannelHangup(e mq.Event) {
+func (queueManager *QueueManager) handleCallHangup(e mq.Event) {
 	var ok bool
-	var queue QueueObject
+	var queue CallingQueueObject
 	var attempt *Attempt
 
 	if _, ok = e.GetVariable("grpc_originate_success"); !ok {
@@ -41,7 +41,7 @@ func (queueManager *QueueManager) handleChannelHangup(e mq.Event) {
 		return
 	}
 
-	if queue, ok = queueManager.getCachedQueueFromEvent(e); !ok {
+	if queue, ok = queueManager.getCachedCallQueueFromEvent(e); !ok {
 		return
 	}
 
@@ -52,7 +52,7 @@ func (queueManager *QueueManager) handleChannelHangup(e mq.Event) {
 	queue.SetHangupCall(attempt, e)
 }
 
-func (queueManager *QueueManager) getCachedQueueFromEvent(e mq.Event) (queue QueueObject, ok bool) {
+func (queueManager *QueueManager) getCachedCallQueueFromEvent(e mq.Event) (queue CallingQueueObject, ok bool) {
 	var queueId int
 	var _queue interface{}
 
@@ -62,7 +62,7 @@ func (queueManager *QueueManager) getCachedQueueFromEvent(e mq.Event) (queue Que
 	}
 
 	if _queue, ok = queueManager.queuesCache.Get(queueId); ok {
-		queue = _queue.(QueueObject)
+		queue = _queue.(CallingQueueObject)
 	}
 	return
 }

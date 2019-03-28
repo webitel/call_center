@@ -95,17 +95,13 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		},
 	}
 
-	resource.Take() // rps
-	uuid, cause, err := voice.queueManager.app.NewCall(callRequest)
+	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), resource)
 	if err != nil {
-		voice.queueManager.SetResourceError(resource, attempt.GetCommunicationRoutingId(), voice, cause)
-
 		voice.queueManager.LeavingMember(attempt, voice)
 		voice.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, cause)
 		return
 	}
 
-	voice.queueManager.SetResourceSuccessful(resource)
 	mlog.Debug(fmt.Sprintf("Create call %s for member id %v", uuid, attempt.Id()))
 
 	err = voice.queueManager.SetBridged(attempt, model.NewString(uuid), nil)

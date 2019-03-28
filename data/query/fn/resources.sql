@@ -63,6 +63,7 @@ BEGIN
                case _strategy
                  when 'by_limit' then r."limit"
                  when 'random' then random()
+               else null
                end desc
       limit 1
     ) r
@@ -75,7 +76,7 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
-select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(1, 1, 'tst', 'random')
+select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(1, 1, 'tst', 'sadasd')
   as (count_successively_error smallint, stopped boolean, un_reserve_resource_id bigint);
 
 
