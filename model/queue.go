@@ -37,8 +37,12 @@ type Queue struct {
 }
 
 type QueueDialingSettings struct {
-	MinCallDuration int  `json:"min_call_duration"`
-	Recordings      bool `json:"recordings"`
+	MinCallDuration      int      `json:"min_call_duration"`
+	Recordings           bool     `json:"recordings"`
+	CauseErrorIds        []string `json:"cause_error_ids"`
+	CauseRetryIds        []string `json:"cause_retry_ids"`
+	CauseSuccessIds      []string `json:"cause_success_ids"`
+	CauseMinusAttemptIds []string `json:"cause_minus_attempt_ids"`
 }
 
 type QueueAmdSettings struct {
@@ -59,6 +63,42 @@ type QueueAmdSettings struct {
 type QueueVoiceSettings struct {
 	QueueDialingSettings
 	Amd *QueueAmdSettings `json:"amd"`
+}
+
+func (queueSettings *QueueDialingSettings) InCauseSuccess(id string) bool {
+	for _, v := range queueSettings.CauseSuccessIds {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (queueSettings *QueueDialingSettings) InCauseRetry(id string) bool {
+	for _, v := range queueSettings.CauseRetryIds {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (queueSettings *QueueDialingSettings) InCauseMinusAttempt(id string) bool {
+	for _, v := range queueSettings.CauseMinusAttemptIds {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (queueSettings *QueueDialingSettings) InCauseError(id string) bool {
+	for _, v := range queueSettings.CauseErrorIds {
+		if v == id {
+			return true
+		}
+	}
+	return false
 }
 
 func QueueVoiceSettingsFromBytes(data []byte) QueueVoiceSettings {

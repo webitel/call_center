@@ -71,19 +71,6 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) store.StoreChanne
 	})
 }
 
-func (s SqlMemberStore) SetEndMemberAttempt(id int64, state int, hangupAt int64, cause string) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		if _, err := s.GetMaster().Exec(`update cc_member_attempt
-			set state = :State,
-    		hangup_at = :HangupAt,
-    		result = :Result
-			where id = :Id`, map[string]interface{}{"Id": id, "State": state, "HangupAt": hangupAt, "Result": cause}); err != nil {
-			result.Err = model.NewAppError("SqlMemberStore.SetEndMemberAttempt", "store.sql_member.set_end.app_error", nil,
-				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
-		}
-	})
-}
-
 func (s SqlMemberStore) SetAttemptState(id int64, state int) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if _, err := s.GetMaster().Exec(`update cc_member_attempt
@@ -110,24 +97,6 @@ func (s SqlMemberStore) SetBridged(id, bridgedAt int64, legAId, legBId *string) 
 	})
 }
 
-func (s SqlMemberStore) StopAttempt(attemptId int64, delta, state int, hangupAt int64, cause string) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		if i, err := s.GetMaster().SelectNullInt(`select * from cc_stop_attempt(:AttemptId::bigint, :Delta::smallint, :State::smallint,
-      			:HangupAt::bigint, :Cause::varchar(50))`,
-			map[string]interface{}{"AttemptId": attemptId, "Delta": delta, "State": state,
-				"HangupAt": hangupAt, "Cause": cause}); err != nil {
-			result.Err = model.NewAppError("SqlMemberStore.StopAttempt", "store.sql_member.stop_attempt.app_error", nil,
-				fmt.Sprintf("Attempt Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
-		} else {
-			if i.Valid {
-				result.Data = i.Int64
-			} else {
-				result.Data = nil
-			}
-		}
-	})
-}
-
 func (s SqlMemberStore) ActiveCount(queue_id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if i, err := s.GetMaster().SelectInt(`select count(*) as count
@@ -137,6 +106,29 @@ func (s SqlMemberStore) ActiveCount(queue_id int64) store.StoreChannel {
 				err.Error(), http.StatusInternalServerError)
 		} else {
 			result.Data = i
+		}
+	})
+}
+
+func (s SqlMemberStore) SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`select cc_set_attempt_success(:AttemptId, :HangupAt, :Data, :Result);`,
+			map[string]interface{}{"AttemptId": attemptId, "HangupAt": hangupAt, "Data": data, "Result": cause}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SetAttemptSuccess", "store.sql_member.set_attempt_success.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
+		}
+	})
+}
+
+func (s SqlMemberStore) SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var stopped bool
+		if err := s.GetMaster().SelectOne(&stopped, `select cc_set_attempt_stop(:AttemptId, :Delta, :IsErr, :HangupAt, :Data, :Result);`,
+			map[string]interface{}{"AttemptId": attemptId, "Delta": delta, "IsErr": isErr, "HangupAt": hangupAt, "Data": data, "Result": cause}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SetAttemptStop", "store.sql_member.set_attempt_stop.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = stopped
 		}
 	})
 }

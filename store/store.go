@@ -71,9 +71,11 @@ type MemberStore interface {
 	ReserveMembersByNode(nodeId string) StoreChannel
 	UnReserveMembersByNode(nodeId, cause string) StoreChannel
 	GetActiveMembersAttempt(nodeId string) StoreChannel
-	SetEndMemberAttempt(id int64, state int, hangupAt int64, result string) StoreChannel
+
 	SetAttemptState(id int64, state int) StoreChannel
 	SetBridged(id, bridgedAt int64, legAId, legBId *string) StoreChannel
-	StopAttempt(attemptId int64, delta, state int, hangupAt int64, cause string) StoreChannel
 	ActiveCount(queue_id int64) StoreChannel
+
+	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) StoreChannel
+	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) StoreChannel
 }

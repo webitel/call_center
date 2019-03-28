@@ -14,27 +14,33 @@ func (queueManager *QueueManager) SetBridged(a *Attempt, legAId, legBId *string)
 	return res.Err
 }
 
-func (queueManager *QueueManager) SetMemberError(member *model.MemberAttempt, cause int, result string) {
-	res := <-queueManager.store.Member().SetEndMemberAttempt(member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
-	if res.Err != nil {
-		panic(res.Err.Error())
+func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, cause string) *model.AppError {
+	if res := <-queueManager.store.Member().SetAttemptSuccess(attempt.Id(), model.GetMillis(), cause, attempt.LogsData()); res.Err != nil {
+		return res.Err
 	}
+	return nil
 }
 
-func (queueManager *QueueManager) StopAttempt(attemptId int64, delta, state int, hangupAt int64, cause string) (*int64, *model.AppError) {
-	if result := <-queueManager.store.Member().StopAttempt(attemptId, delta, state, hangupAt, cause); result.Err != nil {
-		return nil, result.Err
-	} else if result.Data != nil {
-		return model.NewInt64(result.Data.(int64)), nil
+func (queueManager *QueueManager) SetAttemptError(attempt *Attempt, cause string) (bool, *model.AppError) {
+	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, true, cause, attempt.LogsData()); res.Err != nil {
+		return false, res.Err
 	} else {
-		return nil, nil
+		return res.Data.(bool), nil
 	}
 }
 
-//TODO remove
-func (queueManager *QueueManager) SetAttemptError(attempt *Attempt, cause int, result string) {
-	res := <-queueManager.store.Member().SetEndMemberAttempt(attempt.member.Id, model.MEMBER_STATE_END, model.GetMillis(), result)
-	if res.Err != nil {
-		panic(res.Err)
+func (queueManager *QueueManager) SetAttemptMinus(attempt *Attempt, cause string) (bool, *model.AppError) {
+	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 0, false, cause, attempt.LogsData()); res.Err != nil {
+		return false, res.Err
+	} else {
+		return res.Data.(bool), nil
+	}
+}
+
+func (queueManager *QueueManager) SetAttemptStop(attempt *Attempt, cause string) (bool, *model.AppError) {
+	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, false, cause, attempt.LogsData()); res.Err != nil {
+		return false, res.Err
+	} else {
+		return res.Data.(bool), nil
 	}
 }

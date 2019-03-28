@@ -8,13 +8,13 @@ import (
 
 type VoiceBroadcastQueue struct {
 	CallingQueue
-	settings model.QueueVoiceSettings
+	amd *model.QueueAmdSettings
 }
 
-func NewVoiceBroadcastQueue(callQueue CallingQueue, settings *model.Queue) QueueObject {
+func NewVoiceBroadcastQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObject {
 	return &VoiceBroadcastQueue{
 		CallingQueue: callQueue,
-		settings:     model.QueueVoiceSettingsFromBytes(settings.Payload),
+		amd:          amd,
 	}
 }
 
@@ -22,7 +22,7 @@ func (voice *VoiceBroadcastQueue) FoundAgentForAttempt(attempt *Attempt) {
 	panic(`Broadcast queue not reserve agents`)
 }
 
-func (voice *VoiceBroadcastQueue) AddMemberAttempt(attempt *Attempt) {
+func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 	if attempt.member.ResourceId == nil || attempt.member.ResourceUpdatedAt == nil {
 		//todo
 		panic(123)
@@ -69,7 +69,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 				"absolute_codec_string":                     "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
 				model.CALL_DIRECTION_VARIABLE_NAME:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE_NAME:             "10.10.10.25",
+				model.CALL_DOMAIN_VARIABLE_NAME:             voice.Domain(),
 				model.QUEUE_NODE_ID_FIELD:                   voice.queueManager.GetNodeId(),
 				model.QUEUE_ID_FIELD:                        fmt.Sprintf("%d", voice.id),
 				model.QUEUE_NAME_FIELD:                      voice.name,
@@ -97,14 +97,15 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 
 	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), resource)
 	if err != nil {
+		voice.CallError(attempt, err, cause)
 		voice.queueManager.LeavingMember(attempt, voice)
-		voice.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, cause)
 		return
 	}
 
-	mlog.Debug(fmt.Sprintf("Create call %s for member id %v", uuid, attempt.Id()))
+	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", uuid, attempt.Name(), attempt.Id()))
 
 	err = voice.queueManager.SetBridged(attempt, model.NewString(uuid), nil)
+
 	if err != nil {
 		//todo
 		panic(err.Error())
@@ -114,18 +115,12 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt, event Event) {
 
 	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE_NAME)
+
 	if cause == "" {
 		//TODO
 		cause = model.MEMBER_CAUSE_SUCCESSFUL
 	}
 
-	i, err := voice.queueManager.StopAttempt(attempt.Id(), 1, model.MEMBER_STATE_END, model.GetMillis(), cause)
-	if err != nil {
-		//todo
-		panic("todo")
-	} else if i != nil {
-		//fmt.Println(i)
-	}
-
+	voice.StopAttemptWithCallDuration(attempt, cause, 10) //TODO
 	voice.queueManager.LeavingMember(attempt, voice)
 }

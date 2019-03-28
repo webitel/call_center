@@ -9,7 +9,8 @@ import (
 type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
-	AddMemberAttempt(attempt *Attempt)
+
+	JoinAttempt(attempt *Attempt)
 	FoundAgentForAttempt(attempt *Attempt)
 	Variables() map[string]string
 	Domain() string
@@ -44,9 +45,11 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			BaseQueue: base,
 		}, settings), nil
 	case model.QUEUE_TYPE_VOICE_BROADCAST:
+		voiceSettings := model.QueueVoiceSettingsFromBytes(settings.Payload)
 		return NewVoiceBroadcastQueue(CallingQueue{
 			BaseQueue: base,
-		}, settings), nil
+			params:    voiceSettings.QueueDialingSettings,
+		}, voiceSettings.Amd), nil
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
@@ -81,7 +84,7 @@ func (queue *BaseQueue) Variables() map[string]string {
 }
 
 func (qeueu *BaseQueue) Domain() string {
-	return "TODO" //todo add domain
+	return "10.10.10.25" //todo add domain
 }
 
 func (queue *BaseQueue) Id() int {

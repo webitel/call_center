@@ -22,7 +22,7 @@ func (voice *InboundQueue) FoundAgentForAttempt(attempt *Attempt) {
 	fmt.Println("OK-TODO")
 }
 
-func (queue *InboundQueue) AddMemberAttempt(attempt *Attempt) {
+func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
 	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_FIND_AGENT)
 	if err != nil {
 		panic(err.Error())
@@ -31,7 +31,7 @@ func (queue *InboundQueue) AddMemberAttempt(attempt *Attempt) {
 
 	go func() {
 		time.Sleep(time.Duration(rand.Intn(10000)+1000) * time.Millisecond)
-		queue.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, model.MEMBER_CAUSE_ABANDONED)
+		//queue.queueManager.SetAttemptError(attempt, model.MEMBER_STATE_END, model.MEMBER_CAUSE_ABANDONED)
 		queue.queueManager.LeavingMember(attempt, queue)
 	}()
 }

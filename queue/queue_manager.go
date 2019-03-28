@@ -151,22 +151,19 @@ func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject)
 }
 
 func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
+	memberAttempt := NewAttempt(member)
+
 	queue, err := queueManager.GetQueue(int(member.QueueId), member.QueueUpdatedAt)
 	if err != nil {
 		mlog.Error(err.Error())
-		//TODO added to model
-		if err.Id == "dialing.queue.new_queue.app_error" {
-			queueManager.SetMemberError(member, model.MEMBER_STATE_END, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
-		} else {
-			queueManager.SetMemberError(member, model.MEMBER_STATE_END, model.MEMBER_CAUSE_DATABASE_ERROR)
-		}
+		//TODO added to model "dialing.queue.new_queue.app_error"
+		queueManager.SetAttemptMinus(memberAttempt, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
 		return
 	}
 
-	memberAttempt := NewAttempt(member)
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
 	queueManager.wg.Add(1)
-	queue.AddMemberAttempt(memberAttempt)
+	queue.JoinAttempt(memberAttempt)
 	queueManager.notifyChangedQueueLength(queue)
 	mlog.Debug(fmt.Sprintf("Join member %s[%d] attempr %d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }

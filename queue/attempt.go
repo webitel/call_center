@@ -64,14 +64,15 @@ func (a *Attempt) GetCommunicationPattern() *string {
 	return a.member.RoutingPattern
 }
 
-func (a *Attempt) SetState() {
-
-}
-
 func (a *Attempt) Log(info string) {
 	mlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
 	a.logs = append(a.logs, LogItem{
 		Time: model.GetMillis(),
 		Info: info,
 	})
+}
+
+func (a *Attempt) LogsData() []byte {
+	data, _ := json.Marshal(a.logs)
+	return data
 }
