@@ -53,11 +53,12 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 	dst := endpoint.Parse(resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 
+	legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
 	/*
 		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
 	*/
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{dst},
+		Endpoints:    []string{"user/9999@10.10.10.144"},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -66,33 +67,40 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"absolute_codec_string":                     "PCMU",
-				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME: "true",
-				model.CALL_DIRECTION_VARIABLE_NAME:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE_NAME:             voice.Domain(),
-				model.QUEUE_NODE_ID_FIELD:                   voice.queueManager.GetNodeId(),
-				model.QUEUE_ID_FIELD:                        fmt.Sprintf("%d", voice.id),
-				model.QUEUE_NAME_FIELD:                      voice.name,
-				model.QUEUE_SIDE_FIELD:                      model.QUEUE_SIDE_MEMBER,
-				model.QUEUE_MEMBER_ID_FIELD:                 fmt.Sprintf("%d", attempt.member.Id),
-				model.QUEUE_ATTEMPT_ID_FIELD:                fmt.Sprintf("%d", attempt.Id()),
-				model.QUEUE_RESOURCE_ID_FIELD:               fmt.Sprintf("%d", resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:                fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
+				"absolute_codec_string":                "PCMU",
+				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
+				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
+				model.CALL_DOMAIN_VARIABLE:             voice.Domain(),
+				model.QUEUE_NODE_ID_FIELD:              voice.queueManager.GetNodeId(),
+				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", voice.id),
+				model.QUEUE_NAME_FIELD:                 voice.name,
+				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_MEMBER,
+				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
+				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", resource.Id()),
+				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{
-			{
-				AppName: "sleep",
-				Args:    "50000",
-			},
-			//{
-			//	AppName: "bridge",
-			//	Args:    "user/10000@10.10.10.25",
-			//},
-			{
-				AppName: "hangup",
-			},
-		},
+		Applications: make([]*model.CallRequestApplication, 0, 4),
+	}
+
+	if voice.RecordCall() {
+		voice.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
+	}
+
+	if voice.amd != nil && voice.amd.Enabled {
+		voice.SetAmdCall(
+			callRequest,
+			voice.amd,
+			fmt.Sprintf("%s::%s", model.CALL_TRANSFER_APPLICATION, legB),
+			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
+			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
+		)
+	} else {
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: model.CALL_TRANSFER_APPLICATION,
+			Args:    legB,
+		})
 	}
 
 	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), resource)
@@ -113,8 +121,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 }
 
 func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt, event Event) {
-
-	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE_NAME)
+	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
 
 	if cause == "" {
 		//TODO

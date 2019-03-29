@@ -1,6 +1,9 @@
 package model
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const (
 	QUEUE_TYPE_INBOUND = iota
@@ -46,18 +49,19 @@ type QueueDialingSettings struct {
 }
 
 type QueueAmdSettings struct {
-	Enabled              bool   `json:"enabled"`
-	AllowNotSure         bool   `json:"allow_not_sure"`
-	MaxWordLength        uint16 `json:"max_word_length"`
-	MaxNumberOfWords     uint16 `json:"max_number_of_words"`
-	BetweenWordsSilence  uint16 `json:"between_words_silence"`
-	MinWordLength        uint16 `json:"min_word_length"`
-	TotalAnalysisTime    uint16 `json:"total_analysis_time"`
-	SilenceThreshold     uint16 `json:"silence_threshold"`
-	AfterGreetingSilence uint16 `json:"after_greeting_silence"`
-	Greeting             uint16 `json:"greeting"`
-	InitialSilence       uint16 `json:"initial_silence"`
-	//TODO add playback file
+	Enabled                 bool   `json:"enabled"`
+	AllowNotSure            bool   `json:"allow_not_sure"`
+	MaxWordLength           uint16 `json:"max_word_length"`
+	MaxNumberOfWords        uint16 `json:"max_number_of_words"`
+	BetweenWordsSilence     uint16 `json:"between_words_silence"`
+	MinWordLength           uint16 `json:"min_word_length"`
+	TotalAnalysisTime       uint16 `json:"total_analysis_time"`
+	SilenceThreshold        uint16 `json:"silence_threshold"`
+	AfterGreetingSilence    uint16 `json:"after_greeting_silence"`
+	Greeting                uint16 `json:"greeting"`
+	InitialSilence          uint16 `json:"initial_silence"`
+	PlaybackFileSilenceTime uint16 `json:"playback_file_silence_time"`
+	PlaybackFileUri         string `json:"playback_file_uri"`
 }
 
 type QueueVoiceSettings struct {
@@ -105,4 +109,11 @@ func QueueVoiceSettingsFromBytes(data []byte) QueueVoiceSettings {
 	var settings QueueVoiceSettings
 	json.Unmarshal(data, &settings)
 	return settings
+}
+
+func (amd *QueueAmdSettings) ToArgs() string {
+	return fmt.Sprintf("silence_threshold=%d maximum_word_length=%d maximum_number_of_words=%d between_words_silence=%d min_word_length=%d "+
+		"total_analysis_time=%d after_greeting_silence=%d greeting=%d initial_silence=%d",
+		amd.SilenceThreshold, amd.MaxWordLength, amd.MaxNumberOfWords, amd.BetweenWordsSilence, amd.MinWordLength, amd.TotalAnalysisTime,
+		amd.AfterGreetingSilence, amd.Greeting, amd.InitialSilence)
 }

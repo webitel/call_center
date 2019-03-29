@@ -22,12 +22,34 @@ const (
 )
 
 const (
-	CALL_TIMEOUT_VARIABLE_NAME            = "call_timeout"
-	CALL_HANGUP_CAUSE_VARIABLE_NAME       = "hangup_cause"
-	CALL_PROGRESS_TIMEOUT_VARIABLE_NAME   = "progress_timeout"
-	CALL_DOMAIN_VARIABLE_NAME             = "domain_name"
-	CALL_IGNORE_EARLY_MEDIA_VARIABLE_NAME = "ignore_early_media"
-	CALL_DIRECTION_VARIABLE_NAME          = "webitel_direction"
+	CALL_TIMEOUT_VARIABLE                = "call_timeout"
+	CALL_HANGUP_CAUSE_VARIABLE           = "hangup_cause"
+	CALL_PROGRESS_TIMEOUT_VARIABLE       = "progress_timeout"
+	CALL_DOMAIN_VARIABLE                 = "domain_name"
+	CALL_IGNORE_EARLY_MEDIA_VARIABLE     = "ignore_early_media"
+	CALL_DIRECTION_VARIABLE              = "webitel_direction"
+	CALL_RECORD_MIN_SEC_VARIABLE         = "RECORD_MIN_SEC"
+	CALL_RECORD_STEREO_VARIABLE          = "RECORD_STEREO"
+	CALL_RECORD_BRIDGE_REQ_VARIABLE      = "RECORD_BRIDGE_REQ"
+	CALL_RECORD_FLLOW_TRANSFER_VARIABLE  = "recording_follow_transfer"
+	CALL_RECORD_SESSION_TEMPLATE         = `http_cache://$${cdr_url}/sys/formLoadFile?domain=${domain_name}&id=${uuid}&type=mp3&email=none&name=recordSession&.mp3`
+	CALL_RECORD_SESSION_APPLICATION_NAME = "record_session"
+
+	CALL_SLEEP_APPLICATION    = "sleep"
+	CALL_PLAYBACK_APPLICATION = "playback"
+	CALL_TRANSFER_APPLICATION = "transfer"
+	CALL_HANGUP_APPLICATION   = "hangup"
+)
+
+const (
+	CALL_HANGUP_NORMAL_UNSPECIFIED = "NORMAL_UNSPECIFIED"
+)
+
+const (
+	CALL_AMD_HUMAN_VARIABLE    = "amd_on_human"
+	CALL_AMD_MACHINE_VARIABLE  = "amd_on_machine"
+	CALL_AMD_NOT_SURE_VARIABLE = "amd_on_notsure"
+	CALL_AMD_APPLICATION_NAME  = "amd"
 )
 
 type CallRequestApplication struct {

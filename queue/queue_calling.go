@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/model"
 )
 
@@ -11,6 +12,59 @@ type CallingQueueObject interface {
 type CallingQueue struct {
 	BaseQueue
 	params model.QueueDialingSettings
+}
+
+func (queue *CallingQueue) RecordCall() bool {
+	return queue.params.Recordings
+}
+
+func (queue *CallingQueue) SetRecordCall(callRequest *model.CallRequest, template string) {
+	callRequest.Variables[model.CALL_RECORD_MIN_SEC_VARIABLE] = "2"
+	callRequest.Variables[model.CALL_RECORD_STEREO_VARIABLE] = "false"
+	callRequest.Variables[model.CALL_RECORD_BRIDGE_REQ_VARIABLE] = "false"
+	callRequest.Variables[model.CALL_RECORD_FLLOW_TRANSFER_VARIABLE] = "true"
+
+	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		AppName: model.CALL_RECORD_SESSION_APPLICATION_NAME,
+		Args:    template,
+	})
+}
+
+func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman, onMachine, onNotSure string) {
+	callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
+	callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = onMachine
+	callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = onNotSure
+
+	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		AppName: model.CALL_AMD_APPLICATION_NAME,
+		Args:    amd.ToArgs(),
+	})
+
+	if amd.PlaybackFileUri != "" {
+		if amd.PlaybackFileSilenceTime > 0 {
+			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+				AppName: model.CALL_SLEEP_APPLICATION,
+				Args:    fmt.Sprintf("%d", amd.PlaybackFileSilenceTime),
+			})
+		}
+
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: model.CALL_PLAYBACK_APPLICATION,
+			Args:    amd.PlaybackFileUri,
+		})
+
+		if amd.TotalAnalysisTime-amd.PlaybackFileSilenceTime > 0 {
+			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+				AppName: model.CALL_SLEEP_APPLICATION,
+				Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime-amd.PlaybackFileSilenceTime+100), // TODO 100 ?
+			})
+		}
+	} else {
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: model.CALL_SLEEP_APPLICATION,
+			Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime+100),
+		})
+	}
 }
 
 func (queue *CallingQueue) NewCallToMember(callRequest *model.CallRequest, routingId int, resource ResourceObject) (string, string, *model.AppError) {

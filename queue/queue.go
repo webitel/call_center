@@ -84,7 +84,7 @@ func (queue *BaseQueue) Variables() map[string]string {
 }
 
 func (qeueu *BaseQueue) Domain() string {
-	return "10.10.10.25" //todo add domain
+	return "10.10.10.144" //todo add domain
 }
 
 func (queue *BaseQueue) Id() int {

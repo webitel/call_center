@@ -140,6 +140,16 @@ where id = 26;
 select count(*)
 from cc_member_attempt;
 
+update cc_member_communications
+set state =  0,
+    attempts = 0
+where 1 = 1;
+
+update cc_member
+set stop_at = 0,
+    attempts = 0
+where 1=1;
+
 
 select *
 from cc_member_attempt
