@@ -153,7 +153,7 @@ where 1=1;
 
 select *
 from cc_member_attempt
-where id = 6164765;
+order by id desc ;
 
 update cc_queue_routing
 set pattern = '(.*)'
@@ -176,6 +176,8 @@ update cc_member_communications c
     );;
 
 vacuum full cc_member_communications;
+
+select 1553859137539 - 1553859134379;
 
 	explain analyse
       select c1.*
