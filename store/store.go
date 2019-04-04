@@ -41,6 +41,7 @@ type Store interface {
 	Calendar() CalendarStore
 	Member() MemberStore
 	OutboundResource() OutboundResourceStore
+	Agent() AgentStore
 }
 
 type SessionStore interface {
@@ -78,4 +79,9 @@ type MemberStore interface {
 
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) StoreChannel
 	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) StoreChannel
+}
+
+type AgentStore interface {
+	Get(id int64) StoreChannel
+	ReservedForAttemptByNode(nodeId string) StoreChannel
 }

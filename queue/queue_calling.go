@@ -108,3 +108,7 @@ func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause s
 
 	return err
 }
+
+func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
+	return attempt.info.(*AttemptInfoCall)
+}

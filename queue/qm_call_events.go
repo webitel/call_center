@@ -24,11 +24,22 @@ func (queueManager *QueueManager) StartListenEvents() {
 			switch e.Name() {
 			case model.CALL_EVENT_HANGUP:
 				queueManager.handleCallHangup(e)
+			case model.CALL_EVENT_PARK:
+				queueManager.handleCallPark(e)
 			case model.CALL_EVENT_ANSWER:
 
 			}
+		case a, ok := <-queueManager.agentManager.ReservedAgentForAttempt():
+			if !ok {
+				return
+			}
+			fmt.Println(a)
 		}
 	}
+}
+
+func (queueManager *QueueManager) handleCallPark(e mq.Event) {
+
 }
 
 func (queueManager *QueueManager) handleCallHangup(e mq.Event) {

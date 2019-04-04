@@ -1,6 +1,7 @@
 package agent_manager
 
-type QueueManager interface {
+type AgentManager interface {
 	Start()
 	Stop()
+	ReservedAgentForAttempt() <-chan AgentsInAttemptObject
 }

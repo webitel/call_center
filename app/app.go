@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/engine"
 	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/externalCommands/grpc"
@@ -32,6 +33,7 @@ type App struct {
 	newStore         func() store.Store
 	engine           engine.Engine
 	dialing          queue.Dialing
+	agentManager     agent_manager.AgentManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -94,7 +96,10 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine = engine.NewEngine(*app.id, app.Store)
 	app.engine.Start()
 
-	app.dialing = queue.NewDialing(app, app.Store)
+	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store)
+	app.agentManager.Start()
+
+	app.dialing = queue.NewDialing(app, app.agentManager, app.Store)
 	app.dialing.Start()
 
 	return app, outErr
@@ -109,6 +114,7 @@ func (app *App) Shutdown() {
 	mlog.Info("Stopping Server...")
 	app.engine.Stop()
 	app.dialing.Stop()
+	app.agentManager.Stop()
 	app.MQ.Close()
 	app.ExternalCommands.Close()
 }

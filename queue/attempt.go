@@ -7,8 +7,13 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+type AttemptInfo interface {
+	Data() []byte
+}
+
 type Attempt struct {
 	member *model.MemberAttempt
+	info   AttemptInfo
 	logs   []LogItem
 }
 
@@ -73,6 +78,9 @@ func (a *Attempt) Log(info string) {
 }
 
 func (a *Attempt) LogsData() []byte {
+	if a.info != nil {
+		return a.info.Data()
+	}
 	data, _ := json.Marshal(a.logs)
 	return data
 }

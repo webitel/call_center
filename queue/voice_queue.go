@@ -23,6 +23,8 @@ func (voice *VoiceBroadcastQueue) FoundAgentForAttempt(attempt *Attempt) {
 }
 
 func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
+	attempt.info = &AttemptInfoCall{}
+
 	if attempt.member.ResourceId == nil || attempt.member.ResourceUpdatedAt == nil {
 		//todo
 		panic(123)
@@ -52,13 +54,16 @@ func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceObject, endpoint *Endpoint) {
 	dst := endpoint.Parse(resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
+	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
+	legB := fmt.Sprintf("999 XML default '%s' '%s'", "100", "100") //TODO
 
-	legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
+	info := voice.GetCallInfoFromAttempt(attempt)
+
 	/*
 		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
 	*/
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"user/9999@10.10.10.144"},
+		Endpoints:    []string{"sofia/external/dialer-12@10.10.10.25:5080"},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -86,6 +91,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 
 	if voice.RecordCall() {
 		voice.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
+		info.UseRecordings = true
 	}
 
 	if voice.amd != nil && voice.amd.Enabled {
@@ -96,6 +102,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
 			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
 		)
+		info.UseAmd = true
 	} else {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: model.CALL_TRANSFER_APPLICATION,
@@ -103,6 +110,8 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		})
 	}
 
+	info.LegAUri = dst
+	info.LegBUri = legB
 	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), resource)
 	if err != nil {
 		voice.CallError(attempt, err, cause)

@@ -56,3 +56,7 @@ func (s *LayeredStore) Calendar() CalendarStore {
 func (s *LayeredStore) Member() MemberStore {
 	return s.DatabaseLayer.Member()
 }
+
+func (s *LayeredStore) Agent() AgentStore {
+	return s.DatabaseLayer.Agent()
+}

@@ -15,4 +15,5 @@ type SqlStore interface {
 	Session() store.SessionStore
 	Calendar() store.CalendarStore
 	Queue() store.QueueStore
+	Agent() store.AgentStore
 }

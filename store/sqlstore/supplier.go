@@ -11,6 +11,7 @@ import (
 
 	"encoding/json"
 	"github.com/go-gorp/gorp"
+	"github.com/lib/pq"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
@@ -36,6 +37,7 @@ type SqlSupplierOldStores struct {
 	calendar         store.CalendarStore
 	member           store.MemberStore
 	outboundResource store.OutboundResourceStore
+	agent            store.AgentStore
 }
 
 type SqlSupplier struct {
@@ -64,6 +66,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
 	supplier.oldStores.member = NewSqlMemberStore(supplier)
 	supplier.oldStores.outboundResource = NewSqlOutboundResourceStore(supplier)
+	supplier.oldStores.agent = NewSqlAgentStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -195,6 +198,10 @@ func (ss *SqlSupplier) Calendar() store.CalendarStore {
 	return ss.oldStores.calendar
 }
 
+func (ss *SqlSupplier) Agent() store.AgentStore {
+	return ss.oldStores.agent
+}
+
 type typeConverter struct{}
 
 func (me typeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -267,6 +274,23 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 			return json.Unmarshal(b, target)
 		}
 		return gorp.CustomScanner{Holder: new(string), Target: target, Binder: binder}, true
+
+	case *model.Int64Array:
+		binder := func(holder, target interface{}) error {
+			s, ok := holder.(*[]byte)
+			if !ok {
+				return errors.New(utils.T("store.sql.convert_int64_array"))
+			}
+			var a pq.Int64Array
+
+			if err := a.Scan(*s); err != nil {
+				return err
+			} else {
+				*(target).(*model.Int64Array) = model.Int64Array(a)
+				return nil
+			}
+		}
+		return gorp.CustomScanner{Holder: new([]byte), Target: target, Binder: binder}, true
 	}
 
 	return gorp.CustomScanner{}, false

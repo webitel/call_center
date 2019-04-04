@@ -14,6 +14,7 @@ import (
 type StringInterface map[string]interface{}
 type StringMap map[string]string
 type StringArray []string
+type Int64Array []int64
 
 type AppError struct {
 	Id            string `json:"id"`

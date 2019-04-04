@@ -5,6 +5,27 @@ drop function reserve_members_with_resources;
 -- потестити апдейт!!!
 */
 
+
+select *
+from cc_queue_timing_communication_ids(2);
+
+CREATE OR REPLACE FUNCTION cc_queue_timing_communication_ids(_queue_id bigint)
+  RETURNS int[] AS
+$$
+BEGIN
+  return array(select distinct cqt.communication_id
+from cc_queue q
+  inner join calendar c on q.calendar_id = c.id
+  inner join cc_queue_timing cqt on q.id = cqt.queue_id
+where q.id = _queue_id
+  and (to_char(current_timestamp AT TIME ZONE c.timezone, 'SSSS') :: int / 60)
+    between cqt.start_time_of_day and cqt.end_time_of_day);
+END;
+$$ LANGUAGE 'plpgsql';
+
+
+
+
 CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE
@@ -13,9 +34,7 @@ DECLARE
     v_cnt integer;
 BEGIN
     count = 0;
-    FOR rec IN SELECT r.*, (select array_agg(distinct t.communication_id)
-          from cc_queue_timing t
-          where t.queue_id = r.queue_id ) as type_ids
+    FOR rec IN SELECT r.*, cc_queue_timing_communication_ids(r.queue_id) as type_ids
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
       where r.call_count > 0
@@ -69,16 +88,6 @@ from cc_member_attempt
 order by id desc
 limit 100
 ;
-
-
-
-
-(select array_agg(distinct t.id)
-          from cc_queue_timing t
-          where t.queue_id = 1 and
-            (to_char(current_timestamp AT TIME ZONE cal.timezone, 'SSSS') :: int / 60) between t.start_time_of_day and t.end_time_of_day) as type_ids
-
-
 
 
 select proname,prosrc from pg_proc where proname= 'reserve_members_with_resources';
