@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
@@ -33,8 +34,20 @@ func (queueManager *QueueManager) StartListenEvents() {
 			if !ok {
 				return
 			}
-			fmt.Println(a)
+			queueManager.handleRouteAgentToQueue(a)
 		}
+	}
+}
+
+func (queueManager *QueueManager) handleRouteAgentToQueue(a agent_manager.AgentInAttemptObject) {
+	if attempt, ok := queueManager.membersCache.Get(a.AttemptId()); ok {
+		if queue, err := queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
+			queue.RouteAgentToAttempt(attempt.(*Attempt), a.Agent())
+		} else {
+			//todo not found queue
+		}
+	} else {
+		mlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", a.AttemptId(), a.AgentName()))
 	}
 }
 

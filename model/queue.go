@@ -8,6 +8,7 @@ import (
 const (
 	QUEUE_TYPE_INBOUND = iota
 	QUEUE_TYPE_VOICE_BROADCAST
+	QUEUE_TYPE_PREVIEW
 )
 
 const (

@@ -46,10 +46,10 @@ const (
 )
 
 const (
+	CALL_AMD_APPLICATION_NAME  = "amd"
 	CALL_AMD_HUMAN_VARIABLE    = "amd_on_human"
 	CALL_AMD_MACHINE_VARIABLE  = "amd_on_machine"
 	CALL_AMD_NOT_SURE_VARIABLE = "amd_on_notsure"
-	CALL_AMD_APPLICATION_NAME  = "amd"
 )
 
 type CallRequestApplication struct {

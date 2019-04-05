@@ -2,6 +2,7 @@ drop view  available_agent_in_queue;
 
 CREATE OR REPLACE VIEW available_agent_in_queue AS
 select ag.*,
+       a.updated_at as updated_at,
 --        q.priority +
          round(100.0 * (ag.max_of_capacity + 1) / NULLIF(SUM(ag.max_of_capacity + 1) OVER(partition by ag.agent_id),0)) AS "ratio"
 --         (0.5 / 2) + (0.5* (100/(100 + a.max_of_capacity)))
@@ -16,7 +17,8 @@ from (
               left join cc_skill_in_agent csia on cs.id = csia.skill_id
        where not COALESCE(aq.agent_id, csia.agent_id) isnull
        group by aq.queue_id, COALESCE(aq.agent_id, csia.agent_id)
-) ag;
+) ag
+inner join cc_agent a on a.id = ag.agent_id;
 
 
 select * from available_agent_in_queue

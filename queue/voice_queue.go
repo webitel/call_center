@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 )
@@ -18,7 +19,7 @@ func NewVoiceBroadcastQueue(callQueue CallingQueue, amd *model.QueueAmdSettings)
 	}
 }
 
-func (voice *VoiceBroadcastQueue) FoundAgentForAttempt(attempt *Attempt) {
+func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
 	panic(`Broadcast queue not reserve agents`)
 }
 

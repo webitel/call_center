@@ -168,11 +168,11 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queueManager.wg.Add(1)
 	queue.JoinAttempt(memberAttempt)
 	queueManager.notifyChangedQueueLength(queue)
-	mlog.Debug(fmt.Sprintf("Join member %s[%d] attempr %d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("Join member %s[%d] AttemptId=%d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
-	mlog.Debug(fmt.Sprintf("Leaving member %s [%d] from queue %s", attempt.Name(), attempt.Id(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("Leaving member %s[%d] AttemptId=%d from queue %s", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
 
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()

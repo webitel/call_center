@@ -35,7 +35,7 @@ func (s SqlMemberStore) ReserveMembersByNode(nodeId string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if i, err := s.GetMaster().SelectInt(`select s as count
 			from reserve_members_with_resources($1) s`, nodeId); err != nil {
-			result.Err = model.NewAppError("SqlQueueStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
+			result.Err = model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)
 		} else {
@@ -48,7 +48,7 @@ func (s SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) store.Store
 	return store.Do(func(result *store.StoreResult) {
 		if i, err := s.GetMaster().SelectInt(`select s as count
 			from un_reserve_members_with_resources($1, $2) s`, nodeId, cause); err != nil {
-			result.Err = model.NewAppError("SqlQueueStore.UnReserveMembers", "store.sql_member.un_reserve_member_resources.app_error",
+			result.Err = model.NewAppError("SqlMemberStore.UnReserveMembers", "store.sql_member.un_reserve_member_resources.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)
 		} else {
@@ -62,7 +62,7 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) store.StoreChanne
 		var members []*model.MemberAttempt
 		if _, err := s.GetMaster().Select(&members, `select *
 			from cc_set_active_members($1) s`, nodeId); err != nil {
-			result.Err = model.NewAppError("SqlQueueStore.GetActiveMembersAttempt", "store.sql_member.get_active.app_error",
+			result.Err = model.NewAppError("SqlMemberStore.GetActiveMembersAttempt", "store.sql_member.get_active.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)
 		} else {
@@ -101,7 +101,7 @@ func (s SqlMemberStore) ActiveCount(queue_id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if i, err := s.GetMaster().SelectInt(`select count(*) as count
 			from cc_member_attempt a where a.queue_id = $1 and a.hangup_at = 0`, queue_id); err != nil {
-			result.Err = model.NewAppError("SqlQueueStore.ActiveCount", "store.sql_member.active_count.app_error",
+			result.Err = model.NewAppError("SqlMemberStore.ActiveCount", "store.sql_member.active_count.app_error",
 				map[string]interface{}{"Error": err.Error()},
 				err.Error(), http.StatusInternalServerError)
 		} else {
@@ -129,6 +129,17 @@ func (s SqlMemberStore) SetAttemptStop(attemptId, hangupAt int64, delta int, isE
 				fmt.Sprintf("Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
 		} else {
 			result.Data = stopped
+		}
+	})
+}
+
+func (s SqlMemberStore) SetAttemptAgentId(attemptId int64, agentId *int64) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`update cc_member_attempt
+			set agent_id = :AgentId
+			where id = :Id`, map[string]interface{}{"Id": attemptId, "AgentId": agentId}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SetAttemptAgentId", "store.sql_member.set_attempt_agent_id.app_error", nil,
+				fmt.Sprintf("Id=%v, AgentId=%v %s", attemptId, agentId, err.Error()), http.StatusInternalServerError)
 		}
 	})
 }

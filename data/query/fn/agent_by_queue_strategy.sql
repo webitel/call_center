@@ -48,30 +48,13 @@ $$ LANGUAGE 'plpgsql';
 
 
 explain analyse
-select *
-from (
-  select at.id, a.*, at.queue_id, row_number() over (order by at.weight desc, at.created_at) pos_at, at.queue_id
-  from (
-      select *
-      from cc_member_attempt at
-      where at.hangup_at = 0 --and at.state = 7
-  ) as at
-    cross join lateral (
-        select *, row_number() over (partition by aq.queue_id order by aq.ratio desc ) pos_ag
-        from available_agent_in_queue aq
-    ) a
-  where at.queue_id = a.queue_id
-) marge
--- where marge.pos_ag = marge.pos_at;
-
-explain analyse
 select distinct on (agent_id) agent_id, id--, case ratio when 2 then 0 else 1 end
 from (
-  select a.id, last_agent.agent_ids,  ag.*,
+  select a.id, last_agent.agent_id as last_agent_id,  ag.*,
          row_number() over (order by a.weight desc, a.created_at, ag.ratio desc) rn
   from cc_member_attempt a
     left join lateral (
-      select a1.agent_ids, a1.id as last_id
+      select a1.agent_id, a1.id as last_id
       from cc_member_attempt a1
       where a1.member_id = a.member_id and a1.hangup_at > 0
       order by a1.hangup_at desc
@@ -86,7 +69,7 @@ from (
 ) r
 order by agent_id,
          --case ratio when 2 then 0 else 1 end,
-         case when r.agent_ids && array[r.agent_id] then 1 else 0 end desc,
+         case when r.agent_id = r.last_agent_id then 1 else 0 end desc,
          ratio desc,
          rn asc,
          pos_ag asc,
@@ -104,63 +87,77 @@ drop function cc_reserved_agent_for_attempt;
 CREATE OR REPLACE FUNCTION cc_reserved_agent_for_attempt(_node_id varchar(20))
   RETURNS table
           (
-            attempt_id bigint,
-            agent_ids  integer[]
+            attempt_id       bigint,
+            agent_id         bigint,
+            agent_updated_at bigint
           ) AS
 $$
 BEGIN
   RETURN QUERY update cc_member_attempt a
-  set agent_ids = array[a1.agent_id]
-  from (
-         select distinct on (agent_id) agent_id,
-                                       id--, case ratio when 2 then 0 else 1 end
-         from (
-                select a.id,
-                       last_agent.agent_ids,
-                       ag.*,
-                       row_number() over (order by a.weight desc, a.created_at, ag.ratio desc) rn
-                from cc_member_attempt a
-                       left join lateral (
-                  select a1.agent_ids, a1.id as last_id
-                  from cc_member_attempt a1
-                  where a1.member_id = a.member_id
-                    and a1.hangup_at > 0
-                  order by a1.hangup_at desc
-                  limit 1
-                  ) last_agent on true
-                       cross join lateral (
-                  select *, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
-                  from available_agent_in_queue aq
-                  ) ag
-                where a.hangup_at = 0
-                  and a.state = 7
-                  and a.node_id = _node_id
-                  and a.agent_ids isnull
-                  and a.queue_id = ag.queue_id
-                order by a.weight desc, a.created_at, ag.ratio desc
-              ) r
-         order by agent_id,
-                  --case ratio when 2 then 0 else 1 end,
-                  case when r.agent_ids && array [r.agent_id] then 1 else 0 end desc,
-                  ratio desc,
-                  rn asc,
-                  pos_ag asc,
-                  id asc
-       ) a1
-  where a1.id = a.id
-  returning a.id, a.agent_ids;
+    set agent_id = a1.agent_id
+    from (
+      select distinct on (r.agent_id) r.agent_id as agent_id,
+                                    r.updated_at,
+                                    r.attempt_id
+      from (
+             select a.id as attempt_id,
+                    last_agent.agent_id as last_agent_id,
+                    ag.*,
+                    row_number() over (order by a.weight desc, a.created_at, ag.ratio desc) rn
+             from cc_member_attempt a
+                    left join lateral (
+               select a1.agent_id, a1.id as last_id
+               from cc_member_attempt a1
+               where a1.member_id = a.member_id
+                 and a1.hangup_at > 0
+               order by a1.hangup_at desc
+               limit 1
+               ) last_agent on true
+                    cross join lateral (
+               select *, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
+               from available_agent_in_queue aq
+               ) ag
+             where a.hangup_at = 0
+               and a.state = 3
+               and a.queue_id = ag.queue_id
+               and a.node_id = _node_id
+               and a.agent_id isnull
+             order by a.weight desc, a.created_at, ag.ratio desc
+           ) r
+      order by r.agent_id,
+               --case ratio when 2 then 0 else 1 end,
+               case when r.agent_id = r.last_agent_id then 1 else 0 end desc,
+               r.ratio desc,
+               r.rn asc,
+               r.pos_ag asc,
+               r.attempt_id asc
+    ) a1
+    where a1.attempt_id = a.id
+    returning a.id::bigint as attempt_id, a.agent_id::bigint as agent_id, a1.updated_at::bigint as agent_updated_at;
 END;
 $$ LANGUAGE 'plpgsql';
 
 
 select *
-from cc_reserved_agent_for_attempt('ddd');
+from cc_reserved_agent_for_attempt('node-1');
 
+select *
+from cc_member_attempt
+order by id desc ;
+
+
+select *
+from cc_member
+where id = 41206;
+
+update cc_member
+set name = 'TODO-NAME-DB'
+where 1= 1;
 
 update cc_member_attempt
 set state = 7,
     hangup_at = 0,
-    agent_ids = null
+    agent_id = null
 where id = 6745664;
 
 select * from cc_member_attempt

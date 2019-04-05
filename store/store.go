@@ -76,6 +76,7 @@ type MemberStore interface {
 	SetAttemptState(id int64, state int) StoreChannel
 	SetBridged(id, bridgedAt int64, legAId, legBId *string) StoreChannel
 	ActiveCount(queue_id int64) StoreChannel
+	SetAttemptAgentId(attemptId int64, agentId *int64) StoreChannel
 
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) StoreChannel
 	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) StoreChannel

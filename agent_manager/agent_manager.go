@@ -23,7 +23,7 @@ type AgentManagerImpl struct {
 	nodeId          string
 	startOnce       sync.Once
 	agentsCache     utils.ObjectCache
-	agentsInAttempt chan AgentsInAttemptObject
+	agentsInAttempt chan AgentInAttemptObject
 	sync.Mutex
 }
 
@@ -32,7 +32,7 @@ func NewAgentManager(nodeId string, s store.Store) AgentManager {
 	agentManager.store = s
 	agentManager.nodeId = nodeId
 	agentManager.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
-	agentManager.agentsInAttempt = make(chan AgentsInAttemptObject)
+	agentManager.agentsInAttempt = make(chan AgentInAttemptObject)
 	return &agentManager
 }
 
@@ -49,8 +49,8 @@ func (agentManager *AgentManagerImpl) Stop() {
 }
 
 func (agentManager *AgentManagerImpl) PollAndNotify() {
-
 	result := <-agentManager.store.Agent().ReservedForAttemptByNode(agentManager.nodeId)
+
 	if result.Err != nil {
 		mlog.Error(result.Err.Error())
 		time.Sleep(time.Second * 5)
@@ -58,12 +58,19 @@ func (agentManager *AgentManagerImpl) PollAndNotify() {
 	}
 
 	for _, v := range result.Data.([]*model.AgentsForAttempt) {
-		agentManager.GetAgents(v.AgentIds)
-		//agentManager.agentsInAttempt <- NewAgentsInAttempt(v)
+		if agent, err := agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt); err != nil {
+			mlog.Error(fmt.Sprintf("Get agent Id=%d for AttemptId=%d error: %s", v.AgentId, v.AttemptId, err.Error()))
+			if result := <-agentManager.store.Member().SetAttemptAgentId(v.AttemptId, nil); result.Err != nil {
+				mlog.Error(result.Err.Error())
+			}
+			continue
+		} else {
+			agentManager.agentsInAttempt <- NewAgentInAttempt(agent, v.AttemptId)
+		}
 	}
 }
 
-func (agentManager *AgentManagerImpl) GetAgent(id int64) (AgentObject, *model.AppError) {
+func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (AgentObject, *model.AppError) {
 	agentManager.Lock()
 	defer agentManager.Unlock()
 
@@ -71,31 +78,17 @@ func (agentManager *AgentManagerImpl) GetAgent(id int64) (AgentObject, *model.Ap
 	item, ok := agentManager.agentsCache.Get(id)
 	if ok {
 		agent, ok = item.(AgentObject)
-		return agent, nil
+		if ok && !agent.IsExpire(updatedAt) {
+			return agent, nil
+		}
 	}
 
 	if result := <-agentManager.store.Agent().Get(id); result.Err != nil {
 		return nil, result.Err
 	} else {
-		agent = result.Data.(AgentObject)
+		agent = NewAgent(result.Data.(*model.Agent))
 	}
 	agentManager.agentsCache.AddWithDefaultExpires(id, agent)
-	mlog.Debug(fmt.Sprintf("Add agent to cache %v", agent))
+	mlog.Debug(fmt.Sprintf("Add agent to cache %v", agent.Name()))
 	return agent, nil
-}
-
-func (agentManager *AgentManagerImpl) GetAgents(ids []int64) ([]AgentObject, *model.AppError) {
-	var agent AgentObject
-	var err *model.AppError
-	agents := make([]AgentObject, len(ids), len(ids))
-
-	for _, id := range ids {
-		if agent, err = agentManager.GetAgent(id); err != nil {
-			return nil, err
-		} else {
-			agents = append(agents, agent)
-		}
-
-	}
-	return agents, nil
 }

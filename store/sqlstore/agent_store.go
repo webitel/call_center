@@ -21,7 +21,7 @@ func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) store.StoreChanne
 	return store.Do(func(result *store.StoreResult) {
 
 		var agentsInAttempt []*model.AgentsForAttempt
-		if _, err := s.GetMaster().Select(&agentsInAttempt, `select a.attempt_id, a.agent_ids 
+		if _, err := s.GetMaster().Select(&agentsInAttempt, `select a.attempt_id, a.agent_id, a.agent_updated_at
 			from cc_reserved_agent_for_attempt($1) a`, nodeId); err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 				map[string]interface{}{"Error": err.Error()},

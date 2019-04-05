@@ -8,7 +8,6 @@ Least Occupied Agent(LOA) - найменш занятий оператор
 
 const (
 	AGENT_STRATEGY_LONGEST_IDLE_TIME = "longest-idle-time" // +
-	AGENT_STRATYGY_RING_ALL          = "ring-all"          // +
 	AGENT_STRATYGY_ROUND_ROBIN       = "round-robin"       // +
 	AGENT_STRATYGY_TOP_DOWN          = "top-down"          // ?
 	AGENT_STRATYGY_LEAST_TALK_TIME   = "least-talk-time"   // +
@@ -26,11 +25,13 @@ type Agent struct {
 	BusyDelayTime     int    `json:"busy_delay_time" db:"busy_delay_time"`
 	NoAnswerDelayTime int    `json:"no_answer_delay_time" db:"no_answer_delay_time"`
 	UserId            *int64 `json:"user_id" db:"user_id"`
+	UpdatedAt         int64  `json:"updated_at" db:"updated_at"`
 }
 
 type AgentsForAttempt struct {
-	AttemptId int64      `json:"attempt_id" db:"attempt_id"`
-	AgentIds  Int64Array `json:"agent_ids" db:"agent_ids"`
+	AttemptId      int64 `json:"attempt_id" db:"attempt_id"`
+	AgentId        int64 `json:"agent_id" db:"agent_id"`
+	AgentUpdatedAt int64 `json:"agent_updated_at" db:"agent_updated_at"`
 }
 
 type AgentStats struct {

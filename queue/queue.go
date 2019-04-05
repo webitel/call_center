@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"net/http"
 )
@@ -11,7 +12,7 @@ type QueueObject interface {
 	IsExpire(int64) bool
 
 	JoinAttempt(attempt *Attempt)
-	FoundAgentForAttempt(attempt *Attempt)
+	RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject)
 	Variables() map[string]string
 	Domain() string
 	Id() int
@@ -50,6 +51,10 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			BaseQueue: base,
 			params:    voiceSettings.QueueDialingSettings,
 		}, voiceSettings.Amd), nil
+	case model.QUEUE_TYPE_PREVIEW:
+		return NewPreviewCallQueue(CallingQueue{
+			BaseQueue: base,
+		}), nil
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
@@ -74,6 +79,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "Inbound"
 	case model.QUEUE_TYPE_VOICE_BROADCAST:
 		return "Voice"
+	case model.QUEUE_TYPE_PREVIEW:
+		return "Preview"
 	default:
 		return "NOT_IMPLEMENT"
 	}

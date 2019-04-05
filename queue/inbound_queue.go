@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"math/rand"
@@ -18,7 +19,7 @@ func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject 
 	}
 }
 
-func (voice *InboundQueue) FoundAgentForAttempt(attempt *Attempt) {
+func (voice *InboundQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
 	fmt.Println("OK-TODO")
 }
 
