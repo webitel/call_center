@@ -37,6 +37,10 @@ func (s *LayeredStore) RunQuery(queryFunction QueryFunction) StoreChannel {
 	return storeChannel
 }
 
+func (s *LayeredStore) Cluster() ClusterStore {
+	return s.DatabaseLayer.Cluster()
+}
+
 func (s *LayeredStore) Session() SessionStore {
 	return s.DatabaseLayer.Session()
 }

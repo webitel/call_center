@@ -23,18 +23,12 @@ func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt, agent ag
 	panic(`Broadcast queue not reserve agents`)
 }
 
-func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
+func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt, resource ResourceObject) {
 	attempt.info = &AttemptInfoCall{}
 
-	if attempt.member.ResourceId == nil || attempt.member.ResourceUpdatedAt == nil {
-		//todo
-		panic(123)
-	}
-
-	r, e := voice.resourceManager.Get(*attempt.member.ResourceId, *attempt.member.ResourceUpdatedAt)
-	if e != nil {
-		//todo
-		panic(e.Error())
+	if resource == nil {
+		//TODO
+		panic(11)
 	}
 
 	if attempt.GetCommunicationPattern() == nil {
@@ -49,7 +43,7 @@ func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 		panic(e)
 	}
 
-	go voice.makeCall(attempt, r.(ResourceObject), endpoint)
+	go voice.makeCall(attempt, resource, endpoint)
 }
 
 func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceObject, endpoint *Endpoint) {

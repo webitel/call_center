@@ -39,6 +39,14 @@ func (a *Attempt) QueueUpdatedAt() int64 {
 	return a.member.QueueUpdatedAt
 }
 
+func (a *Attempt) ResourceId() *int64 {
+	return a.member.ResourceId
+}
+
+func (a *Attempt) ResourceUpdatedAt() *int64 {
+	return a.member.ResourceUpdatedAt
+}
+
 func (a *Attempt) Name() string {
 	return a.member.Name
 }

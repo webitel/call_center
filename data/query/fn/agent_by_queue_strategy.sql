@@ -228,3 +228,5 @@ select *
 from reserve_members_with_resources('test');
 
 truncate table cc_member_attempt;
+
+

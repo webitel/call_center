@@ -38,6 +38,7 @@ type SqlSupplierOldStores struct {
 	member           store.MemberStore
 	outboundResource store.OutboundResourceStore
 	agent            store.AgentStore
+	cluster          store.ClusterStore
 }
 
 type SqlSupplier struct {
@@ -61,6 +62,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 
 	supplier.initConnection()
 
+	supplier.oldStores.cluster = NewSqlClusterStore(supplier)
 	supplier.oldStores.session = NewSqlSessionStore(supplier)
 	supplier.oldStores.calendar = NewSqlCalendarStore(supplier)
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
@@ -176,6 +178,10 @@ func (ss *SqlSupplier) GetReplica() *gorp.DbMap {
 
 func (ss *SqlSupplier) DriverName() string {
 	return *ss.settings.DriverName
+}
+
+func (ss *SqlSupplier) Cluster() store.ClusterStore {
+	return ss.oldStores.cluster
 }
 
 func (ss *SqlSupplier) Session() store.SessionStore {

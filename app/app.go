@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
 	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/externalCommands/grpc"
@@ -31,6 +32,7 @@ type App struct {
 	config           atomic.Value
 	sessionCache     *utils.Cache
 	newStore         func() store.Store
+	cluster          cluster.Cluster
 	engine           engine.Engine
 	dialing          queue.Dialing
 	agentManager     agent_manager.AgentManager
@@ -93,6 +95,12 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
+	app.cluster = cluster.NewCluster(*app.id, app.Store)
+	if err := app.cluster.Setup(); err != nil {
+		return nil, errors.Wrapf(err, "unable to initialize cluster")
+	}
+	app.cluster.Start()
+
 	app.engine = engine.NewEngine(*app.id, app.Store)
 	app.engine.Start()
 
@@ -112,9 +120,20 @@ func (app *App) IsReady() bool {
 
 func (app *App) Shutdown() {
 	mlog.Info("Stopping Server...")
-	app.engine.Stop()
-	app.dialing.Stop()
-	app.agentManager.Stop()
+	app.cluster.Stop()
+
+	if app.engine != nil {
+		app.engine.Stop()
+	}
+
+	if app.dialing != nil {
+		app.dialing.Stop()
+	}
+
+	if app.agentManager != nil {
+		app.agentManager.Stop()
+	}
+
 	app.MQ.Close()
 	app.ExternalCommands.Close()
 }

@@ -36,6 +36,7 @@ func Must(sc StoreChannel) interface{} {
 }
 
 type Store interface {
+	Cluster() ClusterStore
 	Session() SessionStore
 	Queue() QueueStore
 	Calendar() CalendarStore
@@ -46,6 +47,11 @@ type Store interface {
 
 type SessionStore interface {
 	Get(sessionIdOrToken string) StoreChannel
+}
+
+type ClusterStore interface {
+	CreateOrUpdate(nodeId string) StoreChannel
+	UpdateUpdatedTime(nodeId string) StoreChannel
 }
 
 type CalendarStore interface {

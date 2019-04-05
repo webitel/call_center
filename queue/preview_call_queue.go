@@ -23,7 +23,12 @@ func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt, agent age
 	preview.queueManager.LeavingMember(attempt, preview)
 }
 
-func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
+func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt, resource ResourceObject) {
+	if resource == nil {
+		//TODO
+		panic(11)
+	}
+
 	attempt.info = &AttemptInfoCall{}
 
 	err := preview.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_FIND_AGENT)

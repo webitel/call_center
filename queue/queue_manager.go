@@ -166,7 +166,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
 	queueManager.wg.Add(1)
-	queue.JoinAttempt(memberAttempt)
+	queue.JoinAttempt(memberAttempt, queueManager.GetAttemptResource(memberAttempt))
 	queueManager.notifyChangedQueueLength(queue)
 	mlog.Debug(fmt.Sprintf("Join member %s[%d] AttemptId=%d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }
@@ -177,4 +177,16 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
 	queueManager.notifyChangedQueueLength(queue)
+}
+
+func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {
+	if attempt.ResourceId() != nil && attempt.ResourceUpdatedAt() != nil {
+		resource, err := queueManager.resourceManager.Get(*attempt.ResourceId(), *attempt.ResourceUpdatedAt())
+		if err != nil {
+			mlog.Error(fmt.Sprintf("Attempt resource error: %s", err.Error()))
+		} else {
+			return resource
+		}
+	}
+	return nil
 }
