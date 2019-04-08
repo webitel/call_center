@@ -31,7 +31,7 @@ func (watcher *Watcher) Start() {
 	mlog.Debug(fmt.Sprintf("Watcher [%s] started", watcher.name))
 
 	rand.Seed(time.Now().UTC().UnixNano())
-	<-time.After(time.Duration(rand.Intn(watcher.pollingInterval)) * time.Millisecond)
+	//<-time.After(time.Duration(rand.Intn(watcher.pollingInterval)) * time.Millisecond)
 
 	defer func() {
 		mlog.Debug(fmt.Sprintf("Watcher [%s] finished", watcher.name))

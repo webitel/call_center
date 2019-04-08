@@ -27,6 +27,7 @@ func (s *LocalizationSettings) SetDefaults() {
 }
 
 type ServiceSettings struct {
+	NodeId                *string
 	ListenAddress         *string
 	ListenInternalAddress *string
 	SessionCacheInMinutes *int

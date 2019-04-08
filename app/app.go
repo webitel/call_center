@@ -42,7 +42,6 @@ func New(options ...string) (outApp *App, outErr error) {
 	rootRouter := mux.NewRouter()
 
 	app := &App{
-		id: model.NewString("node-1"),
 		Srv: &Server{
 			RootRouter: rootRouter,
 		},
@@ -67,6 +66,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	if err := app.LoadConfig(app.configFile); err != nil {
 		return nil, err
 	}
+	app.id = app.Config().ServiceSettings.NodeId
 	app.Log = mlog.NewLogger(&mlog.LoggerConfiguration{
 		EnableConsole: true,
 		ConsoleLevel:  mlog.LevelDebug,

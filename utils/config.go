@@ -31,6 +31,7 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			AvailableLocales:    model.NewString(model.DEFAULT_LOCALE),
 		},
 		ServiceSettings: model.ServiceSettings{
+			NodeId:                model.NewString("node-1"),
 			ListenAddress:         model.NewString(":10023"),
 			SessionCacheInMinutes: &sessionCacheInMinutes,
 		},
