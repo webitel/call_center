@@ -23,7 +23,7 @@ func (voice *InboundQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_man
 	fmt.Println("OK-TODO")
 }
 
-func (queue *InboundQueue) JoinAttempt(attempt *Attempt, resource ResourceObject) {
+func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
 	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_FIND_AGENT)
 	if err != nil {
 		panic(err.Error())

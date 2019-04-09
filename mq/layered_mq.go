@@ -21,8 +21,8 @@ func NewMQ(mq LayeredMQLayer) MQ {
 	}
 }
 
-func (l *LayeredMQ) Send(name string, data map[string]interface{}) *model.AppError {
-	return l.MQLayer.Send(name, data)
+func (l *LayeredMQ) SendJSON(name string, data []byte) *model.AppError {
+	return l.MQLayer.SendJSON(name, data)
 }
 
 func (l *LayeredMQ) Close() {
@@ -31,4 +31,8 @@ func (l *LayeredMQ) Close() {
 
 func (l *LayeredMQ) ConsumeCallEvent() <-chan Event {
 	return l.MQLayer.ConsumeCallEvent()
+}
+
+func (l *LayeredMQ) QueueEvent() QueueEvent {
+	return l.MQLayer.QueueEvent()
 }

@@ -14,7 +14,7 @@ type CallingQueue struct {
 	params model.QueueDialingSettings
 }
 
-func (queue *CallingQueue) RecordCall() bool {
+func (queue *CallingQueue) RecordCallEnabled() bool {
 	return queue.params.Recordings
 }
 
@@ -81,6 +81,8 @@ func (queue *CallingQueue) NewCallToMember(callRequest *model.CallRequest, routi
 
 func (queue *CallingQueue) CallError(attempt *Attempt, callErr *model.AppError, cause string) *model.AppError {
 	attempt.Log("error: " + callErr.Error())
+	info := queue.GetCallInfoFromAttempt(attempt)
+	info.Error = model.NewString(callErr.Error())
 	return queue.StopAttemptWithCallDuration(attempt, cause, 0)
 }
 

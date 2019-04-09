@@ -4,12 +4,15 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-type CalendarMQ interface {
-}
-
 type MQ interface {
-	Send(name string, data map[string]interface{}) *model.AppError
+	SendJSON(name string, data []byte) *model.AppError
 	Close()
 
 	ConsumeCallEvent() <-chan Event
+
+	QueueEvent() QueueEvent
+}
+
+type QueueEvent interface {
+	SendChangedLength(e *model.QueueEventCount) *model.AppError
 }

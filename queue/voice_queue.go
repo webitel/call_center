@@ -23,10 +23,10 @@ func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt, agent ag
 	panic(`Broadcast queue not reserve agents`)
 }
 
-func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt, resource ResourceObject) {
+func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 	attempt.info = &AttemptInfoCall{}
 
-	if resource == nil {
+	if attempt.resource == nil {
 		//TODO
 		panic(11)
 	}
@@ -43,11 +43,11 @@ func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt, resource Resourc
 		panic(e)
 	}
 
-	go voice.makeCall(attempt, resource, endpoint)
+	go voice.makeCall(attempt, endpoint)
 }
 
-func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceObject, endpoint *Endpoint) {
-	dst := endpoint.Parse(resource.GetDialString(), attempt.Destination())
+func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
+	dst := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
 	legB := fmt.Sprintf("999 XML default '%s' '%s'", "100", "100") //TODO
@@ -63,7 +63,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
 		Variables: model.UnionStringMaps(
-			resource.Variables(),
+			attempt.resource.Variables(),
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
@@ -77,14 +77,14 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_MEMBER,
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
-				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", resource.Id()),
+				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
 				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
 	}
 
-	if voice.RecordCall() {
+	if voice.RecordCallEnabled() {
 		voice.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
 		info.UseRecordings = true
 	}
@@ -107,7 +107,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, resource ResourceOb
 
 	info.LegAUri = dst
 	info.LegBUri = legB
-	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), resource)
+	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
 	if err != nil {
 		voice.CallError(attempt, err, cause)
 		voice.queueManager.LeavingMember(attempt, voice)

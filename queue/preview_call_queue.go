@@ -18,13 +18,17 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 
 func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
 	//panic(`FoundAgentForAttempt queue not reserve agents`)
+	if attempt.resource == nil {
+		panic(11) //todo
+	}
+
 	fmt.Println(agent.CallDestination())
 	preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 10)
 	preview.queueManager.LeavingMember(attempt, preview)
 }
 
-func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt, resource ResourceObject) {
-	if resource == nil {
+func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
+	if attempt.resource == nil {
 		//TODO
 		panic(11)
 	}
@@ -38,8 +42,13 @@ func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt, resource Resource
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}
+	attempt.Log("find agent")
 }
 
 func (preview *PreviewCallQueue) SetHangupCall(attempt *Attempt, event Event) {
+
+}
+
+func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_manager.AgentObject) {
 
 }

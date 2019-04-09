@@ -65,9 +65,37 @@ type QueueAmdSettings struct {
 	PlaybackFileUri         string `json:"playback_file_uri"`
 }
 
+type QueueCallbackSettings struct {
+	Enabled bool  `json:"enabled"`
+	Timeout int32 `json:"timeout"`
+}
+
+type QueueAgentsSettings struct {
+}
+
 type QueueVoiceSettings struct {
 	QueueDialingSettings
 	Amd *QueueAmdSettings `json:"amd"`
+}
+
+type QueuePreviewSettings struct {
+	QueueDialingSettings
+	Callback *QueueCallbackSettings `json:"callback"`
+	Agents   *QueueAgentsSettings   `json:"agents"`
+}
+
+type QueueProgressiveSettings struct {
+	QueueDialingSettings
+	Callback *QueueCallbackSettings `json:"callback"`
+	Agents   *QueueAgentsSettings   `json:"agents"`
+	Amd      *QueueAmdSettings      `json:"amd"`
+}
+
+type QueuePredictiveSettings struct {
+	QueueDialingSettings
+	Callback *QueueCallbackSettings `json:"callback"`
+	Agents   *QueueAgentsSettings   `json:"agents"`
+	Amd      *QueueAmdSettings      `json:"amd"`
 }
 
 func (queueSettings *QueueDialingSettings) InCauseSuccess(id string) bool {

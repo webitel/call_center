@@ -14,6 +14,7 @@ type App interface {
 	SetCallVariables(id string, variables map[string]string) *model.AppError
 
 	ConsumeCallEvent() <-chan mq.Event
+	SendEventQueueChangedLength(event *model.QueueEventCount) *model.AppError
 }
 
 type CallEvent interface {

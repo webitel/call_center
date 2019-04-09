@@ -21,6 +21,9 @@ from (
 inner join cc_agent a on a.id = ag.agent_id;
 
 
+select count(*)
+from cc_member_attempt;
+
 select * from available_agent_in_queue
 where agent_id = 1;
 

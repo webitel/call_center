@@ -122,6 +122,33 @@ $$ LANGUAGE 'plpgsql';
 select cc_set_attempt_error(6695842, 1231, '{}', 'aaaa');
 
 
+select count(*)
+from cc_member_communications c,
+     lateral (
+      select * from cc_member_attempt a
+      where a.communication_id = c.id
+       order by hangup_at desc
+       limit 1
+       )a
+;
+
+select *
+from cc_member_communications
+where id = 121500;
+
+select * --count(*)
+from cc_member_attempt
+where not id in (
+  select a.id
+  from cc_member_communications c,
+     lateral (
+      select * from cc_member_attempt a
+      where a.communication_id = c.id
+       order by hangup_at desc
+       limit 1
+       )a
+  );
+
 select *
 from cc_member_attempt
 order by id desc ;

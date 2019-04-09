@@ -12,9 +12,10 @@ type AttemptInfo interface {
 }
 
 type Attempt struct {
-	member *model.MemberAttempt
-	info   AttemptInfo
-	logs   []LogItem
+	member   *model.MemberAttempt
+	resource ResourceObject
+	info     AttemptInfo
+	logs     []LogItem
 }
 
 type LogItem struct {
@@ -98,4 +99,9 @@ func (a *Attempt) LogsData() []byte {
 	}
 	data, _ := json.Marshal(a.logs)
 	return data
+}
+
+func (a *Attempt) ToJSON() string {
+	data, _ := json.Marshal(a)
+	return string(data)
 }

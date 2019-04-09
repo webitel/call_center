@@ -32,6 +32,7 @@ type AMQP struct {
 	connectionAttempts int
 	stopping           bool
 	callEvent          chan mq.Event
+	queueEvent         mq.QueueEvent
 }
 
 func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
@@ -40,9 +41,14 @@ func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
 		callEvent: make(chan mq.Event),
 		nodeName:  nodeName,
 	}
+	mq_.queueEvent = NewQueueMQ(mq_)
 	mq_.initConnection()
 
 	return mq_
+}
+
+func (a *AMQP) QueueEvent() mq.QueueEvent {
+	return a.queueEvent
 }
 
 func (a *AMQP) initConnection() {
@@ -183,7 +189,21 @@ func (a *AMQP) UnBind(uuid string) *model.AppError {
 	return nil
 }
 
-func (a *AMQP) Send(name string, data map[string]interface{}) *model.AppError {
+func (a *AMQP) SendJSON(name string, data []byte) *model.AppError {
+	err := a.channel.Publish(
+		model.EXCHANGE_MQ,
+		name,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "text/json",
+			Body:        data,
+		},
+	)
+	if err != nil {
+		return model.NewAppError("SendJSON", "mq.send_json.app_error", nil, "",
+			http.StatusInternalServerError)
+	}
 	return nil
 }
 
@@ -193,4 +213,8 @@ func (a *AMQP) ConsumeCallEvent() <-chan mq.Event {
 
 func makeRK(uuid string) string {
 	return fmt.Sprintf("*.*.*.*.%s", uuid)
+}
+
+func (a *AMQP) getId(name string) string {
+	return model.MQ_EVENT_PREFIX + "." + a.nodeName + "." + name
 }

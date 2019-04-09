@@ -11,7 +11,7 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 
-	JoinAttempt(attempt *Attempt, resource ResourceObject)
+	JoinAttempt(attempt *Attempt)
 	RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject)
 	Variables() map[string]string
 	Domain() string

@@ -34,6 +34,14 @@ DECLARE
     v_cnt integer;
 BEGIN
     count = 0;
+
+
+    if NOT pg_try_advisory_xact_lock(13213211) then
+      raise notice 'LOCK';
+      return 0;
+    end if;
+
+
     FOR rec IN SELECT r.*, cc_queue_timing_communication_ids(r.queue_id) as type_ids
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
@@ -84,9 +92,15 @@ END;
 $$ LANGUAGE plpgsql;
 
 select *
+from cc_member_attempt a
+order by a.id desc ;
+
+
+select member_id, count(*)
 from cc_member_attempt
-order by id desc
-limit 100
+group by member_id
+having count(*) > 1
+--order by id desc
 ;
 
 
@@ -106,6 +120,12 @@ DECLARE
     v_cnt integer;
 BEGIN
     count = 0;
+
+    if NOT pg_try_advisory_xact_lock(13213211) then
+      raise notice 'LOCK';
+      return 0;
+    end if;
+
     FOR rec IN SELECT r.*, array_agg(cqt.communication_id) as type_ids
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
@@ -237,6 +257,20 @@ from (
 ) t
 where t.d =1
 limit 100;
+
+
+select *
+from cc_member_attempt
+order by id desc ;
+
+update cc_member
+set stop_at =0,
+    attempts = 0,
+    last_hangup_at = 0
+
+where 1=1;
+
+truncate table cc_member_attempt;
 
 select cc_test_pair(c)
 from cc_member_communications c;
