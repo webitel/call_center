@@ -6,13 +6,13 @@ import (
 )
 
 type RQueueEventMQ struct {
-	amqp *AMQP
+	amqp mq.MQ
 }
 
-func NewQueueMQ(amqp *AMQP) mq.QueueEvent {
+func NewQueueMQ(amqp mq.MQ) mq.QueueEvent {
 	return &RQueueEventMQ{amqp}
 }
 
 func (r RQueueEventMQ) SendChangedLength(e *model.QueueEventCount) *model.AppError {
-	return r.amqp.SendJSON(r.amqp.getId(model.MQ_QUEUE_COUNT_EVENT_PREFIX), []byte(e.ToJSON()))
+	return r.amqp.SendJSON(getId(model.MQ_QUEUE_COUNT_EVENT_PREFIX), []byte(e.ToJSON()))
 }

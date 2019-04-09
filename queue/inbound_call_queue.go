@@ -20,6 +20,7 @@ func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject 
 }
 
 func (voice *InboundQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
+	Assert(agent)
 	fmt.Println("OK-TODO")
 }
 

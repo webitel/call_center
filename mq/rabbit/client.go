@@ -68,11 +68,12 @@ func (a *AMQP) initConnection() {
 	} else {
 		a.connectionAttempts = 0
 		a.channel, err = a.connection.Channel()
-		a.initQueues()
 		if err != nil {
 			mlog.Critical(fmt.Sprintf("Failed to open AMQP channel to err:%v", err.Error()))
 			time.Sleep(time.Second)
 			os.Exit(1)
+		} else {
+			a.initQueues()
 		}
 	}
 }
@@ -171,28 +172,10 @@ func (a *AMQP) Close() {
 	}
 }
 
-func (a *AMQP) Bind(uuid string) *model.AppError {
-	err := a.channel.QueueBind(model.QUEUE_MQ, makeRK(uuid), model.EXCHANGE_MQ, true, nil)
-	if err != nil {
-		return model.NewAppError("Bind", "mq.bind.app_error", nil, "",
-			http.StatusInternalServerError)
-	}
-	return nil
-}
-
-func (a *AMQP) UnBind(uuid string) *model.AppError {
-	err := a.channel.QueueUnbind(model.QUEUE_MQ, makeRK(uuid), model.EXCHANGE_MQ, nil)
-	if err != nil {
-		return model.NewAppError("Bind", "mq.bind.app_error", nil, "",
-			http.StatusInternalServerError)
-	}
-	return nil
-}
-
-func (a *AMQP) SendJSON(name string, data []byte) *model.AppError {
+func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	err := a.channel.Publish(
 		model.EXCHANGE_MQ,
-		name,
+		key,
 		false,
 		false,
 		amqp.Publishing{
@@ -211,10 +194,6 @@ func (a *AMQP) ConsumeCallEvent() <-chan mq.Event {
 	return a.callEvent
 }
 
-func makeRK(uuid string) string {
-	return fmt.Sprintf("*.*.*.*.%s", uuid)
-}
-
-func (a *AMQP) getId(name string) string {
-	return model.MQ_EVENT_PREFIX + "." + a.nodeName + "." + name
+func getId(name string) string {
+	return model.MQ_EVENT_PREFIX + "." + name
 }

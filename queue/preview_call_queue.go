@@ -17,10 +17,7 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 }
 
 func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
-	//panic(`FoundAgentForAttempt queue not reserve agents`)
-	if attempt.resource == nil {
-		panic(11) //todo
-	}
+	Assert(agent)
 
 	fmt.Println(agent.CallDestination())
 	preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 10)
@@ -28,10 +25,7 @@ func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt, agent age
 }
 
 func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
-	if attempt.resource == nil {
-		//TODO
-		panic(11)
-	}
+	Assert(attempt.resource)
 
 	attempt.info = &AttemptInfoCall{}
 

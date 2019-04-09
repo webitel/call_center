@@ -26,6 +26,7 @@ type Agent struct {
 	NoAnswerDelayTime int    `json:"no_answer_delay_time" db:"no_answer_delay_time"`
 	UserId            *int64 `json:"user_id" db:"user_id"`
 	UpdatedAt         int64  `json:"updated_at" db:"updated_at"`
+	Destination       string `json:"destination" db:"destination"`
 }
 
 type AgentsForAttempt struct {

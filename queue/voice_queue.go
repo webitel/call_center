@@ -24,12 +24,9 @@ func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt, agent ag
 }
 
 func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
-	attempt.info = &AttemptInfoCall{}
+	Assert(attempt.resource)
 
-	if attempt.resource == nil {
-		//TODO
-		panic(11)
-	}
+	attempt.info = &AttemptInfoCall{}
 
 	if attempt.GetCommunicationPattern() == nil {
 		//todo

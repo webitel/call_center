@@ -36,7 +36,8 @@ func (s SqlAgentStore) Get(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var agent *model.Agent
 		if err := s.GetReplica().SelectOne(&agent, `
-			select * from cc_agent where id = :Id		
+			select id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination 
+			from cc_agent where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
 				result.Err = model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
