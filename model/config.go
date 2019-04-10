@@ -51,7 +51,7 @@ type MQSettings struct {
 }
 
 type ExternalCommandsSettings struct {
-	Url *string
+	Urls []string
 }
 
 type Config struct {

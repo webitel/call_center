@@ -22,17 +22,23 @@ type CommandsImpl struct {
 func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Commands {
 	var opts []grpc.DialOption
 
-	if settings.Url == nil {
-		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", *settings.Url))
+	if len(settings.Urls) == 0 {
+		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", settings.Urls))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
 
-	opts = append(opts, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(10*time.Second))
-	client, err := grpc.Dial(*settings.Url, opts...)
+	opts = append(opts,
+		grpc.WithInsecure(),
+		grpc.WithBlock(),
+		grpc.WithTimeout(10*time.Second),
+		grpc.WithBalancer(grpc.RoundRobin(NewPseudoResolver(settings.Urls))),
+	)
+
+	client, err := grpc.Dial("dummy", opts...)
 
 	if err != nil {
-		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", *settings.Url))
+		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", settings.Urls))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -48,7 +54,7 @@ func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Comma
 		mlog.Info(version)
 	}
 
-	mlog.Debug(fmt.Sprintf("Success open grpc connection %v", *settings.Url))
+	mlog.Debug(fmt.Sprintf("Success open grpc connection %v", settings.Urls))
 	return r
 }
 
