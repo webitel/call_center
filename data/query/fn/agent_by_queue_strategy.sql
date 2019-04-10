@@ -139,16 +139,25 @@ $$ LANGUAGE 'plpgsql';
 
 
 select *
+from cc_member_attempt
+order by id desc;
+
+
+select *
 from cc_reserved_agent_for_attempt('node-1');
 
 select *
 from cc_member_attempt
+where state <>-1
 order by id desc ;
 
+
+truncate table cc_member_attempt;
 
 select *
 from cc_member
 where id = 41206;
+
 
 update cc_member
 set name = 'TODO-NAME-DB'

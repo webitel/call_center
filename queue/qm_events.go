@@ -11,6 +11,7 @@ func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject)
 }
 
 func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
+	//TODO
 	res := <-queueManager.store.Member().ActiveCount(int64(queue.Id()))
 
 	if res.Err != nil {

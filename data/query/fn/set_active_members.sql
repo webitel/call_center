@@ -66,7 +66,9 @@ $$ LANGUAGE 'plpgsql';
 
 select *
 from cc_member_attempt
+where state <> -1 and hangup_at <> 0
 order by id desc ;
+
 
 truncate table cc_member_attempt;
 select *

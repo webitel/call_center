@@ -121,6 +121,24 @@ $$ LANGUAGE 'plpgsql';
 
 select cc_set_attempt_error(6695842, 1231, '{}', 'aaaa');
 
+-- need calls to member
+select *
+from cc_member m,
+     lateral ( select *
+     from cc_member_communications c
+     where c.member_id = m.id and c.state = 0
+     order by c.last_hangup_at asc
+     limit 1
+     ) as c
+where m.stop_at = 0 and m.queue_id = 1;
+
+update cc_member_communicationsst
+set state = 0, last_hangup_at = 0
+where 1=1;
+
+update cc_member
+set  stop_at = 0
+where queue_id=1;
 
 select count(*)
 from cc_member_communications c,

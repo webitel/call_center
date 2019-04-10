@@ -1,26 +1,34 @@
 package utils
 
 import (
+	"fmt"
+	"github.com/webitel/call_center/model"
+	"go.uber.org/atomic"
 	"sync"
-	"time"
 )
 
 //https://github.com/uber-go/ratelimit
 //https://github.com/golang/go/wiki/RateLimiting
 type RateLimiter struct {
-	rate    time.Duration
-	lastGet int64
+	rate    int
+	nextGet atomic.Int64
 	sync.Mutex
 }
 
 func NewRateLimiter(perSec int) *RateLimiter {
 	return &RateLimiter{
-		rate: (time.Second / time.Duration(perSec)),
+		rate: perSec,
 	}
 }
 
-func (limiter *RateLimiter) Throttle() {
+func (limiter *RateLimiter) Throttle() bool {
 	limiter.Lock()
 	defer limiter.Unlock()
+	fmt.Println(limiter.nextGet.Load(), model.GetMillis())
+	if limiter.nextGet.Load() < model.GetMillis() {
+		limiter.nextGet.Store((model.GetMillis() + (int64(limiter.rate) * 1000)))
+		return true
+	}
 
+	return false
 }

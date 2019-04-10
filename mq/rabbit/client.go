@@ -173,6 +173,7 @@ func (a *AMQP) Close() {
 }
 
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
+	//todo, check connection
 	err := a.channel.Publish(
 		model.EXCHANGE_MQ,
 		key,
@@ -184,7 +185,7 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 		},
 	)
 	if err != nil {
-		return model.NewAppError("SendJSON", "mq.send_json.app_error", nil, "",
+		return model.NewAppError("SendJSON", "mq.send_json.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
 	}
 	return nil

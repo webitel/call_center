@@ -89,7 +89,7 @@ func (s SqlMemberStore) SetBridged(id, bridgedAt int64, legAId, legBId *string) 
 				bridged_at = :BridgedAt,
 				leg_a_id = coalesce(leg_a_id, :LegAId),
 				leg_b_id = coalesce(leg_b_id, :LegBId)
-			where id = :Id`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_ACTIVE, "BridgedAt": bridgedAt,
+			where id = :Id and hangup_at = 0`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_ACTIVE, "BridgedAt": bridgedAt,
 			"LegAId": legAId, "LegBId": legBId}); err != nil {
 			result.Err = model.NewAppError("SqlMemberStore.SettBridged", "store.sql_member.set_bridged.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)

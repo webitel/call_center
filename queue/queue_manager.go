@@ -170,15 +170,16 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	memberAttempt.resource = queueManager.GetAttemptResource(memberAttempt)
 	queue.JoinAttempt(memberAttempt)
 	queueManager.notifyChangedQueueLength(queue)
+
 	mlog.Debug(fmt.Sprintf("Join member %s[%d] AttemptId=%d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
-	mlog.Debug(fmt.Sprintf("Leaving member %s[%d] AttemptId=%d from queue %s", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
-
 	queueManager.membersCache.Remove(attempt.Id())
+	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
-	queueManager.notifyChangedQueueLength(queue)
+
+	mlog.Debug(fmt.Sprintf("Leaving member %s[%d] AttemptId=%d from queue %s", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {

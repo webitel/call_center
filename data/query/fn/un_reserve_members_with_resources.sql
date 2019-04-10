@@ -7,7 +7,7 @@ BEGIN
       set state  = -1,
           hangup_at = ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint,
           result = res
-    where hangup_at = 0 and node_id = node;
+    where hangup_at = 0 and node_id = node and state = 0;
 
     get diagnostics count = row_count;
     return count;

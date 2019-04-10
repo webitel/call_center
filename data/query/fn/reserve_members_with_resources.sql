@@ -46,7 +46,6 @@ BEGIN
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
       where r.call_count > 0
-
       group by r.queue_id, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
       order by q.priority desc
     LOOP
@@ -68,7 +67,7 @@ BEGIN
                   where a.member_id = cm.id and a.state > 0
                 )
                 and cm.last_hangup_at < ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint
-                                          - (rec.sec_between_retries  * 60 * 1000)
+                                          - (rec.sec_between_retries * 1000)
                 and cm.stop_at = 0
                 and cm.queue_id = rec.queue_id
 
@@ -91,10 +90,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+explain analyse
 select *
 from cc_member_attempt a
+where state > 0 and hangup_at != 0
 order by a.id desc ;
 
+select count(*)
+from cc_member_attempt;
+
+select *
+from cc_member_attempt
+where state != -1;
 
 select member_id, count(*)
 from cc_member_attempt
@@ -103,6 +110,23 @@ having count(*) > 1
 --order by id desc
 ;
 
+
+
+select count(*)
+from cc_member m
+where m.stop_at = 0 and m.queue_id = 1 and exists(
+    select *
+    from cc_member_communications c
+    where c.member_id = m.id and c.state = 0
+  );
+
+update cc_member_communications
+set  attempts= 0, state = 0
+where 1=1;
+
+select *
+from cc_member_communications
+where member_id = 81;
 
 select proname,prosrc from pg_proc where proname= 'reserve_members_with_resources';
 
@@ -800,3 +824,40 @@ where member_id in (select id from cc_member where stop_at > 0 );
 
 
 delete from cc_tst where member_id = 50036
+
+
+
+;
+        select
+             *
+        from (
+               select c.id as communication_id, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
+               from cc_member cm
+                      cross join cc_member_communications c
+               where not exists(
+                   select *
+                   from cc_member_attempt a
+                   where a.member_id = cm.id
+                     and a.state > 0
+                 )
+                 and cm.last_hangup_at < ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint
+                 - (1 * 60 * 1000)
+                 and cm.stop_at = 0
+
+                 and cm.queue_id = 1
+
+                 and c.state = 0
+                 and ((c.communication_id = any (array [1])) or c.communication_id isnull)
+                 and c.member_id = cm.id
+                 -- and c.routing_ids && rec.routing_ids
+
+               order by cm.priority desc
+               limit 300
+             ) a;
+
+vacuum full cc_member_communications;
+
+update cc_member
+set stop_at = 0
+where queue_id = 1;
+
