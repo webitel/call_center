@@ -52,6 +52,38 @@ func (s SqlAgentStore) Get(id int64) store.StoreChannel {
 	})
 }
 
+func (s SqlAgentStore) SetLogin(agentId int64) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var agent *model.Agent
+		if err := s.GetMaster().SelectOne(&agent, `update cc_agent a
+			set logged = true
+			where a.id = :AgentId
+			returning id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination `,
+			map[string]interface{}{"AgentId": agentId}); err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.SetLogin", "store.sql_agent.set_login.app_error", nil,
+				fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = agent
+		}
+	})
+}
+
+func (s SqlAgentStore) SetLogout(agentId int64) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var agent *model.Agent
+		if err := s.GetMaster().SelectOne(&agent, `update cc_agent a
+			set logged = false
+			where a.id = :AgentId
+			returning  id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination `,
+			map[string]interface{}{"AgentId": agentId}); err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.SetLogout", "store.sql_agent.set_logout.app_error", nil,
+				fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = agent
+		}
+	})
+}
+
 func (s SqlAgentStore) SetState(agentId int64, state string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var agentState *model.AgentState

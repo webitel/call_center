@@ -14,6 +14,7 @@ type RoutesPublic struct {
 
 	Calendar          *mux.Router // 'api/v2/calendars'
 	OutboundResources *mux.Router // 'api/v2/resources'
+	Agents            *mux.Router // /agent
 }
 
 type API struct {
@@ -31,9 +32,11 @@ func Init(a *app.App, root *mux.Router) *API {
 
 	api.Routes.Calendar = api.Routes.ApiRoot.PathPrefix("/calendars").Subrouter()
 	api.Routes.OutboundResources = api.Routes.ApiRoot.PathPrefix("/resources").Subrouter()
+	api.Routes.Agents = api.Routes.ApiRoot.PathPrefix("/agents").Subrouter()
 
 	api.InitCalendar()
 	api.InitOutboundResources()
+	api.InitAgents()
 	return api
 }
 

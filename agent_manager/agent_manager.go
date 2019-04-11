@@ -97,6 +97,7 @@ func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state str
 	if result := <-agentManager.store.Agent().SetState(agent.Id(), state); result.Err != nil {
 		return result.Err
 	}
+	agentManager.notifyChangeAgentState(agent, state)
 	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), state))
 	return nil
 }

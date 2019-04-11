@@ -1,7 +1,5 @@
 package agent_manager
 
-import "fmt"
-
-func (agentManager *AgentManagerImpl) notifyChangeAgentState(agent Agent, state string) {
-	fmt.Println()
+func (agentManager *AgentManagerImpl) notifyChangeAgentState(agent AgentObject, state string) {
+	//fmt.Println(agent)
 }

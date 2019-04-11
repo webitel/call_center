@@ -47,7 +47,7 @@ func (s SqlOutboundResourceStore) GetAllPage(filter string, offset, limit int, s
 		}
 
 		if _, err := s.GetReplica().Select(&resources,
-			`SELECT id, "limit", enabled, priority, rps, reserve, name
+			`SELECT id, "limit", enabled, rps, reserve, name
 			FROM get_outbound_resources(:Filter::text, :OrderByField::text, :OrderType, :Limit, :Offset)
 			`, q); err != nil {
 			result.Err = model.NewAppError("SqlOutboundResourceStore.GetAllPage", "store.sql_outbound_resource.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)

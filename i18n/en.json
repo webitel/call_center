@@ -24,6 +24,14 @@
     "translation": "Invalid or missing {{.Name}} in request body"
   },
 
+  {
+    "id": "app.agent.set_login.agent_logged",
+    "translation": "Agent logged"
+  },
+  {
+    "id": "app.agent.set_logout.agent_logged_out",
+    "translation": "Agent logged out"
+  },
 
   {
     "id": "utils.file.locally.create_dir.app_error",
