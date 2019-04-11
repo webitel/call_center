@@ -1,28 +1,18 @@
 package agent_manager
 
-import "github.com/webitel/call_center/model"
+import (
+	"fmt"
+	"github.com/webitel/call_center/model"
+)
 
 type Agent struct {
 	info *model.Agent
-}
-
-type AgentInAttempt struct {
-	agent     AgentObject
-	attemptId int64
 }
 
 func NewAgent(info *model.Agent) AgentObject {
 	return &Agent{
 		info: info,
 	}
-}
-
-func NewAgentInAttempt(agent AgentObject, attemptId int64) AgentInAttemptObject {
-	a := &AgentInAttempt{
-		attemptId: attemptId,
-		agent:     agent,
-	}
-	return a
 }
 
 func (agent *Agent) Name() string {
@@ -41,14 +31,17 @@ func (agent *Agent) CallDestination() string {
 	return "user/9999@10.10.10.144"
 }
 
-func (aia *AgentInAttempt) Agent() AgentObject {
-	return aia.agent
+func (agent *Agent) CallError(err *model.AppError, cause string) {
+	switch cause {
+	case model.CALL_HANGUP_NO_ANSWER:
+		fmt.Println("CALL_HANGUP_NO_ANSWER")
+	case model.CALL_HANGUP_REJECTED:
+		fmt.Println("CALL_HANGUP_REJECTED")
+	default:
+		fmt.Println("OTHER")
+	}
 }
 
-func (aia *AgentInAttempt) AgentName() string {
-	return aia.agent.Name()
-}
-
-func (aia *AgentInAttempt) AttemptId() int64 {
-	return aia.attemptId
+func (agent *Agent) SetState(state string) *model.AppError {
+	return nil
 }

@@ -5,7 +5,7 @@ select ag.*,
        a.updated_at as updated_at,
 --        q.priority +
          round(100.0 * (ag.max_of_capacity + 1) / NULLIF(SUM(ag.max_of_capacity + 1) OVER(partition by ag.agent_id),0)) AS "ratio"
---         (0.5 / 2) + (0.5* (100/(100 + a.max_of_capacity)))
+--,         (0.5 / 2) + (0.5* (100/(100 + ag.max_of_capacity)))
 from (
        select
          distinct aq.queue_id,

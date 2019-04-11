@@ -93,7 +93,7 @@ $$ LANGUAGE plpgsql;
 explain analyse
 select *
 from cc_member_attempt a
-where state > 0 and hangup_at != 0
+--where state > 0 and hangup_at != 0
 order by a.id desc ;
 
 select count(*)
@@ -110,7 +110,72 @@ having count(*) > 1
 --order by id desc
 ;
 
+truncate table cc_member_attempt;
 
+
+select *
+from cc_queue_is_working;
+
+explain analyse
+select *
+from cc_agent_in_queue_statistic s
+where s.agent_id = 2 and exists(
+    select * from cc_queue_is_working q where q.id = s.queue_id
+  );
+
+select *
+from cc_member_attempt
+order by id desc ;
+
+explain analyse
+select id, agent_id, joined_at, leaving_at
+from cc_agent_state_history h
+where h.agent_id = 2
+order by h.joined_at desc
+limit 1
+;
+
+explain (analyse, buffers )
+select *
+from cc_agent a
+left join lateral (
+    select h.joined_at, h.state
+    from cc_agent_state_history h
+    where h.agent_id = a.id
+    order by h.joined_at asc
+    limit 1
+) h on true
+where a.id = 1000;
+
+
+select count(*)
+from cc_agent_state_history
+where agent_id = 1000;
+
+explain analyse
+select *
+from cc_agent_state_history
+where agent_id = 2 and  now() between joined_at and leaving_at;
+
+
+
+select *
+from cc_agent_state_history;
+
+select count(*)
+from cc_agent_state_history;
+
+select (random() * 1000)::int  + 1
+;
+
+insert into cc_agent_state_history (agent_id, joined_at, state)
+select r.agent_id, r.date, 'sss' from  (
+  select a.id as agent_id, NOW() + (random() * (NOW()+'220 days' - NOW())) + '30 days' date
+  from generate_series(1, 1000000) id
+    cross join cc_agent a
+  where a.id = 2
+) as r
+on conflict do nothing ;
 
 select count(*)
 from cc_member m
@@ -253,7 +318,7 @@ select *
 from (
   select
          c.*,
-        (c.routing_ids & array[26])[1] as routing_id,
+
          row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d
   from (
     select c.id as communication_id, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
@@ -267,13 +332,13 @@ from (
             where a.member_id = cm.id and a.state > 0
           )
           and cm.last_hangup_at < ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint
-                                    - (100::bigint  * 60 * 1000)
+                                    - (1 * 1000)
           and cm.stop_at = 0
           and cm.queue_id = 1
           and c.state = 0
           and ( (c.communication_id = any(array[1, 2,3,4,5,6,7]) ) or c.communication_id isnull )
           and c.member_id = cm.id
-          and c.routing_ids && array[1, 27,200,30,40,50,60,70,80,90]
+          and c.routing_ids && array[19, 27,200,30,40,50,60,70,80,90]
 
       order by cm.priority desc
     limit 100 * 3 --todo 3 is avg communication count
@@ -292,6 +357,10 @@ set stop_at =0,
     attempts = 0,
     last_hangup_at = 0
 
+where 1=1;
+
+update cc_member_communications
+set state = 0
 where 1=1;
 
 truncate table cc_member_attempt;

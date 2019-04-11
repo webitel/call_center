@@ -1,8 +1,11 @@
 package agent_manager
 
+import "github.com/webitel/call_center/model"
+
 type AgentManager interface {
 	Start()
 	Stop()
+	SetAgentState(agent AgentObject, state string) *model.AppError
 	ReservedAgentForAttempt() <-chan AgentInAttemptObject
 }
 
@@ -13,7 +16,9 @@ type AgentInAttemptObject interface {
 }
 
 type AgentObject interface {
+	Id() int64
 	Name() string
 	CallDestination() string
 	IsExpire(updatedAt int64) bool
+	CallError(err *model.AppError, cause string)
 }

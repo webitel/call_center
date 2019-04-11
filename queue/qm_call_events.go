@@ -41,8 +41,10 @@ func (queueManager *QueueManager) StartListenEvents() {
 
 func (queueManager *QueueManager) handleRouteAgentToQueue(a agent_manager.AgentInAttemptObject) {
 	if attempt, ok := queueManager.membersCache.Get(a.AttemptId()); ok {
+
 		if queue, err := queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
-			queue.RouteAgentToAttempt(attempt.(*Attempt), a.Agent())
+			attempt.(*Attempt).agent = a.Agent()
+			queue.RouteAgentToAttempt(attempt.(*Attempt))
 		} else {
 			//todo not found queue
 		}

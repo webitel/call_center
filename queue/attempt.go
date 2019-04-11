@@ -3,6 +3,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 )
@@ -14,8 +15,9 @@ type AttemptInfo interface {
 type Attempt struct {
 	member   *model.MemberAttempt
 	resource ResourceObject
-	info     AttemptInfo
-	logs     []LogItem
+	agent    agent_manager.AgentObject
+	Info     AttemptInfo `json:"info"`
+	Logs     []LogItem   `json:"logs"`
 }
 
 type LogItem struct {
@@ -42,6 +44,10 @@ func (a *Attempt) QueueUpdatedAt() int64 {
 
 func (a *Attempt) ResourceId() *int64 {
 	return a.member.ResourceId
+}
+
+func (a *Attempt) Agent() agent_manager.AgentObject {
+	return a.agent
 }
 
 func (a *Attempt) ResourceUpdatedAt() *int64 {
@@ -87,17 +93,14 @@ func (a *Attempt) GetCommunicationPattern() *string {
 
 func (a *Attempt) Log(info string) {
 	mlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
-	a.logs = append(a.logs, LogItem{
+	a.Logs = append(a.Logs, LogItem{
 		Time: model.GetMillis(),
 		Info: info,
 	})
 }
 
 func (a *Attempt) LogsData() []byte {
-	if a.info != nil {
-		return a.info.Data()
-	}
-	data, _ := json.Marshal(a.logs)
+	data, _ := json.Marshal(a)
 	return data
 }
 

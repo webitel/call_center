@@ -92,3 +92,11 @@ func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (Agent
 	mlog.Debug(fmt.Sprintf("Add agent to cache %v", agent.Name()))
 	return agent, nil
 }
+
+func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state string) *model.AppError {
+	if result := <-agentManager.store.Agent().SetState(agent.Id(), state); result.Err != nil {
+		return result.Err
+	}
+	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), state))
+	return nil
+}

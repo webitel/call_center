@@ -2,7 +2,6 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 )
@@ -19,14 +18,14 @@ func NewVoiceBroadcastQueue(callQueue CallingQueue, amd *model.QueueAmdSettings)
 	}
 }
 
-func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
+func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt) {
 	panic(`Broadcast queue not reserve agents`)
 }
 
 func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 	Assert(attempt.resource)
 
-	attempt.info = &AttemptInfoCall{}
+	attempt.Info = &AttemptInfoCall{}
 
 	if attempt.GetCommunicationPattern() == nil {
 		//todo
@@ -71,6 +70,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 				model.QUEUE_NODE_ID_FIELD:              voice.queueManager.GetNodeId(),
 				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", voice.id),
 				model.QUEUE_NAME_FIELD:                 voice.name,
+				model.QUEUE_TYPE_NAME_FIELD:            voice.TypeName(),
 				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_MEMBER,
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),

@@ -83,6 +83,9 @@ func (queue *CallingQueue) CallError(attempt *Attempt, callErr *model.AppError, 
 	attempt.Log("error: " + callErr.Error())
 	info := queue.GetCallInfoFromAttempt(attempt)
 	info.Error = model.NewString(callErr.Error())
+	if attempt.Agent() != nil {
+		queue.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_WAITING)
+	}
 	return queue.StopAttemptWithCallDuration(attempt, cause, 0)
 }
 
@@ -112,5 +115,5 @@ func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause s
 }
 
 func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
-	return attempt.info.(*AttemptInfoCall)
+	return attempt.Info.(*AttemptInfoCall)
 }

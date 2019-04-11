@@ -2,7 +2,6 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"net/http"
 )
@@ -12,7 +11,7 @@ type QueueObject interface {
 	IsExpire(int64) bool
 
 	JoinAttempt(attempt *Attempt)
-	RouteAgentToAttempt(attempt *Attempt, agent agent_manager.AgentObject)
+	RouteAgentToAttempt(attempt *Attempt)
 	Variables() map[string]string
 	Domain() string
 	Id() int

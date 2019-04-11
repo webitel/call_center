@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 /*
 Most Idle Agent(MIA) - найбільш вільний
 Least Occupied Agent(LOA) - найменш занятий оператор
@@ -13,6 +15,19 @@ const (
 	AGENT_STRATYGY_LEAST_TALK_TIME   = "least-talk-time"   // +
 	AGENT_STRATYGY_FEWEST_CALLS      = "fewest-calls"      // +
 	AGENT_STRATYGY_RANDOM            = "random"            // +
+)
+
+const (
+	AGENT_STATE_WAITING  = "waiting"
+	AGENT_STATE_OFFERING = "offering"
+	AGENT_STATE_TALK     = "talk"
+	AGENT_STATE_BREAK    = "break"
+)
+
+const (
+	AGENT_CALL_RINGING = iota
+	AGENT_CALL_BRIDGE
+	AGENT_CALL_HANGUP
 )
 
 type Agent struct {
@@ -33,6 +48,13 @@ type AgentsForAttempt struct {
 	AttemptId      int64 `json:"attempt_id" db:"attempt_id"`
 	AgentId        int64 `json:"agent_id" db:"agent_id"`
 	AgentUpdatedAt int64 `json:"agent_updated_at" db:"agent_updated_at"`
+}
+
+type AgentState struct {
+	Id       int64     `json:"id" db:"id"`
+	AgentId  int64     `json:"agent_id" db:"agent_id"`
+	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
+	State    string    `json:"state" db:"state" `
 }
 
 type AgentStats struct {

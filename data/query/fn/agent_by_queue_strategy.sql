@@ -48,32 +48,41 @@ $$ LANGUAGE 'plpgsql';
 
 
 explain analyse
-select distinct on (agent_id) agent_id, id--, case ratio when 2 then 0 else 1 end
-from (
-  select a.id, last_agent.agent_id as last_agent_id,  ag.*,
-         row_number() over (order by a.weight desc, a.created_at, ag.ratio desc) rn
-  from cc_member_attempt a
-    left join lateral (
-      select a1.agent_id, a1.id as last_id
-      from cc_member_attempt a1
-      where a1.member_id = a.member_id and a1.hangup_at > 0
-      order by a1.hangup_at desc
-      limit 1
-    ) last_agent on true
-    cross join lateral (
-          select *, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
-          from available_agent_in_queue aq
-    ) ag
-  where a.hangup_at = 0 and a.state = 7 and a.queue_id = ag.queue_id
-  order by a.weight desc, a.created_at, ag.ratio desc
-) r
-order by agent_id,
-         --case ratio when 2 then 0 else 1 end,
-         case when r.agent_id = r.last_agent_id then 1 else 0 end desc,
-         ratio desc,
-         rn asc,
-         pos_ag asc,
-         id asc;
+  select distinct on (r.agent_id) r.agent_id as agent_id,
+                                  r.updated_at,
+                                  r.attempt_id
+  from (
+         select a.id                as                                                  attempt_id,
+                last_agent.agent_id as                                                  last_agent_id,
+                ag.*,
+                row_number() over (order by a.weight desc, a.created_at, ag.ratio desc) rn
+         from cc_member_attempt a
+                left join lateral (
+           select a1.agent_id, a1.id as last_id
+           from cc_member_attempt a1
+           where a1.member_id = a.member_id
+             and a1.hangup_at > 0
+           order by a1.hangup_at desc
+           limit 1
+           ) last_agent on true
+                cross join lateral (
+           select *, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
+           from available_agent_in_queue aq
+           ) ag
+         where --a.hangup_at = 0
+          -- and a.state = 3
+           a.queue_id = ag.queue_id
+           --and a.node_id = ''
+           and a.agent_id isnull
+         order by a.weight desc, a.created_at, ag.ratio desc
+       ) r
+  order by r.agent_id,
+           --case ratio when 2 then 0 else 1 end,
+           case when r.agent_id = r.last_agent_id then 1 else 0 end desc,
+           r.ratio desc,
+           r.rn asc,
+           r.pos_ag asc,
+           r.attempt_id asc;
 
 --1 - 6745382
 --2 - 6745386
