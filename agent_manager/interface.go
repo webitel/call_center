@@ -6,7 +6,7 @@ type AgentManager interface {
 	Start()
 	Stop()
 	GetAgent(id int64, updatedAt int64) (AgentObject, *model.AppError)
-	SetAgentState(agent AgentObject, state string) *model.AppError
+	SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
 	ReservedAgentForAttempt() <-chan AgentInAttemptObject
 }
 

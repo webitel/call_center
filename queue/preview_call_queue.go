@@ -95,7 +95,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		Args:    "{bridge_early_media=true,cc_side=member,origination_caller_id_number=777}sofia/external/dialer-12@10.10.10.25:5080",
 	})
 
-	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING)
+	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
 	uuid, cause, err := preview.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
 	if err != nil {
 		agent.CallError(err, cause)
@@ -103,7 +103,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}
-	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK)
+	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
 	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", uuid, attempt.Name(), attempt.Id()))
 
 }
@@ -118,5 +118,5 @@ func (preview *PreviewCallQueue) SetHangupCall(attempt *Attempt, event Event) {
 
 	preview.StopAttemptWithCallDuration(attempt, cause, 10) //TODO
 	preview.queueManager.LeavingMember(attempt, preview)
-	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_WAITING)
+	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_REPORTING, 10)
 }

@@ -18,12 +18,13 @@ const (
 )
 
 type AgentManagerImpl struct {
-	store           store.Store
-	watcher         *utils.Watcher
-	nodeId          string
-	startOnce       sync.Once
-	agentsCache     utils.ObjectCache
-	agentsInAttempt chan AgentInAttemptObject
+	store              store.Store
+	watcher            *utils.Watcher
+	nodeId             string
+	startOnce          sync.Once
+	agentsCache        utils.ObjectCache
+	agentsInAttempt    chan AgentInAttemptObject
+	agentStatusManager AgentStatusManager
 	sync.Mutex
 }
 
@@ -33,6 +34,7 @@ func NewAgentManager(nodeId string, s store.Store) AgentManager {
 	agentManager.nodeId = nodeId
 	agentManager.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
 	agentManager.agentsInAttempt = make(chan AgentInAttemptObject)
+	agentManager.agentStatusManager = NewAgentStatusManager(s) //
 	return &agentManager
 }
 
@@ -40,12 +42,15 @@ func (agentManager *AgentManagerImpl) Start() {
 	mlog.Debug("Starting agent service")
 	agentManager.watcher = utils.MakeWatcher("AgentManager", DEFAULT_WATCHER_POLLING_INTERVAL, agentManager.PollAndNotify)
 	agentManager.startOnce.Do(func() {
+		agentManager.agentStatusManager.Start()
 		go agentManager.watcher.Start()
 	})
 }
 
 func (agentManager *AgentManagerImpl) Stop() {
 	agentManager.watcher.Stop()
+
+	agentManager.agentStatusManager.Stop()
 }
 
 func (agentManager *AgentManagerImpl) PollAndNotify() {
@@ -93,10 +98,13 @@ func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (Agent
 	return agent, nil
 }
 
-func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state string) *model.AppError {
-	if result := <-agentManager.store.Agent().SetState(agent.Id(), state); result.Err != nil {
-		return result.Err
+func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError {
+
+	if err := agentManager.agentStatusManager.SetAgentState(agent, state, timeoutSeconds); err != nil {
+		mlog.Error(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), state, err.Error()))
+		return err
 	}
+
 	agentManager.notifyChangeAgentState(agent, state)
 	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), state))
 	return nil

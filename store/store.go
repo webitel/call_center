@@ -94,5 +94,6 @@ type AgentStore interface {
 	SetLogout(id int64) StoreChannel
 
 	ReservedForAttemptByNode(nodeId string) StoreChannel
-	SetState(agentId int64, state string) StoreChannel
+	SetState(agentId int64, state string, timeoutSeconds int) StoreChannel
+	ChangeDeadlineState(newState string) StoreChannel
 }

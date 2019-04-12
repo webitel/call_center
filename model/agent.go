@@ -18,11 +18,12 @@ const (
 )
 
 const (
-	AGENT_STATE_LOGOUT   = "logged_out"
-	AGENT_STATE_WAITING  = "waiting"
-	AGENT_STATE_OFFERING = "offering"
-	AGENT_STATE_TALK     = "talk"
-	AGENT_STATE_BREAK    = "break"
+	AGENT_STATE_LOGOUT    = "logged_out"
+	AGENT_STATE_WAITING   = "waiting"
+	AGENT_STATE_OFFERING  = "offering"
+	AGENT_STATE_TALK      = "talking"
+	AGENT_STATE_REPORTING = "reporting"
+	AGENT_STATE_BREAK     = "break"
 )
 
 const (
@@ -52,10 +53,11 @@ type AgentsForAttempt struct {
 }
 
 type AgentState struct {
-	Id       int64     `json:"id" db:"id"`
-	AgentId  int64     `json:"agent_id" db:"agent_id"`
-	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
-	State    string    `json:"state" db:"state" `
+	Id        int64      `json:"id" db:"id"`
+	AgentId   int64      `json:"agent_id" db:"agent_id"`
+	JoinedAt  time.Time  `json:"joined_at" db:"joined_at"`
+	TimeoutAt *time.Time `json:"timeout_at" db:"timeout_at"`
+	State     string     `json:"state" db:"state" `
 }
 
 type AgentStats struct {

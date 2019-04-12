@@ -44,7 +44,7 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			Trace: false,
 		},
 		MQSettings: model.MQSettings{
-			Url: model.NewString("amqp://webitel:secret@10.10.10.200:5672?heartbeat=0"),
+			Url: model.NewString("amqp://webitel:webitel@10.10.10.200:5672?heartbeat=0"),
 		},
 		ExternalCommandsSettings: model.ExternalCommandsSettings{
 			Urls: []string{"10.10.10.200:50051"},

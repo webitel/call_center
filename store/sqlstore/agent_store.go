@@ -84,17 +84,36 @@ func (s SqlAgentStore) SetLogout(agentId int64) store.StoreChannel {
 	})
 }
 
-func (s SqlAgentStore) SetState(agentId int64, state string) store.StoreChannel {
+func (s SqlAgentStore) SetState(agentId int64, state string, timeoutSeconds int) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var agentState *model.AgentState
 		if err := s.GetMaster().SelectOne(&agentState, `
-			insert into cc_agent_state_history (agent_id, state) 
-			select :AgentId, :State 
-			returning *`, map[string]interface{}{"AgentId": agentId, "State": state}); err != nil {
+			insert into cc_agent_state_history (agent_id, state, timeout_at) 
+			select :AgentId, :State, case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end   
+			returning id, agent_id, state, timeout_at, timeout_at`, map[string]interface{}{"AgentId": agentId, "State": state, "Timeout": timeoutSeconds}); err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.SetState", "store.sql_agent.set_state.app_error", nil,
 				fmt.Sprintf("AgenetId=%v, State=%v, %s", agentId, state, err.Error()), http.StatusInternalServerError)
 		} else {
 			result.Data = agentState
+		}
+	})
+}
+
+func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		if _, err := s.GetMaster().Exec(`insert into cc_agent_state_history (agent_id, joined_at, state)
+			select a.id, now(), :State
+			from cc_agent a,
+			lateral (
+ 				select h.state, h.timeout_at
+ 				from cc_agent_state_history h
+ 				where h.agent_id = a.id
+ 				order by joined_at desc
+ 				limit 1
+			) s
+			where s.timeout_at <= now()`, map[string]interface{}{"State": newState}); err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
+				fmt.Sprintf("State=%v, %s", newState, err.Error()), http.StatusInternalServerError)
 		}
 	})
 }
