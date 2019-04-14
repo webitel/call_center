@@ -2,11 +2,11 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 )
 
 type CallingQueueObject interface {
-	SetHangupCall(attempt *Attempt, event Event)
 }
 
 type CallingQueue struct {
@@ -67,16 +67,15 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 	}
 }
 
-func (queue *CallingQueue) NewCallToMember(callRequest *model.CallRequest, routingId int, resource ResourceObject) (string, string, *model.AppError) {
+func (queue *CallingQueue) NewCallToMember(callRequest *model.CallRequest, routingId int, resource ResourceObject) call_manager.Call {
 	resource.Take() // rps
-	id, cause, err := queue.queueManager.app.NewCall(callRequest)
-	if err != nil {
-		queue.queueManager.SetResourceError(resource, routingId, cause)
-		return "", cause, err
+	call := queue.queueManager.callManager.NewCall(callRequest)
+	if call.Error() != nil {
+		queue.queueManager.SetResourceError(resource, routingId, call.HangupCause())
+	} else {
+		queue.queueManager.SetResourceSuccessful(resource)
 	}
-
-	queue.queueManager.SetResourceSuccessful(resource)
-	return id, "", nil
+	return call
 }
 
 func (queue *CallingQueue) CallError(attempt *Attempt, callErr *model.AppError, cause string) *model.AppError {

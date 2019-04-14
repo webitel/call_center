@@ -22,6 +22,7 @@ const (
 )
 
 const (
+	CALL_ID                              = "cc_call_id"
 	CALL_TIMEOUT_VARIABLE                = "call_timeout"
 	CALL_HANGUP_CAUSE_VARIABLE           = "hangup_cause"
 	CALL_PROGRESS_TIMEOUT_VARIABLE       = "progress_timeout"
@@ -35,6 +36,7 @@ const (
 	CALL_RECORD_SESSION_TEMPLATE         = `http_cache://$${cdr_url}/sys/formLoadFile?domain=${domain_name}&id=${uuid}&type=mp3&email=none&name=recordSession&.mp3`
 	CALL_RECORD_SESSION_APPLICATION_NAME = "record_session"
 
+	CALL_ANSWER_APPLICATION   = "answer"
 	CALL_SLEEP_APPLICATION    = "sleep"
 	CALL_PLAYBACK_APPLICATION = "playback"
 	CALL_TRANSFER_APPLICATION = "transfer"
@@ -72,11 +74,4 @@ type CallRequest struct {
 	Dialplan     string
 	Context      string
 	Applications []*CallRequestApplication
-}
-
-type Call struct {
-	Id           string
-	State        string //
-	CallerNumber string
-	CalleeNumber string
 }

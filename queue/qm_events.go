@@ -2,41 +2,40 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
-	"github.com/webitel/call_center/model"
 )
 
-func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject) {
-	//TODO
+func (queueManager *QueueManager) StartListenEvents() {
+	mlog.Debug("Starting queue listen events")
+	defer func() {
+		mlog.Debug("Stopped queue listener events")
+	}()
+
+	for {
+		select {
+		case <-queueManager.stop:
+			return
+		case a, ok := <-queueManager.agentManager.ReservedAgentForAttempt():
+			if !ok {
+				return
+			}
+			queueManager.handleRouteAgentToQueue(a)
+		}
+	}
 }
 
-func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
-	//TODO
-	res := <-queueManager.store.Member().ActiveCount(int64(queue.Id()))
+func (queueManager *QueueManager) handleRouteAgentToQueue(a agent_manager.AgentInAttemptObject) {
+	if attempt, ok := queueManager.membersCache.Get(a.AttemptId()); ok {
 
-	if res.Err != nil {
-		panic(res.Err)
-	}
-
-	count, _ := res.Data.(int64)
-	event := &model.QueueEventCount{
-		QueueEvent: model.QueueEvent{
-			Name:    model.QUEUE_EVENT_COUNT,
-			Node:    queueManager.GetNodeId(),
-			Time:    model.GetMillis(),
-			Domain:  queue.Domain(),
-			QueueId: int64(queue.Id()),
-		},
-		Count: count,
-	}
-
-	if err := queueManager.app.SendEventQueueChangedLength(event); err != nil {
-		mlog.Error(err.Error())
+		if queue, err := queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
+			attempt.(*Attempt).agent = a.Agent()
+			queue.RouteAgentToAttempt(attempt.(*Attempt))
+		} else {
+			//todo not found queue
+			mlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", a.AttemptId(), a.AgentName()))
+		}
 	} else {
-		mlog.Debug(fmt.Sprintf("queue %s[%d] changed length %d", queue.Name(), queue.Id(), count))
+		mlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", a.AttemptId(), a.AgentName()))
 	}
-}
-
-func (queueManager *QueueManager) notifyStopAttempt(attempt *Attempt) {
-	//fmt.Println(fmt.Sprintf("Stopped attempt %s", attempt.Id()))
 }

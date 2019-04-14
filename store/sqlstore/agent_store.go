@@ -89,7 +89,7 @@ func (s SqlAgentStore) SetState(agentId int64, state string, timeoutSeconds int)
 		var agentState *model.AgentState
 		if err := s.GetMaster().SelectOne(&agentState, `
 			insert into cc_agent_state_history (agent_id, state, timeout_at) 
-			select :AgentId, :State, case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end   
+			values (:AgentId, :State, case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end)   
 			returning id, agent_id, state, timeout_at, timeout_at`, map[string]interface{}{"AgentId": agentId, "State": state, "Timeout": timeoutSeconds}); err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.SetState", "store.sql_agent.set_state.app_error", nil,
 				fmt.Sprintf("AgenetId=%v, State=%v, %s", agentId, state, err.Error()), http.StatusInternalServerError)

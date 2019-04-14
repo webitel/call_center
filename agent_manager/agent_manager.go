@@ -91,7 +91,7 @@ func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (Agent
 	if result := <-agentManager.store.Agent().Get(id); result.Err != nil {
 		return nil, result.Err
 	} else {
-		agent = NewAgent(result.Data.(*model.Agent))
+		agent = NewAgent(result.Data.(*model.Agent), agentManager)
 	}
 	agentManager.agentsCache.AddWithDefaultExpires(id, agent)
 	mlog.Debug(fmt.Sprintf("Add agent to cache %v", agent.Name()))

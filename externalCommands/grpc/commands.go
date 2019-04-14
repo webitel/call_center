@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/externalCommands/grpc/fs"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
@@ -19,7 +18,7 @@ type CommandsImpl struct {
 	api    fs.ApiClient
 }
 
-func NewCommands(settings model.ExternalCommandsSettings) externalCommands.Commands {
+func NewCommands(settings model.ExternalCommandsSettings) model.CallCommands {
 	var opts []grpc.DialOption
 
 	if len(settings.Urls) == 0 {
@@ -107,7 +106,8 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *mo
 
 func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
 	_, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
-		Uuid: id,
+		Uuid:  id,
+		Cause: cause,
 	})
 
 	if err != nil {

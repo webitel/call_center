@@ -2,6 +2,7 @@ package queue
 
 import (
 	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
@@ -22,13 +23,13 @@ type DialingImpl struct {
 	startOnce       sync.Once
 }
 
-func NewDialing(app App, agentManager agent_manager.AgentManager, s store.Store) Dialing {
+func NewDialing(app App, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store) Dialing {
 	var dialing DialingImpl
 	dialing.app = app
 	dialing.store = s
 	dialing.agentManager = agentManager
 	dialing.resourceManager = NewResourceManager(app)
-	dialing.queueManager = NewQueueManager(app, s, dialing.resourceManager, agentManager)
+	dialing.queueManager = NewQueueManager(app, s, callManager, dialing.resourceManager, agentManager)
 	return &dialing
 }
 

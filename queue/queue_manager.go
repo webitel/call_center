@@ -3,6 +3,7 @@ package queue
 import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
@@ -29,13 +30,15 @@ type QueueManager struct {
 	store           store.Store
 	resourceManager *ResourceManager
 	agentManager    agent_manager.AgentManager
+	callManager     call_manager.CallManager
 	sync.Mutex
 }
 
-func NewQueueManager(app App, s store.Store, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
+func NewQueueManager(app App, s store.Store, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
 	return &QueueManager{
 		store:           s,
 		app:             app,
+		callManager:     callManager,
 		resourceManager: resourceManager,
 		agentManager:    agentManager,
 		input:           make(chan *model.MemberAttempt),

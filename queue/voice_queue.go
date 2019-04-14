@@ -67,7 +67,6 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE:             voice.Domain(),
-				model.QUEUE_NODE_ID_FIELD:              voice.queueManager.GetNodeId(),
 				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", voice.id),
 				model.QUEUE_NAME_FIELD:                 voice.name,
 				model.QUEUE_TYPE_NAME_FIELD:            voice.TypeName(),
@@ -104,31 +103,28 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 
 	info.LegAUri = dst
 	info.LegBUri = legB
-	uuid, cause, err := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
-	if err != nil {
-		voice.CallError(attempt, err, cause)
+	call := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	if call.Error() != nil {
+		voice.CallError(attempt, call.Error(), call.HangupCause())
 		voice.queueManager.LeavingMember(attempt, voice)
 		return
 	}
 
-	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", uuid, attempt.Name(), attempt.Id()))
+	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
-	err = voice.queueManager.SetBridged(attempt, model.NewString(uuid), nil)
+	err := voice.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
 
 	if err != nil {
 		//todo
 		panic(err.Error())
 	}
-}
+	call.WaitHangup()
 
-func (voice *VoiceBroadcastQueue) SetHangupCall(attempt *Attempt, event Event) {
-	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
-
-	if cause == "" {
-		//TODO
-		cause = model.MEMBER_CAUSE_SUCCESSFUL
+	if call.HangupCause() == "" {
+		voice.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO
+	} else {
+		voice.StopAttemptWithCallDuration(attempt, call.HangupCause(), 10) //TODO
 	}
 
-	voice.StopAttemptWithCallDuration(attempt, cause, 10) //TODO
 	voice.queueManager.LeavingMember(attempt, voice)
 }

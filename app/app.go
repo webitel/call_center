@@ -5,9 +5,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
-	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/externalCommands/grpc"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
@@ -26,7 +26,7 @@ type App struct {
 	Srv              *Server
 	Store            store.Store
 	MQ               mq.MQ
-	ExternalCommands externalCommands.Commands
+	ExternalCommands model.CallCommands
 	Log              *mlog.Logger
 	configFile       string
 	config           atomic.Value
@@ -36,6 +36,7 @@ type App struct {
 	engine           engine.Engine
 	dialing          queue.Dialing
 	agentManager     agent_manager.AgentManager
+	callManager      call_manager.CallManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -101,13 +102,16 @@ func New(options ...string) (outApp *App, outErr error) {
 	}
 	app.cluster.Start()
 
+	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.ExternalCommands, app.MQ)
+	app.callManager.Start()
+
 	app.engine = engine.NewEngine(*app.id, app.Store)
 	app.engine.Start()
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store)
 	app.agentManager.Start()
 
-	app.dialing = queue.NewDialing(app, app.agentManager, app.Store)
+	app.dialing = queue.NewDialing(app, app.callManager, app.agentManager, app.Store)
 	app.dialing.Start()
 
 	return app, outErr
@@ -132,6 +136,10 @@ func (app *App) Shutdown() {
 
 	if app.agentManager != nil {
 		app.agentManager.Stop()
+	}
+
+	if app.callManager != nil {
+		app.callManager.Stop()
 	}
 
 	app.MQ.Close()

@@ -26,11 +26,11 @@
 
   {
     "id": "app.agent.set_login.agent_logged",
-    "translation": "Agent logged"
+    "translation": "Agent already logged in"
   },
   {
     "id": "app.agent.set_logout.agent_logged_out",
-    "translation": "Agent logged out"
+    "translation": "Agent already logged out"
   },
 
   {

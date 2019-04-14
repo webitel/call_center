@@ -66,7 +66,6 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 				"ignore_display_updates":               "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE:             preview.Domain(),
-				model.QUEUE_NODE_ID_FIELD:              preview.queueManager.GetNodeId(),
 				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", preview.id),
 				model.QUEUE_NAME_FIELD:                 preview.name,
 				model.QUEUE_TYPE_NAME_FIELD:            preview.TypeName(),
@@ -96,27 +95,25 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	})
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
-	uuid, cause, err := preview.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
-	if err != nil {
-		agent.CallError(err, cause)
-		preview.CallError(attempt, err, cause)
+	call := preview.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	if call.Error() != nil {
+		agent.CallError(call.Error(), call.HangupCause())
+		preview.CallError(attempt, call.Error(), call.HangupCause())
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
-	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", uuid, attempt.Name(), attempt.Id()))
+	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
-}
+	call.WaitHangup()
 
-func (preview *PreviewCallQueue) SetHangupCall(attempt *Attempt, event Event) {
-	cause, _ := event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
-
-	if cause == "" {
-		//TODO
-		cause = model.MEMBER_CAUSE_SUCCESSFUL
+	if call.HangupCause() == "" {
+		preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO
+	} else {
+		preview.StopAttemptWithCallDuration(attempt, call.HangupCause(), 10) //TODO
 	}
 
-	preview.StopAttemptWithCallDuration(attempt, cause, 10) //TODO
 	preview.queueManager.LeavingMember(attempt, preview)
 	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_REPORTING, 10)
+
 }
