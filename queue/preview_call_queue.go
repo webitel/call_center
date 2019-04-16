@@ -52,7 +52,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/external/111@10.10.10.25:15060"},
+		Endpoints:    agent.GetEndpoints(),
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
 		Timeout:      preview.Timeout(),
@@ -95,9 +95,9 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	})
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
+
 	call := preview.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
 	if call.Error() != nil {
-		agent.CallError(call.Error(), call.HangupCause())
 		preview.CallError(attempt, call.Error(), call.HangupCause())
 		preview.queueManager.LeavingMember(attempt, preview)
 		return

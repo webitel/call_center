@@ -36,7 +36,8 @@ func (s SqlAgentStore) Get(id int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var agent *model.Agent
 		if err := s.GetReplica().SelectOne(&agent, `
-			select id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination 
+			select id, name, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, call_timeout, user_id, updated_at, destination,
+				status, status_payload
 			from cc_agent where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 			if err == sql.ErrNoRows {
@@ -52,34 +53,14 @@ func (s SqlAgentStore) Get(id int64) store.StoreChannel {
 	})
 }
 
-func (s SqlAgentStore) SetLogin(agentId int64) store.StoreChannel {
+func (s SqlAgentStore) SetStatus(agentId int64, status string, payload interface{}) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
-		var agent *model.Agent
-		if err := s.GetMaster().SelectOne(&agent, `update cc_agent a
-			set logged = true
-			where a.id = :AgentId
-			returning id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination `,
-			map[string]interface{}{"AgentId": agentId}); err != nil {
-			result.Err = model.NewAppError("SqlAgentStore.SetLogin", "store.sql_agent.set_login.app_error", nil,
+		if _, err := s.GetMaster().Exec(`update cc_agent
+			set status = :Status
+  			,status_payload = :Payload
+			where id = :AgentId`, map[string]interface{}{"AgentId": agentId, "Status": status, "Payload": payload}); err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
 				fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
-		} else {
-			result.Data = agent
-		}
-	})
-}
-
-func (s SqlAgentStore) SetLogout(agentId int64) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		var agent *model.Agent
-		if err := s.GetMaster().SelectOne(&agent, `update cc_agent a
-			set logged = false
-			where a.id = :AgentId
-			returning  id, name, logged, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, user_id, updated_at, destination `,
-			map[string]interface{}{"AgentId": agentId}); err != nil {
-			result.Err = model.NewAppError("SqlAgentStore.SetLogout", "store.sql_agent.set_logout.app_error", nil,
-				fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
-		} else {
-			result.Data = agent
 		}
 	})
 }
@@ -101,19 +82,22 @@ func (s SqlAgentStore) SetState(agentId int64, state string, timeoutSeconds int)
 
 func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
-		if _, err := s.GetMaster().Exec(`insert into cc_agent_state_history (agent_id, joined_at, state)
-			select a.id, now(), :State
-			from cc_agent a,
-			lateral (
- 				select h.state, h.timeout_at
- 				from cc_agent_state_history h
- 				where h.agent_id = a.id
- 				order by joined_at desc
- 				limit 1
-			) s
-			where s.timeout_at <= now()`, map[string]interface{}{"State": newState}); err != nil {
+		var times []*model.AgentStateHistoryTime
+		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, info)
+			select h.agent_id, h.timeout_at, ca.status, ca.status_payload
+			from cc_agent_state_history h
+  				inner join cc_agent ca on h.agent_id = ca.id
+			where h.timeout_at <= now()
+  				and not exists(
+    				select *
+    				from cc_agent_state_history h2
+    				 where h2.agent_id = h.agent_id and h2.joined_at > h.joined_at
+  				)
+			returning id, agent_id, joined_at, state, info`, map[string]interface{}{"State": newState}); err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
 				fmt.Sprintf("State=%v, %s", newState, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = times
 		}
 	})
 }

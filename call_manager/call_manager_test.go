@@ -4,22 +4,21 @@ import (
 	"github.com/webitel/call_center/externalCommands/grpc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
+	"github.com/webitel/call_center/utils"
 	"testing"
 )
 
 func TestCallManager(t *testing.T) {
 	t.Log("TestCallManager")
 
-	apiS := model.ExternalCommandsSettings{
-		Urls: []string{"10.10.10.200:50051"},
+	cfg, _, _, err := utils.LoadConfig("")
+	if err != nil {
+
 	}
 
-	mqS := model.MQSettings{
-		Url: model.NewString("amqp://webitel:webitel@10.10.10.200:5672?heartbeat=0"),
-	}
-	mq := rabbit.NewRabbitMQ(mqS, "node-1")
+	mq := rabbit.NewRabbitMQ(cfg.MQSettings, "node-1")
 
-	api := grpc.NewCommands(apiS)
+	api := grpc.NewCommands(cfg.ExternalCommandsSettings)
 	cm := NewCallManager("node-1", api, mq)
 	cm.Start()
 	testCallError(cm, t)
@@ -46,7 +45,7 @@ func testCallError(cm CallManager, t *testing.T) {
 		},
 	}
 	call := cm.NewCall(cr)
-	if call.HangupCause() != model.CALL_HANGUP_USER_BUSY {
+	if call.HangupCause() != model.CALL_HANGUP_USER_BUSY || call.Error() == nil {
 		t.Errorf("Call hangup assert error: %s", call.HangupCause())
 	}
 }
@@ -73,7 +72,11 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 	if call.Error() != nil {
 		t.Errorf("call error: %s", call.Error().Error())
 	}
+
 	call.WaitHangup()
+	if call.Error() != nil {
+		t.Errorf("call error: %s", call.Error().Error())
+	}
 	if call.HangupCause() != model.CALL_HANGUP_REJECTED {
 		t.Errorf("assert hangup case error: %s", call.HangupCause())
 	}
@@ -107,6 +110,10 @@ func testCallHangup(cm CallManager, t *testing.T) {
 		t.Errorf(err.Error())
 	}
 	call.WaitHangup()
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 	if call.HangupCause() != model.CALL_HANGUP_NO_ANSWER {
 		t.Errorf("assert hangup case error: %s", call.HangupCause())
 	}

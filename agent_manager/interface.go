@@ -6,8 +6,9 @@ type AgentManager interface {
 	Start()
 	Stop()
 	GetAgent(id int64, updatedAt int64) (AgentObject, *model.AppError)
+
+	SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
 	SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
-	ReservedAgentForAttempt() <-chan AgentInAttemptObject
 }
 
 type AgentInAttemptObject interface {
@@ -20,6 +21,9 @@ type AgentObject interface {
 	Id() int64
 	Name() string
 	CallDestination() string
+	GetEndpoints() []string
 	IsExpire(updatedAt int64) bool
-	CallError(err *model.AppError, cause string)
+
+	MaxNoAnswer() int
+	NoAnswerDelayTime() int
 }

@@ -90,8 +90,7 @@ type MemberStore interface {
 
 type AgentStore interface {
 	Get(id int64) StoreChannel
-	SetLogin(id int64) StoreChannel
-	SetLogout(id int64) StoreChannel
+	SetStatus(agentId int64, status string, payload interface{}) StoreChannel
 
 	ReservedForAttemptByNode(nodeId string) StoreChannel
 	SetState(agentId int64, state string, timeoutSeconds int) StoreChannel

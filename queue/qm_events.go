@@ -12,17 +12,17 @@ func (queueManager *QueueManager) StartListenEvents() {
 		mlog.Debug("Stopped queue listener events")
 	}()
 
-	for {
-		select {
-		case <-queueManager.stop:
-			return
-		case a, ok := <-queueManager.agentManager.ReservedAgentForAttempt():
-			if !ok {
-				return
-			}
-			queueManager.handleRouteAgentToQueue(a)
-		}
-	}
+	//for {
+	//	select {
+	//	case <-queueManager.stop:
+	//		return
+	//	case a, ok := <-queueManager.agentManager.ReservedAgentForAttempt():
+	//		if !ok {
+	//			return
+	//		}
+	//		queueManager.handleRouteAgentToQueue(a)
+	//	}
+	//}
 }
 
 func (queueManager *QueueManager) handleRouteAgentToQueue(a agent_manager.AgentInAttemptObject) {

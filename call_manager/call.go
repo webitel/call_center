@@ -11,6 +11,7 @@ type CallImpl struct {
 	id          string
 	hangupCause string
 	hangup      chan struct{}
+	lastEvent   mq.Event
 	Err         *model.AppError
 }
 
@@ -40,6 +41,7 @@ func (call *CallImpl) WaitHangup() {
 }
 
 func (call *CallImpl) SetHangupCall(event mq.Event) {
+	call.lastEvent = event
 	call.hangupCause, _ = event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
 	close(call.hangup)
 }

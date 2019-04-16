@@ -151,6 +151,75 @@ select *
 from cc_member_attempt
 order by id desc;
 
+explain analyse
+select h.state
+from cc_agent_state_history h
+where h.agent_id = 1
+order by h.joined_at desc
+limit 1;
+
+
+explain analyse
+select info
+from cc_agent_state_history h
+where h.joined_at > CURRENT_DATE and h.agent_id = 1
+order by h.joined_at desc
+limit 1;
+
+explain analyse
+select *
+from cc_agent a
+ left join lateral (
+   select h.joined_at, h.state, h.timeout_at, h.info
+   from cc_agent_state_history h
+   where h.agent_id = a.id --and h.joined_at > current_date
+   order by h.joined_at desc
+   limit 1
+   ) s on true
+--where a.id = 1
+order by a.id asc
+limit 1000;
+--where a.id = 1;
+
+select status
+from cc_agent a
+where a.id = 1;
+
+explain analyse
+select *
+from cc_member_attempt a
+where a.hangup_at = 0 and a.agent_id = 1
+for update;
+
+
+
+insert into cc_agent_state_history (agent_id, state)
+select a.id, a.status
+from cc_agent a;
+
+
+select *
+from cc_member_attempt a;
+
+update cc_agent
+set status = 'test'
+where id = 1;
+
+
+
+
+explain analyse
+select a.id, h.*
+from cc_agent a
+  left join (
+    select h.agent_id, h.state, h.joined_at, row_number() over (partition by h.agent_id order by h.joined_at desc) rn
+    from cc_agent_state_history h
+    where h.joined_at > CURRENT_DATE
+  ) h on h.agent_id = a.id and h.rn = 1
+--where  a.id = 1
+order by a.id asc;
+
+
 
 select *
 from cc_reserved_agent_for_attempt('node-1');

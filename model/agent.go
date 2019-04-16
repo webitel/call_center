@@ -18,6 +18,12 @@ const (
 )
 
 const (
+	AGENT_STATUS_LOGGED_OUT = "logged_out"
+	AGENT_STATUS_WAITING    = "waiting"
+	AGENT_STATUS_ON_BREAK   = "busy"
+)
+
+const (
 	AGENT_STATE_LOGOUT    = "logged_out"
 	AGENT_STATE_WAITING   = "waiting"
 	AGENT_STATE_OFFERING  = "offering"
@@ -35,15 +41,21 @@ const (
 type Agent struct {
 	Id                int64  `json:"id" db:"id"`
 	Name              string `json:"name" db:"name"`
-	Logged            bool   `json:"logged" db:"logged"`
 	MaxNoAnswer       int    `json:"max_no_answer" db:"max_no_answer"`
 	WrapUpTime        int    `json:"wrap_up_time" db:"wrap_up_time"`
 	RejectDelayTime   int    `json:"reject_delay_time" db:"reject_delay_time"`
 	BusyDelayTime     int    `json:"busy_delay_time" db:"busy_delay_time"`
 	NoAnswerDelayTime int    `json:"no_answer_delay_time" db:"no_answer_delay_time"`
+	CallTimeout       int    `json:"call_timeout" db:"call_timeout"`
 	UserId            *int64 `json:"user_id" db:"user_id"`
 	UpdatedAt         int64  `json:"updated_at" db:"updated_at"`
 	Destination       string `json:"destination" db:"destination"`
+	AgentStatus
+}
+
+type AgentStatus struct {
+	Status        string      `json:"status" db:"status"`
+	StatusPayload interface{} `json:"status_payload" db:"status_payload"`
 }
 
 type AgentsForAttempt struct {
@@ -63,4 +75,12 @@ type AgentState struct {
 type AgentStats struct {
 	AgentId int64 `json:"agent_id"`
 	QueueId int64 `json:"queue_id"`
+}
+
+type AgentStateHistoryTime struct {
+	Id       int64     `json:"id" db:"id"`
+	AgentId  int64     `json:"agent_id" db:"agent_id"`
+	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
+	State    string    `json:"state" db:"state"`
+	Payload  []byte    `json:"payload" db:"info"`
 }

@@ -1,7 +1,6 @@
 package agent_manager
 
 import (
-	"fmt"
 	"github.com/webitel/call_center/model"
 )
 
@@ -33,37 +32,30 @@ func (agent *Agent) CallDestination() string {
 	return "user/9999@10.10.10.144"
 }
 
-func (agent *Agent) LeggedIn() *model.AppError {
-	return nil
+func (agent *Agent) GetEndpoints() []string {
+	return []string{"sofia/external/111@10.10.10.25:15060"}
 }
 
-func (agent *Agent) LeggedOut() *model.AppError {
-	return nil
+func (agent *Agent) MaxNoAnswer() int {
+	return agent.info.MaxNoAnswer
 }
 
-func (agent *Agent) SetState(state string) *model.AppError {
-	return nil
+func (agent *Agent) WrapUpTime() int {
+	return agent.info.WrapUpTime
 }
 
-func (agent *Agent) SetWaiting() {
-
+func (agent *Agent) RejectDelayTime() int {
+	return agent.info.RejectDelayTime
 }
 
-func (agent *Agent) OfferingCall(callRequest *model.CallRequest) { //(string, string, *model.AppError)
-
+func (agent *Agent) BusyDelayTime() int {
+	return agent.info.BusyDelayTime
 }
 
-func (agent *Agent) SetMute(on bool) {
-	//uuid_audio 0d7c3b93-a5ae-4964-9e4d-902bba50bd19 start write mute
+func (agent *Agent) NoAnswerDelayTime() int {
+	return agent.info.NoAnswerDelayTime
 }
 
-func (agent *Agent) CallError(err *model.AppError, cause string) {
-	switch cause {
-	case model.CALL_HANGUP_NO_ANSWER:
-		fmt.Println("CALL_HANGUP_NO_ANSWER")
-	case model.CALL_HANGUP_REJECTED:
-		fmt.Println("CALL_HANGUP_REJECTED")
-	default:
-		fmt.Println("OTHER")
-	}
+func (agent *Agent) CallTimeout() int {
+	return agent.info.CallTimeout
 }

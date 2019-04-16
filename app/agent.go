@@ -35,18 +35,16 @@ func (app *App) SetAgentLogin(agentId int64) *model.AppError {
 		return err
 	}
 
-	if agent.Logged {
+	if agent.Status == model.AGENT_STATE_WAITING {
 		return model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
-	}
-
-	if result := <-app.Store.Agent().SetLogin(agentId); result.Err != nil {
-		return result.Err
 	}
 
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetAgentState(agentObj, model.AGENT_STATE_WAITING, 0)
+		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
+			Status: model.AGENT_STATE_WAITING,
+		})
 	}
 }
 
@@ -58,17 +56,15 @@ func (app *App) SetAgentLogout(agentId int64) *model.AppError {
 		return err
 	}
 
-	if !agent.Logged {
+	if agent.Status == model.AGENT_STATUS_LOGGED_OUT {
 		return model.NewAppError("SetAgentLogout", "app.agent.set_logout.agent_logged_out", nil, "", http.StatusBadRequest)
-	}
-
-	if result := <-app.Store.Agent().SetLogout(agentId); result.Err != nil {
-		return result.Err
 	}
 
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetAgentState(agentObj, model.AGENT_STATE_LOGOUT, 0)
+		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
+			Status: model.AGENT_STATE_LOGOUT,
+		})
 	}
 }
