@@ -40,6 +40,30 @@ func (call *CallImpl) WaitHangup() {
 	}
 }
 
+func (call *CallImpl) intVarIfLastEvent(name string) int {
+	if call.lastEvent == nil {
+		return 0
+	}
+	v, _ := call.lastEvent.GetIntVariable(name)
+	return v
+}
+
+func (call *CallImpl) DurationSeconds() int {
+	return call.intVarIfLastEvent("duration")
+}
+
+func (call *CallImpl) BillSeconds() int {
+	return call.intVarIfLastEvent("billsec")
+}
+
+func (call *CallImpl) AnswerSeconds() int {
+	return call.intVarIfLastEvent("answersec")
+}
+
+func (call *CallImpl) WaitSeconds() int {
+	return call.intVarIfLastEvent("waitsec")
+}
+
 func (call *CallImpl) SetHangupCall(event mq.Event) {
 	call.lastEvent = event
 	call.hangupCause, _ = event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
