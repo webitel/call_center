@@ -8,7 +8,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
-	"github.com/webitel/call_center/externalCommands/grpc"
+	"github.com/webitel/call_center/externalCommands"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
@@ -22,21 +22,21 @@ import (
 )
 
 type App struct {
-	id               *string
-	Srv              *Server
-	Store            store.Store
-	MQ               mq.MQ
-	ExternalCommands model.CallCommands
-	Log              *mlog.Logger
-	configFile       string
-	config           atomic.Value
-	sessionCache     *utils.Cache
-	newStore         func() store.Store
-	cluster          cluster.Cluster
-	engine           engine.Engine
-	dialing          queue.Dialing
-	agentManager     agent_manager.AgentManager
-	callManager      call_manager.CallManager
+	id           *string
+	Srv          *Server
+	Store        store.Store
+	MQ           mq.MQ
+	callCommands model.CallCommands
+	Log          *mlog.Logger
+	configFile   string
+	config       atomic.Value
+	sessionCache *utils.Cache
+	newStore     func() store.Store
+	cluster      cluster.Cluster
+	engine       engine.Engine
+	dialing      queue.Dialing
+	agentManager agent_manager.AgentManager
+	callManager  call_manager.CallManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -92,7 +92,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.Srv.Store
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	app.ExternalCommands = grpc.NewCommands(app.Config().ExternalCommandsSettings)
+	app.callCommands = externalCommands.NewCallCommands(app.Config().ExternalCommandsSettings)
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
@@ -102,7 +102,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	}
 	app.cluster.Start()
 
-	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.ExternalCommands, app.MQ)
+	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.callCommands, app.MQ)
 	app.callManager.Start()
 
 	app.engine = engine.NewEngine(*app.id, app.Store)
@@ -143,7 +143,7 @@ func (app *App) Shutdown() {
 	}
 
 	app.MQ.Close()
-	app.ExternalCommands.Close()
+	app.callCommands.Close()
 }
 
 func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {

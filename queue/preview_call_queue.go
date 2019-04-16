@@ -96,9 +96,9 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
 
-	call := preview.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
-	if call.Error() != nil {
-		preview.CallError(attempt, call.Error(), call.HangupCause())
+	call := preview.NewCallUseResource(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	if call.Err() != nil {
+		preview.CallError(attempt, call.Err(), call.HangupCause())
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}

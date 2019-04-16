@@ -1,10 +1,10 @@
 package externalCommands
 
-import "github.com/webitel/call_center/model"
+import (
+	"github.com/webitel/call_center/externalCommands/grpc"
+	"github.com/webitel/call_center/model"
+)
 
-type Commands interface {
-	NewCall(settings *model.CallRequest) (string, string, *model.AppError)
-	HangupCall(id, cause string) *model.AppError
-	SetCallVariables(id string, variables map[string]string) *model.AppError
-	Close()
+func NewCallCommands(settings model.ExternalCommandsSettings) model.CallCommands {
+	return grpc.NewCallCommands(settings)
 }

@@ -23,7 +23,7 @@ type CallManager interface {
 type Call interface {
 	Id() string
 	HangupCause() string
-	Error() *model.AppError
+	Err() *model.AppError
 	SetHangupCall(event mq.Event)
 
 	WaitHangup()

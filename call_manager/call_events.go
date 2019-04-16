@@ -28,5 +28,7 @@ func (cm *CallManagerImpl) handleCallEvent(event mq.Event) {
 		}
 		call.SetHangupCall(event)
 		cm.RemoveCall(linkId)
+	case model.CALL_EVENT_ANSWER:
+
 	}
 }

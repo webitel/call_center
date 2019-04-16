@@ -67,10 +67,10 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 	}
 }
 
-func (queue *CallingQueue) NewCallToMember(callRequest *model.CallRequest, routingId int, resource ResourceObject) call_manager.Call {
+func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, routingId int, resource ResourceObject) call_manager.Call {
 	resource.Take() // rps
 	call := queue.queueManager.callManager.NewCall(callRequest)
-	if call.Error() != nil {
+	if call.Err() != nil {
 		queue.queueManager.SetResourceError(resource, routingId, call.HangupCause())
 	} else {
 		queue.queueManager.SetResourceSuccessful(resource)

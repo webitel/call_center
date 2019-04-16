@@ -12,7 +12,7 @@ type CallImpl struct {
 	hangupCause string
 	hangup      chan struct{}
 	lastEvent   mq.Event
-	Err         *model.AppError
+	err         *model.AppError
 }
 
 func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
@@ -21,7 +21,7 @@ func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
 		api:         api,
 		hangup:      make(chan struct{}),
 	}
-	call.id, call.hangupCause, call.Err = call.api.NewCall(call.callRequest)
+	call.id, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
 
 	return call
 }
@@ -35,7 +35,7 @@ func (call *CallImpl) HangupCause() string {
 }
 
 func (call *CallImpl) WaitHangup() {
-	if call.Err == nil && call.hangupCause == "" {
+	if call.err == nil && call.hangupCause == "" {
 		<-call.hangup
 	}
 }
@@ -46,8 +46,8 @@ func (call *CallImpl) SetHangupCall(event mq.Event) {
 	close(call.hangup)
 }
 
-func (call *CallImpl) Error() *model.AppError {
-	return call.Err
+func (call *CallImpl) Err() *model.AppError {
+	return call.err
 }
 
 func (call *CallImpl) Hangup(cause string) *model.AppError {

@@ -6,12 +6,12 @@ import (
 )
 
 func (a *App) NewCall(params *model.CallRequest) (uuid, cause string, err *model.AppError) {
-	uuid, cause, err = a.ExternalCommands.NewCall(params)
+	uuid, cause, err = a.callCommands.NewCall(params)
 	return
 }
 
 func (a *App) SetCallVariables(id string, variables map[string]string) *model.AppError {
-	return a.ExternalCommands.SetCallVariables(id, variables)
+	return a.callCommands.SetCallVariables(id, variables)
 }
 
 func (a *App) ConsumeCallEvent() <-chan mq.Event {

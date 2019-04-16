@@ -13,12 +13,12 @@ import (
 	"time"
 )
 
-type CommandsImpl struct {
+type CallCommandsImpl struct {
 	client *grpc.ClientConn
 	api    fs.ApiClient
 }
 
-func NewCommands(settings model.ExternalCommandsSettings) model.CallCommands {
+func NewCallCommands(settings model.ExternalCommandsSettings) model.CallCommands {
 	var opts []grpc.DialOption
 
 	if len(settings.Urls) == 0 {
@@ -44,7 +44,7 @@ func NewCommands(settings model.ExternalCommandsSettings) model.CallCommands {
 
 	api := fs.NewApiClient(client)
 
-	r := &CommandsImpl{
+	r := &CallCommandsImpl{
 		client: client,
 		api:    api,
 	}
@@ -57,7 +57,7 @@ func NewCommands(settings model.ExternalCommandsSettings) model.CallCommands {
 	return r
 }
 
-func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
+func (c *CallCommandsImpl) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
 	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,
 		Destination:  settings.Destination,
@@ -104,7 +104,7 @@ func (c *CommandsImpl) NewCall(settings *model.CallRequest) (string, string, *mo
 	return response.Uuid, "", nil
 }
 
-func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
+func (c *CallCommandsImpl) HangupCall(id, cause string) *model.AppError {
 	_, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
 		Uuid:  id,
 		Cause: cause,
@@ -117,7 +117,7 @@ func (c *CommandsImpl) HangupCall(id, cause string) *model.AppError {
 	return nil
 }
 
-func (c *CommandsImpl) SetCallVariables(id string, variables map[string]string) *model.AppError {
+func (c *CallCommandsImpl) SetCallVariables(id string, variables map[string]string) *model.AppError {
 
 	res, err := c.api.SetVariables(context.Background(), &fs.SetVariablesReqeust{
 		Uuid:      id,
@@ -137,7 +137,7 @@ func (c *CommandsImpl) SetCallVariables(id string, variables map[string]string) 
 	return nil
 }
 
-func (c *CommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
+func (c *CallCommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
 	response, err := c.api.Bridge(context.Background(), &fs.BridgeRequest{
 		LegAId:        legAId,
 		LegBId:        legBId,
@@ -156,7 +156,7 @@ func (c *CommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string,
 	return response.Uuid, nil
 }
 
-func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
+func (c *CallCommandsImpl) GetServerVersion() (string, *model.AppError) {
 	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
 		Command: "version",
 	})
@@ -169,7 +169,7 @@ func (c *CommandsImpl) GetServerVersion() (string, *model.AppError) {
 	return strings.TrimSpace(res.Data), nil
 }
 
-func (c *CommandsImpl) HangupMatchingVars() {
+func (c *CallCommandsImpl) HangupMatchingVars() {
 	res, _ := c.api.HangupMatchingVars(context.Background(), &fs.HangupMatchingVarsReqeust{
 		Variables: map[string]string{
 			"a": "1",
@@ -181,7 +181,7 @@ func (c *CommandsImpl) HangupMatchingVars() {
 	panic(1)
 }
 
-func (c *CommandsImpl) Close() {
+func (c *CallCommandsImpl) Close() {
 	mlog.Debug(fmt.Sprintf("Receive close grpc connection"))
 	c.client.Close()
 }

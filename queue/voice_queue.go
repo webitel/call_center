@@ -95,17 +95,22 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 		)
 		info.UseAmd = true
 	} else {
+		//callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		//	AppName: model.CALL_TRANSFER_APPLICATION,
+		//	Args:    legB,
+		//})
+
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: model.CALL_TRANSFER_APPLICATION,
-			Args:    legB,
+			AppName: "sleep",
+			Args:    "5000",
 		})
 	}
 
 	info.LegAUri = dst
 	info.LegBUri = legB
-	call := voice.NewCallToMember(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
-	if call.Error() != nil {
-		voice.CallError(attempt, call.Error(), call.HangupCause())
+	call := voice.NewCallUseResource(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	if call.Err() != nil {
+		voice.CallError(attempt, call.Err(), call.HangupCause())
 		voice.queueManager.LeavingMember(attempt, voice)
 		return
 	}
