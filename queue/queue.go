@@ -44,12 +44,12 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
 		}, settings), nil
-	case model.QUEUE_TYPE_VOICE_BROADCAST:
-		voiceSettings := model.QueueVoiceSettingsFromBytes(settings.Payload)
-		return NewVoiceBroadcastQueue(CallingQueue{
+	case model.QUEUE_TYPE_IVR:
+		ivrSettings := model.QueueIVRSettingsFromBytes(settings.Payload)
+		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
-			params:    voiceSettings.QueueDialingSettings,
-		}, voiceSettings.Amd), nil
+			params:    ivrSettings.QueueDialingSettings,
+		}, ivrSettings.Amd), nil
 	case model.QUEUE_TYPE_PREVIEW:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
@@ -76,8 +76,8 @@ func (queue *BaseQueue) TypeName() string {
 	switch queue.typeId {
 	case model.QUEUE_TYPE_INBOUND:
 		return "Inbound"
-	case model.QUEUE_TYPE_VOICE_BROADCAST:
-		return "Voice"
+	case model.QUEUE_TYPE_IVR:
+		return "IVR"
 	case model.QUEUE_TYPE_PREVIEW:
 		return "Preview"
 	default:

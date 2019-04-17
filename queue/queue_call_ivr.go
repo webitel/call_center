@@ -6,23 +6,23 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-type VoiceBroadcastQueue struct {
+type IVRQueue struct {
 	CallingQueue
 	amd *model.QueueAmdSettings
 }
 
-func NewVoiceBroadcastQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObject {
-	return &VoiceBroadcastQueue{
+func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObject {
+	return &IVRQueue{
 		CallingQueue: callQueue,
 		amd:          amd,
 	}
 }
 
-func (voice *VoiceBroadcastQueue) RouteAgentToAttempt(attempt *Attempt) {
+func (voice *IVRQueue) RouteAgentToAttempt(attempt *Attempt) {
 	panic(`Broadcast queue not reserve agents`)
 }
 
-func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
+func (voice *IVRQueue) JoinAttempt(attempt *Attempt) {
 	Assert(attempt.resource)
 
 	attempt.Info = &AttemptInfoCall{}
@@ -42,7 +42,7 @@ func (voice *VoiceBroadcastQueue) JoinAttempt(attempt *Attempt) {
 	go voice.makeCall(attempt, endpoint)
 }
 
-func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
+func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	dst := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO

@@ -7,7 +7,7 @@ import (
 
 const (
 	QUEUE_TYPE_INBOUND = iota
-	QUEUE_TYPE_VOICE_BROADCAST
+	QUEUE_TYPE_IVR
 	QUEUE_TYPE_PREVIEW
 )
 
@@ -73,7 +73,7 @@ type QueueCallbackSettings struct {
 type QueueAgentsSettings struct {
 }
 
-type QueueVoiceSettings struct {
+type QueueIVRSettings struct {
 	QueueDialingSettings
 	Amd *QueueAmdSettings `json:"amd"`
 }
@@ -134,8 +134,8 @@ func (queueSettings *QueueDialingSettings) InCauseError(id string) bool {
 	return false
 }
 
-func QueueVoiceSettingsFromBytes(data []byte) QueueVoiceSettings {
-	var settings QueueVoiceSettings
+func QueueIVRSettingsFromBytes(data []byte) QueueIVRSettings {
+	var settings QueueIVRSettings
 	json.Unmarshal(data, &settings)
 	return settings
 }
