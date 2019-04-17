@@ -107,7 +107,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
 	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
-	call.WaitHangup()
+	call.WaitForHangup()
 
 	if call.HangupCause() == "" {
 		preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO

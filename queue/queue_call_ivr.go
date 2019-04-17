@@ -118,7 +118,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 		//todo
 		panic(err.Error())
 	}
-	call.WaitHangup()
+	call.WaitForHangup()
 	mlog.Debug(fmt.Sprintf("Hangup call %s billing seconds: %d", call.Id(), call.BillSeconds()))
 
 	if call.HangupCause() == "" {

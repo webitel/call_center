@@ -21,9 +21,16 @@ func TestCallManager(t *testing.T) {
 	api := externalCommands.NewCallCommands(cfg.ExternalCommandsSettings)
 	cm := NewCallManager("node-1", api, mq)
 	cm.Start()
+
 	testCallError(cm, t)
 	testCallAnswer(cm, t)
+	testCallStates(cm, t)
 	testCallHangup(cm, t)
+
+	if cm.ActiveCalls() != 0 {
+		t.Errorf("Call manager calls %v", cm.ActiveCalls())
+	}
+
 	cm.Stop()
 	mq.Close()
 	api.Close()
@@ -73,7 +80,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 		t.Errorf("call error: %s", call.Err().Error())
 	}
 
-	call.WaitHangup()
+	call.WaitForHangup()
 	if call.Err() != nil {
 		t.Errorf("call error: %s", call.Err().Error())
 	}
@@ -109,7 +116,51 @@ func testCallHangup(cm CallManager, t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	call.WaitHangup()
+	call.WaitForHangup()
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if call.HangupCause() != model.CALL_HANGUP_NO_ANSWER {
+		t.Errorf("assert hangup case error: %s", call.HangupCause())
+	}
+}
+
+func testCallStates(cm CallManager, t *testing.T) {
+	t.Log("testCallStates")
+	cr := &model.CallRequest{
+		Endpoints: []string{"loopback/0"},
+		Variables: map[string]string{
+			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
+			"cc_test_call_manager":     "true",
+		},
+		Applications: []*model.CallRequestApplication{
+
+			{
+				AppName: "answer",
+			},
+			{
+				AppName: "park",
+			},
+		},
+	}
+	call := cm.NewCall(cr)
+	if call.Err() != nil {
+		t.Errorf("call error: %s", call.Err().Error())
+	}
+
+	if call.GetState() != CALL_STATE_ACCEPT {
+		t.Errorf("assert call state error: %v", call.GetState())
+	}
+
+	err := call.Hangup(model.CALL_HANGUP_NO_ANSWER)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	call.WaitForHangup()
+	if call.GetState() != CALL_STATE_HANGUP {
+		t.Errorf("assert call state error: %v", call.GetState())
+	}
 
 	if err != nil {
 		t.Errorf(err.Error())

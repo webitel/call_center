@@ -17,12 +17,14 @@ const (
 type CallManager interface {
 	Start()
 	Stop()
+	ActiveCalls() int
 	NewCall(callRequest *model.CallRequest) Call
 }
 
 type Call interface {
 	Id() string
 	HangupCause() string
+	GetState() uint8
 	Err() *model.AppError
 	SetHangupCall(event mq.Event)
 
@@ -31,7 +33,7 @@ type Call interface {
 	AnswerSeconds() int
 	WaitSeconds() int
 
-	WaitHangup()
+	WaitForHangup()
 
 	Hangup(cause string) *model.AppError
 }
@@ -100,6 +102,10 @@ func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 		cm.SetCall(id, call)
 	}
 	return call
+}
+
+func (cm *CallManagerImpl) ActiveCalls() int {
+	return cm.calls.Len()
 }
 
 func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {

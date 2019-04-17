@@ -3,6 +3,7 @@ package call_manager
 import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
+	"sync"
 )
 
 type CallImpl struct {
@@ -13,7 +14,16 @@ type CallImpl struct {
 	hangup      chan struct{}
 	lastEvent   mq.Event
 	err         *model.AppError
+	state       uint8
+	sync.RWMutex
 }
+
+const (
+	CALL_STATE_RINGING = iota
+	CALL_STATE_ACCEPT
+	CALL_STATE_PARK
+	CALL_STATE_HANGUP
+)
 
 func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
 	call := &CallImpl{
@@ -21,9 +31,22 @@ func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
 		api:         api,
 		hangup:      make(chan struct{}),
 	}
+	call.setState(CALL_STATE_RINGING)
 	call.id, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
-
+	call.setState(CALL_STATE_ACCEPT)
 	return call
+}
+
+func (call *CallImpl) setState(state uint8) {
+	call.Lock()
+	defer call.Unlock()
+	call.state = state
+}
+
+func (call *CallImpl) GetState() uint8 {
+	call.RLock()
+	defer call.RUnlock()
+	return call.state
 }
 
 func (call *CallImpl) Id() string {
@@ -34,7 +57,7 @@ func (call *CallImpl) HangupCause() string {
 	return call.hangupCause
 }
 
-func (call *CallImpl) WaitHangup() {
+func (call *CallImpl) WaitForHangup() {
 	if call.err == nil && call.hangupCause == "" {
 		<-call.hangup
 	}
@@ -65,9 +88,12 @@ func (call *CallImpl) WaitSeconds() int {
 }
 
 func (call *CallImpl) SetHangupCall(event mq.Event) {
-	call.lastEvent = event
-	call.hangupCause, _ = event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
-	close(call.hangup)
+	if call.GetState() < CALL_STATE_HANGUP {
+		call.setState(CALL_STATE_HANGUP)
+		call.lastEvent = event
+		call.hangupCause, _ = event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
+		close(call.hangup)
+	}
 }
 
 func (call *CallImpl) Err() *model.AppError {
