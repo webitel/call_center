@@ -26,7 +26,7 @@ left join lateral ( -- TODO
   order by h.joined_at desc
   limit 1
 ) s on true
-where a.status = 'waiting' and (s.state isnull or s.state = 'waiting');
+where a.status = 'online' and (s.state isnull or s.state = 'online');
 
 
 select count(*)

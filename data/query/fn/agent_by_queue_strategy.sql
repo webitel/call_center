@@ -258,10 +258,6 @@ select reserve_members_with_resources('node-1');
 delete from cc_member_attempt
 where hangup_at = 0;
 
-select aq.*
-from available_agent_in_queue aq
-  inner join cc_queue q on q.id = aq.queue_id
-order by q.priority desc, aq.lvl desc;
 
 select a.*, row_number() over ()
 from agent_by_queue_strategy(1::int, 'ring-alla'::varchar(20)) a;

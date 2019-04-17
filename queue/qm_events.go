@@ -6,25 +6,6 @@ import (
 	"github.com/webitel/call_center/mlog"
 )
 
-func (queueManager *QueueManager) StartListenEvents() {
-	mlog.Debug("Starting queue listen events")
-	defer func() {
-		mlog.Debug("Stopped queue listener events")
-	}()
-
-	//for {
-	//	select {
-	//	case <-queueManager.stop:
-	//		return
-	//	case a, ok := <-queueManager.agentManager.ReservedAgentForAttempt():
-	//		if !ok {
-	//			return
-	//		}
-	//		queueManager.handleRouteAgentToQueue(a)
-	//	}
-	//}
-}
-
 func (queueManager *QueueManager) handleRouteAgentToQueue(a agent_manager.AgentInAttemptObject) {
 	if attempt, ok := queueManager.membersCache.Get(a.AttemptId()); ok {
 

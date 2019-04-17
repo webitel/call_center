@@ -38,6 +38,7 @@ func (a *Attempt) Id() int64 {
 func (a *Attempt) QueueId() int64 {
 	return a.member.QueueId
 }
+
 func (a *Attempt) QueueUpdatedAt() int64 {
 	return a.member.QueueUpdatedAt
 }

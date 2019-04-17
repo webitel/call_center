@@ -56,6 +56,6 @@ func (agent *Agent) NoAnswerDelayTime() int {
 	return agent.info.NoAnswerDelayTime
 }
 
-func (agent *Agent) CallTimeout() int {
-	return agent.info.CallTimeout
+func (agent *Agent) CallTimeout() uint16 {
+	return uint16(agent.info.CallTimeout)
 }

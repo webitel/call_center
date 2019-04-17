@@ -99,6 +99,7 @@ func (agentManager *AgentManagerImpl) changeDeadlineState() {
 		mlog.Error(result.Err.Error())
 	} else {
 		for _, v := range result.Data.([]*model.AgentStateHistoryTime) {
+			//todo event
 			mlog.Debug(fmt.Sprintf("Agent %d has been changed state to \"%s\" - timeout", v.AgentId, v.State))
 		}
 	}

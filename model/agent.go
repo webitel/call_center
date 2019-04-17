@@ -18,9 +18,9 @@ const (
 )
 
 const (
-	AGENT_STATUS_LOGGED_OUT = "logged_out"
-	AGENT_STATUS_WAITING    = "waiting"
-	AGENT_STATUS_ON_BREAK   = "busy"
+	AGENT_STATUS_OFFLINE = "offline"
+	AGENT_STATUS_ONLINE  = "online"
+	AGENT_STATUS_PAUSE   = "pause"
 )
 
 const (

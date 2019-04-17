@@ -22,8 +22,13 @@ type AgentObject interface {
 	Name() string
 	CallDestination() string
 	GetEndpoints() []string
+
 	IsExpire(updatedAt int64) bool
 
 	MaxNoAnswer() int
+	WrapUpTime() int
+	RejectDelayTime() int
+	BusyDelayTime() int
 	NoAnswerDelayTime() int
+	CallTimeout() uint16
 }

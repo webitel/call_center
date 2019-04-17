@@ -45,8 +45,8 @@ func (dialing *DialingImpl) Start() {
 }
 
 func (d *DialingImpl) Stop() {
-	d.watcher.Stop()
 	d.queueManager.Stop()
+	d.watcher.Stop()
 }
 
 func (d *DialingImpl) routeData() {

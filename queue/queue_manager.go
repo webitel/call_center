@@ -58,8 +58,6 @@ func (queueManager *QueueManager) Start() {
 		close(queueManager.stopped)
 	}()
 
-	go queueManager.StartListenEvents()
-
 	for {
 		select {
 		case <-queueManager.stop:

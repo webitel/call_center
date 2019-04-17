@@ -54,7 +54,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
 	*/
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/external/dialer-12@10.10.10.25:5080"},
+		Endpoints:    []string{"sofia/external/111@10.10.10.25:15060"}, //[]string{"sofia/external/dialer-12@10.10.10.25:5080"},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -95,14 +95,9 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 		)
 		info.UseAmd = true
 	} else {
-		//callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		//	AppName: model.CALL_TRANSFER_APPLICATION,
-		//	Args:    legB,
-		//})
-
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: "sleep",
-			Args:    "5000",
+			AppName: model.CALL_TRANSFER_APPLICATION,
+			Args:    legB,
 		})
 	}
 
@@ -124,6 +119,7 @@ func (voice *VoiceBroadcastQueue) makeCall(attempt *Attempt, endpoint *Endpoint)
 		panic(err.Error())
 	}
 	call.WaitHangup()
+	mlog.Debug(fmt.Sprintf("Hangup call %s billing seconds: %d", call.Id(), call.BillSeconds()))
 
 	if call.HangupCause() == "" {
 		voice.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO

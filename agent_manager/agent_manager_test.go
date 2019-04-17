@@ -32,7 +32,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 	}
 
 	err = am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_WAITING,
+		Status: model.AGENT_STATUS_ONLINE,
 	})
 	if err != nil {
 		t.Errorf("Set agent login %s error: %s", agent.Id(), err.Error())
@@ -43,7 +43,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 
 func testLogOut(t *testing.T, am AgentManager, agent AgentObject) {
 	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_LOGGED_OUT,
+		Status: model.AGENT_STATUS_OFFLINE,
 	})
 
 	if err != nil {

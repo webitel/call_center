@@ -35,7 +35,7 @@ func (app *App) SetAgentLogin(agentId int64) *model.AppError {
 		return err
 	}
 
-	if agent.Status == model.AGENT_STATE_WAITING {
+	if agent.Status == model.AGENT_STATUS_ONLINE {
 		return model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
 	}
 
@@ -43,7 +43,7 @@ func (app *App) SetAgentLogin(agentId int64) *model.AppError {
 		return err
 	} else {
 		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
-			Status: model.AGENT_STATE_WAITING,
+			Status: model.AGENT_STATUS_ONLINE,
 		})
 	}
 }
@@ -56,7 +56,7 @@ func (app *App) SetAgentLogout(agentId int64) *model.AppError {
 		return err
 	}
 
-	if agent.Status == model.AGENT_STATUS_LOGGED_OUT {
+	if agent.Status == model.AGENT_STATUS_OFFLINE {
 		return model.NewAppError("SetAgentLogout", "app.agent.set_logout.agent_logged_out", nil, "", http.StatusBadRequest)
 	}
 
@@ -64,7 +64,7 @@ func (app *App) SetAgentLogout(agentId int64) *model.AppError {
 		return err
 	} else {
 		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
-			Status: model.AGENT_STATE_LOGOUT,
+			Status: model.AGENT_STATUS_OFFLINE,
 		})
 	}
 }

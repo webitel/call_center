@@ -55,7 +55,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		Endpoints:    agent.GetEndpoints(),
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
-		Timeout:      preview.Timeout(),
+		Timeout:      agent.CallTimeout(),
 		Variables: model.UnionStringMaps(
 			attempt.resource.Variables(),
 			preview.Variables(),
