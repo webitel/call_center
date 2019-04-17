@@ -104,6 +104,14 @@ func (agentManager *AgentManagerImpl) SetOffline(agent AgentObject) *model.AppEr
 	})
 }
 
+//todo add timeout
+func (agentManager *AgentManagerImpl) SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError {
+	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+		Status:        model.AGENT_STATUS_PAUSE,
+		StatusPayload: payload,
+	})
+}
+
 func (agentManager *AgentManagerImpl) changeDeadlineState() {
 	if result := <-agentManager.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); result.Err != nil {
 		mlog.Error(result.Err.Error())

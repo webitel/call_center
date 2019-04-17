@@ -10,11 +10,12 @@ Least Occupied Agent(LOA) - найменш занятий оператор
 
 const (
 	AGENT_STRATEGY_LONGEST_IDLE_TIME = "longest-idle-time" // +
-	AGENT_STRATYGY_ROUND_ROBIN       = "round-robin"       // +
-	AGENT_STRATYGY_TOP_DOWN          = "top-down"          // ?
 	AGENT_STRATYGY_LEAST_TALK_TIME   = "least-talk-time"   // +
-	AGENT_STRATYGY_FEWEST_CALLS      = "fewest-calls"      // +
-	AGENT_STRATYGY_RANDOM            = "random"            // +
+
+	AGENT_STRATYGY_ROUND_ROBIN  = "round-robin"  // +
+	AGENT_STRATYGY_TOP_DOWN     = "top-down"     // +
+	AGENT_STRATYGY_FEWEST_CALLS = "fewest-calls" // +
+	AGENT_STRATYGY_RANDOM       = "random"       // +
 )
 
 const (
@@ -77,7 +78,7 @@ type AgentStateHistoryTime struct {
 	AgentId  int64     `json:"agent_id" db:"agent_id"`
 	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
 	State    string    `json:"state" db:"state"`
-	Payload  []byte    `json:"payload" db:"info"`
+	Payload  []byte    `json:"payload" db:"payload"`
 }
 
 type AgentInQueueStatistic struct {

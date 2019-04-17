@@ -18,6 +18,7 @@ func TestAgentCallManager(t *testing.T) {
 	am := NewAgentManager("node-1", s)
 	am.Start()
 	agent := testLogin(t, am)
+	testPause(t, am, agent)
 	testCustomState(t, am, agent)
 	testLogOut(t, am, agent)
 	am.Stop()
@@ -43,6 +44,13 @@ func testLogOut(t *testing.T, am AgentManager, agent AgentObject) {
 
 	if err != nil {
 		t.Errorf("Set agent logout %s error: %s", agent.Id(), err.Error())
+	}
+}
+
+func testPause(t *testing.T, am AgentManager, agent AgentObject) {
+	err := am.SetPause(agent, []byte(`{"img":"src/img.jpeg","code":"chat"}`), 0)
+	if err != nil {
+		t.Errorf("Set agent pause %s error: %s", agent.Id(), err.Error())
 	}
 }
 

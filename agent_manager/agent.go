@@ -59,3 +59,11 @@ func (agent *Agent) NoAnswerDelayTime() int {
 func (agent *Agent) CallTimeout() uint16 {
 	return uint16(agent.info.CallTimeout)
 }
+
+func (agent *Agent) Online() *model.AppError {
+	return agent.manager.SetOnline(agent)
+}
+
+func (agent *Agent) Offline() *model.AppError {
+	return agent.manager.SetOffline(agent)
+}

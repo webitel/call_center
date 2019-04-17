@@ -83,7 +83,7 @@ func (s SqlAgentStore) SetState(agentId int64, state string, timeoutSeconds int)
 func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var times []*model.AgentStateHistoryTime //TODO
-		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, info)
+		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, payload)
 			select h.agent_id, h.timeout_at, case when ca.status = 'online' then 'waiting' else ca.status end, ca.status_payload
 			from cc_agent_state_history h
   				inner join cc_agent ca on h.agent_id = ca.id
@@ -93,7 +93,7 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
     				from cc_agent_state_history h2
     				 where h2.agent_id = h.agent_id and h2.joined_at > h.joined_at
   				)
-			returning id, agent_id, joined_at, state, info`, map[string]interface{}{"State": newState}); err != nil {
+			returning id, agent_id, joined_at, state, payload`, map[string]interface{}{"State": newState}); err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
 				fmt.Sprintf("State=%v, %s", newState, err.Error()), http.StatusInternalServerError)
 		} else {
