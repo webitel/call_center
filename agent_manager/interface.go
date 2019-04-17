@@ -11,12 +11,6 @@ type AgentManager interface {
 	SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
 }
 
-type AgentInAttemptObject interface {
-	Agent() AgentObject
-	AgentName() string
-	AttemptId() int64
-}
-
 type AgentObject interface {
 	Id() int64
 	Name() string

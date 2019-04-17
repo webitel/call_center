@@ -17,12 +17,11 @@ const (
 )
 
 type AgentManagerImpl struct {
-	store           store.Store
-	watcher         *utils.Watcher
-	nodeId          string
-	startOnce       sync.Once
-	agentsCache     utils.ObjectCache
-	agentsInAttempt chan AgentInAttemptObject
+	store       store.Store
+	watcher     *utils.Watcher
+	nodeId      string
+	startOnce   sync.Once
+	agentsCache utils.ObjectCache
 	sync.Mutex
 }
 
@@ -31,7 +30,6 @@ func NewAgentManager(nodeId string, s store.Store) AgentManager {
 	agentManager.store = s
 	agentManager.nodeId = nodeId
 	agentManager.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
-	agentManager.agentsInAttempt = make(chan AgentInAttemptObject)
 	return &agentManager
 }
 
