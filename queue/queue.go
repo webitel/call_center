@@ -44,16 +44,29 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
 		}, settings), nil
+
 	case model.QUEUE_TYPE_IVR:
 		ivrSettings := model.QueueIVRSettingsFromBytes(settings.Payload)
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
 			params:    ivrSettings.QueueDialingSettings,
 		}, ivrSettings.Amd), nil
+
 	case model.QUEUE_TYPE_PREVIEW:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
 		}), nil
+
+	case model.QUEUE_TYPE_PROGRESSIVE:
+		return NewProgressiveCallQueue(CallingQueue{
+			BaseQueue: base,
+		}), nil
+
+	case model.QUEUE_TYPE_PREDICT:
+		return NewPredictCallQueue(CallingQueue{
+			BaseQueue: base,
+		}), nil
+
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)

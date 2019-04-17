@@ -92,6 +92,18 @@ func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state str
 	return nil
 }
 
+func (agentManager *AgentManagerImpl) SetOnline(agent AgentObject) *model.AppError {
+	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+		Status: model.AGENT_STATUS_ONLINE,
+	})
+}
+
+func (agentManager *AgentManagerImpl) SetOffline(agent AgentObject) *model.AppError {
+	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+		Status: model.AGENT_STATUS_OFFLINE,
+	})
+}
+
 func (agentManager *AgentManagerImpl) changeDeadlineState() {
 	if result := <-agentManager.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); result.Err != nil {
 		mlog.Error(result.Err.Error())

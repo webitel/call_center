@@ -53,6 +53,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	/*
 		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
 	*/
+
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{"sofia/external/111@10.10.10.25:15060"}, //[]string{"sofia/external/dialer-12@10.10.10.25:5080"},
 		CallerNumber: attempt.Destination(),

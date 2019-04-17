@@ -42,9 +42,7 @@ func (app *App) SetAgentLogin(agentId int64) *model.AppError {
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
-			Status: model.AGENT_STATUS_ONLINE,
-		})
+		return app.agentManager.SetOnline(agentObj)
 	}
 }
 
@@ -63,8 +61,6 @@ func (app *App) SetAgentLogout(agentId int64) *model.AppError {
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetAgentStatus(agentObj, &model.AgentStatus{
-			Status: model.AGENT_STATUS_OFFLINE,
-		})
+		return app.agentManager.SetOffline(agentObj)
 	}
 }

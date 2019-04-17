@@ -82,9 +82,9 @@ func (s SqlAgentStore) SetState(agentId int64, state string, timeoutSeconds int)
 
 func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
-		var times []*model.AgentStateHistoryTime
+		var times []*model.AgentStateHistoryTime //TODO
 		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, info)
-			select h.agent_id, h.timeout_at, ca.status, ca.status_payload
+			select h.agent_id, h.timeout_at, case when ca.status = 'online' then 'waiting' else ca.status end, ca.status_payload
 			from cc_agent_state_history h
   				inner join cc_agent ca on h.agent_id = ca.id
 			where h.timeout_at <= now()
@@ -100,4 +100,8 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 			result.Data = times
 		}
 	})
+}
+
+func (s SqlAgentStore) SaveActivityStatisticInQueue(stats *model.AgentInQueueStatistic) {
+
 }

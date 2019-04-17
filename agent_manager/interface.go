@@ -7,6 +7,8 @@ type AgentManager interface {
 	Stop()
 	GetAgent(id int64, updatedAt int64) (AgentObject, *model.AppError)
 
+	SetOnline(agent AgentObject) *model.AppError
+	SetOffline(agent AgentObject) *model.AppError
 	SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
 	SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
 }

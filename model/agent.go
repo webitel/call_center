@@ -72,15 +72,20 @@ type AgentState struct {
 	State     string     `json:"state" db:"state" `
 }
 
-type AgentStats struct {
-	AgentId int64 `json:"agent_id"`
-	QueueId int64 `json:"queue_id"`
-}
-
 type AgentStateHistoryTime struct {
 	Id       int64     `json:"id" db:"id"`
 	AgentId  int64     `json:"agent_id" db:"agent_id"`
 	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
 	State    string    `json:"state" db:"state"`
 	Payload  []byte    `json:"payload" db:"info"`
+}
+
+type AgentInQueueStatistic struct {
+	AgentId           int64      `json:"agent_id" db:"agent_id"`
+	QueueId           int64      `json:"queue_id" db:"queue_id"`
+	LastOfferingAt    *time.Time `json:"last_offering_at" db:"last_offering_at"`
+	LastBridgeStartAt *time.Time `json:"last_bridge_start_at" db:"last_bridge_start_at"`
+	LastBridgeEndAt   *time.Time `json:"last_bridge_end_at" db:"last_bridge_end_at"`
+	CallsAnswered     int        `json:"calls_answered" db:"calls_answered"`
+	CallsAbandoned    int        `json:"calls_abandoned" db:"calls_abandoned"`
 }

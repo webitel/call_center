@@ -1,7 +1,6 @@
 package agent_manager
 
 import (
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
@@ -31,9 +30,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 		t.Errorf("GetAgent error: %s", err.Error())
 	}
 
-	err = am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_ONLINE,
-	})
+	err = am.SetOnline(agent)
 	if err != nil {
 		t.Errorf("Set agent login %s error: %s", agent.Id(), err.Error())
 	}
@@ -42,9 +39,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 }
 
 func testLogOut(t *testing.T, am AgentManager, agent AgentObject) {
-	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_OFFLINE,
-	})
+	err := am.SetOffline(agent)
 
 	if err != nil {
 		t.Errorf("Set agent logout %s error: %s", agent.Id(), err.Error())
