@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"strings"
 )
 
 type PreviewCallQueue struct {
@@ -50,6 +51,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	}
 
 	endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
+	info.LegAUri = strings.Join(agent.GetEndpoints(), ",")
 
 	callRequest := &model.CallRequest{
 		Endpoints:    agent.GetEndpoints(),
@@ -114,6 +116,5 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	}
 
 	preview.queueManager.LeavingMember(attempt, preview)
-	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_REPORTING, 10)
-
+	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_REPORTING, int(agent.WrapUpTime()))
 }
