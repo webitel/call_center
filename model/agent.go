@@ -31,6 +31,7 @@ const (
 	AGENT_STATE_TALK      = "talking"
 	AGENT_STATE_REPORTING = "reporting"
 	AGENT_STATE_BREAK     = "break"
+	AGENT_STATE_FINE      = "fine"
 )
 
 const (

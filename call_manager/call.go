@@ -15,12 +15,19 @@ type CallImpl struct {
 	lastEvent   mq.Event
 	err         *model.AppError
 	state       uint8
+
+	offeringAt int64
+	acceptAt   int64
+	bridgeAt   int64
+	hangupAt   int64
+
 	sync.RWMutex
 }
 
 const (
 	CALL_STATE_RINGING = iota
 	CALL_STATE_ACCEPT
+	CALL_STATE_BRIDGE
 	CALL_STATE_PARK
 	CALL_STATE_HANGUP
 )
@@ -40,6 +47,16 @@ func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
 func (call *CallImpl) setState(state uint8) {
 	call.Lock()
 	defer call.Unlock()
+	switch state {
+	case CALL_STATE_RINGING:
+		call.offeringAt = model.GetMillis()
+	case CALL_STATE_ACCEPT:
+		call.acceptAt = model.GetMillis()
+	case CALL_STATE_BRIDGE:
+		call.bridgeAt = model.GetMillis()
+	case CALL_STATE_HANGUP:
+		call.hangupAt = model.GetMillis()
+	}
 	call.state = state
 }
 
@@ -61,6 +78,22 @@ func (call *CallImpl) WaitForHangup() {
 	if call.err == nil && call.hangupCause == "" {
 		<-call.hangup
 	}
+}
+
+func (call *CallImpl) OfferingAt() int64 {
+	return call.offeringAt
+}
+
+func (call *CallImpl) AcceptAt() int64 {
+	return call.acceptAt
+}
+
+func (call *CallImpl) BridgeAt() int64 {
+	return call.bridgeAt
+}
+
+func (call *CallImpl) HangupAt() int64 {
+	return call.hangupAt
 }
 
 func (call *CallImpl) intVarIfLastEvent(name string) int {

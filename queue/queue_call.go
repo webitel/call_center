@@ -82,9 +82,6 @@ func (queue *CallingQueue) CallError(attempt *Attempt, callErr *model.AppError, 
 	attempt.Log("error: " + callErr.Error())
 	info := queue.GetCallInfoFromAttempt(attempt)
 	info.Error = model.NewString(callErr.Error())
-	if attempt.Agent() != nil {
-		queue.queueManager.agentManager.SetAgentState(attempt.Agent(), "fine", attempt.Agent().NoAnswerDelayTime()) //TODO
-	}
 	return queue.StopAttemptWithCallDuration(attempt, cause, 0)
 }
 

@@ -32,6 +32,8 @@ func (cm *CallManagerImpl) handleCallEvent(event mq.Event) {
 		}
 		call.SetHangupCall(event)
 		cm.RemoveCall(linkId)
+	case model.CALL_EVENT_BRIDGE:
+		call.(*CallImpl).setState(CALL_STATE_BRIDGE)
 	case model.CALL_EVENT_PARK:
 		//TODO
 		call.(*CallImpl).setState(CALL_STATE_PARK)

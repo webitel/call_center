@@ -93,17 +93,20 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    "{bridge_early_media=true,cc_side=member,origination_caller_id_number=777}sofia/external/dialer-12@10.10.10.25:5080",
+		Args:    "user/1000@10.10.10.25",
 	})
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
-
 	call := preview.NewCallUseResource(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+
+	defer preview.queueManager.AgentReportingCall(agent, call)
+
 	if call.Err() != nil {
 		preview.CallError(attempt, call.Err(), call.HangupCause())
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}
+
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
 	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
@@ -116,5 +119,4 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	}
 
 	preview.queueManager.LeavingMember(attempt, preview)
-	preview.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_REPORTING, int(agent.WrapUpTime()))
 }

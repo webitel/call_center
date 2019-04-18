@@ -28,6 +28,11 @@ type Call interface {
 	Err() *model.AppError
 	SetHangupCall(event mq.Event)
 
+	OfferingAt() int64
+	AcceptAt() int64
+	BridgeAt() int64
+	HangupAt() int64
+
 	DurationSeconds() int
 	BillSeconds() int
 	AnswerSeconds() int

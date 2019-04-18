@@ -102,6 +102,30 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 	})
 }
 
-func (s SqlAgentStore) SaveActivityStatisticInQueue(stats *model.AgentInQueueStatistic) {
-
+func (s SqlAgentStore) SaveActivityCallStatistic(agentId, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		cnt, err := s.GetMaster().SelectInt(`with ag as (
+  select a.id as agent_id, a.max_no_answer, caa.successively_no_answers, (a.max_no_answer > 0 and a.max_no_answer > caa.successively_no_answers + 1) next_call
+  from cc_agent a
+    inner join cc_agent_activity caa on a.id = caa.agent_id
+  where a.id = :AgentId
+)
+update cc_agent_activity a
+set last_offering_call_at = :OfferingAt,
+    last_answer_at = case when :AnswerAt = 0::bigint then last_answer_at else :AnswerAt end,
+    last_bridge_start_at = case when :BridgedStartAt = 0::bigint then last_bridge_start_at else :BridgedStartAt end,
+    last_bridge_end_at = case when :BridgedStopAt = 0::bigint then last_bridge_end_at else :BridgedStopAt end,
+    calls_abandoned = case when :AnswerAt = 0::bigint then calls_abandoned + 1 else calls_abandoned end,
+    calls_answered = case when :AnswerAt != 0::bigint then calls_answered + 1 else calls_answered end,
+    successively_no_answers = case when :NoAnswer and ag.next_call is true then a.successively_no_answers + 1 else 0 end
+from ag
+where a.agent_id = ag.agent_id
+returning case when :NoAnswer and ag.next_call is false then 1 else 0 end stopped`, map[string]interface{}{"AgentId": agentId, "OfferingAt": offeringAt, "AnswerAt": answerAt, "BridgedStartAt": bridgeStartAt, "BridgedStopAt": bridgeStopAt, "NoAnswer": nowAnswer})
+		if err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.SaveActivityCallStatistic", "store.sql_agent.save_call_activity.app_error", nil,
+				fmt.Sprintf("AgentId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = cnt
+		}
+	})
 }

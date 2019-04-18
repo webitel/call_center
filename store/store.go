@@ -92,6 +92,8 @@ type AgentStore interface {
 	Get(id int64) StoreChannel
 	SetStatus(agentId int64, status string, payload interface{}) StoreChannel
 
+	SaveActivityCallStatistic(agentId, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) StoreChannel
+
 	ReservedForAttemptByNode(nodeId string) StoreChannel
 	SetState(agentId int64, state string, timeoutSeconds int) StoreChannel
 	ChangeDeadlineState(newState string) StoreChannel
