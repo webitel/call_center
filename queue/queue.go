@@ -88,11 +88,15 @@ func (queue *BaseQueue) Timeout() uint16 {
 func (queue *BaseQueue) TypeName() string {
 	switch queue.typeId {
 	case model.QUEUE_TYPE_INBOUND:
-		return "Inbound"
+		return "inbound"
 	case model.QUEUE_TYPE_IVR:
-		return "IVR"
+		return "ivr"
 	case model.QUEUE_TYPE_PREVIEW:
-		return "Preview"
+		return "preview"
+	case model.QUEUE_TYPE_PROGRESSIVE:
+		return "progressive"
+	case model.QUEUE_TYPE_PREDICT:
+		return "preview"
 	default:
 		return "NOT_IMPLEMENT"
 	}

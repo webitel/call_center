@@ -24,6 +24,10 @@ func (agent *Agent) Id() int64 {
 	return agent.info.Id
 }
 
+func (agent *Agent) UpdatedAt() int64 {
+	return agent.info.UpdatedAt
+}
+
 func (agent *Agent) IsExpire(updatedAt int64) bool {
 	return agent.info.UpdatedAt != updatedAt
 }

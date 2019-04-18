@@ -20,6 +20,7 @@ type AgentObject interface {
 	Name() string
 	CallDestination() string
 	GetEndpoints() []string
+	UpdatedAt() int64
 
 	IsExpire(updatedAt int64) bool
 
