@@ -30,52 +30,54 @@
             </v-menu>
         </v-toolbar>
 
-        <v-data-table
-                :headers="headers"
-                :items="calendars"
-                :hide-actions="true"
-                :loading="loading"
-                class="elevation-1 table__fixed"
-                :disable-initial-sort="true"
-                :pagination.sync="pagination"
-                v-infinite-scroll="loadMore"
-                infinite-scroll-disabled="loading"
-        >
-            <template slot="items" slot-scope="props">
-                <tr class="">
-                    <td>
-                        <v-btn flat small  @click="editItem(props.item)">{{ props.item.name }}</v-btn>
-                    </td>
-                    <td class="">{{ props.item.timezone }}</td>
-                    <td class="">{{ props.item.start }}</td>
-                    <td class="">{{ props.item.finish }}</td>
-                    <td class="text-xs-right">
-                        <v-menu bottom left>
-                            <v-btn
-                                    color="transparent"
-                                    small
-                                    icon
-                                    slot="activator"
-                            >
-                                <v-icon>more_vert</v-icon>
-                            </v-btn>
-                            <v-list>
-                                <v-list-tile
-                                        @click="editItem(props.item)"
+        <v-flex pt-2>
+            <v-data-table
+                    :headers="headers"
+                    :items="calendars"
+                    :hide-actions="true"
+                    :loading="loading"
+                    class="elevation-1 table__fixed"
+                    :disable-initial-sort="true"
+                    :pagination.sync="pagination"
+                    v-infinite-scroll="loadMore"
+                    infinite-scroll-disabled="loading"
+            >
+                <template slot="items" slot-scope="props">
+                    <tr class="">
+                        <td>
+                            <v-btn flat small  @click="editItem(props.item)">{{ props.item.name }}</v-btn>
+                        </td>
+                        <td class="">{{ props.item.timezone }}</td>
+                        <td class="">{{ props.item.start }}</td>
+                        <td class="">{{ props.item.finish }}</td>
+                        <td class="text-xs-right">
+                            <v-menu bottom left>
+                                <v-btn
+                                        color="transparent"
+                                        small
+                                        icon
+                                        slot="activator"
                                 >
-                                    <v-list-tile-title>Edit</v-list-tile-title>
-                                </v-list-tile>
-                                <v-list-tile
-                                        @click="deleteItem(props.item)"
-                                >
-                                    <v-list-tile-title>Delete</v-list-tile-title>
-                                </v-list-tile>
-                            </v-list>
-                        </v-menu>
-                    </td>
-                </tr>
-            </template>
-        </v-data-table>
+                                    <v-icon>more_vert</v-icon>
+                                </v-btn>
+                                <v-list>
+                                    <v-list-tile
+                                            @click="editItem(props.item)"
+                                    >
+                                        <v-list-tile-title>Edit</v-list-tile-title>
+                                    </v-list-tile>
+                                    <v-list-tile
+                                            @click="deleteItem(props.item)"
+                                    >
+                                        <v-list-tile-title>Delete</v-list-tile-title>
+                                    </v-list-tile>
+                                </v-list>
+                            </v-menu>
+                        </td>
+                    </tr>
+                </template>
+            </v-data-table>
+        </v-flex>
 
         <CalendarCreateDialog ></CalendarCreateDialog>
     </div>

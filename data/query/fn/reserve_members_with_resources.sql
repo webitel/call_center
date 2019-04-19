@@ -25,6 +25,16 @@ $$ LANGUAGE 'plpgsql';
 
 
 
+explain analyse
+SELECT r.*, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type_ids
+      from get_free_resources() r
+        inner join cc_queue q on q.id = r.queue_id
+      where r.call_count > 0
+      group by r.queue_id, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
+      order by q.priority desc;
+
+vacuum full cc_member_attempt;
+
 
 CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
@@ -42,22 +52,29 @@ BEGIN
     end if;
 
 
-    FOR rec IN SELECT r.*, cc_queue_timing_communication_ids(r.queue_id) as type_ids
+    FOR rec IN SELECT r.*, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type_ids
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
       where r.call_count > 0
       group by r.queue_id, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
       order by q.priority desc
     LOOP
-      insert into cc_member_attempt(communication_id, queue_id, member_id, resource_id, routing_id, node_id)
-      select t.communication_id, rec.queue_id, t.member_id, rec.resource_id, t.routing_id, node_id
+      insert into cc_member_attempt(result, communication_id, queue_id, member_id, resource_id, routing_id, node_id)
+      select
+              case when lc.number is null then null else 'OUTGOING_CALL_BARRED' end,
+             t.communication_id,
+             rec.queue_id,
+             t.member_id,
+             rec.resource_id,
+             t.routing_id,
+             node_id
       from (
         select
                c.*,
               (c.routing_ids & rec.routing_ids)[1] as routing_id,
                row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d
         from (
-          select c.id as communication_id, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
+          select c.id as communication_id, c.number as communication_number, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
           from cc_member cm
            cross join cc_member_communications c
               where
@@ -80,6 +97,7 @@ BEGIN
           limit rec.call_count * 3 --todo 3 is avg communication count
         ) c
       ) t
+      left join cc_list_communications lc on lc.list_id = rec.dnc_list_id and lc.number = t.communication_number
       where t.d =1
       limit rec.call_count;
 
@@ -90,11 +108,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 explain analyse
 select *
 from cc_member_attempt a
 --where state > 0 and hangup_at != 0
 order by a.id desc ;
+
+
+insert into cc_list_communications (list_id, number)
+select 1, number
+from cc_member_communications
+on conflict do nothing ;
 
 select count(*)
 from cc_member_attempt;
@@ -109,6 +134,10 @@ group by member_id
 having count(*) > 1
 --order by id desc
 ;
+
+select *
+from cc_member_attempt
+where result=  'OUTGOING_CALL_BARRED';
 
 truncate table cc_member_attempt;
 
@@ -201,64 +230,6 @@ select reserve_members_with_resources('dd');
 select *
 from pg_stat_activity;
 
-CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
-RETURNS integer AS $$
-DECLARE
-    rec RECORD;
-    count integer;
-    v_cnt integer;
-BEGIN
-    count = 0;
-
-    if NOT pg_try_advisory_xact_lock(13213211) then
-      raise notice 'LOCK';
-      return 0;
-    end if;
-
-    FOR rec IN SELECT r.*, array_agg(cqt.communication_id) as type_ids
-      from get_free_resources() r
-        inner join cc_queue q on q.id = r.queue_id
-        inner join cc_queue_timing cqt on q.id = cqt.queue_id
-      where r.call_count > 0
-      group by r.queue_id, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
-      order by q.priority desc
-    LOOP
-      insert into cc_member_attempt(communication_id, queue_id, member_id, resource_id, routing_id, node_id)
-      select c.communication_id, rec.queue_id, m.id, rec.resource_id, c.routing_id, node_id
-       from cc_member m
-          inner join lateral (
-            select
-                   c.id as communication_id,
-                   (c.routing_ids & rec.routing_ids)[1] as routing_id,
-                   c.routing_ids as routing_ids
-            from cc_member_communications c
-            where c.member_id = m.id and c.state = 0 and (c.communication_id is null)
-            order by c.last_hangup_at, c.priority desc
-            limit 1
-          ) c on true
-        where m.queue_id = rec.queue_id and m.stop_at = 0 and c.routing_ids && rec.routing_ids
-             and not exists(select 1
-                   from cc_member_attempt a
-                   where a.member_id = m.id
-                     and (a.state > 0 or
-                          a.hangup_at >
-                          (((date_part('epoch'::text, now()) * (1000)::double precision))::bigint) - (rec.sec_between_retries * 60 * 1000)
-                     )
-                   limit 1
-              )
-              and exists(select *
-                         from cc_member_communications c1
-                         where c1.member_id = m.id and c1.state = 0 and c1.routing_ids && rec.routing_ids)
-
-        order by m.priority desc
-        limit rec.call_count;
-
-      get diagnostics v_cnt = row_count;
-      count = count + v_cnt;
-    END LOOP;
-    return count;
-END;
-$$ LANGUAGE plpgsql;
 
 explain analyse
 select *
@@ -270,58 +241,31 @@ truncate table cc_member_attempt;
 
 vacuum full cc_member_communications;
 
-explain (analyse, buffers, timing )
-  select *
-  from cc_member m
-       inner join lateral (
-           select *
-           from cc_member_communications c
-           where c.state = 0
-             and c.member_id = m.id
-             and c.routing_ids && array [26,1,2,4]
-           order by c.last_hangup_at asc, c.priority desc
-       ) c on true
-  where m.stop_at = 0
-    and m.queue_id = 1
-    and not exists(select 1
-         from cc_member_attempt a
-         where a.member_id = m.id
-           and (a.state > 0 or
-                a.hangup_at >
-                (((date_part('epoch'::text, now()) * (1000)::double precision))::bigint) - (60000000::bigint * 60 * 1000)::bigint
-           )
-      )
-      and exists(select *
-                 from cc_member_communications c1
-                where c1.member_id = m.id and c1.state = 0 and c1.routing_ids && array [26,1,2,4])
-  order by m.priority desc
-  limit 100;
+insert into cc_list_communications (list_id, number)
+values (1, '0cee94ab2d736991');
 
 
-
-explain analyse
 select *
-from (
-  select c.id, c.member_id, row_number() over (partition by c.member_id order by c.member_id ) d
-  from cc_member_communications c
-  where c.state = 0 and c.routing_ids && array[26]
-  order by c.last_hangup_at, c.priority desc
-) t
-where t.d =1
-limit 100;
+from cc_member_attempt
+order by id desc
+;
 
-vacuum full cc_member_attempt;
+
+insert into cc_list_communications (list_id, number)
+values (1, '7be2963c32137675');
+
+
 
 set max_parallel_workers_per_gather = 1;
 explain analyse
-select *
+select case when lc.number isnull then 0 else 1 end, t.number, *
 from (
   select
          c.*,
 
          row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d
   from (
-    select c.id as communication_id, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
+    select c.id as communication_id, c.number, c.routing_ids, c.last_hangup_at, c.priority, c.member_id
     from cc_member cm
      cross join cc_member_communications c
      --cross join cc_queue_actual_timing(1) t
@@ -338,14 +282,67 @@ from (
           and c.state = 0
           and ( (c.communication_id = any(array[1, 2,3,4,5,6,7]) ) or c.communication_id isnull )
           and c.member_id = cm.id
-          and c.routing_ids && array[19, 27,200,30,40,50,60,70,80,90]
+          and c.routing_ids && array[18, 19, 27,200,30,40,50,60,70,80,90]
+--           and not exists(
+--             select 1
+--             from cc_list_communications lc
+--             where lc.list_id = 1 and lc.number = c.number
+--           )
 
       order by cm.priority desc
     limit 100 * 3 --todo 3 is avg communication count
   ) c
 ) t
+left join cc_list_communications lc on lc.list_id = 1 and lc.number = t.number
 where t.d =1
 limit 100;
+
+
+explain analyse
+select c.number
+from cc_member_communications c
+where not c.number in (
+  select number
+  from cc_list_communications
+
+);
+
+explain analyse
+select *
+from cc_member m,
+  lateral (
+    select *
+    from cc_member_communications c
+    where c.member_id = m.id
+      and c.state = 0
+      and ( (c.communication_id = any(array[1, 2,3,4,5,6,7]) ) or c.communication_id isnull )
+      and c.routing_ids && array[777]
+
+    order by c.last_hangup_at, c.priority desc
+    limit 1
+  ) c
+where m.queue_id = 1 and m.stop_at = 0
+order by m.priority desc
+limit 100;
+
+
+explain analyse
+select c.number
+from cc_member_communications c
+where not exists(
+    select *
+    from cc_list_communications lc
+  where lc.list_id = 1 and lc.number = c.number
+);
+
+
+insert into cc_list_communications (list_id, number)
+values (1, 'bf6c11a4f3356778');
+
+vacuum full cc_list_communications;
+
+create index cc_list_communications_list_id_number_index
+	on call_center.cc_list_communications using hash(number);
 
 
 select *

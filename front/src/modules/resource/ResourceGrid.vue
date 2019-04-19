@@ -50,6 +50,14 @@
                         </td>
                         <td class="">{{ props.item.limit }}</td>
                         <td class="">
+                            <v-icon v-if="props.item.enabled">
+                                radio_button_checked
+                            </v-icon>
+                            <v-icon v-else="!props.item.enabled">
+                                radio_button_unchecked
+                            </v-icon>
+                        </td>
+                        <td class="">
                             <v-icon v-if="props.item.reserve">
                                 radio_button_checked
                             </v-icon>
@@ -59,12 +67,6 @@
                         </td>
                         <td class="">{{ props.item.rps }}</td>
                         <td class="text-xs-right">
-                            <v-btn icon small >
-                                <v-icon color="green" v-if="props.item.enabled">toggle_on</v-icon>
-                                <v-icon v-if="!props.item.enabled">toggle_off</v-icon>
-                            </v-btn>
-
-
                             <v-menu bottom left>
                                 <v-btn
                                         color="transparent"
@@ -134,6 +136,13 @@
                         //align: 'center',
                         sortable: true,
                         value: 'limit',
+                        width: '20%'
+                    },
+                    {
+                        text: this.$t('resource.page.enabled'),
+                        //align: 'center',
+                        sortable: true,
+                        value: 'reserve',
                         width: '20%'
                     },
                     {

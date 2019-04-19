@@ -92,6 +92,13 @@ func (a *Attempt) GetCommunicationPattern() *string {
 	return a.member.RoutingPattern
 }
 
+func (a *Attempt) IsBarred() bool {
+	if a.member.Result != nil && *a.member.Result == model.CALL_OUTGOING_CALL_BARRED {
+		return true
+	}
+	return false
+}
+
 func (a *Attempt) Log(info string) {
 	mlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
 	a.Logs = append(a.Logs, LogItem{

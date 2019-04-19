@@ -86,6 +86,7 @@ type MemberStore interface {
 
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) StoreChannel
 	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) StoreChannel
+	SetAttemptBarred(attemptId, hangupAt int64, cause string, data []byte) StoreChannel
 }
 
 type AgentStore interface {

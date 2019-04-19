@@ -59,3 +59,16 @@ left join (
 FROM generate_series(1, 3) id
             ) as a on true
 where m.id > 10;
+
+
+
+insert into cc_list_communications (list_id, number)
+SELECT 1, md5(random()::TEXT)::varchar(25)
+FROM generate_series(1,1000000)
+on conflict do nothing ;
+
+
+explain analyse
+select *
+from cc_list_communications
+where list_id = 1 and number = 'dsadsada';

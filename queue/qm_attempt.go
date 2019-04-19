@@ -44,3 +44,11 @@ func (queueManager *QueueManager) SetAttemptStop(attempt *Attempt, cause string)
 		return res.Data.(bool), nil
 	}
 }
+
+func (queueManager *QueueManager) SetAttemptBarred(attempt *Attempt) (bool, *model.AppError) {
+	if res := <-queueManager.store.Member().SetAttemptBarred(attempt.Id(), model.GetMillis(), model.CALL_OUTGOING_CALL_BARRED, attempt.LogsData()); res.Err != nil {
+		return false, res.Err
+	} else {
+		return res.Data.(bool), nil
+	}
+}

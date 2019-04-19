@@ -46,6 +46,7 @@
       "variableName": "Name",
       "variableValue": "Value",
       "name": "Name",
+      "enabled": "Enabled",
       "limit": "Limit",
       "reserve": "Reserve",
       "rps": "RPS",

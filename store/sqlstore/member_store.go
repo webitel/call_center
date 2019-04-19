@@ -133,6 +133,19 @@ func (s SqlMemberStore) SetAttemptStop(attemptId, hangupAt int64, delta int, isE
 	})
 }
 
+func (s SqlMemberStore) SetAttemptBarred(attemptId, hangupAt int64, cause string, data []byte) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var stopped bool
+		if err := s.GetMaster().SelectOne(&stopped, `select cc_set_attempt_barred(:AttemptId, :HangupAt, :Data, :Result);`,
+			map[string]interface{}{"AttemptId": attemptId, "HangupAt": hangupAt, "Data": data, "Result": cause}); err != nil {
+			result.Err = model.NewAppError("SqlMemberStore.SetAttemptBarred", "store.sql_member.set_attempt_barred.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", attemptId, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = stopped
+		}
+	})
+}
+
 func (s SqlMemberStore) SetAttemptAgentId(attemptId int64, agentId *int64) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		if _, err := s.GetMaster().Exec(`update cc_member_attempt

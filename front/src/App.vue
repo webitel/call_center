@@ -5,6 +5,7 @@
                 clipped
                 app
                 v-model="drawer"
+                width="250"
         >
             <v-list
                     dense

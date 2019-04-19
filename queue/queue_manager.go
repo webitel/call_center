@@ -165,6 +165,11 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 		return
 	}
 
+	if memberAttempt.IsBarred() {
+		queueManager.attemptBarred(memberAttempt, queue)
+		return
+	}
+
 	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
 	queueManager.wg.Add(1)
 
@@ -172,7 +177,7 @@ func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
 	queue.JoinAttempt(memberAttempt)
 	queueManager.notifyChangedQueueLength(queue)
 
-	mlog.Debug(fmt.Sprintf("Join member %s[%d] AttemptId=%d to queue %s", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
@@ -180,17 +185,29 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
 
-	mlog.Debug(fmt.Sprintf("Leaving member %s[%d] AttemptId=%d from queue %s", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
+	mlog.Debug(fmt.Sprintf("leaving member %s[%d] AttemptId=%d from queue \"%s\"", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {
 	if attempt.ResourceId() != nil && attempt.ResourceUpdatedAt() != nil {
 		resource, err := queueManager.resourceManager.Get(*attempt.ResourceId(), *attempt.ResourceUpdatedAt())
 		if err != nil {
-			mlog.Error(fmt.Sprintf("Attempt resource error: %s", err.Error()))
+			mlog.Error(fmt.Sprintf("attempt resource error: %s", err.Error()))
 		} else {
 			return resource
 		}
 	}
 	return nil
+}
+
+func (queueManager *QueueManager) attemptBarred(attempt *Attempt, queue QueueObject) {
+	if stopped, err := queueManager.SetAttemptBarred(attempt); err != nil {
+		mlog.Error(err.Error())
+	} else {
+		mlog.Warn(fmt.Sprintf("barred member %s[%d] Destination=\"%v\" AttemptId=%d in queue \"%s\"", attempt.Name(), attempt.MemberId(),
+			attempt.Destination(), attempt.Id(), queue.Name()))
+		if stopped {
+			queueManager.notifyStopAttempt(attempt)
+		}
+	}
 }
