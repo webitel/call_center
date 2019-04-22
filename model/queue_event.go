@@ -3,10 +3,11 @@ package model
 import "encoding/json"
 
 const (
-	QUEUE_EVENT_COUNT = "queue_count"
+	QUEUE_EVENT_COUNT = "queue_count" // delete
 
-	QUEUE_EVENT_JOIN_MEMBER      = "queue_member_join"
-	QUEUE_EVENT_LEAVING_MEMBER   = "queue_member_leaving"
+	QUEUE_EVENT_JOIN_MEMBER    = "queue_member_join"
+	QUEUE_EVENT_LEAVING_MEMBER = "queue_member_leaving"
+
 	QUEUE_EVENT_OFFERING_MEMBER  = "queue_member_offering"
 	QUEUE_EVENT_BRIDGED_MEMBER   = "queue_member_bridged"
 	QUEUE_EVENT_UNBRIDGED_MEMBER = "queue_member_unbridged"

@@ -36,6 +36,21 @@ SELECT r.*, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type
 vacuum full cc_member_attempt;
 
 
+update cc_member
+set stop_at = 0, stop_cause = null
+where 1=1;
+
+
+select count(*)
+from cc_member
+where stop_at != 0;
+
+select count(*)
+from cc_member_communications
+where state != 0;
+
+
+
 CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE

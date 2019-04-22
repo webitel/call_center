@@ -16,10 +16,11 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		case model.CALL_HANGUP_NO_ANSWER:
 			noAnswer = true
 			timeout = agent.NoAnswerDelayTime()
-		case model.CALL_HANGUP_USER_BUSY:
-			timeout = agent.BusyDelayTime()
 		case model.CALL_HANGUP_REJECTED:
 			timeout = agent.RejectDelayTime()
+		//case model.CALL_HANGUP_USER_BUSY:
+		default:
+			timeout = agent.BusyDelayTime()
 		}
 
 		if result := <-queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); result.Err != nil {

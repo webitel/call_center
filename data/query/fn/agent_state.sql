@@ -19,7 +19,7 @@ drop trigger tg_cc_set_agent_change_status on cc_agent;
 CREATE TRIGGER tg_cc_set_agent_change_status
   BEFORE UPDATE OR INSERT
   ON cc_agent
-  FOR EACH ROW
+  FOR EACH ROW WHEN (  )
 EXECUTE PROCEDURE cc_set_agent_change_status();
 
 
@@ -27,6 +27,50 @@ select count(*)
 from cc_member_attempt
 where agent_id = 1
 group by queue_id;
+
+select count(*)
+from cc_agent_state_history;
+
+explain analyse
+select a.id, ca.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from (
+       select distinct on (agent_id) agent_id, joined_at, timeout_at, state
+       from cc_agent_state_history h
+       where h.joined_at > current_date - '1 day'::interval
+       order by h.agent_id, h.joined_at desc
+     ) ca
+       inner join cc_agent a on a.id = ca.agent_id
+where ca.timeout_at <= now();
+
+
+explain analyse
+select *
+from (
+  select a.id, h.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from cc_agent a
+  ,lateral (
+    select h.timeout_at
+    from cc_agent_state_history h
+    where h.agent_id = a.id
+    order by h.joined_at desc
+    limit 1
+  ) h
+where  a.status in  ('online', 'pause') and h.timeout_at < now()
+) t;
+
+select count(id)
+from cc_agent_state_history
+where agent_id = 1 and timeout_at < now();
+
+
+UPDATE "call_center"."cc_agent" SET "no_answer_delay_time" = 2, "updated_at" = 6 WHERE "id" = 1
+
+vacuum full cc_agent_state_history;
+
+select count(*)
+from cc_member_attempt
+where to_timestamp(created_at/1000) > current_date - '1 day'::interval;
+
 
 
 update cc_agent
@@ -264,3 +308,64 @@ select count(*)
 from cc_agent_state_history h
 where h.joined_at > current_date;
 
+
+explain analyse
+select *
+from (
+  select
+    h.agent_id,
+    h.joined_at,
+    h.timeout_at,
+    row_number() over (partition by h.agent_id order by h.joined_at desc) rn
+  from cc_agent_state_history h
+) t
+where t.rn =1 and not t.timeout_at isnull ;
+
+
+explain analyse
+select a.id, ca.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from (
+  select distinct on(agent_id) agent_id, joined_at, timeout_at, state
+  from cc_agent_state_history h
+  where h.joined_at > current_date - '1 day'::interval
+  order by h.agent_id, h.joined_at desc
+) ca
+inner join cc_agent a on a.id = ca.agent_id
+where not ca.timeout_at isnull ;
+
+
+vacuum full cc_member_communications;
+
+
+select a.id, ca.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from (
+  select distinct on(agent_id) agent_id, joined_at, timeout_at, state
+  from cc_agent_state_history h
+  where h.joined_at > current_date - '1 day'::interval
+  order by h.agent_id, h.joined_at desc
+) ca
+inner join cc_agent a on a.id = ca.agent_id
+where ca.timeout_at <= now()
+
+update cc_member
+set stop_at = 0
+where 1=1;
+
+
+delete from cc_list_communications
+where number in (
+  select cc_member_communications.number
+  from cc_member_communications
+);
+
+
+explain analyse
+select h.agent_id, h.timeout_at, case when ca.status = 'online' then 'waiting' else ca.status end, ca.status_payload
+from cc_agent_state_history h
+    inner join cc_agent ca on h.agent_id = ca.id
+where h.timeout_at <= now()
+    and not exists(
+      select *
+      from cc_agent_state_history h2
+       where h2.agent_id = h.agent_id and h2.joined_at > h.joined_at
+  );

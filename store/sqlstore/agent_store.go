@@ -84,6 +84,30 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
 		var times []*model.AgentStateHistoryTime //TODO
 		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, payload)
+  select a.id, h.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from cc_agent a
+  ,lateral (
+    select h.timeout_at
+    from cc_agent_state_history h
+    where h.agent_id = a.id
+    order by h.joined_at desc
+    limit 1
+  ) h
+where  a.status in  ('online', 'pause') and h.timeout_at < now()
+			returning id, agent_id, joined_at, state, payload`, map[string]interface{}{"State": newState}); err != nil {
+			result.Err = model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
+				fmt.Sprintf("State=%v, %s", newState, err.Error()), http.StatusInternalServerError)
+		} else {
+			result.Data = times
+		}
+	})
+}
+
+/*
+func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var times []*model.AgentStateHistoryTime //TODO
+		if _, err := s.GetMaster().Select(&times, `insert into cc_agent_state_history (agent_id, joined_at, state, payload)
 			select h.agent_id, h.timeout_at, case when ca.status = 'online' then 'waiting' else ca.status end, ca.status_payload
 			from cc_agent_state_history h
   				inner join cc_agent ca on h.agent_id = ca.id
@@ -101,6 +125,7 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) store.StoreChannel {
 		}
 	})
 }
+*/
 
 func (s SqlAgentStore) SaveActivityCallStatistic(agentId, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) store.StoreChannel {
 	return store.Do(func(result *store.StoreResult) {
@@ -120,7 +145,7 @@ set last_offering_call_at = :OfferingAt,
     successively_no_answers = case when :NoAnswer and ag.next_call is true then a.successively_no_answers + 1 else 0 end
 from ag
 where a.agent_id = ag.agent_id
-returning case when :NoAnswer and ag.next_call is false then 1 else 0 end stopped`, map[string]interface{}{"AgentId": agentId, "OfferingAt": offeringAt, "AnswerAt": answerAt, "BridgedStartAt": bridgeStartAt, "BridgedStopAt": bridgeStopAt, "NoAnswer": nowAnswer})
+returning case when :NoAnswer and ag.max_no_answer > 0 and ag.next_call is false then 1 else 0 end stopped`, map[string]interface{}{"AgentId": agentId, "OfferingAt": offeringAt, "AnswerAt": answerAt, "BridgedStartAt": bridgeStartAt, "BridgedStopAt": bridgeStopAt, "NoAnswer": nowAnswer})
 		if err != nil {
 			result.Err = model.NewAppError("SqlAgentStore.SaveActivityCallStatistic", "store.sql_agent.save_call_activity.app_error", nil,
 				fmt.Sprintf("AgentId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)

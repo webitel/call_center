@@ -132,6 +132,7 @@ select *
 from cc_member
 where id = 81;
 
+UPDATE "call_center"."cc_agent" SET max_no_answer = 0 , no_answer_delay_time = 1, "updated_at" = 4, "call_timeout" = 1 WHERE "id" = 1;
 
 select *
 from cc_member_communications
