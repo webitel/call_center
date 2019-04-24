@@ -7,6 +7,10 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+func (queueManager *QueueManager) AgentCallRequest(agent agent_manager.Agent) (*model.CallRequest, *model.AppError) {
+	return nil, nil
+}
+
 func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentObject, call call_manager.Call) {
 	var noAnswer = false
 	var timeout = 0
@@ -29,8 +33,10 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		} else {
 			if result.Data.(int64) == 1 {
 				queueManager.agentManager.SetAgentStatus(agent, &model.AgentStatus{
-					Status: model.AGENT_STATUS_PAUSE,
+					Status: model.AGENT_STATUS_PAUSE, // payload: max no answer
 				})
+			} else if timeout == 0 {
+				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0) // TODO
 			} else {
 				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_FINE, timeout)
 			}
@@ -39,6 +45,10 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		if result := <-queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); result.Err != nil {
 			mlog.Error(result.Err.Error())
 		}
-		queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_REPORTING, int(agent.WrapUpTime()))
+		if agent.WrapUpTime() == 0 {
+			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0)
+		} else {
+			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_REPORTING, int(agent.WrapUpTime()))
+		}
 	}
 }

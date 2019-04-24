@@ -103,9 +103,7 @@ func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause s
 		stopped, err = queue.queueManager.SetAttemptStop(attempt, cause)
 	}
 
-	if stopped {
-		queue.queueManager.notifyStopAttempt(attempt)
-	}
+	queue.queueManager.notifyStopAttempt(attempt, stopped)
 
 	return err
 }

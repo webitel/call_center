@@ -103,9 +103,34 @@ CREATE OR REPLACE FUNCTION cc_reserved_agent_for_attempt(_node_id varchar(20))
 $$
 BEGIN
   RETURN QUERY update cc_member_attempt a
-    set agent_id = a1.agent_id
+    set agent_id = res.agent_id
     from (
-      select distinct on (r.agent_id) r.agent_id as agent_id,
+    with tmp as (
+      select *, row_number() over (partition by tmp.queue_id order by tmp.queue_id) rn --TODO strategy
+        from (
+          select distinct on(a.agent_id) a.agent_id, a.queue_id
+          from available_agent_in_queue a
+          order by a.agent_id, a.ratio desc
+        ) tmp
+      )
+      select r.id as attempt_id, r.queue_id, tmp.agent_id
+      from (
+        select *, row_number() over (partition by queue_id order by created_at) rn
+        from cc_member_attempt a
+        where a.hangup_at = 0 and a.state = 3 and a.agent_id isnull
+      ) r
+      inner join tmp on r.queue_id = tmp.queue_id and r.rn = tmp.rn
+    ) res
+    inner join cc_agent ag on ag.id = res.agent_id
+    where a.id = res.attempt_id and a.agent_id isnull
+    returning a.id::bigint as attempt_id, a.agent_id::bigint, ag.updated_at::bigint as agent_updated_at;
+END;
+$$ LANGUAGE 'plpgsql';
+
+UPDATE "call_center"."cc_agent" SET "wrap_up_time" = 60, "updated_at" = 777 WHERE 1 = 1;
+
+select * from (
+select distinct on (r.agent_id) r.agent_id as agent_id,
                                     r.updated_at,
                                     r.attempt_id
       from (
@@ -129,7 +154,7 @@ BEGIN
              where a.hangup_at = 0
                and a.state = 3
                and a.queue_id = ag.queue_id
-               and a.node_id = _node_id
+               and a.node_id = 'test'
                and a.agent_id isnull
              order by a.weight desc, a.created_at, ag.ratio desc
            ) r
@@ -140,46 +165,206 @@ BEGIN
                r.rn asc,
                r.pos_ag asc,
                r.attempt_id asc
-    ) a1
-    where a1.attempt_id = a.id
-    returning a.id::bigint as attempt_id, a.agent_id::bigint as agent_id, a1.updated_at::bigint as agent_updated_at;
-END;
-$$ LANGUAGE 'plpgsql';
+    ) a1;
+
+
+delete from cc_member_attempt
+  where hangup_at  = 0;
+
+
+
+explain (analyse)
+select count(*)
+from cc_member_attempt a
+       left join lateral (
+  select a1.agent_id, a1.id as last_id
+  from cc_member_attempt a1
+  where a1.member_id = a.member_id
+    and a1.hangup_at > 0 --and not a1.agent_id isnull
+  order by a1.hangup_at desc
+  limit 1
+  ) last_agent on true
+ cross join (
+  select * --, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
+  from available_agent_in_queue aq
+
+  ) ag
+where a.hangup_at = 0
+  and a.state = 3
+  and a.queue_id = ag.queue_id
+  and a.node_id = 'test'
+  and a.agent_id isnull
+order by a.weight desc, a.created_at--, ag.ratio desc;
 
 
 select *
-from cc_member_attempt
-order by id desc;
+from (
+  select aq.agent_id, aq.queue_id , row_number() over (partition by aq.queue_id order by aq.ratio desc ) - 1 pos_ag
+  from available_agent_in_queue aq
+  where aq.agent_id = 2
+  order by aq.agent_id asc
+) t
+inner join (
+  select a.id,
+         a.queue_id,
+         row_number() over (partition by a.queue_id order by a.created_at asc) - 1 pos_a,
+         count(*) over (partition by a.queue_id) as cnt
+  from cc_member_attempt a
+  where a.hangup_at = 0
+) a on a.queue_id = t.queue_id and a.pos_a = t.pos_ag
+order by a.id;
 
-explain analyse
-select h.state
-from cc_agent_state_history h
-where h.agent_id = 1
-order by h.joined_at desc
-limit 1;
 
 
-explain analyse
-select info
-from cc_agent_state_history h
-where h.joined_at > CURRENT_DATE and h.agent_id = 1
-order by h.joined_at desc
-limit 1;
+select distinct on(a1.agent_id) a.id, a1.agent_id
+from cc_member_attempt a
+  inner join available_agent_in_queue a1 on a1.queue_id = a.queue_id
+where a.hangup_at  = 0 and a.agent_id isnull;
 
+
+
+delete from cc_member_attempt
+where id in (
+  select id
+  from cc_member_attempt
+  where hangup_at = 0
+  limit 380
+);
+
+
+with recursive a as (
+  select a.id, a.queue_id, a.agent_id, 1 as lvl
+  from cc_member_attempt a
+  where a.hangup_at = 0 and a.agent_id isnull
+
+  union all
+  select *
+  from a
+)
+select *
+from a
+limit  40;
+
+
+select a.id, a.agent_id, a.queue_id, row_number() over (partition by a.queue_id order by a.created_at) dr
+from cc_member_attempt a
+where a.hangup_at = 0
+;
+
+
+select 400 * 897;
 explain analyse
 select *
-from cc_agent a
- left join lateral (
-   select h.joined_at, h.state, h.timeout_at, h.info
-   from cc_agent_state_history h
-   where h.agent_id = a.id --and h.joined_at > current_date
-   order by h.joined_at desc
+from (
+  select a.id, a.queue_id, a.agent_id, row_number() over (partition by a.queue_id order by a.created_at asc) rn
+  from cc_member_attempt a
+  where a.hangup_at = 0 and a.state = 3
+) t;
+
+
+
+select count(*)
+from available_agent_in_queue;
+
+
+select a.id, a.queue_id, row_number() over (partition by queue_id order by created_at asc)
+from cc_member_attempt a
+where a.hangup_at = 0 and agent_id isnull ;
+
+select queue_id, agent_id, row_number() over (partition by queue_id order by ratio desc )
+from available_agent_in_queue aq;
+
+
+WITH RECURSIVE r AS (
+  select 1 as t
+
+  union all
+  select r.t
+  from r
+)
+select *
+from r
+;
+
+
+
+select *
+from cc_member m,
+   lateral (
+     select *
+      from cc_member_communications c
+      where c.member_id = m.id
+     order by c.last_hangup_at asc
+     limit 1
+   ) c
+where m.id = 81;
+
+select *
+from cc_member_communications c
+where c.member_id = 81;
+
+
+--399600
+select 400 * 999
+from available_agent_in_queue aq;
+
+
+explain analyse
+select *, row_number() over (partition by aq.agent_id order by aq.ratio desc ) pos_ag
+from available_agent_in_queue aq;
+
+
+
+explain analyse
+select a1.agent_id, a1.id as last_id
+from cc_member_attempt a1
+where a1.member_id = 81
+ and a1.hangup_at > 0
+order by a1.hangup_at desc;
+
+
+
+vacuum full cc_member_attempt;
+
+explain analyse
+select a.id, a.queue_id , last_agent.agent_id as last_agent_id
+from cc_member_attempt a
+left join lateral (
+   select a1.agent_id, a1.id as last_id
+   from cc_member_attempt a1
+   where a1.member_id = a.member_id
+     and a1.hangup_at > 0
+   order by a1.hangup_at desc
    limit 1
-   ) s on true
---where a.id = 1
-order by a.id asc
-limit 1000;
---where a.id = 1;
+) last_agent on true
+where a.hangup_at = 0
+  and a.state = 3
+  and a.node_id = 'test'
+  and a.agent_id isnull;
+
+
+select count(*)
+from cc_member_attempt;
+
+
+
+select *
+from reserve_members_with_resources('test');
+
+
+update cc_member_attempt
+set state = 3
+where hangup_at = 0;
+
+
+select count(*) -- 97
+from cc_member_attempt
+where hangup_at = 0 and agent_id is null;
+
+
+select *
+from available_agent_in_queue aq;
+
 
 select status
 from cc_agent a
@@ -205,19 +390,6 @@ update cc_agent
 set status = 'test'
 where id = 1;
 
-
-
-
-explain analyse
-select a.id, h.*
-from cc_agent a
-  left join (
-    select h.agent_id, h.state, h.joined_at, row_number() over (partition by h.agent_id order by h.joined_at desc) rn
-    from cc_agent_state_history h
-    where h.joined_at > CURRENT_DATE
-  ) h on h.agent_id = a.id and h.rn = 1
---where  a.id = 1
-order by a.id asc;
 
 
 

@@ -75,6 +75,7 @@ func (d *DialingImpl) routeIdleAgents() {
 	if !d.app.IsReady() {
 		return
 	}
+	//TODO
 
 	result := <-d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
 	if result.Err != nil {

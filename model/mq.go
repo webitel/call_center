@@ -1,7 +1,7 @@
 package model
 
 const (
-	EXCHANGE_MQ = "TAP.CC2"
+	EXCHANGE_MQ = "TAP.CC"
 	QUEUE_MQ    = "call-center-fs-events"
 
 	MQ_EVENT_PREFIX             = "callcenter.event"

@@ -206,8 +206,6 @@ func (queueManager *QueueManager) attemptBarred(attempt *Attempt, queue QueueObj
 	} else {
 		mlog.Warn(fmt.Sprintf("barred member %s[%d] Destination=\"%v\" AttemptId=%d in queue \"%s\"", attempt.Name(), attempt.MemberId(),
 			attempt.Destination(), attempt.Id(), queue.Name()))
-		if stopped {
-			queueManager.notifyStopAttempt(attempt)
-		}
+		queueManager.notifyStopAttempt(attempt, stopped)
 	}
 }

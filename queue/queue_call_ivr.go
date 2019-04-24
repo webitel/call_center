@@ -55,7 +55,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	*/
 
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/external/dialer-12@10.10.10.25:5080"}, //[]string{"sofia/external/111@10.10.10.25:15060"}, //
+		Endpoints:    []string{"sofia/sip/agent@10.10.10.144;fs_path=sip:10.10.10.200:5055"}, //[]string{"sofia/external/111@10.10.10.25:15060"}, //
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -64,6 +64,8 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
+				"sip_h_X-Webitel-Context":              "default",
+				"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
@@ -97,8 +99,8 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 		info.UseAmd = true
 	} else {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: model.CALL_TRANSFER_APPLICATION,
-			Args:    legB,
+			AppName: "sleep",
+			Args:    "100000",
 		})
 	}
 

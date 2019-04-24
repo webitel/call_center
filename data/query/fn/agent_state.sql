@@ -19,7 +19,7 @@ drop trigger tg_cc_set_agent_change_status on cc_agent;
 CREATE TRIGGER tg_cc_set_agent_change_status
   BEFORE UPDATE OR INSERT
   ON cc_agent
-  FOR EACH ROW WHEN (  )
+  FOR EACH ROW
 EXECUTE PROCEDURE cc_set_agent_change_status();
 
 
@@ -72,16 +72,13 @@ from cc_member_attempt
 where to_timestamp(created_at/1000) > current_date - '1 day'::interval;
 
 
-
-update cc_agent
-set status = 'waiting'
-  ,status_payload = '{}'
-where id = 1;
-
-
 select *
-from cc_agent_state_history h
-order by h.joined_at desc ;
+from reserve_members_with_resources('test');
+
+delete from cc_member_attempt
+  where hangup_at = 0;
+
+
 
 truncate table cc_agent_state_history;
 vacuum full cc_agent_state_history;

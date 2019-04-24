@@ -12,6 +12,7 @@ func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject)
 
 func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	//TODO
+	return
 	res := <-queueManager.store.Member().ActiveCount(int64(queue.Id()))
 
 	if res.Err != nil {
@@ -37,6 +38,6 @@ func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	}
 }
 
-func (queueManager *QueueManager) notifyStopAttempt(attempt *Attempt) {
+func (queueManager *QueueManager) notifyStopAttempt(attempt *Attempt, stopped bool) {
 	fmt.Println(fmt.Sprintf("Stopped attempt %v", attempt.Id()))
 }

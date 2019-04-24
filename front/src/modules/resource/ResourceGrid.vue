@@ -142,7 +142,7 @@
                         text: this.$t('resource.page.enabled'),
                         //align: 'center',
                         sortable: true,
-                        value: 'reserve',
+                        value: 'enabled',
                         width: '20%'
                     },
                     {

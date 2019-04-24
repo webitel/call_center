@@ -50,7 +50,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		panic(e.Error())
 	}
 
-	endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
+	info.LegBUri = endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	info.LegAUri = strings.Join(agent.GetEndpoints(), ",")
 
 	callRequest := &model.CallRequest{
@@ -66,6 +66,8 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 				model.CALL_TIMEOUT_VARIABLE:            fmt.Sprintf("%d", preview.Timeout()),
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				"ignore_display_updates":               "true",
+				"sip_h_X-Webitel-Context":              "default",
+				"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE:             preview.Domain(),
 				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", preview.id),
@@ -93,7 +95,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    "user/1000@10.10.10.25",
+		Args:    info.LegBUri,
 	})
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)

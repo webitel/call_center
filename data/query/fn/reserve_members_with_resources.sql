@@ -43,12 +43,87 @@ where 1=1;
 
 select count(*)
 from cc_member
-where stop_at != 0;
+where stop_at = 0;
+
+
+select s as count
+from reserve_members_with_resources('test') s;
+
+update cc_member_attempt
+set state = 3
+where hangup_at = 0;
+
+
+select a.attempt_id, a.agent_id, a.agent_updated_at
+			from cc_reserved_agent_for_attempt('test') a;
+
+
+delete from cc_member_attempt
+where node_id = 'test'
 
 select count(*)
 from cc_member_communications
 where state != 0;
 
+
+update cc_agent
+set status = 'online'
+where id != 1;
+
+select *
+from cc_agent_activity
+where last_bridge_start_at != 0
+;
+
+
+explain (analyse, buffers )
+select a.id, h.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload, h.state
+from cc_agent a
+  ,lateral (
+    select h.timeout_at, h.state
+    from cc_agent_state_history h
+    where h.agent_id = a.id --and h.joined_at > current_date
+    order by h.joined_at desc
+    limit 1
+  ) h
+where  a.status in  ('online', 'pause') and h.state = 'waiting' -- h.timeout_at < now();
+
+
+select *
+from cc_member_attempt
+where ;
+
+
+
+select *
+from cc_member_attempt
+where hangup_at = 0 and not agent_id is null;
+
+vacuum full cc_agent_state_history;
+
+
+update cc_agent
+set status = 'online',
+    wrap_up_time = 1,
+    no_answer_delay_time = 1,
+    busy_delay_time = 1,
+    reject_delay_time = 1
+where 1=1;
+
+
+select *
+from cc_member_attempt
+where hangup_at = 0;
+
+select count(*)
+from cc_member
+where stop_at != 0;
+
+explain analyse
+select distinct on  (agent_id) agent_id, joined_at
+from cc_agent_state_history h
+where h.joined_at > current_date - '1 day'::interval
+order by agent_id, joined_at desc;
 
 
 CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
@@ -157,122 +232,10 @@ where result=  'OUTGOING_CALL_BARRED';
 truncate table cc_member_attempt;
 
 
-select *
-from cc_queue_is_working;
-
-explain analyse
-select *
-from cc_agent_in_queue_statistic s
-where s.agent_id = 2 and exists(
-    select * from cc_queue_is_working q where q.id = s.queue_id
-  );
-
-select *
-from cc_member_attempt
-order by id desc ;
-
-explain analyse
-select id, agent_id, joined_at, leaving_at
-from cc_agent_state_history h
-where h.agent_id = 2
-order by h.joined_at desc
-limit 1
-;
-
-explain (analyse, buffers )
-select *
-from cc_agent a
-left join lateral (
-    select h.joined_at, h.state
-    from cc_agent_state_history h
-    where h.agent_id = a.id
-    order by h.joined_at asc
-    limit 1
-) h on true
-where a.id = 1000;
-
-
-select count(*)
-from cc_agent_state_history
-where agent_id = 1000;
-
-explain analyse
-select *
-from cc_agent_state_history
-where agent_id = 2 and  now() between joined_at and leaving_at;
-
-
-
-select *
-from cc_agent_state_history;
-
-select count(*)
-from cc_agent_state_history;
-
-select (random() * 1000)::int  + 1
-;
-
-insert into cc_agent_state_history (agent_id, joined_at, state)
-select r.agent_id, r.date, 'sss' from  (
-  select a.id as agent_id, NOW() + (random() * (NOW()+'220 days' - NOW())) + '30 days' date
-  from generate_series(1, 1000000) id
-    cross join cc_agent a
-  where a.id = 2
-) as r
-on conflict do nothing ;
-
-select count(*)
-from cc_member m
-where m.stop_at = 0 and m.queue_id = 1 and exists(
-    select *
-    from cc_member_communications c
-    where c.member_id = m.id and c.state = 0
-  );
-
-update cc_member_communications
-set  attempts= 0, state = 0
-where 1=1;
-
-select *
-from cc_member_communications
-where member_id = 81;
-
-select proname,prosrc from pg_proc where proname= 'reserve_members_with_resources';
-
-select reserve_members_with_resources('dd');
-
-
-select *
-from pg_stat_activity;
-
-
-explain analyse
-select *
-from reserve_members_with_resources('tst');
-
-truncate table cc_member_attempt;
-
-
-
-vacuum full cc_member_communications;
-
-insert into cc_list_communications (list_id, number)
-values (1, '0cee94ab2d736991');
-
-
-select *
-from cc_member_attempt
-order by id desc
-;
-
-
-insert into cc_list_communications (list_id, number)
-values (1, '7be2963c32137675');
-
 
 
 set max_parallel_workers_per_gather = 1;
-explain analyse
+explain (analyse, format json )
 select case when lc.number isnull then 0 else 1 end, t.number, *
 from (
   select
