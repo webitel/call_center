@@ -156,6 +156,7 @@ select distinct on (r.agent_id) r.agent_id as agent_id,
                and a.queue_id = ag.queue_id
                and a.node_id = 'test'
                and a.agent_id isnull
+              and a.queue_id = 1
              order by a.weight desc, a.created_at, ag.ratio desc
            ) r
       order by r.agent_id,

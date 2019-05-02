@@ -46,6 +46,8 @@ $BODY$
 LANGUAGE plpgsql;
 
 
+select proname,prosrc from pg_proc where proname = 'get_count_call';
+
 /*
 queue types
 1 - inbound
