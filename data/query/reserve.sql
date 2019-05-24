@@ -45,11 +45,7 @@ from pg_locks;
 
 select pg_advisory_unlock_all();
 
-BEGIN;
-  select 1;
-
-  select pg_sleep(1);
-COMMIT;
+truncate table cc_member_attempt;
 
 
 drop table call_center.cc_member_attempt;

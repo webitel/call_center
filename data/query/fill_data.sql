@@ -68,6 +68,8 @@ FROM generate_series(1,1000000)
 on conflict do nothing ;
 
 
+SELECT floor(random() * (2-5+1) + 5)::int;
+
 explain analyse
 select *
 from cc_list_communications

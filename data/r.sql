@@ -232,3 +232,6 @@ from cc_outbound_resource r
 
   limit r.max_call_count
   ) mem on true;
+
+
+truncate table cc_member_attempt;

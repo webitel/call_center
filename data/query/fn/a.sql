@@ -278,59 +278,49 @@ where 1=1;
 select *
 from available_agent_in_queue;
 
-
-explain analyse
-select cq.id queue_id, cq.strategy, array_agg(a.id) as ids, null::bigint as aggent_id, '{}'::integer[] as agents_ids
-from cc_queue cq
-  inner join cc_member_attempt a on a.queue_id = cq.id
-where a.hangup_at = 0 and a.agent_id isnull
-group by cq.id
-order by cq.id asc
-limit 1;
+vacuum analyze cc_agent_state_history;
 
 
-explain analyse
-with recursive att_arr as (
-  select
-         a.*,
-         t.ids as agents_ids
-  from (
-    select cq.id queue_id, cq.strategy, array_agg(a.id) as ids, null::bigint as aggent_id
-    from cc_queue cq
-      inner join cc_member_attempt a on a.queue_id = cq.id
-    where a.hangup_at = 0 and a.agent_id isnull
-    group by cq.id
-     order by cq.id asc
-     limit 1
-  ) a ,
-   lateral (
-    select array_agg(k.agent_id) ids
-    from (
-      select f.agent_id
-      from available_agent_in_queue f
-      where f.queue_id = a.queue_id
-      order by f.max_of_lvl desc
-      limit array_length(a.ids, 1)
-    ) k
-   ) t
-
-  union
-
-  select a.queue_id, a.strategy, a.ids, null, a.agents_ids
-  from att_arr a,
-  lateral (
-    select count(r)
-    from cc_member_attempt r
-    where r.hangup_at = 0
-  ) k
-)
-select *
-from att_arr
-limit 50;
+explain analyze
+    SELECT timeout_at
+    FROM cc_agent_state_history h
+    WHERE h.agent_id=100
+    ORDER BY h.joined_at DESC--, h.timeout_at desc
+    LIMIT 1;
 
 
-SELECT _pos
-    FROM generate_subscripts(array[1,2,3], 1) gs(_pos);
+explain (analyze, verbose, buffers, timing, format text )
+SELECT id, timeout_at,
+       case when status = 'online' then 'waiting' else status end, status_payload FROM (
+ SELECT
+  (
+    SELECT h.timeout_at
+    FROM cc_agent_state_history h
+    WHERE h.agent_id=t.id
+    ORDER BY h.joined_at DESC
+    LIMIT 1
+  ) as timeout_at,
+   t.id,
+   t.status,
+   t.status_payload
+ FROM cc_agent AS t
+ WHERE t.status in  ('online', 'pause')
+ OFFSET 0
+)  as _t
+where timeout_at notnull
+;
+
+explain (analyze, verbose, buffers, timing, format json )
+select a.id, h.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload
+from cc_agent a,lateral (
+    select h.timeout_at
+    from cc_agent_state_history h
+    where h.agent_id = a.id
+    order by h.joined_at desc
+    limit 1
+) h
+where  a.status in  ('online', 'pause') and h.timeout_at < now();
+
 
 
 update cc_agent
@@ -366,7 +356,7 @@ from (
     max(aq.lvl) max_of_lvl
   from cc_agent_in_queue aq
     left join cc_skill_in_agent csia on csia.skill_id = aq.skill_id
-  where aq.queue_id = 1 and not COALESCE(aq.agent_id, csia.agent_id) isnull
+  where aq.queue_id = 2 and not COALESCE(aq.agent_id, csia.agent_id) isnull
   group by  COALESCE(aq.agent_id, csia.agent_id)
 ) ag
   inner join cc_agent a on a.id = ag.agent_id
@@ -383,64 +373,146 @@ where a.status = 'online' and (s.state = 'waiting')
     from cc_member_attempt at
     where at.hangup_at = 0 and at.agent_id = a.id
   )
-limit 10;
+order by pos asc;
+;
 
 
-explain analyse
-DO
-$do$
-DECLARE
+
+drop function cc_distribute_agent_to_attempt;
+
+CREATE OR REPLACE FUNCTION cc_distribute_agent_to_attempt(_node_id varchar(20))
+  RETURNS SETOF cc_agent_in_attempt AS
+$$
+declare
   rec RECORD;
-  att record;
-  agents integer[];
-  a integer;
+  agents bigint[];
+  reserved_agents bigint[] := array[0];
+  at cc_agent_in_attempt;
+  counter int := 0;
 BEGIN
-   FOR rec IN select cq.id queue_id, cq.strategy, count(*) as cnt
+FOR rec IN select cq.id::bigint queue_id, cq.strategy::varchar(50), count(*)::int as cnt,
+                     array_agg((a.id, la.agent_id)::cc_agent_in_attempt order by a.created_at asc, a.weight desc )::cc_agent_in_attempt[] ids, array_agg(distinct la.agent_id) filter ( where not la.agent_id isnull )  last_agents
            from cc_member_attempt a
             inner join cc_queue cq on a.queue_id = cq.id
-           where a.hangup_at = 0 and a.agent_id isnull
+            left join lateral (
+             select a1.agent_id
+             from cc_member_attempt a1
+             where a1.member_id = a.member_id and a1.created_at < a.created_at
+             order by a1.created_at desc
+             limit 1
+           ) la on true
+           where a.hangup_at = 0 and a.agent_id isnull and a.state = 3
            group by cq.id
            order by cq.priority desc
    LOOP
 
-    select array_agg(t.agent_id)
-    into agents
-    from (
-     select agent_id
-     from available_agent_in_queue
-     where queue_id = rec.queue_id
-     order by max_of_lvl desc, ratio desc
-    ) t;
+    select cc_available_agents_by_strategy(rec.queue_id, rec.strategy, rec.cnt, rec.last_agents, reserved_agents)
+    into agents;
 
-    for att IN select a.id, a1.agent_id
-      from cc_member_attempt a
-       left join lateral (
-          select a1.agent_id
-          from cc_member_attempt a1
-          where a1.member_id = a.member_id and a1.created_at < a.created_at
-          order by a1.created_at desc
-         limit  1
-        ) a1 on true
-      where a.hangup_at = 0 and a.agent_id isnull and a.queue_id = rec.queue_id --and a.id = 7421650
-      order by a.created_at asc, a.weight desc, a1.agent_id nulls last
-    loop
-      if array_length(agents, 1) > 0 then
-        select agents - case when not att.agent_id isnull and agents && array[att.agent_id]::integer[] then att.agent_id::integer else agents[1] end,
-               case when not att.agent_id isnull and agents && array[att.agent_id]::integer[] then att.agent_id::integer else agents[1] end
-         into agents, a;
-
-         if a = 77 then
-           --raise notice '% to %', att.id, a;
-         end if;
-         raise notice '% to %', att.id, a;
-         raise notice '%', agents;
-
+    counter := 0;
+    foreach at IN ARRAY rec.ids
+    LOOP
+      if array_length(agents, 1) isnull then
+        exit;
       end if;
 
-    end loop;
+      counter := counter + 1;
+
+      if at.agent_id isnull OR not (agents && array[at.agent_id]) then
+        at.agent_id = agents[array_upper(agents, 1)];
+      end if;
+
+      select agents::int[] - at.agent_id::int, reserved_agents::int[] || at.agent_id::int
+      into agents, reserved_agents;
+
+      return next at;
+    END LOOP;
+   END LOOP;
+
+   --raise notice '%', reserved_agents;
+
+  return;
+END;
+$$ LANGUAGE 'plpgsql';
+
+
+update cc_member_attempt a
+set agent_id = r.agent_id
+from (
+  select r.agent_id, r.attempt_id, a2.updated_at
+  from cc_distribute_agent_to_attempt() r
+  inner join cc_agent a2 on a2.id = r.agent_id
+) r
+where a.id = r.attempt_id
+returning a.id as attempt_id, a.agent_id as agent_id, r.updated_at agent_updated_at;
+
+
+
+
+CREATE TYPE cc_agent_in_attempt AS (attempt_id bigint, agent_id bigint);
+
+DO
+$do$
+DECLARE
+  rec RECORD;
+  agents bigint[];
+  at cc_agent_in_attempt;
+  counter int := 0;
+BEGIN
+   FOR rec IN select cq.id::bigint queue_id, cq.strategy::varchar(50), count(*)::int as cnt,
+                     array_agg((a.id, la.agent_id)::cc_agent_in_attempt order by a.created_at asc, a.weight desc )::cc_agent_in_attempt[] ids, array_agg(distinct la.agent_id) filter ( where not la.agent_id isnull )  last_agents
+           from cc_member_attempt a
+            inner join cc_queue cq on a.queue_id = cq.id
+            left join lateral (
+             select a1.agent_id
+             from cc_member_attempt a1
+             where a1.member_id = a.member_id and a1.created_at < a.created_at
+             order by a1.created_at desc
+             limit 1
+           ) la on true
+           where a.hangup_at = 0 and a.agent_id isnull and a.state = 3
+           group by cq.id
+           order by cq.priority desc
+   LOOP
+
+    select cc_available_agents_by_strategy(rec.queue_id, rec.strategy, rec.cnt, rec.last_agents)
+    into agents;
+
+    counter := 0;
+    foreach at IN ARRAY rec.ids
+    LOOP
+      if array_length(agents, 1) isnull then
+        exit;
+      end if;
+
+      counter := counter + 1;
+
+      if at.agent_id isnull OR not (agents && array[at.agent_id]) then
+        at.agent_id = agents[array_upper(agents, 1)];
+      end if;
+
+      select agents::int[] - at.agent_id::int
+      into agents;
+
+      rec.ids[counter] = at;
+--       RAISE NOTICE '% %', t, agents;
+    END LOOP;
+
+    RAISE NOTICE '%', rec.ids;
    END LOOP;
 END
 $do$;
+
+
+select *
+from cc_agent
+where status = 'online';
+
+
+
+update cc_agent
+set status = 'online'
+where id in (select id from cc_agent where status != 'online' limit 4);
 
 
 select  max_calls, sum(max_calls) over (order by id  rows unbounded preceding) as start,

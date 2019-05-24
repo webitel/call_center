@@ -15,18 +15,18 @@ from (
        from cc_agent_in_queue aq
               left join cc_skils cs on aq.skill_id = cs.id
               left join cc_skill_in_agent csia on cs.id = csia.skill_id
-       where not COALESCE(aq.agent_id, csia.agent_id) isnull
+       --where not COALESCE(aq.agent_id, csia.agent_id) isnull
        group by aq.queue_id, COALESCE(aq.agent_id, csia.agent_id)
 ) ag
 inner join cc_agent a on a.id = ag.agent_id
-left join lateral ( -- TODO
-  select h.state
-  from cc_agent_state_history h
-  where h.agent_id = ag.agent_id
-  order by h.joined_at desc
-  limit 1
-) s on true
-where a.status = 'online' and (s.state isnull or s.state = 'waiting');
+-- left join lateral ( -- TODO
+--   select h.state
+--   from cc_agent_state_history h
+--   where h.agent_id = ag.agent_id
+--   order by h.joined_at desc
+--   limit 1
+-- ) s on true
+where a.status = 'online'; -- and (s.state isnull or s.state = 'waiting');
 
 
 select count(*)

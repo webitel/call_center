@@ -126,6 +126,9 @@ where h.joined_at > current_date - '1 day'::interval
 order by agent_id, joined_at desc;
 
 
+select array[1,2,3] - array[3];
+
+
 CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE
@@ -260,7 +263,7 @@ from (
           and c.state = 0
           and ( (c.communication_id = any(array[1, 2,3,4,5,6,7]) ) or c.communication_id isnull )
           and c.member_id = cm.id
-          and c.routing_ids && array[18, 19, 27,200,30,40,50,60,70,80,90]
+          and c.routing_ids && array[18]
 --           and not exists(
 --             select 1
 --             from cc_list_communications lc
@@ -274,6 +277,8 @@ from (
 left join cc_list_communications lc on lc.list_id = 1 and lc.number = t.number
 where t.d =1
 limit 100;
+
+
 
 
 explain analyse

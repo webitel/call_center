@@ -467,53 +467,7 @@ from cc_member_attempt a
 where a.hangup_at = 0
 order by a.id, cm.priority desc;
 
-update cc_member_attempt
-set hangup_at = 100
-where hangup_at = 0;
-
-explain analyse
-select count(*)
-from cc_member_attempt
-where hangup_at = 0 and queue_id = 1 ;
-
-select *
-from cc_member_attempt
-order by id desc
-;
-
-select count(*)
-from cc_member_attempt;
-
-explain analyse
-select *
-from reserve_members_with_resources('test');
-
-truncate table cc_member_attempt;
-
-
-update cc_member
-set name = '223231321'
-where 1=1;
-
-select node_name,  TO_CHAR((( (updated_at - started_at)/1000 )::bigint || ' second')::interval, 'HH24:MI:SS') uptime
-from cc_cluster;
-
-truncate table cc_member_attempt;
-
-select *
-from cc_queue_is_working;
 
 
 create unique index cc_queue_routing_queue_id_pattern_uindex
 	on call_center.cc_queue_routing (queue_id, pattern);
-
-select *
-from reserve_members_with_resources('aa');
-
-select *
-from cc_queue;
-
-update cc_member
-set last_hangup_at  = 1
-where 1=1;
-

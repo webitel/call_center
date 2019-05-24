@@ -17,16 +17,46 @@ drop trigger tg_cc_set_agent_change_status on cc_agent;
 
 
 CREATE TRIGGER tg_cc_set_agent_change_status
-  BEFORE UPDATE OR INSERT
+  AFTER UPDATE OR INSERT
   ON cc_agent
   FOR EACH ROW
 EXECUTE PROCEDURE cc_set_agent_change_status();
 
 
-select count(*)
-from cc_member_attempt
-where agent_id = 1
-group by queue_id;
+explain analyze
+select state_timeout
+from cc_agent
+where state_timeout < now();
+
+
+update cc_agent
+set state = :State
+  ,state_timeout = case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end
+where id = :AgentId;
+
+
+update cc_agent
+set wrap_up_time = 4
+where 1=1;
+
+
+select *
+from cc_agent
+where id = 1;
+
+
+update cc_agent
+set state = :State,
+    state_timeout = null
+where state_timeout < now()
+returning id, state;
+
+
+vacuum full cc_agent;
+
+update cc_agent
+set status = 'online'
+where 1= 1;
 
 select count(*)
 from cc_agent_state_history;
@@ -61,6 +91,32 @@ where  a.status in  ('online', 'pause') and h.timeout_at < now()
 select count(id)
 from cc_agent_state_history
 where agent_id = 1 and timeout_at < now();
+
+
+SELECT pg_prewarm('bmsql_customer', 'buffer');
+
+
+
+
+
+explain analyse
+select *
+from cc_agent a
+left join lateral (
+  select h.state
+  from cc_agent_state_history h
+  where h.agent_id = a.id
+  order by h.joined_at desc
+  limit 1
+) s on true
+where a.id = 1;
+
+explain analyse
+select distinct on (a.agent_id) a.agent_id, a.state
+from cc_agent_state_history a
+order by a.agent_id, a.joined_at desc;
+
+
 
 
 UPDATE "call_center"."cc_agent" SET "no_answer_delay_time" = 2, "updated_at" = 6 WHERE "id" = 1
@@ -366,3 +422,13 @@ where h.timeout_at <= now()
       from cc_agent_state_history h2
        where h2.agent_id = h.agent_id and h2.joined_at > h.joined_at
   );
+
+
+update cc_agent
+set state = :State,
+    state_timeout_at = case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end
+where id = :AgentId;
+
+select *
+from cc_agent
+whe;
