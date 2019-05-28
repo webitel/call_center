@@ -8,6 +8,7 @@ import (
 )
 
 func (e *EngineImp) ReserveMembers() {
+	return
 	result := <-e.store.Member().ReserveMembersByNode(e.nodeId)
 	if result.Err != nil {
 		mlog.Error(result.Err.Error())

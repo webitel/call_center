@@ -45,7 +45,7 @@ type Call interface {
 
 type CallManagerImpl struct {
 	nodeId       string
-	callCommands model.CallCommands
+	callCommands model.Commands
 	mq           mq.MQ
 	calls        utils.ObjectCache
 	stop         chan struct{}
@@ -53,7 +53,7 @@ type CallManagerImpl struct {
 	startOnce    sync.Once
 }
 
-func NewCallManager(nodeId string, cc model.CallCommands, mq mq.MQ) CallManager {
+func NewCallManager(nodeId string, cc model.Commands, mq mq.MQ) CallManager {
 	return &CallManagerImpl{
 		nodeId:       nodeId,
 		callCommands: cc,
@@ -65,6 +65,7 @@ func NewCallManager(nodeId string, cc model.CallCommands, mq mq.MQ) CallManager 
 }
 
 func (cm *CallManagerImpl) Start() {
+	//TODO BUG
 	mlog.Debug("CallManager started")
 
 	defer func() {
@@ -102,7 +103,7 @@ func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 	callRequest.Variables[model.CALL_ID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
 
-	call := NewCall(callRequest, cm.callCommands)
+	call := NewCall(callRequest, cm.callCommands.GetCallConnection())
 	if call.Id() != "" {
 		cm.SetCall(id, call)
 	}

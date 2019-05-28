@@ -75,7 +75,7 @@ func (agentManager *AgentManagerImpl) SetAgentStatus(agent AgentObject, status *
 		return result.Err
 	}
 
-	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), status.Status))
+	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), status.Status))
 
 	return nil
 }
@@ -116,9 +116,9 @@ func (agentManager *AgentManagerImpl) changeDeadlineState() {
 	if result := <-agentManager.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); result.Err != nil {
 		mlog.Error(result.Err.Error())
 	} else {
-		for _, v := range result.Data.([]*model.AgentStateHistoryTime) {
+		for _, v := range result.Data.([]*model.AgentChangedState) {
 			//todo event
-			mlog.Debug(fmt.Sprintf("Agent %d has been changed state to \"%s\" - timeout", v.AgentId, v.State))
+			mlog.Debug(fmt.Sprintf("Agent %d has been changed state to \"%s\" - timeout", v.Id, v.State))
 		}
 	}
 }

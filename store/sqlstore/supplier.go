@@ -139,7 +139,7 @@ func setupConnection(con_type string, dataSource string, settings *model.SqlSett
 	}
 
 	if settings.Trace {
-		dbmap.TraceOn("", sqltrace.New(os.Stdout, "sql-trace:", sqltrace.Lmicroseconds))
+		dbmap.TraceOn("[SQL]", sqltrace.New(os.Stdout, "", sqltrace.LstdFlags))
 	}
 
 	return dbmap

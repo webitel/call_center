@@ -62,7 +62,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 	cr := &model.CallRequest{
 		Endpoints: []string{"loopback/0"},
 		Variables: map[string]string{
-			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
+			model.CALL_DOMAIN_VARIABLE: "webitel.lo",
 			"cc_test_call_manager":     "true",
 		},
 		Applications: []*model.CallRequestApplication{

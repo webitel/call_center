@@ -26,7 +26,7 @@ type App struct {
 	Srv          *Server
 	Store        store.Store
 	MQ           mq.MQ
-	callCommands model.CallCommands
+	callCommands model.Commands
 	Log          *mlog.Logger
 	configFile   string
 	config       atomic.Value

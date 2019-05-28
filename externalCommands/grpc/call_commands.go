@@ -1,28 +1,38 @@
 package grpc
 
 import (
-	"context"
 	"fmt"
-	"github.com/webitel/call_center/externalCommands/grpc/fs"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
-	"net/http"
+
+	"google.golang.org/grpc/connectivity"
 	"os"
-	"strings"
+	"sync"
 	"time"
 )
 
-type CallCommandsImpl struct {
-	client *grpc.ClientConn
-	api    fs.ApiClient
+type connectionIterator struct {
+	index  int
+	length int
 }
 
-func NewCallCommands(settings model.ExternalCommandsSettings) model.CallCommands {
+func (c *connectionIterator) Next() int {
+	c.index = (c.index + 1) % c.length
+	return c.index
+}
+
+type CallCommandsImpl struct {
+	connections []*CallConnection
+	iterator    *connectionIterator
+	sync.Mutex
+}
+
+func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 	var opts []grpc.DialOption
 
 	if len(settings.Urls) == 0 {
-		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", settings.Urls))
+		mlog.Critical(fmt.Sprintf("failed to open grpc connection %v", settings.Urls))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -31,157 +41,66 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.CallCommands
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.WithTimeout(10*time.Second),
-		grpc.WithBalancer(grpc.RoundRobin(NewPseudoResolver(settings.Urls))),
 	)
 
-	client, err := grpc.Dial("dummy", opts...)
-
-	if err != nil {
-		mlog.Critical(fmt.Sprintf("Failed openg grpc connection %v", settings.Urls))
-		time.Sleep(time.Second)
-		os.Exit(1)
-	}
-
-	api := fs.NewApiClient(client)
-
 	r := &CallCommandsImpl{
-		client: client,
-		api:    api,
+		connections: make([]*CallConnection, 0, len(settings.Urls)),
 	}
 
-	if version, err := r.GetServerVersion(); err == nil {
-		mlog.Info(version)
+	for _, h := range settings.Urls {
+		c, err := newConnection(h, opts)
+		if err != nil {
+			mlog.Critical(fmt.Sprintf("failed to open grpc connection %v error: %s", h, err.Error()))
+			time.Sleep(time.Second)
+			os.Exit(1)
+		}
+
+		if v, err := c.GetServerVersion(); err == nil {
+			mlog.Info(fmt.Sprintf("[%s] %v", h, v))
+		} else {
+			mlog.Critical(err.Error())
+		}
+
+		r.Lock()
+		r.connections = append(r.connections, c)
+		r.Unlock()
 	}
 
-	mlog.Debug(fmt.Sprintf("Success open grpc connection %v", settings.Urls))
+	r.iterator = &connectionIterator{
+		index:  0,
+		length: len(r.connections),
+	}
+
+	mlog.Debug(fmt.Sprintf("success to open grpc connection %v", settings.Urls))
 	return r
 }
 
-func (c *CallCommandsImpl) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
-	request := &fs.OriginateRequest{
-		Endpoints:    settings.Endpoints,
-		Destination:  settings.Destination,
-		CallerNumber: settings.CallerNumber,
-		CallerName:   settings.CallerName,
-		Timeout:      int32(settings.Timeout),
-		Context:      settings.Context,
-		Dialplan:     settings.Dialplan,
-		Variables:    settings.Variables,
-	}
+func (c *CallCommandsImpl) GetCallConnection() model.CallCommands {
+	c.Lock()
+	defer c.Unlock()
 
-	if len(settings.Applications) > 0 {
-		request.Extensions = []*fs.OriginateRequest_Extension{}
+	i := c.iterator.index
 
-		for _, v := range settings.Applications {
-			request.Extensions = append(request.Extensions, &fs.OriginateRequest_Extension{
-				AppName: v.AppName,
-				Args:    v.Args,
-			})
+	for j := c.iterator.Next(); ; j = c.iterator.Next() {
+		switch c.connections[j].client.GetState() {
+		case connectivity.Idle, connectivity.Ready:
+			return c.connections[j]
+		}
+
+		if i == j {
+			break
 		}
 	}
 
-	switch settings.Strategy {
-	case model.CALL_STRATEGY_FAILOVER:
-		request.Strategy = fs.OriginateRequest_FAILOVER
-		break
-	case model.CALL_STRATEGY_MULTIPLE:
-		request.Strategy = fs.OriginateRequest_MULTIPLE
-		break
-	}
+	mlog.Error(fmt.Sprintf("no active connections to call server"))
+	con := c.connections[c.iterator.Next()]
 
-	response, err := c.api.Originate(context.Background(), request)
-
-	if err != nil {
-		return "", "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
-	}
-
-	if response.Error != nil {
-		return "", response.Error.Message, model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
-			http.StatusInternalServerError)
-	}
-
-	return response.Uuid, "", nil
-}
-
-func (c *CallCommandsImpl) HangupCall(id, cause string) *model.AppError {
-	_, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
-		Uuid:  id,
-		Cause: cause,
-	})
-
-	if err != nil {
-		return model.NewAppError("HangupCall", "external.hangup_call.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
-	}
-	return nil
-}
-
-func (c *CallCommandsImpl) SetCallVariables(id string, variables map[string]string) *model.AppError {
-
-	res, err := c.api.SetVariables(context.Background(), &fs.SetVariablesReqeust{
-		Uuid:      id,
-		Variables: variables,
-	})
-
-	if err != nil {
-		return model.NewAppError("SetCallVariables", "external.set_call_variables.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
-	}
-
-	if res.Error != nil {
-		return model.NewAppError("SetCallVariables", "external.set_call_variables.app_error", nil, res.Error.String(),
-			http.StatusInternalServerError)
-	}
-
-	return nil
-}
-
-func (c *CallCommandsImpl) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
-	response, err := c.api.Bridge(context.Background(), &fs.BridgeRequest{
-		LegAId:        legAId,
-		LegBId:        legBId,
-		LegBReserveId: legBReserveId,
-	})
-	if err != nil {
-		return "", model.NewAppError("BridgeCall", "external.bridge_call.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
-	}
-
-	if response.Error != nil {
-		return "", model.NewAppError("BridgeCall", "external.bridge_call.app_error", nil, response.Error.String(),
-			http.StatusInternalServerError)
-	}
-
-	return response.Uuid, nil
-}
-
-func (c *CallCommandsImpl) GetServerVersion() (string, *model.AppError) {
-	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
-		Command: "version",
-	})
-
-	if err != nil {
-		return "", model.NewAppError("ServerVersion", "external.get_server_version.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
-	}
-
-	return strings.TrimSpace(res.Data), nil
-}
-
-func (c *CallCommandsImpl) HangupMatchingVars() {
-	res, _ := c.api.HangupMatchingVars(context.Background(), &fs.HangupMatchingVarsReqeust{
-		Variables: map[string]string{
-			"a": "1",
-			"b": "2",
-		},
-	})
-
-	fmt.Println(res.Count)
-	panic(1)
+	return con
 }
 
 func (c *CallCommandsImpl) Close() {
-	mlog.Debug(fmt.Sprintf("Receive close grpc connection"))
-	c.client.Close()
+	mlog.Debug(fmt.Sprintf("receive close grpc connection"))
+	for _, c := range c.connections {
+		c.close()
+	}
 }

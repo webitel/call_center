@@ -67,19 +67,24 @@ type AgentsForAttempt struct {
 }
 
 type AgentState struct {
-	Id        int64      `json:"id" db:"id"`
+	//Id        int64      `json:"id" db:"id"`
 	AgentId   int64      `json:"agent_id" db:"agent_id"`
 	JoinedAt  time.Time  `json:"joined_at" db:"joined_at"`
-	TimeoutAt *time.Time `json:"timeout_at" db:"timeout_at"`
+	TimeoutAt *time.Time `json:"timeout_at" db:"state_timeout"`
 	State     string     `json:"state" db:"state" `
 }
 
-type AgentStateHistoryTime struct {
-	Id       int64     `json:"id" db:"id"`
-	AgentId  int64     `json:"agent_id" db:"agent_id"`
-	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
-	State    string    `json:"state" db:"state"`
-	Payload  []byte    `json:"payload" db:"payload"`
+//type AgentStateHistoryTime struct {
+//	Id       int64     `json:"id" db:"id"`
+//	AgentId  int64     `json:"agent_id" db:"agent_id"`
+//	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
+//	State    string    `json:"state" db:"state"`
+//	Payload  []byte    `json:"payload" db:"payload"`
+//}
+
+type AgentChangedState struct {
+	Id    int64  `json:"id" db:"id"`
+	State string `json:"state" db:"state"`
 }
 
 type AgentInQueueStatistic struct {
