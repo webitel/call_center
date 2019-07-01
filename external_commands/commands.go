@@ -1,7 +1,7 @@
-package externalCommands
+package external_commands
 
 import (
-	"github.com/webitel/call_center/externalCommands/grpc"
+	"github.com/webitel/call_center/external_commands/grpc"
 	"github.com/webitel/call_center/model"
 )
 

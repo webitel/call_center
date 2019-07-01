@@ -1,7 +1,8 @@
 package call_manager
 
 import (
-	"github.com/webitel/call_center/externalCommands"
+	"github.com/StefanKopieczek/gossip/base"
+	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/utils"
@@ -18,14 +19,16 @@ func TestCallManager(t *testing.T) {
 
 	mq := rabbit.NewRabbitMQ(cfg.MQSettings, "node-1")
 
-	api := externalCommands.NewCallCommands(cfg.ExternalCommandsSettings)
+	api := external_commands.NewCallCommands(cfg.ExternalCommandsSettings)
 	cm := NewCallManager("node-1", api, mq)
 	cm.Start()
 
-	testCallError(cm, t)
-	testCallAnswer(cm, t)
-	testCallStates(cm, t)
-	testCallHangup(cm, t)
+	testCallUser(cm, t)
+
+	//testCallError(cm, t)
+	//testCallAnswer(cm, t)
+	//testCallStates(cm, t)
+	//testCallHangup(cm, t)
 
 	if cm.ActiveCalls() != 0 {
 		t.Errorf("Call manager calls %v", cm.ActiveCalls())
@@ -34,7 +37,13 @@ func TestCallManager(t *testing.T) {
 	cm.Stop()
 	mq.Close()
 	api.Close()
+}
 
+func testCallUser(cm CallManager, t *testing.T) {
+	t.Log("testCallUser")
+	base.NewRequest(base.REFER, &base.SipUri{
+		Host: "192.168.177.192",
+	}, "SIP/2.0", []base.SipHeader{}, "")
 }
 
 func testCallError(cm CallManager, t *testing.T) {

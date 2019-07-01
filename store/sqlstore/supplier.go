@@ -16,6 +16,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"io/ioutil"
 	"sync/atomic"
 )
 
@@ -62,7 +63,10 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 
 	supplier.initConnection()
 
+	supplier.initDb()
+
 	supplier.oldStores.cluster = NewSqlClusterStore(supplier)
+
 	supplier.oldStores.session = NewSqlSessionStore(supplier)
 	supplier.oldStores.calendar = NewSqlCalendarStore(supplier)
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
@@ -77,9 +81,60 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 		os.Exit(EXIT_CREATE_TABLE)
 	}
 
+	supplier.oldStores.cluster.(*SqlClusterStore).CreateTableIfNotExists()
+	supplier.oldStores.calendar.(*SqlCalendarStore).CreateTableIfNotExists()
+	supplier.oldStores.agent.(*SqlAgentStore).CreateTableIfNotExists()
+
 	supplier.oldStores.session.(*SqlSessionStore).CreateIndexesIfNotExists()
 
 	return supplier
+}
+
+//TODO
+func (s *SqlSupplier) initDb() {
+	return
+	root := "/home/igor/opt/Programs/golib/src/github.com/webitel/call_center/store/sqlstore/sql/"
+
+	s.mustExecuteSql(root + "0_init.sql")
+	s.mustExecuteSql(root + "1_domain.sql")
+	s.mustExecuteSql(root + "2_user.sql")
+	s.mustExecuteSql(root + "3_calendar.sql")
+	s.mustExecuteSql(root + "4_list.sql")
+	s.mustExecuteSql(root + "5_list_communication.sql")
+	s.mustExecuteSql(root + "6_skill.sql")
+	s.mustExecuteSql(root + "7_outbound_resource.sql")
+	s.mustExecuteSql(root + "8_queue.sql")
+	s.mustExecuteSql(root + "9_queue_routing.sql")
+	s.mustExecuteSql(root + "10_resource_in_routing.sql")
+	s.mustExecuteSql(root + "11_communication.sql")
+	s.mustExecuteSql(root + "12_queue_timing.sql")
+	s.mustExecuteSql(root + "13_agent.sql")
+	s.mustExecuteSql(root + "14_agent_state_history.sql")
+	s.mustExecuteSql(root + "15_agent_activity.sql")
+	s.mustExecuteSql(root + "16_agent_in_queue.sql")
+	s.mustExecuteSql(root + "17_skill_in_agent.sql")
+	s.mustExecuteSql(root + "18_member.sql")
+	s.mustExecuteSql(root + "19_member_communication.sql")
+	s.mustExecuteSql(root + "20_member_attempt.sql")
+
+}
+
+func (s *SqlSupplier) mustExecuteSql(path string) {
+	sql := getSqlFile(path)
+	for _, db := range s.GetAllConns() {
+		_, err := db.Exec(sql)
+		if err != nil {
+			panic(path + "\n" + err.Error())
+		}
+	}
+}
+
+func getSqlFile(path string) string {
+	dat, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(err.Error())
+	}
+	return string(dat)
 }
 
 func (s *SqlSupplier) SetChainNext(next store.LayeredStoreSupplier) {

@@ -46,7 +46,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	dst := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
-	legB := fmt.Sprintf("999 XML default '%s' '%s'", "100", "100") //TODO
+	legB := fmt.Sprintf("1") //TODO
 
 	info := voice.GetCallInfoFromAttempt(attempt)
 
@@ -55,7 +55,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	*/
 
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/sip/agent@10.10.10.144;fs_path=sip:10.10.10.200:5055"}, //[]string{"sofia/external/111@10.10.10.25:15060"}, //
+		Endpoints:    []string{dst}, //
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -64,8 +64,9 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_h_X-Webitel-Context":              "default",
-				"sip_h_X-Webitel-Domain":               "10.10.10.144",
+				"sip_route_uri":           "sip:172.17.2.2", //"$${outbound_sip_proxy}",
+				"sip_h_X-Webitel-Context": "internal",
+				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,

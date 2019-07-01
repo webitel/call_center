@@ -8,7 +8,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
-	"github.com/webitel/call_center/externalCommands"
+	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
@@ -58,7 +58,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	if utils.T == nil {
 		if err := utils.TranslationsPreInit(); err != nil {
-			return nil, errors.Wrapf(err, "unable to load Mattermost translation files")
+			return nil, errors.Wrapf(err, "unable to load translation files")
 		}
 	}
 
@@ -92,7 +92,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.Srv.Store
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	app.callCommands = externalCommands.NewCallCommands(app.Config().ExternalCommandsSettings)
+	app.callCommands = external_commands.NewCallCommands(app.Config().ExternalCommandsSettings)
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 

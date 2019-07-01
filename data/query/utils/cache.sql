@@ -43,9 +43,13 @@ select *
 from cc_member_attempt
 order by created_at desc ;
 
-vacuum full verbose cc_member_attempt;
+vacuum full verbose cc_agent;
 
-SELECT * FROM heap_page('cc_member_attempt',0);
+SELECT * FROM heap_page('cc_agent',0);
+
+update cc_agent
+set status = 'offline'
+where 1=1;
 
 
 
@@ -299,40 +303,26 @@ inner join (
    max(aq.lvl) max_of_lvl
   from cc_agent_in_queue aq
     left join cc_skill_in_agent csia on aq.skill_id = csia.skill_id
-  where aq.queue_id = 2 and not COALESCE(aq.agent_id, csia.agent_id) isnull
+  where aq.queue_id = 1 and not COALESCE(aq.agent_id, csia.agent_id) isnull
   group by COALESCE(aq.agent_id, csia.agent_id)
   --order by max(aq.lvl) desc, COALESCE(max(csia.capacity), 0) desc
 ) t on t.agent_id = a.id
 inner join cc_agent_activity ac on t.agent_id = ac.agent_id
-inner join lateral (
-  select h.state
-  from cc_agent_state_history h
-  where h.agent_id = t.agent_id --and h.joined_at > current_date - '2 day'::interval
-  order by h.joined_at desc
-  limit 1
-) h on true
-where a.status = 'online'
+-- inner join lateral (
+--   select h.state
+--   from cc_agent_state_history h
+--   where h.agent_id = t.agent_id --and h.joined_at > current_date - '2 day'::interval
+--   order by h.joined_at desc
+--   limit 1
+-- ) h on true
+where a.status = 'online' and a.state = 'waiting'
   and not exists(select 1 from cc_member_attempt at where at.state > 0 and at.agent_id = a.id)
-  and h.state = 'waiting'
+  --and h.state = 'waiting'
 order by
  --array_position(array[1, 968, 962, 967], a.id) asc nulls last,
  t.max_of_lvl desc, t.max_of_capacity desc,
  ac.last_offering_call_at asc
 limit 8;
-
-
-with members as (
-  select 1 as id
-  union
-  select 2 as id
-  union
-  select 3 as id
-  union
-  select 4 as id
-),
-
-select *
-from members;
 
 
 update cc_agent
@@ -410,16 +400,8 @@ BEGIN
       --order by max(aq.lvl) desc, COALESCE(max(csia.capacity), 0) desc
     ) t on t.agent_id = a.id
     inner join cc_agent_activity ac on t.agent_id = ac.agent_id
-    inner join lateral (
-      select h.state
-      from cc_agent_state_history h
-      where h.agent_id = t.agent_id --and h.joined_at > current_date - '2 day'::interval
-      order by h.joined_at desc
-      limit 1
-    ) h on true
-    where a.status = 'online'
+    where a.status = 'online' and a.state = 'waiting'
       and not exists(select 1 from cc_member_attempt at where at.state > 0 and at.agent_id = a.id)
-      and h.state = 'waiting'
       and not (_except_agents::bigint[] && array[a.id]::bigint[])
     order by
      --a.id,
@@ -436,7 +418,7 @@ $$ LANGUAGE 'plpgsql';
 explain analyze
 select
 from cc_agent a
-where a.status = 'online' and a.state = '';
+where a.status = 'online' and a.state = 'waiting';
 
 explain analyze
 select cc_available_agents_by_strategy(1, '', 10, null, array[0]) a;

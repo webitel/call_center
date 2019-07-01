@@ -26,6 +26,9 @@ select *
 from cc_agent;
 
 
+
+
+
 --calendar
 insert into calendar(timezone, name)
 SELECT 'Europe/Kiev', md5(random()::TEXT)::varchar(20)

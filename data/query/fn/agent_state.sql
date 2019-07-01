@@ -2,24 +2,20 @@ CREATE OR REPLACE FUNCTION cc_set_agent_change_status()
   RETURNS trigger AS
 $BODY$
 BEGIN
-  insert into cc_agent_state_history (agent_id, joined_at, state, payload)
-  select new.id, now(), case when new.status = 'online' then 'waiting' else new.status end, new.status_payload
-  where not exists(
-    select *
-    from cc_member_attempt a
-    where a.hangup_at = 0 and a.agent_id = new.id
-  );
+  insert into cc_agent_state_history (agent_id, joined_at, state)
+  values (new.id, now(), new.state);
   RETURN new;
 END;
 $BODY$ language plpgsql;
 
-drop trigger tg_cc_set_agent_change_status on cc_agent;
+drop trigger tg_cc_set_agent_change_status_u on cc_agent;
 
 
-CREATE TRIGGER tg_cc_set_agent_change_status
-  AFTER UPDATE OR INSERT
+CREATE TRIGGER tg_cc_set_agent_change_status_u
+  AFTER UPDATE
   ON cc_agent
   FOR EACH ROW
+  WHEN ( old.state != new.state )
 EXECUTE PROCEDURE cc_set_agent_change_status();
 
 
@@ -36,13 +32,10 @@ where id = :AgentId;
 
 
 update cc_agent
-set wrap_up_time = 4
+set status = 'online',
+    state = 'waiting'
 where 1=1;
 
-
-select *
-from cc_agent
-where id = 1;
 
 
 update cc_agent

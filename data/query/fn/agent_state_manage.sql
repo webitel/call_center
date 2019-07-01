@@ -20,7 +20,7 @@ lateral (
 ) s
 where s.timeout_at <= now();
 
-
+ UPDATE "call_center"."cc_agent" SET "state" = 'waiting' WHERE "id" = 1;
 
 select (success_calls::float / all_cals) * 100 as sla
 from (

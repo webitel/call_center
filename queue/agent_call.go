@@ -27,23 +27,25 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 			timeout = agent.BusyDelayTime()
 		}
 
-		if result := <-queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); result.Err != nil {
+		if cnt, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); err != nil {
 			//TODO
-			mlog.Error(result.Err.Error())
+			mlog.Error(err.Error())
 		} else {
-			if result.Data.(int64) == 1 {
+			if cnt == 1 {
 				queueManager.agentManager.SetAgentStatus(agent, &model.AgentStatus{
 					Status: model.AGENT_STATUS_PAUSE, // payload: max no answer
 				})
-			} else if timeout == 0 {
+			}
+
+			if timeout == 0 {
 				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0) // TODO
 			} else {
 				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_FINE, timeout)
 			}
 		}
 	} else {
-		if result := <-queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); result.Err != nil {
-			mlog.Error(result.Err.Error())
+		if _, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); err != nil {
+			mlog.Error(err.Error())
 		}
 		if agent.WrapUpTime() == 0 {
 			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0)

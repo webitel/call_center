@@ -41,10 +41,10 @@ func (cluster *ClusterImpl) Stop() {
 }
 
 func (cluster *ClusterImpl) Setup() *model.AppError {
-	if result := <-cluster.store.Cluster().CreateOrUpdate(cluster.nodeId); result.Err != nil {
-		return result.Err
+	if info, err := cluster.store.Cluster().CreateOrUpdate(cluster.nodeId); err != nil {
+		return err
 	} else {
-		cluster.info = result.Data.(*model.ClusterInfo)
+		cluster.info = info
 	}
 	return nil
 }

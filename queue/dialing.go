@@ -5,7 +5,6 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/mlog"
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"sync"
@@ -59,14 +58,14 @@ func (d *DialingImpl) routeIdleAttempts() {
 		return
 	}
 
-	result := <-d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
-	if result.Err != nil {
-		mlog.Error(result.Err.Error())
+	members, err := d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
+	if err != nil {
+		mlog.Error(err.Error())
 		time.Sleep(time.Second)
 		return
 	}
 
-	for _, v := range result.Data.([]*model.MemberAttempt) {
+	for _, v := range members {
 		d.queueManager.RouteMember(v)
 	}
 }
@@ -77,14 +76,14 @@ func (d *DialingImpl) routeIdleAgents() {
 	}
 	//TODO
 
-	result := <-d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
-	if result.Err != nil {
-		mlog.Error(result.Err.Error())
+	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
+	if err != nil {
+		mlog.Error(err.Error())
 		time.Sleep(time.Second)
 		return
 	}
 
-	for _, v := range result.Data.([]*model.AgentsForAttempt) {
+	for _, v := range result {
 		agent, err := d.agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt)
 		if err != nil {
 			//TODO

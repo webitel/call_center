@@ -126,12 +126,11 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, errorId string) {
 	if resource.CheckIfError(errorId) {
 		mlog.Warn(fmt.Sprintf("Resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
-		if result := <-queueManager.store.OutboundResource().
-			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); result.Err != nil {
+		if responseError, err := queueManager.store.OutboundResource().
+			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
 
-			mlog.Error(result.Err.Error())
+			mlog.Error(err.Error())
 		} else {
-			responseError := result.Data.(*model.OutboundResourceErrorResult)
 			if responseError.Stopped != nil && *responseError.Stopped {
 				mlog.Info(fmt.Sprintf("Resource %s [%d] stopped, because: %s", resource.Name(), resource.Id(), errorId))
 
@@ -148,8 +147,8 @@ func (queueManager *QueueManager) SetResourceError(resource ResourceObject, rout
 
 func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject) {
 	if resource.SuccessivelyErrors() > 0 {
-		if res := <-queueManager.store.OutboundResource().SetSuccessivelyErrorsById(int64(resource.Id()), 0); res.Err != nil {
-			mlog.Error(res.Err.Error())
+		if err := queueManager.store.OutboundResource().SetSuccessivelyErrorsById(int64(resource.Id()), 0); err != nil {
+			mlog.Error(err.Error())
 		}
 	}
 }

@@ -95,6 +95,6 @@ func (r *Resource) GetDialString() (dialString string) {
 	//dialString = r.regDialString.ReplaceAllString("sofia/external/$1@10.10.10.200:5080", number)
 	//dialString = "sofia/external/" + r.dialString + "@10.10.10.25:5080"
 	//return
-	return "sofia/sip/dialer@10.10.10.144;fs_path=sip:10.10.10.200:5055"
+	return "{sip_h_X-Webitel-Direction=inbound}sofia/sip/dialer@webitel.lo;fs_path=sip:172.17.2.2"
 	//return "sofia/gateway/testLinphone/123"
 }

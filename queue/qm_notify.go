@@ -13,13 +13,12 @@ func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject)
 func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	//TODO
 	return
-	res := <-queueManager.store.Member().ActiveCount(int64(queue.Id()))
+	count, err := queueManager.store.Member().ActiveCount(int64(queue.Id()))
 
-	if res.Err != nil {
-		panic(res.Err)
+	if err != nil {
+		panic(err)
 	}
 
-	count, _ := res.Data.(int64)
 	event := &model.QueueEventCount{
 		QueueEvent: model.QueueEvent{
 			Name:    model.QUEUE_EVENT_COUNT,

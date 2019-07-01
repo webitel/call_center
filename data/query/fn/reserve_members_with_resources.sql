@@ -45,6 +45,8 @@ select count(*)
 from cc_member
 where stop_at = 0;
 
+select *
+from pg_proc where proname likecc_unreserve_members_with_resources '%_members_with_resources';
 
 select s as count
 from reserve_members_with_resources('test') s;
@@ -129,7 +131,7 @@ order by agent_id, joined_at desc;
 select array[1,2,3] - array[3];
 
 
-CREATE OR REPLACE FUNCTION reserve_members_with_resources(node_id varchar(20))
+CREATE OR REPLACE FUNCTION cc_reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE
     rec RECORD;

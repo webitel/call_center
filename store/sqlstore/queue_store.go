@@ -14,18 +14,6 @@ type SqlQueueStore struct {
 
 func NewSqlQueueStore(sqlStore SqlStore) store.QueueStore {
 	us := &SqlQueueStore{sqlStore}
-	for _, db := range sqlStore.GetAllConns() {
-		table := db.AddTableWithName(model.Queue{}, "cc_queue").SetKeys(true, "Id")
-		table.ColMap("Id").SetUnique(true)
-		table.ColMap("Type")
-		table.ColMap("Name")
-		table.ColMap("Strategy")
-		table.ColMap("Payload")
-		table.ColMap("UpdatedAt")
-		table.ColMap("MaxCalls")
-		table.ColMap("Variables")
-		table.ColMap("Timeout")
-	}
 	return us
 }
 
@@ -33,22 +21,20 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 
 }
 
-func (s SqlQueueStore) GetById(id int64) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		var queue *model.Queue
-		if err := s.GetReplica().SelectOne(&queue, `
+func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
+	var queue *model.Queue
+	if err := s.GetReplica().SelectOne(&queue, `
 			select id, type, name, strategy, payload, updated_at, max_calls, variables, timeout
 			from cc_queue where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
-			if err == sql.ErrNoRows {
-				result.Err = model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
-					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
-			} else {
-				result.Err = model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
-					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
-			}
+		if err == sql.ErrNoRows {
+			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
 		} else {
-			result.Data = queue
+			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
-	})
+	} else {
+		return queue, nil
+	}
 }

@@ -5,50 +5,29 @@ import (
 )
 
 func (queueManager *QueueManager) SetAttemptState(attemptId int64, state int) *model.AppError {
-	res := <-queueManager.store.Member().SetAttemptState(attemptId, state)
-	return res.Err
+	return queueManager.store.Member().SetAttemptState(attemptId, state)
 }
 
 func (queueManager *QueueManager) SetBridged(a *Attempt, legAId, legBId *string) *model.AppError {
-	res := <-queueManager.store.Member().SetBridged(a.Id(), model.GetMillis(), legAId, legBId)
-	return res.Err
+	return queueManager.store.Member().SetBridged(a.Id(), model.GetMillis(), legAId, legBId)
 }
 
 func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, cause string) *model.AppError {
-	if res := <-queueManager.store.Member().SetAttemptSuccess(attempt.Id(), model.GetMillis(), cause, attempt.LogsData()); res.Err != nil {
-		return res.Err
-	}
-	return nil
+	return queueManager.store.Member().SetAttemptSuccess(attempt.Id(), model.GetMillis(), cause, attempt.LogsData())
 }
 
 func (queueManager *QueueManager) SetAttemptError(attempt *Attempt, cause string) (bool, *model.AppError) {
-	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, true, cause, attempt.LogsData()); res.Err != nil {
-		return false, res.Err
-	} else {
-		return res.Data.(bool), nil
-	}
+	return queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, true, cause, attempt.LogsData())
 }
 
 func (queueManager *QueueManager) SetAttemptMinus(attempt *Attempt, cause string) (bool, *model.AppError) {
-	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 0, false, cause, attempt.LogsData()); res.Err != nil {
-		return false, res.Err
-	} else {
-		return res.Data.(bool), nil
-	}
+	return queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 0, false, cause, attempt.LogsData())
 }
 
 func (queueManager *QueueManager) SetAttemptStop(attempt *Attempt, cause string) (bool, *model.AppError) {
-	if res := <-queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, false, cause, attempt.LogsData()); res.Err != nil {
-		return false, res.Err
-	} else {
-		return res.Data.(bool), nil
-	}
+	return queueManager.store.Member().SetAttemptStop(attempt.Id(), model.GetMillis(), 1, false, cause, attempt.LogsData())
 }
 
 func (queueManager *QueueManager) SetAttemptBarred(attempt *Attempt) (bool, *model.AppError) {
-	if res := <-queueManager.store.Member().SetAttemptBarred(attempt.Id(), model.GetMillis(), model.CALL_OUTGOING_CALL_BARRED, attempt.LogsData()); res.Err != nil {
-		return false, res.Err
-	} else {
-		return res.Data.(bool), nil
-	}
+	return queueManager.store.Member().SetAttemptBarred(attempt.Id(), model.GetMillis(), model.CALL_OUTGOING_CALL_BARRED, attempt.LogsData())
 }

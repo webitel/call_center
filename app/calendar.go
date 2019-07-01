@@ -7,19 +7,11 @@ func (a *App) GetCalendarsPage(filter string, page, perPage int, sortField strin
 }
 
 func (a *App) GetCalendars(filter string, offset, limit int, sortField string, desc bool) ([]*model.Calendar, *model.AppError) {
-	result := <-a.Srv.Store.Calendar().GetAllPage(filter, offset, limit, sortField, desc)
-	if result.Err != nil {
-		return nil, result.Err
-	}
-	return result.Data.([]*model.Calendar), nil
+	return a.Srv.Store.Calendar().GetAllPage(filter, offset, limit, sortField, desc)
 }
 
 func (a *App) GetCalendar(id int) (*model.Calendar, *model.AppError) {
-	if result := <-a.Srv.Store.Calendar().Get(id); result.Err != nil {
-		return nil, result.Err
-	} else {
-		return result.Data.(*model.Calendar), nil
-	}
+	return a.Srv.Store.Calendar().Get(id)
 }
 
 func (a *App) DeleteCalendar(id int) *model.AppError {
@@ -28,10 +20,7 @@ func (a *App) DeleteCalendar(id int) *model.AppError {
 		return err
 	}
 
-	if result := <-a.Srv.Store.Calendar().Delete(id); result.Err != nil {
-		return result.Err
-	}
-	return nil
+	return a.Srv.Store.Calendar().Delete(id)
 }
 
 func (a *App) CreateCalendar(calendar *model.Calendar) (*model.Calendar, *model.AppError) {
@@ -40,9 +29,9 @@ func (a *App) CreateCalendar(calendar *model.Calendar) (*model.Calendar, *model.
 		return nil, err
 	}
 
-	if result := <-a.Store.Calendar().Create(calendar); result.Err != nil {
-		return nil, result.Err
+	if c, err := a.Store.Calendar().Create(calendar); err != nil {
+		return nil, err
 	} else {
-		return result.Data.(*model.Calendar), nil
+		return c, nil
 	}
 }

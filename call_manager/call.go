@@ -154,11 +154,3 @@ func (call *CallImpl) Mute(on bool) *model.AppError {
 
 	return nil
 }
-
-func (call *CallImpl) UseAMD() *model.AppError {
-	return nil
-}
-
-func (call *CallImpl) RecordSession() *model.AppError {
-	return nil
-}

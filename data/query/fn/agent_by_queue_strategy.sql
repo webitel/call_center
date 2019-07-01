@@ -349,8 +349,6 @@ from cc_member_attempt;
 
 
 
-select *
-from reserve_members_with_resources('test');
 
 
 update cc_member_attempt

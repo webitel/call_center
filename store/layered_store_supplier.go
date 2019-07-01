@@ -1,7 +1,6 @@
 package store
 
 type LayeredStoreSupplierResult struct {
-	StoreResult
 }
 
 func NewSupplierResult() *LayeredStoreSupplierResult {

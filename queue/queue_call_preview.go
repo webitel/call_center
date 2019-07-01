@@ -66,18 +66,20 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 				model.CALL_TIMEOUT_VARIABLE:            fmt.Sprintf("%d", preview.Timeout()),
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				"ignore_display_updates":               "true",
-				"sip_h_X-Webitel-Context":              "default",
-				"sip_h_X-Webitel-Domain":               "10.10.10.144",
-				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE:             preview.Domain(),
-				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", preview.id),
-				model.QUEUE_NAME_FIELD:                 preview.name,
-				model.QUEUE_TYPE_NAME_FIELD:            preview.TypeName(),
-				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_AGENT,
-				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
-				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
-				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
+				"absolute_codec_string":                "PCMA",
+				"sip_h_X-Webitel-Direction":            "internal",
+				//"sip_h_X-Webitel-Direction":   "inbound",
+				"sip_route_uri":               "sip:172.17.2.2",
+				model.CALL_DIRECTION_VARIABLE: model.CALL_DIRECTION_DIALER,
+				model.CALL_DOMAIN_VARIABLE:    preview.Domain(),
+				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", preview.id),
+				model.QUEUE_NAME_FIELD:        preview.name,
+				model.QUEUE_TYPE_NAME_FIELD:   preview.TypeName(),
+				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_AGENT,
+				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
+				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
+				model.QUEUE_ROUTING_ID_FIELD:  fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
@@ -87,11 +89,6 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		preview.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
 		info.UseRecordings = true
 	}
-
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "answer",
-		Args:    "",
-	})
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",

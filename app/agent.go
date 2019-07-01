@@ -6,10 +6,10 @@ import (
 )
 
 func (app *App) GetAgentById(agentId int64) (*model.Agent, *model.AppError) {
-	if result := <-app.Store.Agent().Get(agentId); result.Err != nil {
-		return nil, result.Err
+	if a, err := app.Store.Agent().Get(agentId); err != nil {
+		return nil, err
 	} else {
-		return result.Data.(*model.Agent), nil
+		return a, nil
 	}
 }
 

@@ -9,13 +9,14 @@ import (
 func (a *App) GetSession(token string) (*model.Session, *model.AppError) {
 
 	var session *model.Session
+	var err *model.AppError
+
 	if ts, ok := a.sessionCache.Get(token); ok {
 		session = ts.(*model.Session)
 	}
 
 	if session == nil {
-		if sessionResult := <-a.Srv.Store.Session().Get(token); sessionResult.Err == nil {
-			session = sessionResult.Data.(*model.Session)
+		if session, err = a.Srv.Store.Session().Get(token); err == nil {
 
 			if session != nil {
 				if session.Token != token {
@@ -26,8 +27,8 @@ func (a *App) GetSession(token string) (*model.Session, *model.AppError) {
 					a.AddSessionToCache(session)
 				}
 			}
-		} else if sessionResult.Err.StatusCode == http.StatusInternalServerError {
-			return nil, sessionResult.Err
+		} else if err.StatusCode == http.StatusInternalServerError {
+			return nil, err
 		}
 	}
 

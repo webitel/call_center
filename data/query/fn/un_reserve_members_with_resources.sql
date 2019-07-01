@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION un_reserve_members_with_resources(node varchar(20), res varchar(30))
+CREATE OR REPLACE FUNCTION cc_un_reserve_members_with_resources(node varchar(20), res varchar(30))
 RETURNS integer AS $$
 DECLARE
     count integer;

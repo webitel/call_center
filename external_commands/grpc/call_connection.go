@@ -2,7 +2,7 @@ package grpc
 
 import (
 	"context"
-	"github.com/webitel/call_center/externalCommands/grpc/fs"
+	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
 	"net/http"

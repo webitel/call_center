@@ -14,79 +14,67 @@ type SqlCalendarStore struct {
 
 func NewSqlCalendarStore(sqlStore SqlStore) store.CalendarStore {
 	us := &SqlCalendarStore{sqlStore}
-	for _, db := range sqlStore.GetAllConns() {
-		table := db.AddTableWithName(model.Calendar{}, "calendar").SetKeys(true, "Id")
-		table.ColMap("Id").SetUnique(true)
-		table.ColMap("Name").SetMaxSize(30)
-		table.ColMap("Timezone").SetMaxSize(15)
-		table.ColMap("Start")
-		table.ColMap("Finish")
-	}
 	return us
 }
 
-func (s SqlCalendarStore) Create(calendar *model.Calendar) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		if err := s.GetMaster().Insert(calendar); err != nil {
-			result.Err = model.NewAppError("SqlCalendarStore.Save", "store.sql_calendar.save.app_error", nil,
-				fmt.Sprintf("id=%v, %v", calendar.Id, err.Error()), http.StatusInternalServerError)
-		} else {
-			result.Data = calendar
-		}
-	})
+func (s *SqlCalendarStore) CreateTableIfNotExists() {
 }
 
-func (s SqlCalendarStore) GetAllPage(filter string, offset, limit int, sortField string, desc bool) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		var calendars []*model.Calendar
+func (s SqlCalendarStore) Create(calendar *model.Calendar) (*model.Calendar, *model.AppError) {
+	if err := s.GetMaster().Insert(calendar); err != nil {
+		return nil, model.NewAppError("SqlCalendarStore.Save", "store.sql_calendar.save.app_error", nil,
+			fmt.Sprintf("id=%v, %v", calendar.Id, err.Error()), http.StatusInternalServerError)
+	} else {
+		return calendar, nil
+	}
+}
 
-		q := map[string]interface{}{
-			"Limit":        limit,
-			"Offset":       offset,
-			"OrderByField": sortField,
-			"OrderType":    desc,
-			"Filter":       filter,
-		}
+func (s SqlCalendarStore) GetAllPage(filter string, offset, limit int, sortField string, desc bool) ([]*model.Calendar, *model.AppError) {
+	var calendars []*model.Calendar
 
-		if q["OrderByField"] == "" {
-			q["OrderByField"] = "id"
-		}
+	q := map[string]interface{}{
+		"Limit":        limit,
+		"Offset":       offset,
+		"OrderByField": sortField,
+		"OrderType":    desc,
+		"Filter":       filter,
+	}
 
-		if _, err := s.GetReplica().Select(&calendars,
-			`SELECT id, name, timezone, start, finish
+	if q["OrderByField"] == "" {
+		q["OrderByField"] = "id"
+	}
+
+	if _, err := s.GetReplica().Select(&calendars,
+		`SELECT id, name, timezone, start, finish
 			FROM get_calendars(:Filter::text, :OrderByField::text, :OrderType, :Limit, :Offset)
 			`, q); err != nil {
-			result.Err = model.NewAppError("SqlCalendarStore.GetAllPage", "store.sql_calendar.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)
-		} else {
-			result.Data = calendars
-		}
-	})
+		return nil, model.NewAppError("SqlCalendarStore.GetAllPage", "store.sql_calendar.get_all.app_error", nil, err.Error(), http.StatusInternalServerError)
+	} else {
+		return calendars, nil
+	}
 }
 
-func (s SqlCalendarStore) Get(id int) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		var calendar *model.Calendar
-		if err := s.GetReplica().SelectOne(&calendar, `
+func (s SqlCalendarStore) Get(id int) (*model.Calendar, *model.AppError) {
+	var calendar *model.Calendar
+	if err := s.GetReplica().SelectOne(&calendar, `
 			select * from calendar where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
-			if err == sql.ErrNoRows {
-				result.Err = model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
-					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
-			} else {
-				result.Err = model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
-					fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
-			}
+		if err == sql.ErrNoRows {
+			return nil, model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
 		} else {
-			result.Data = calendar
-		}
-	})
-}
-
-func (s SqlCalendarStore) Delete(id int) store.StoreChannel {
-	return store.Do(func(result *store.StoreResult) {
-		if _, err := s.GetMaster().Exec(`delete from calendar where id=:Id`, map[string]interface{}{"Id": id}); err != nil {
-			result.Err = model.NewAppError("SqlCalendarStore.Delete", "store.sql_calendar.delete.app_error", nil,
+			return nil, model.NewAppError("SqlCalendarStore.Get", "store.sql_calendar.get.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
-	})
+	} else {
+		return calendar, nil
+	}
+}
+
+func (s SqlCalendarStore) Delete(id int) *model.AppError {
+	if _, err := s.GetMaster().Exec(`delete from calendar where id=:Id`, map[string]interface{}{"Id": id}); err != nil {
+		return model.NewAppError("SqlCalendarStore.Delete", "store.sql_calendar.delete.app_error", nil,
+			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+	}
+	return nil
 }

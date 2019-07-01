@@ -377,6 +377,11 @@ order by pos asc;
 ;
 
 
+explain analyze
+select count(*)
+  from cc_member_attempt
+where hangup_at = 0 and not agent_id isnull ;
+
 
 drop function cc_distribute_agent_to_attempt;
 
@@ -447,9 +452,7 @@ where a.id = r.attempt_id
 returning a.id as attempt_id, a.agent_id as agent_id, r.updated_at agent_updated_at;
 
 
-
-
-CREATE TYPE cc_agent_in_attempt AS (attempt_id bigint, agent_id bigint);
+CREATE TYPE   cc_agent_in_attempt AS (attempt_id bigint, agent_id bigint);
 
 DO
 $do$
