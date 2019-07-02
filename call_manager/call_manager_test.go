@@ -1,7 +1,6 @@
 package call_manager
 
 import (
-	"github.com/StefanKopieczek/gossip/base"
 	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
@@ -23,12 +22,10 @@ func TestCallManager(t *testing.T) {
 	cm := NewCallManager("node-1", api, mq)
 	cm.Start()
 
-	testCallUser(cm, t)
-
-	//testCallError(cm, t)
-	//testCallAnswer(cm, t)
-	//testCallStates(cm, t)
-	//testCallHangup(cm, t)
+	testCallError(cm, t)
+	testCallAnswer(cm, t)
+	testCallStates(cm, t)
+	testCallHangup(cm, t)
 
 	if cm.ActiveCalls() != 0 {
 		t.Errorf("Call manager calls %v", cm.ActiveCalls())
@@ -37,13 +34,6 @@ func TestCallManager(t *testing.T) {
 	cm.Stop()
 	mq.Close()
 	api.Close()
-}
-
-func testCallUser(cm CallManager, t *testing.T) {
-	t.Log("testCallUser")
-	base.NewRequest(base.REFER, &base.SipUri{
-		Host: "192.168.177.192",
-	}, "SIP/2.0", []base.SipHeader{}, "")
 }
 
 func testCallError(cm CallManager, t *testing.T) {
@@ -69,10 +59,12 @@ func testCallError(cm CallManager, t *testing.T) {
 func testCallAnswer(cm CallManager, t *testing.T) {
 	t.Log("testCallAnswer")
 	cr := &model.CallRequest{
-		Endpoints: []string{"loopback/0"},
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
 			model.CALL_DOMAIN_VARIABLE: "webitel.lo",
-			"cc_test_call_manager":     "true",
+			//"sip_route_uri":             "sip:172.17.2.2", //"$${outbound_sip_proxy}",
+			//"sip_h_X-Webitel-Direction": "internal",
+			"cc_test_call_manager": "true",
 		},
 		Applications: []*model.CallRequestApplication{
 			{
@@ -101,7 +93,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 func testCallHangup(cm CallManager, t *testing.T) {
 	t.Log("testCallHangup")
 	cr := &model.CallRequest{
-		Endpoints: []string{"loopback/0"},
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
 			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
 			"cc_test_call_manager":     "true",
@@ -138,7 +130,7 @@ func testCallHangup(cm CallManager, t *testing.T) {
 func testCallStates(cm CallManager, t *testing.T) {
 	t.Log("testCallStates")
 	cr := &model.CallRequest{
-		Endpoints: []string{"loopback/0"},
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
 			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
 			"cc_test_call_manager":     "true",
