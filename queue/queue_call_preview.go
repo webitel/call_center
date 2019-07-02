@@ -3,8 +3,8 @@ package queue
 import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 	"strings"
 )
 
@@ -107,7 +107,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	}
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
-	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
+	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
 	call.WaitForHangup()
 

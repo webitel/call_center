@@ -2,10 +2,10 @@ package call_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/storage/utils"
+	"github.com/webitel/wlog"
 	"sync"
 )
 
@@ -66,10 +66,10 @@ func NewCallManager(nodeId string, cc model.Commands, mq mq.MQ) CallManager {
 
 func (cm *CallManagerImpl) Start() {
 	//TODO BUG
-	mlog.Debug("CallManager started")
+	wlog.Debug("CallManager started")
 
 	defer func() {
-		mlog.Debug("Stopped CallManager")
+		wlog.Debug("Stopped CallManager")
 		close(cm.stopped)
 	}()
 
@@ -78,7 +78,7 @@ func (cm *CallManagerImpl) Start() {
 			for {
 				select {
 				case <-cm.stop:
-					mlog.Debug("CallManager received stop signal")
+					wlog.Debug("CallManager received stop signal")
 					return
 				case e, ok := <-cm.mq.ConsumeCallEvent():
 					if !ok {
@@ -93,7 +93,7 @@ func (cm *CallManagerImpl) Start() {
 }
 
 func (cm *CallManagerImpl) Stop() {
-	mlog.Debug("CallManager Stopping")
+	wlog.Debug("CallManager Stopping")
 	close(cm.stop)
 	<-cm.stopped
 }
@@ -122,11 +122,11 @@ func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {
 }
 
 func (cm *CallManagerImpl) SetCall(id string, call Call) {
-	mlog.Debug(fmt.Sprintf("save store call %s %s", id, call.Id()))
+	wlog.Debug(fmt.Sprintf("save store call %s %s", id, call.Id()))
 	cm.calls.AddWithDefaultExpires(id, call)
 }
 
 func (cm *CallManagerImpl) RemoveCall(id string) {
-	mlog.Debug(fmt.Sprintf("remove store call %s", id))
+	wlog.Debug(fmt.Sprintf("remove store call %s", id))
 	cm.calls.Remove(id)
 }

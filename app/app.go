@@ -9,7 +9,6 @@ import (
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
 	"github.com/webitel/call_center/external_commands"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
@@ -17,6 +16,7 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"net/http"
 	"sync/atomic"
 )
@@ -27,7 +27,7 @@ type App struct {
 	Store        store.Store
 	MQ           mq.MQ
 	callCommands model.Commands
-	Log          *mlog.Logger
+	Log          *wlog.Logger
 	configFile   string
 	config       atomic.Value
 	sessionCache *utils.Cache
@@ -69,19 +69,19 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, err
 	}
 	app.id = app.Config().ServiceSettings.NodeId
-	app.Log = mlog.NewLogger(&mlog.LoggerConfiguration{
+	app.Log = wlog.NewLogger(&wlog.LoggerConfiguration{
 		EnableConsole: true,
-		ConsoleLevel:  mlog.LevelDebug,
+		ConsoleLevel:  wlog.LevelDebug,
 	})
 
-	mlog.RedirectStdLog(app.Log)
-	mlog.InitGlobalLogger(app.Log)
+	wlog.RedirectStdLog(app.Log)
+	wlog.InitGlobalLogger(app.Log)
 
 	if err := utils.InitTranslations(app.Config().LocalizationSettings); err != nil {
 		return nil, errors.Wrapf(err, "unable to load translation files")
 	}
 
-	mlog.Info("Server is initializing...")
+	wlog.Info("Server is initializing...")
 
 	if app.newStore == nil {
 		app.newStore = func() store.Store {
@@ -128,7 +128,7 @@ func (app *App) IsReady() bool {
 }
 
 func (app *App) Shutdown() {
-	mlog.Info("Stopping Server...")
+	wlog.Info("Stopping Server...")
 	app.cluster.Stop()
 
 	if app.engine != nil {
@@ -153,7 +153,7 @@ func (app *App) Shutdown() {
 
 func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {
 	err := model.NewAppError("Handle404", "api.context.404.app_error", nil, r.URL.String(), http.StatusNotFound)
-	mlog.Debug(fmt.Sprintf("%v: code=404 ip=%v", r.URL.Path, utils.GetIpAddress(r)))
+	wlog.Debug(fmt.Sprintf("%v: code=404 ip=%v", r.URL.Path, utils.GetIpAddress(r)))
 	utils.RenderWebAppError(a.Config(), w, r, err)
 }
 

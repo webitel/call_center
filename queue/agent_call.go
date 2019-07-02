@@ -3,8 +3,8 @@ package queue
 import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 func (queueManager *QueueManager) AgentCallRequest(agent agent_manager.Agent) (*model.CallRequest, *model.AppError) {
@@ -29,7 +29,7 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 
 		if cnt, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); err != nil {
 			//TODO
-			mlog.Error(err.Error())
+			wlog.Error(err.Error())
 		} else {
 			if cnt == 1 {
 				queueManager.agentManager.SetAgentStatus(agent, &model.AgentStatus{
@@ -45,7 +45,7 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		}
 	} else {
 		if _, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); err != nil {
-			mlog.Error(err.Error())
+			wlog.Error(err.Error())
 		}
 		if agent.WrapUpTime() == 0 {
 			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/apis"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/mlog"
 
+	"github.com/webitel/wlog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -23,7 +23,7 @@ func main() {
 
 	serverErr := a.StartServer()
 	if serverErr != nil {
-		mlog.Critical(serverErr.Error())
+		wlog.Critical(serverErr.Error())
 		return
 	}
 	apis.Init(a, a.Srv.Router)

@@ -1,10 +1,10 @@
 package cluster
 
 import (
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"sync"
 )
 
@@ -44,7 +44,7 @@ func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
 }
 
 func (c *cluster) Start() {
-	mlog.Info("Starting cluster service")
+	wlog.Info("Starting cluster service")
 	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 	c.startOnce.Do(func() {
 		go c.watcher.Start()

@@ -3,15 +3,15 @@ package web
 import (
 	goi18n "github.com/nicksnyder/go-i18n/i18n"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"net/http"
 )
 
 type Context struct {
 	App           *app.App
-	Log           *mlog.Logger
+	Log           *wlog.Logger
 	Session       model.Session
 	Err           *model.AppError
 	T             goi18n.TranslateFunc
@@ -29,9 +29,9 @@ func (c *Context) LogError(err *model.AppError) {
 	} else {
 		c.Log.Error(
 			err.SystemMessage(utils.TDefault),
-			mlog.String("err_where", err.Where),
-			mlog.Int("http_code", err.StatusCode),
-			mlog.String("err_details", err.DetailedError),
+			wlog.String("err_where", err.Where),
+			wlog.Int("http_code", err.StatusCode),
+			wlog.String("err_details", err.DetailedError),
 		)
 	}
 }
@@ -43,9 +43,9 @@ func (c *Context) LogInfo(err *model.AppError) {
 	} else {
 		c.Log.Info(
 			err.SystemMessage(utils.TDefault),
-			mlog.String("err_where", err.Where),
-			mlog.Int("http_code", err.StatusCode),
-			mlog.String("err_details", err.DetailedError),
+			wlog.String("err_where", err.Where),
+			wlog.Int("http_code", err.StatusCode),
+			wlog.String("err_details", err.DetailedError),
 		)
 	}
 }
@@ -53,9 +53,9 @@ func (c *Context) LogInfo(err *model.AppError) {
 func (c *Context) LogDebug(err *model.AppError) {
 	c.Log.Debug(
 		err.SystemMessage(utils.TDefault),
-		mlog.String("err_where", err.Where),
-		mlog.Int("http_code", err.StatusCode),
-		mlog.String("err_details", err.DetailedError),
+		wlog.String("err_where", err.Where),
+		wlog.Int("http_code", err.StatusCode),
+		wlog.String("err_details", err.DetailedError),
 	)
 }
 

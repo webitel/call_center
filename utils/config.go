@@ -17,7 +17,8 @@ var (
 
 func LoadConfig(fileName string) (*model.Config, string, map[string]interface{}, *model.AppError) {
 	var envConfig = make(map[string]interface{})
-	dbDatasource := "postgres://webitel:webitel@10.10.10.25:5432/webitel?search_path=call_center&fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
+	//dbDatasource := "postgres://opensips:webitel@192.168.177.194:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
+	dbDatasource := "postgres://webitel:webitel@localhost:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10&search_path=call_center"
 	dbDriverName := "postgres"
 	maxIdleConns := 5
 	maxOpenConns := 5
@@ -44,10 +45,10 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			Trace: false,
 		},
 		MQSettings: model.MQSettings{
-			Url: model.NewString("amqp://webitel:webitel@10.10.10.200:5672?heartbeat=0"),
+			Url: model.NewString("amqp://webitel:webitel@192.168.177.189:5672?heartbeat=0"), //http://192.168.177.189:15672/
 		},
 		ExternalCommandsSettings: model.ExternalCommandsSettings{
-			Urls: []string{"10.10.10.200:50051"}, //"10.10.10.200:50051"
+			Urls: []string{"192.168.177.184:50051", "192.168.177.185:50051"}, //"10.10.10.200:50051" //, "192.168.177.185:50051"
 		},
 	}, "", envConfig, nil
 }

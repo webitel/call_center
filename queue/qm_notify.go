@@ -2,8 +2,8 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 func (queueManager *QueueManager) notifyStoppedResource(resource ResourceObject) {
@@ -31,9 +31,9 @@ func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 	}
 
 	if err := queueManager.app.SendEventQueueChangedLength(event); err != nil {
-		mlog.Error(err.Error())
+		wlog.Error(err.Error())
 	} else {
-		mlog.Debug(fmt.Sprintf("queue %s[%d] changed length %d", queue.Name(), queue.Id(), count))
+		wlog.Debug(fmt.Sprintf("queue %s[%d] changed length %d", queue.Name(), queue.Id(), count))
 	}
 }
 

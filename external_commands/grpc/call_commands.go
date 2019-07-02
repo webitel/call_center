@@ -2,10 +2,10 @@ package grpc
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
 
+	"github.com/webitel/wlog"
 	"google.golang.org/grpc/connectivity"
 	"os"
 	"sync"
@@ -32,7 +32,7 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 	var opts []grpc.DialOption
 
 	if len(settings.Urls) == 0 {
-		mlog.Critical(fmt.Sprintf("failed to open grpc connection %v", settings.Urls))
+		wlog.Critical(fmt.Sprintf("failed to open grpc connection %v", settings.Urls))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -50,15 +50,15 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 	for _, h := range settings.Urls {
 		c, err := newConnection(h, opts)
 		if err != nil {
-			mlog.Critical(fmt.Sprintf("failed to open grpc connection %v error: %s", h, err.Error()))
+			wlog.Critical(fmt.Sprintf("failed to open grpc connection %v error: %s", h, err.Error()))
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
 
 		if v, err := c.GetServerVersion(); err == nil {
-			mlog.Info(fmt.Sprintf("[%s] %v", h, v))
+			wlog.Info(fmt.Sprintf("[%s] %v", h, v))
 		} else {
-			mlog.Critical(err.Error())
+			wlog.Critical(err.Error())
 		}
 
 		r.Lock()
@@ -71,7 +71,7 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 		length: len(r.connections),
 	}
 
-	mlog.Debug(fmt.Sprintf("success to open grpc connection %v", settings.Urls))
+	wlog.Debug(fmt.Sprintf("success to open grpc connection %v", settings.Urls))
 	return r
 }
 
@@ -92,14 +92,14 @@ func (c *CallCommandsImpl) GetCallConnection() model.CallCommands {
 		}
 	}
 
-	mlog.Error(fmt.Sprintf("no active connections to call server"))
+	wlog.Error(fmt.Sprintf("no active connections to call server"))
 	con := c.connections[c.iterator.Next()]
 
 	return con
 }
 
 func (c *CallCommandsImpl) Close() {
-	mlog.Debug(fmt.Sprintf("receive close grpc connection"))
+	wlog.Debug(fmt.Sprintf("receive close grpc connection"))
 	for _, c := range c.connections {
 		c.close()
 	}

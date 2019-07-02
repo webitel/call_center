@@ -2,8 +2,8 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type IVRQueue struct {
@@ -114,7 +114,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 		return
 	}
 
-	mlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
+	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
 	err := voice.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
 
@@ -123,7 +123,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 		panic(err.Error())
 	}
 	call.WaitForHangup()
-	mlog.Debug(fmt.Sprintf("Hangup call %s billing seconds: %d", call.Id(), call.BillSeconds()))
+	wlog.Debug(fmt.Sprintf("Hangup call %s billing seconds: %d", call.Id(), call.BillSeconds()))
 
 	if call.HangupCause() == "" {
 		voice.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO

@@ -2,9 +2,9 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"sync"
 )
 
@@ -47,7 +47,7 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 	}
 
 	r.resourcesCache.AddWithDefaultExpires(id, dialResource)
-	mlog.Debug(fmt.Sprintf("Add resource %s to cache", dialResource.Name()))
+	wlog.Debug(fmt.Sprintf("Add resource %s to cache", dialResource.Name()))
 	return dialResource, nil
 }
 
@@ -61,7 +61,7 @@ func (r *ResourceManager) GetEndpoint(pattern string) (*Endpoint, *model.AppErro
 			return nil, err
 		}
 
-		mlog.Debug(fmt.Sprintf("Add endpoint pattern %s to cache", pattern))
+		wlog.Debug(fmt.Sprintf("Add endpoint pattern %s to cache", pattern))
 		r.patternsCache.AddWithDefaultExpires(pattern, endpoint)
 	} else {
 		endpoint = p.(*Endpoint)

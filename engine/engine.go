@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"sync"
 )
 
@@ -26,7 +26,7 @@ func NewEngine(id string, s store.Store) Engine {
 }
 
 func (e *EngineImp) Start() {
-	mlog.Info("Starting engine service")
+	wlog.Info("Starting engine service")
 	e.watcher = utils.MakeWatcher("Engine", e.pollingInterval, e.ReserveMembers)
 	e.UnReserveMembers()
 	e.startOnce.Do(func() {

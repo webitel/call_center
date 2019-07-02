@@ -3,9 +3,9 @@ package web
 import (
 	"fmt"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"net/http"
 )
 
@@ -19,7 +19,7 @@ type Handler struct {
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	mlog.Debug(fmt.Sprintf("%v - %v", r.Method, r.URL.Path))
+	wlog.Debug(fmt.Sprintf("%v - %v", r.Method, r.URL.Path))
 
 	c := &Context{}
 	c.App = h.App
@@ -41,7 +41,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(token) != 0 {
 		session, err := c.App.GetSession(token)
 		if err != nil {
-			c.Log.Info("Invalid session", mlog.Err(err))
+			c.Log.Info("Invalid session", wlog.Err(err))
 			if err.StatusCode == http.StatusInternalServerError {
 				c.Err = err
 			} else {
@@ -53,11 +53,11 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c.Log = c.App.Log.With(
-		mlog.String("path", c.Path),
-		mlog.String("request_id", c.RequestId),
-		mlog.String("ip_addr", c.IpAddress),
-		mlog.String("user_id", c.Session.UserId),
-		mlog.String("method", r.Method),
+		wlog.String("path", c.Path),
+		wlog.String("request_id", c.RequestId),
+		wlog.String("ip_addr", c.IpAddress),
+		wlog.String("user_id", c.Session.UserId),
+		wlog.String("method", r.Method),
 	)
 
 	if c.Err == nil && h.RequireSession {

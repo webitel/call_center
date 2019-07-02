@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"sync"
 	"time"
 )
@@ -34,7 +34,7 @@ func NewDialing(app App, callManager call_manager.CallManager, agentManager agen
 }
 
 func (dialing *DialingImpl) Start() {
-	mlog.Debug("Starting dialing service")
+	wlog.Debug("Starting dialing service")
 	dialing.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, dialing.routeData)
 
 	dialing.startOnce.Do(func() {
@@ -60,7 +60,7 @@ func (d *DialingImpl) routeIdleAttempts() {
 
 	members, err := d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
 	if err != nil {
-		mlog.Error(err.Error())
+		wlog.Error(err.Error())
 		time.Sleep(time.Second)
 		return
 	}
@@ -78,7 +78,7 @@ func (d *DialingImpl) routeIdleAgents() {
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
 	if err != nil {
-		mlog.Error(err.Error())
+		wlog.Error(err.Error())
 		time.Sleep(time.Second)
 		return
 	}
@@ -87,7 +87,7 @@ func (d *DialingImpl) routeIdleAgents() {
 		agent, err := d.agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt)
 		if err != nil {
 			//TODO
-			mlog.Error(err.Error())
+			wlog.Error(err.Error())
 			continue
 		}
 		d.routeAgentToAttempt(v.AttemptId, agent)
@@ -102,9 +102,9 @@ func (d *DialingImpl) routeAgentToAttempt(attemptId int64, agent agent_manager.A
 			queue.RouteAgentToAttempt(attempt.(*Attempt))
 		} else {
 			//todo not found queue
-			mlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()))
+			wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()))
 		}
 	} else {
-		mlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()))
+		wlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()))
 	}
 }

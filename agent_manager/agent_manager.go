@@ -2,10 +2,10 @@ package agent_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"sync"
 )
 
@@ -34,7 +34,7 @@ func NewAgentManager(nodeId string, s store.Store) AgentManager {
 }
 
 func (agentManager *AgentManagerImpl) Start() {
-	mlog.Debug("Starting agent service")
+	wlog.Debug("Starting agent service")
 	agentManager.watcher = utils.MakeWatcher("AgentManager", DEFAULT_WATCHER_POLLING_INTERVAL, agentManager.changeDeadlineState)
 	agentManager.startOnce.Do(func() {
 		go agentManager.watcher.Start()
@@ -65,17 +65,17 @@ func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (Agent
 	}
 
 	agentManager.agentsCache.AddWithDefaultExpires(id, agent)
-	mlog.Debug(fmt.Sprintf("Add agent to cache %v", agent.Name()))
+	wlog.Debug(fmt.Sprintf("Add agent to cache %v", agent.Name()))
 	return agent, nil
 }
 
 func (agentManager *AgentManagerImpl) SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
 	if err := agentManager.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
-		mlog.Error(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
+		wlog.Error(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
 		return err
 	}
 
-	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), status.Status))
+	wlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), status.Status))
 
 	return nil
 }
@@ -83,12 +83,12 @@ func (agentManager *AgentManagerImpl) SetAgentStatus(agent AgentObject, status *
 func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError {
 
 	if _, err := agentManager.store.Agent().SetState(agent.Id(), state, timeoutSeconds); err != nil {
-		mlog.Error(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), state, err.Error()))
+		wlog.Error(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), state, err.Error()))
 		return err
 	}
 
 	agentManager.notifyChangeAgentState(agent, state)
-	mlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), state))
+	wlog.Debug(fmt.Sprintf("Agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), state))
 	return nil
 }
 
@@ -114,11 +114,11 @@ func (agentManager *AgentManagerImpl) SetPause(agent AgentObject, payload []byte
 
 func (agentManager *AgentManagerImpl) changeDeadlineState() {
 	if s, err := agentManager.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); err != nil {
-		mlog.Error(err.Error())
+		wlog.Error(err.Error())
 	} else {
 		for _, v := range s {
 			//todo event
-			mlog.Debug(fmt.Sprintf("Agent %d has been changed state to \"%s\" - timeout", v.Id, v.State))
+			wlog.Debug(fmt.Sprintf("Agent %d has been changed state to \"%s\" - timeout", v.Id, v.State))
 		}
 	}
 }

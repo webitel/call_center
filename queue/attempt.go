@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/mlog"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type AttemptInfo interface {
@@ -100,7 +100,7 @@ func (a *Attempt) IsBarred() bool {
 }
 
 func (a *Attempt) Log(info string) {
-	mlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
+	wlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
 	a.Logs = append(a.Logs, LogItem{
 		Time: model.GetMillis(),
 		Info: info,
