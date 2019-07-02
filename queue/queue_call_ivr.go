@@ -67,7 +67,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 				"sip_route_uri":             "sip:172.17.2.2", //"$${outbound_sip_proxy}",
 				"sip_h_X-Webitel-Direction": "outbound",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
-				//"absolute_codec_string":                "PCMU",
+				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
 				model.CALL_DOMAIN_VARIABLE:             voice.Domain(),

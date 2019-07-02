@@ -122,6 +122,24 @@ func (c *CallConnection) SetCallVariables(id string, variables map[string]string
 	return nil
 }
 
+func (c *CallConnection) Hold(id string) *model.AppError {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "uuid_hold",
+		Args:    id,
+	})
+	if err != nil {
+		return model.NewAppError("Hold", "external.hold_call.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return model.NewAppError("Hold", "external.hold_call.app_error", nil, res.Error.String(),
+			http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (c *CallConnection) BridgeCall(legAId, legBId, legBReserveId string) (string, *model.AppError) {
 	response, err := c.api.Bridge(context.Background(), &fs.BridgeRequest{
 		LegAId:        legAId,

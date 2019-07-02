@@ -41,6 +41,7 @@ type Call interface {
 	WaitForHangup()
 
 	Hangup(cause string) *model.AppError
+	Hold() *model.AppError
 }
 
 type CallManagerImpl struct {

@@ -154,3 +154,7 @@ func (call *CallImpl) Mute(on bool) *model.AppError {
 
 	return nil
 }
+
+func (call *CallImpl) Hold() *model.AppError {
+	return call.api.Hold(call.id)
+}

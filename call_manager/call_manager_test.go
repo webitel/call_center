@@ -26,6 +26,7 @@ func TestCallManager(t *testing.T) {
 	testCallAnswer(cm, t)
 	testCallStates(cm, t)
 	testCallHangup(cm, t)
+	testCallHold(cm, t)
 
 	if cm.ActiveCalls() != 0 {
 		t.Errorf("Call manager calls %v", cm.ActiveCalls())
@@ -61,9 +62,6 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 	cr := &model.CallRequest{
 		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
-			model.CALL_DOMAIN_VARIABLE: "webitel.lo",
-			//"sip_route_uri":             "sip:172.17.2.2", //"$${outbound_sip_proxy}",
-			//"sip_h_X-Webitel-Direction": "internal",
 			"cc_test_call_manager": "true",
 		},
 		Applications: []*model.CallRequestApplication{
@@ -95,8 +93,7 @@ func testCallHangup(cm CallManager, t *testing.T) {
 	cr := &model.CallRequest{
 		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
-			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
-			"cc_test_call_manager":     "true",
+			"cc_test_call_manager": "true",
 		},
 		Applications: []*model.CallRequestApplication{
 
@@ -132,8 +129,7 @@ func testCallStates(cm CallManager, t *testing.T) {
 	cr := &model.CallRequest{
 		Endpoints: []string{`loopback/answer\,park/default/inline`},
 		Variables: map[string]string{
-			model.CALL_DOMAIN_VARIABLE: "10.10.10.144",
-			"cc_test_call_manager":     "true",
+			"cc_test_call_manager": "true",
 		},
 		Applications: []*model.CallRequestApplication{
 
@@ -155,6 +151,54 @@ func testCallStates(cm CallManager, t *testing.T) {
 	}
 
 	err := call.Hangup(model.CALL_HANGUP_NO_ANSWER)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	call.WaitForHangup()
+	if call.GetState() != CALL_STATE_HANGUP {
+		t.Errorf("assert call state error: %v", call.GetState())
+	}
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	if call.HangupCause() != model.CALL_HANGUP_NO_ANSWER {
+		t.Errorf("assert hangup case error: %s", call.HangupCause())
+	}
+}
+
+func testCallHold(cm CallManager, t *testing.T) {
+	t.Log("testCallHold")
+	cr := &model.CallRequest{
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Variables: map[string]string{
+			"cc_test_call_manager": "true",
+		},
+		Applications: []*model.CallRequestApplication{
+
+			{
+				AppName: "answer",
+			},
+			{
+				AppName: "park",
+			},
+		},
+	}
+	call := cm.NewCall(cr)
+	if call.Err() != nil {
+		t.Errorf("call error: %s", call.Err().Error())
+	}
+
+	if call.GetState() != CALL_STATE_ACCEPT {
+		t.Errorf("assert call state error: %v", call.GetState())
+	}
+
+	err := call.Hold()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	err = call.Hangup(model.CALL_HANGUP_NO_ANSWER)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
