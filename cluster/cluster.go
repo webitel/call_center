@@ -54,6 +54,10 @@ func (c *cluster) Stop() {
 	if c.watcher != nil {
 		c.watcher.Stop()
 	}
+
+	if c.consul != nil {
+		c.consul.Shutdown()
+	}
 }
 
 func (c *cluster) Setup() *model.AppError {
