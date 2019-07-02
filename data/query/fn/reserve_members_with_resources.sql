@@ -92,8 +92,7 @@ where  a.status in  ('online', 'pause') and h.state = 'waiting' -- h.timeout_at 
 
 
 select *
-from cc_member_attempt
-where ;
+from cc_member_attempt;
 
 
 

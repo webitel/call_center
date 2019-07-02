@@ -40,6 +40,7 @@ type App struct {
 }
 
 func New(options ...string) (outApp *App, outErr error) {
+	var err *model.AppError
 	rootRouter := mux.NewRouter()
 
 	app := &App{
@@ -64,7 +65,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	model.AppErrorInit(utils.T)
 
-	if err := app.LoadConfig(app.configFile); err != nil {
+	if err = app.LoadConfig(app.configFile); err != nil {
 		return nil, err
 	}
 	app.id = app.Config().ServiceSettings.NodeId
@@ -96,7 +97,11 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
-	app.cluster = cluster.NewCluster(*app.id, app.Store)
+	app.cluster, err = cluster.NewCluster(*app.id, app.Store)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := app.cluster.Setup(); err != nil {
 		return nil, errors.Wrapf(err, "unable to initialize cluster")
 	}

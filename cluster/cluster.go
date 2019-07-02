@@ -10,41 +10,57 @@ import (
 
 var DEFAULT_WATCHER_POLLING_INTERVAL = 30 * 1000 //30s
 
-type ClusterImpl struct {
+type cluster struct {
 	store           store.Store
 	nodeId          string
 	startOnce       sync.Once
 	pollingInterval int
 	info            *model.ClusterInfo
 	watcher         *utils.Watcher
+	consul          *consul
 }
 
-func NewCluster(nodeId string, store store.Store) Cluster {
-	return &ClusterImpl{
+func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
+
+	cons, err := NewConsul(func() (bool, *model.AppError) {
+		return true, nil //TODO
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = cons.RegisterService()
+	if err != nil {
+		return nil, err
+	}
+
+	return &cluster{
+		consul:          cons,
 		nodeId:          nodeId,
 		store:           store,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,
-	}
+	}, nil
 }
 
-func (cluster *ClusterImpl) Start() {
+func (c *cluster) Start() {
 	mlog.Info("Starting cluster service")
-	cluster.watcher = utils.MakeWatcher("Cluster", cluster.pollingInterval, cluster.Heartbeat)
-	cluster.startOnce.Do(func() {
-		go cluster.watcher.Start()
+	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
+	c.startOnce.Do(func() {
+		go c.watcher.Start()
 	})
 }
-func (cluster *ClusterImpl) Stop() {
-	if cluster.watcher != nil {
-		cluster.watcher.Stop()
+func (c *cluster) Stop() {
+	if c.watcher != nil {
+		c.watcher.Stop()
 	}
 }
 
-func (cluster *ClusterImpl) Setup() *model.AppError {
-	if info, err := cluster.store.Cluster().CreateOrUpdate(cluster.nodeId); err != nil {
+func (c *cluster) Setup() *model.AppError {
+	if info, err := c.store.Cluster().CreateOrUpdate(c.nodeId); err != nil {
 		return err
 	} else {
-		cluster.info = info
+		c.info = info
 	}
 	return nil
 }
