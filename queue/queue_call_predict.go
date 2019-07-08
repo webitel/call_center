@@ -17,3 +17,7 @@ func (queue *PredictCallQueue) RouteAgentToAttempt(attempt *Attempt) {
 func (queue *PredictCallQueue) JoinAttempt(attempt *Attempt) {
 
 }
+
+func (queue *PredictCallQueue) TimeoutAttempt(attempt *Attempt) {
+
+}

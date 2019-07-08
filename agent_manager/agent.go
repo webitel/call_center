@@ -37,12 +37,12 @@ func (agent *Agent) CallDestination() string {
 	return "user/9999@10.10.10.144"
 }
 
-func (agent *Agent) GetEndpoints() []string {
+func (agent *Agent) GetCallEndpoints() []string {
 	//return []string{"sofia/external/111@10.10.10.25:15060"}
 	//return []string{fmt.Sprintf("sofia/external/agent.%d@10.10.10.25:5080", agent.Id())}
 	//return []string{fmt.Sprintf("sofia/sip/%d@webitel.lo", agent.Id())}
 	//return []string{fmt.Sprintf("sofia/sip/agent@webitel.lo")}
-	return []string{fmt.Sprintf("sofia/sip/300@webitel.lo")}
+	return []string{fmt.Sprintf("sofia/sip/400@webitel.lo")}
 }
 
 func (agent *Agent) MaxNoAnswer() int {

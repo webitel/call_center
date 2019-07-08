@@ -73,6 +73,8 @@ on conflict do nothing ;
 
 SELECT floor(random() * (2-5+1) + 5)::int;
 
+SELECT random() * 10 + 1 AS RAND_1_10;
+
 explain analyse
 select *
 from cc_list_communications

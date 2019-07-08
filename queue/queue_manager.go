@@ -24,7 +24,7 @@ type QueueManager struct {
 	attemptCount    int64
 	stop            chan struct{}
 	stopped         chan struct{}
-	input           chan *model.MemberAttempt
+	input           chan *Attempt
 	queuesCache     utils.ObjectCache
 	membersCache    utils.ObjectCache
 	store           store.Store
@@ -41,7 +41,7 @@ func NewQueueManager(app App, s store.Store, callManager call_manager.CallManage
 		callManager:     callManager,
 		resourceManager: resourceManager,
 		agentManager:    agentManager,
-		input:           make(chan *model.MemberAttempt),
+		input:           make(chan *Attempt),
 		stop:            make(chan struct{}),
 		stopped:         make(chan struct{}),
 		queuesCache:     utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
@@ -64,9 +64,9 @@ func (queueManager *QueueManager) Start() {
 			wlog.Debug("QueueManager received stop signal")
 			close(queueManager.input)
 			return
-		case m := <-queueManager.input:
+		case attempt := <-queueManager.input:
 			queueManager.attemptCount++
-			queueManager.JoinMember(m)
+			queueManager.DistributeAttempt(attempt)
 		}
 	}
 }
@@ -84,12 +84,32 @@ func (queueManager *QueueManager) GetNodeId() string {
 }
 
 func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
-	if _, ok := queueManager.membersCache.Get(attempt.Id); ok {
-		wlog.Error(fmt.Sprintf("Attempt %v in queue", attempt.Id))
-		return
+	var a *Attempt
+	var ok bool
+
+	if a, ok = queueManager.GetAttempt(attempt.Id); ok {
+
+		if !attempt.IsTimeout() {
+			wlog.Error(fmt.Sprintf("Attempt %v in queue", a.Id()))
+			return
+		}
+		a.SetMember(attempt)
+	} else {
+		a = queueManager.NewAttempt(attempt)
 	}
 
-	queueManager.input <- attempt
+	queueManager.input <- a
+}
+
+func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt {
+
+	attempt := NewAttempt(conf)
+	queueManager.membersCache.AddWithDefaultExpires(attempt.Id(), attempt)
+	queueManager.wg.Add(1)
+
+	wlog.Debug(fmt.Sprintf("new attempt %s", attempt.Id()))
+
+	return attempt
 }
 
 func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppError) {
@@ -153,30 +173,38 @@ func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject)
 	}
 }
 
-func (queueManager *QueueManager) JoinMember(member *model.MemberAttempt) {
-	memberAttempt := NewAttempt(member)
+func (queueManager *QueueManager) attemptTimeout(attempt *Attempt, queue QueueObject) {
+	wlog.Debug(fmt.Sprintf("timeout member %s[%d] AttemptId=%d from queue \"%s\"", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
 
-	queue, err := queueManager.GetQueue(int(member.QueueId), member.QueueUpdatedAt)
+	queue.TimeoutAttempt(attempt)
+}
+
+func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
+
+	queue, err := queueManager.GetQueue(int(attempt.QueueId()), attempt.QueueUpdatedAt())
 	if err != nil {
 		wlog.Error(err.Error())
 		//TODO added to model "dialing.queue.new_queue.app_error"
-		queueManager.SetAttemptMinus(memberAttempt, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
+		queueManager.SetAttemptMinus(attempt, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
 		return
 	}
 
-	if memberAttempt.IsBarred() {
-		queueManager.attemptBarred(memberAttempt, queue)
+	if attempt.IsBarred() {
+		queueManager.attemptBarred(attempt, queue)
 		return
 	}
 
-	queueManager.membersCache.AddWithDefaultExpires(memberAttempt.Id(), memberAttempt)
-	queueManager.wg.Add(1)
+	if attempt.IsTimeout() {
+		queueManager.attemptTimeout(attempt, queue)
+		return
+	}
 
-	memberAttempt.resource = queueManager.GetAttemptResource(memberAttempt)
-	queue.JoinAttempt(memberAttempt)
+	attempt.resource = queueManager.GetAttemptResource(attempt)
+	queue.JoinAttempt(attempt)
 	queueManager.notifyChangedQueueLength(queue)
 
-	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", memberAttempt.Name(), memberAttempt.MemberId(), memberAttempt.Id(), queue.Name()))
+	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", attempt.Name(),
+		attempt.MemberId(), attempt.Id(), queue.Name()))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
@@ -197,6 +225,14 @@ func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceO
 		}
 	}
 	return nil
+}
+
+func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
+	if attempt, ok := queueManager.membersCache.Get(id); ok {
+		return attempt.(*Attempt), true
+	}
+
+	return nil, false
 }
 
 func (queueManager *QueueManager) attemptBarred(attempt *Attempt, queue QueueObject) {

@@ -1,4 +1,6 @@
-
+update cc_agent
+set status = 'offline'
+where 1=1;
 
 DO
 $do$

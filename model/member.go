@@ -39,3 +39,7 @@ type MemberAttempt struct {
 	Variables         []byte  `json:"variables" db:"variables"`
 	Name              string  `json:"name" db:"name"`
 }
+
+func (ma *MemberAttempt) IsTimeout() bool {
+	return ma.Result != nil && *ma.Result == CALL_TIMEOUT
+}

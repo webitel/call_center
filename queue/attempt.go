@@ -31,6 +31,12 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 	}
 }
 
+func (a *Attempt) SetMember(member *model.MemberAttempt) {
+	if a.Id() == member.Id {
+		a.member = member
+	}
+}
+
 func (a *Attempt) Id() int64 {
 	return a.member.Id
 }
@@ -99,8 +105,16 @@ func (a *Attempt) IsBarred() bool {
 	return false
 }
 
+func (a *Attempt) IsTimeout() bool {
+	return a.member.IsTimeout()
+}
+
+func (a *Attempt) SetResult(result *string) {
+	a.member.Result = result
+}
+
 func (a *Attempt) Log(info string) {
-	wlog.Debug(fmt.Sprintf("Attempt [%v] > %s", a.Id(), info))
+	wlog.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), info))
 	a.Logs = append(a.Logs, LogItem{
 		Time: model.GetMillis(),
 		Info: info,

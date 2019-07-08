@@ -17,3 +17,7 @@ func (queue *ProgressiveCallQueue) RouteAgentToAttempt(attempt *Attempt) {
 func (queue *ProgressiveCallQueue) JoinAttempt(attempt *Attempt) {
 
 }
+
+func (queue *ProgressiveCallQueue) TimeoutAttempt(attempt *Attempt) {
+
+}

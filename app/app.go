@@ -129,7 +129,10 @@ func (app *App) IsReady() bool {
 
 func (app *App) Shutdown() {
 	wlog.Info("Stopping Server...")
-	app.cluster.Stop()
+
+	if app.cluster != nil {
+		app.cluster.Stop()
+	}
 
 	if app.engine != nil {
 		app.engine.Stop()

@@ -7,6 +7,7 @@ type AttemptInfoCall struct {
 	LegBUri       string  `json:"leg_b_uri"`
 	UseAmd        bool    `json:"use_amd"`
 	UseRecordings bool    `json:"use_recordings"`
+	Timeout       bool    `json:"timeout"`
 	AmdResult     *string `json:"amd_result,omitempty"`
 	AmdCause      *string `json:"amd_cause,omitempty"`
 	Error         *string `json:"error,omitempty"`

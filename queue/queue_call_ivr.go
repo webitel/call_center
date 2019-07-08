@@ -46,7 +46,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	dst := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	attempt.Log(`dial string: ` + dst)
 	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
-	legB := fmt.Sprintf("1") //TODO
+	legB := fmt.Sprintf("1@webitel.lo") //TODO
 
 	info := voice.GetCallInfoFromAttempt(attempt)
 
@@ -55,7 +55,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	*/
 
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{dst}, //
+		Endpoints:    []string{"sofia/sip/400@webitel.lo"}, // []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -65,7 +65,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			attempt.Variables(),
 			map[string]string{
 				"sip_route_uri":             "sip:172.17.2.2", //"$${outbound_sip_proxy}",
-				"sip_h_X-Webitel-Direction": "outbound",
+				"sip_h_X-Webitel-Direction": "internal",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
@@ -132,4 +132,8 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	}
 
 	voice.queueManager.LeavingMember(attempt, voice)
+}
+
+func (queue *IVRQueue) TimeoutAttempt(attempt *Attempt) {
+
 }

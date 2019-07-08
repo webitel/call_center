@@ -18,8 +18,7 @@ type AgentManager interface {
 type AgentObject interface {
 	Id() int64
 	Name() string
-	CallDestination() string
-	GetEndpoints() []string
+	GetCallEndpoints() []string
 	UpdatedAt() int64
 
 	IsExpire(updatedAt int64) bool

@@ -239,7 +239,8 @@ truncate table cc_member_attempt;
 
 
 set max_parallel_workers_per_gather = 1;
-explain (analyse, format json )
+DISCARD ALL;
+explain (analyse, buffers )
 select case when lc.number isnull then 0 else 1 end, t.number, *
 from (
   select
@@ -278,6 +279,12 @@ from (
 left join cc_list_communications lc on lc.list_id = 1 and lc.number = t.number
 where t.d =1
 limit 100;
+
+
+
+select routing_ids
+from cc_member_communications;
+
 
 
 

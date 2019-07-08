@@ -23,6 +23,14 @@ func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt) {
 	go preview.makeCallToAgent(attempt, attempt.Agent())
 }
 
+func (preview *PreviewCallQueue) TimeoutAttempt(attempt *Attempt) {
+	info := preview.GetCallInfoFromAttempt(attempt)
+	info.Timeout = true
+
+	preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
+	preview.queueManager.LeavingMember(attempt, preview)
+}
+
 func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
 	Assert(attempt.resource)
 
@@ -35,7 +43,7 @@ func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
 		preview.queueManager.LeavingMember(attempt, preview)
 		return
 	}
-	attempt.Log("find agent")
+	attempt.Log("finding agent")
 }
 
 func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_manager.AgentObject) {
@@ -43,18 +51,18 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	info := preview.GetCallInfoFromAttempt(attempt)
 
 	if attempt.GetCommunicationPattern() == nil {
-		panic(123)
+		panic(123) //TODO
 	}
 	endpoint, e := preview.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
 	if e != nil {
-		panic(e.Error())
+		panic(e.Error()) //TODO
 	}
 
 	info.LegBUri = endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
-	info.LegAUri = strings.Join(agent.GetEndpoints(), ",")
+	info.LegAUri = strings.Join(agent.GetCallEndpoints(), ",")
 
 	callRequest := &model.CallRequest{
-		Endpoints:    agent.GetEndpoints(),
+		Endpoints:    agent.GetCallEndpoints(),
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
 		Timeout:      agent.CallTimeout(),
@@ -90,9 +98,14 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		info.UseRecordings = true
 	}
 
+	//callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+	//	AppName: "bridge",
+	//	Args:    info.LegBUri,
+	//})
+
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "bridge",
-		Args:    info.LegBUri,
+		AppName: "sleep",
+		Args:    "10000",
 	})
 
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)

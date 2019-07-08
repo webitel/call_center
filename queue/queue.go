@@ -11,6 +11,8 @@ type QueueObject interface {
 	IsExpire(int64) bool
 
 	JoinAttempt(attempt *Attempt)
+	TimeoutAttempt(attempt *Attempt)
+
 	RouteAgentToAttempt(attempt *Attempt)
 	Variables() map[string]string
 	Domain() string

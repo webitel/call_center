@@ -10,13 +10,14 @@ import (
 )
 
 type consul struct {
-	id      string
-	cli     *api.Client
-	kv      *api.KV
-	agent   *api.Agent
-	stop    chan struct{}
-	check   func() (bool, *model.AppError)
-	checkId string
+	id              string
+	cli             *api.Client
+	kv              *api.KV
+	agent           *api.Agent
+	stop            chan struct{}
+	check           func() (bool, *model.AppError)
+	checkId         string
+	registerService bool
 }
 
 func NewConsul(check func() (bool, *model.AppError)) (*consul, *model.AppError) {
@@ -28,18 +29,23 @@ func NewConsul(check func() (bool, *model.AppError)) (*consul, *model.AppError) 
 	}
 
 	c := &consul{
-		id:    model.NewId(),
-		cli:   cli,
-		agent: cli.Agent(),
-		stop:  make(chan struct{}),
-		check: check,
-		kv:    cli.KV(),
+		id:              model.NewId(),
+		registerService: false,
+		cli:             cli,
+		agent:           cli.Agent(),
+		stop:            make(chan struct{}),
+		check:           check,
+		kv:              cli.KV(),
 	}
 
 	return c, nil
 }
 
 func (c *consul) RegisterService() *model.AppError {
+	if !c.registerService {
+		return nil
+	}
+
 	var err error
 
 	as := &api.AgentServiceRegistration{

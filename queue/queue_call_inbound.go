@@ -19,4 +19,9 @@ func (voice *InboundQueue) RouteAgentToAttempt(attempt *Attempt) {
 }
 
 func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
+
+}
+
+func (queue *InboundQueue) TimeoutAttempt(attempt *Attempt) {
+
 }

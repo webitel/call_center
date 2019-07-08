@@ -25,6 +25,7 @@ BEGIN
     update cc_member_attempt a
       set state = 1
         ,node_id = node
+        ,result = case when c.state = 3 then 'TIMEOUT' else a.result end
       from (
         select
                c.id,
@@ -35,14 +36,16 @@ BEGIN
                cmc.number as destination,
                cmc.description as description,
                cm.variables as variables,
-               cm.name as member_name
+               cm.name as member_name,
+               c.state as state
         from cc_member_attempt c
                inner join cc_member cm on c.member_id = cm.id
                inner join cc_member_communications cmc on cmc.id = c.communication_id
                inner join cc_queue cq on cm.queue_id = cq.id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
-        where c.state = 0 and c.hangup_at = 0
+        where  (c.state = 0 or
+                (c.state = 3 and c.agent_id isnull and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)  ) and c.hangup_at = 0
         order by cq.priority desc, cm.priority desc
         for update of c
       ) c
@@ -65,11 +68,46 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
+explain analyze
+ select
+        c.created_at,
+        c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000,
+        ((cq.sec_locate_agent - c.created_at - extract(EPOCH  from current_timestamp)::bigint) )
+  from cc_member_attempt c
+         inner join cc_member cm on c.member_id = cm.id
+         inner join cc_member_communications cmc on cmc.id = c.communication_id
+         inner join cc_queue cq on cm.queue_id = cq.id
+         left join cc_queue_routing qr on qr.id = c.routing_id
+         left join cc_outbound_resource r on r.id = c.resource_id
+  where  (c.state = 1 or
+    (c.state = 3 and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)  ) and c.hangup_at = 0
+  order by cq.priority desc, cm.priority desc
+  for update of c;
+
+1558005839648
+1562578328
+select extract(EPOCH  from current_timestamp)::bigint * 1000;
 
 select *
 from cc_member_attempt
 where state <> -1 and hangup_at <> 0
 order by id desc ;
+
+
+update cc_agent
+set status = 'online',
+    state = 'waiting',
+    call_timeout = 5
+where 1=1;
+
+
+DISCARD PLANS;
+
+
+
+select *
+from cc_agent
+where id in(479, 480) ;
 
 
 truncate table cc_member_attempt;
