@@ -17,8 +17,10 @@ func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject 
 
 func (queue *InboundQueue) RouteAgentToAttempt(attempt *Attempt) {
 	Assert(attempt.Agent())
-
-	fmt.Println("RouteAgentToAttempt")
+	attempt.Log(fmt.Sprintf("distribute agent %s [%d]", attempt.Agent().Name(), attempt.Agent().Id()))
+	//
+	queue.queueManager.SetFindAgentState(attempt.Id())
+	queue.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_FINE, 1)
 }
 
 func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
@@ -36,7 +38,7 @@ func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
 }
 
 func (queue *InboundQueue) TimeoutAttempt(attempt *Attempt) {
-	fmt.Println("timeout")
+	attempt.Log("timeout")
 	info := queue.GetCallInfoFromAttempt(attempt)
 	info.Timeout = true
 

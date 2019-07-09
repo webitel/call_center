@@ -73,7 +73,7 @@ func (queueManager *QueueManager) Start() {
 
 func (queueManager *QueueManager) Stop() {
 	wlog.Debug("QueueManager Stopping")
-	wlog.Debug("Wait for close attempts")
+	wlog.Debug(fmt.Sprintf("Wait for close attempts %d", queueManager.membersCache.Len()))
 	queueManager.wg.Wait()
 	close(queueManager.stop)
 	<-queueManager.stopped

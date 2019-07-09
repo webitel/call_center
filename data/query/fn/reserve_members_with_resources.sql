@@ -130,6 +130,15 @@ order by agent_id, joined_at desc;
 select array[1,2,3] - array[3];
 
 
+explain analyze
+SELECT r.queue_id, r.resource_id, r.routing_ids, q.sec_between_retries, r.call_count, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type_ids
+      from get_free_resources() r
+        inner join cc_queue q on q.id = r.queue_id
+      where r.call_count > 0
+      group by r.queue_id, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
+      order by q.priority desc;
+
+
 CREATE OR REPLACE FUNCTION cc_reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE
@@ -146,7 +155,7 @@ BEGIN
     end if;
 
 
-    FOR rec IN SELECT r.*, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type_ids
+    FOR rec IN SELECT r.queue_id, r.resource_id, r.routing_ids, q.sec_between_retries, r.call_count, q.dnc_list_id, cc_queue_timing_communication_ids(r.queue_id) as type_ids
       from get_free_resources() r
         inner join cc_queue q on q.id = r.queue_id
       where r.call_count > 0
@@ -234,9 +243,6 @@ from cc_member_attempt
 where result=  'OUTGOING_CALL_BARRED';
 
 truncate table cc_member_attempt;
-
-
-
 
 set max_parallel_workers_per_gather = 1;
 DISCARD ALL;

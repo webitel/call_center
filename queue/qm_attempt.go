@@ -8,6 +8,10 @@ func (queueManager *QueueManager) SetAttemptState(attemptId int64, state int) *m
 	return queueManager.store.Member().SetAttemptState(attemptId, state)
 }
 
+func (queueManager *QueueManager) SetFindAgentState(attemptId int64) *model.AppError {
+	return queueManager.store.Member().SetAttemptFindAgent(attemptId)
+}
+
 func (queueManager *QueueManager) SetBridged(a *Attempt, legAId, legBId *string) *model.AppError {
 	return queueManager.store.Member().SetBridged(a.Id(), model.GetMillis(), legAId, legBId)
 }

@@ -26,7 +26,7 @@ BEGIN
              inner join cc_queue_routing r on q.id = r.queue_id
              inner join cc_resource_in_routing crir2 on r.id = crir2.routing_id
              inner join cc_queue_resources_is_working cor on crir2.resource_id = cor.id
-      where q.need_call > 0
+      where q.need_call > 0 and q.type != 2
 --           and exists ( --todo big table... не можуть пересікитися в чергах
 --             select * from cc_member_communications cmc
 --             where cmc.state = 0 and cmc.routing_ids && array[r.id])

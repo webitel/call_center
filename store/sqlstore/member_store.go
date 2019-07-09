@@ -63,6 +63,18 @@ func (s SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
 	return nil
 }
 
+func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
+	if _, err := s.GetMaster().Exec(`update cc_member_attempt
+			set state = :State,
+				agent_id = null
+			where id = :Id`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT}); err != nil {
+		return model.NewAppError("SqlMemberStore.SetFindAgentState", "store.sql_member.set_attempt_state_find_agent.app_error", nil,
+			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s SqlMemberStore) SetBridged(id, bridgedAt int64, legAId, legBId *string) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_member_attempt
 			set state = :State,

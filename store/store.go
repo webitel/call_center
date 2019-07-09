@@ -53,6 +53,7 @@ type MemberStore interface {
 	SetBridged(id, bridgedAt int64, legAId, legBId *string) *model.AppError
 	ActiveCount(queue_id int64) (int64, *model.AppError)
 	SetAttemptAgentId(attemptId int64, agentId *int64) *model.AppError
+	SetAttemptFindAgent(id int64) *model.AppError
 
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) *model.AppError
 	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) (bool, *model.AppError)

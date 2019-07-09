@@ -1,5 +1,5 @@
 update cc_agent
-set status = 'offline'
+set status = 'online'
 where 1=1;
 
 DO
@@ -387,6 +387,25 @@ where hangup_at = 0 and not agent_id isnull ;
 
 drop function cc_distribute_agent_to_attempt;
 
+
+select cq.id::bigint queue_id, cq.strategy::varchar(50), count(*)::int as cnt,
+                     array_agg((a.id, la.agent_id)::cc_agent_in_attempt order by a.created_at asc, a.weight desc )::cc_agent_in_attempt[] ids, array_agg(distinct la.agent_id) filter ( where not la.agent_id isnull )  last_agents
+           from cc_member_attempt a
+            inner join cc_queue cq on a.queue_id = cq.id
+            left join lateral (
+             select a1.agent_id
+             from cc_member_attempt a1
+             where a1.member_id = a.member_id and a1.created_at < a.created_at
+             order by a1.created_at desc
+             limit 1
+           ) la on true
+           where a.hangup_at = 0 and a.agent_id isnull and a.state = 3
+            and a.created_at >= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000
+           group by cq.id
+           order by cq.priority desc;
+
+
+
 CREATE OR REPLACE FUNCTION cc_distribute_agent_to_attempt(_node_id varchar(20))
   RETURNS SETOF cc_agent_in_attempt AS
 $$
@@ -409,6 +428,7 @@ FOR rec IN select cq.id::bigint queue_id, cq.strategy::varchar(50), count(*)::in
              limit 1
            ) la on true
            where a.hangup_at = 0 and a.agent_id isnull and a.state = 3
+            and a.created_at >= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000
            group by cq.id
            order by cq.priority desc
    LOOP

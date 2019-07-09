@@ -1,5 +1,7 @@
 -- TODO add except dates
 
+drop view cc_queue_is_working;
+
 CREATE OR REPLACE VIEW cc_queue_is_working AS
   SELECT
     c1.*,
@@ -9,7 +11,7 @@ CREATE OR REPLACE VIEW cc_queue_is_working AS
     lateral ( select get_count_call(c1.id) as active_calls ) tmp(active_calls)
   left join lateral (
       select get_agents_available_count_by_queue_id(c1.id) as a
-      where c1.type != 1
+      where c1.type != 1 --inbound
   ) a on true
   where  c1.enabled = true and exists(select *
                                      from calendar_accept_of_day d

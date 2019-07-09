@@ -474,11 +474,13 @@ create index if not exists cc_member_communications_member_id_last_hangup_at_pri
 create unique index if not exists cc_member_communications_member_id_number_uindex
 	on call_center.cc_member_communications (member_id, number);
 
-create trigger call_center.tg_set_routing_ids_on_update_number
+
+drop trigger tg_set_routing_ids_on_update_number on call_center.cc_member_communications;
+create trigger tg_set_routing_ids_on_update_number
 	before update
 	on call_center.cc_member_communications
-	for each row
-	execute procedure call_center.tg_get_member_communication_resource();
+	for each row when ( new.number != old.number )
+	execute procedure tg_get_member_communication_resource();
 
 create trigger call_center.tg_set_routing_ids_on_insert
 	before insert

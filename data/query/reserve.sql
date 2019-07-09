@@ -124,6 +124,13 @@ order by q.priority desc;
 
 
 
+
+explain analyze
+ select * from cc_member_communications cmc
+        where cmc.state = 0 and cmc.routing_ids && array[4] limit 1;
+
+
+
 CREATE OR REPLACE FUNCTION get_free_resources()
   RETURNS TABLE (
     queue_id int,
