@@ -66,16 +66,15 @@ func NewCallManager(nodeId string, cc model.Commands, mq mq.MQ) CallManager {
 }
 
 func (cm *CallManagerImpl) Start() {
-	//TODO BUG
 	wlog.Debug("CallManager started")
-
-	defer func() {
-		wlog.Debug("Stopped CallManager")
-		close(cm.stopped)
-	}()
 
 	cm.startOnce.Do(func() {
 		go func() {
+			defer func() {
+				wlog.Debug("Stopped CallManager")
+				close(cm.stopped)
+			}()
+
 			for {
 				select {
 				case <-cm.stop:

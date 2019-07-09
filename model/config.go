@@ -50,8 +50,13 @@ type MQSettings struct {
 	Url *string
 }
 
+type ExternalCommandsConnection struct {
+	Name string
+	Url  string
+}
+
 type ExternalCommandsSettings struct {
-	Urls []string
+	Connections []*ExternalCommandsConnection
 }
 
 type Config struct {

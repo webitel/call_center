@@ -11,22 +11,32 @@ import (
 
 type CallConnection struct {
 	name   string
+	host   string
 	client *grpc.ClientConn
 	api    fs.ApiClient
 }
 
-func newConnection(host string, opts []grpc.DialOption) (*CallConnection, error) {
-	client, err := grpc.Dial(host, opts...)
+func newConnection(config *model.ExternalCommandsConnection, opts []grpc.DialOption) (*CallConnection, error) {
+	client, err := grpc.Dial(config.Url, opts...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &CallConnection{
-		name:   `fs-` + host,
+		name:   config.Name,
+		host:   config.Url,
 		client: client,
 		api:    fs.NewApiClient(client),
 	}, nil
 
+}
+
+func (c *CallConnection) Name() string {
+	return c.name
+}
+
+func (c *CallConnection) Host() string {
+	return c.host
 }
 
 func (c *CallConnection) GetServerVersion() (string, *model.AppError) {

@@ -15,6 +15,11 @@ func (e REvent) Name() string {
 	return fmt.Sprintf("%v", v)
 }
 
+func (e REvent) NodeName() string {
+	v, _ := e["FreeSWITCH-Switchname"]
+	return fmt.Sprintf("%v", v)
+}
+
 func (e REvent) Id() string {
 	v, _ := e["Unique-ID"]
 	return fmt.Sprintf("%v", v)

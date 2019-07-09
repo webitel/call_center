@@ -98,7 +98,7 @@ func (queue *BaseQueue) TypeName() string {
 	case model.QUEUE_TYPE_PROGRESSIVE:
 		return "progressive"
 	case model.QUEUE_TYPE_PREDICT:
-		return "preview"
+		return "predictive"
 	default:
 		return "NOT_IMPLEMENT"
 	}

@@ -107,7 +107,7 @@ func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt
 	queueManager.membersCache.AddWithDefaultExpires(attempt.Id(), attempt)
 	queueManager.wg.Add(1)
 
-	wlog.Debug(fmt.Sprintf("new attempt %s", attempt.Id()))
+	wlog.Debug(fmt.Sprintf("new attempt %d", attempt.Id()))
 
 	return attempt
 }

@@ -33,10 +33,6 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 	return agent.info.UpdatedAt != updatedAt
 }
 
-func (agent *Agent) CallDestination() string {
-	return "user/9999@10.10.10.144"
-}
-
 func (agent *Agent) GetCallEndpoints() []string {
 	//return []string{"sofia/external/111@10.10.10.25:15060"}
 	//return []string{fmt.Sprintf("sofia/external/agent.%d@10.10.10.25:5080", agent.Id())}

@@ -112,5 +112,8 @@ func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause s
 }
 
 func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
+	if attempt.Info == nil {
+		attempt.Info = &AttemptInfoCall{}
+	}
 	return attempt.Info.(*AttemptInfoCall)
 }

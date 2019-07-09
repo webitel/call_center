@@ -48,7 +48,18 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			Url: model.NewString("amqp://webitel:webitel@192.168.177.189:5672?heartbeat=0"), //http://192.168.177.189:15672/
 		},
 		ExternalCommandsSettings: model.ExternalCommandsSettings{
-			Urls: []string{"192.168.177.184:50051", "192.168.177.185:50051"}, //"10.10.10.200:50051" //, "192.168.177.185:50051"
+			Connections: []*model.ExternalCommandsConnection{
+				{
+					Name: "fs1",
+					Url:  "192.168.177.185:50051",
+				},
+				{
+					Name: "fs2",
+					Url:  "192.168.177.184:50051",
+				},
+			},
+
+			//"192.168.177.184:50051", "192.168.177.185:50051"
 		},
 	}, "", envConfig, nil
 }

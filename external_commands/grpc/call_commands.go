@@ -31,8 +31,8 @@ type CallCommandsImpl struct {
 func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 	var opts []grpc.DialOption
 
-	if len(settings.Urls) == 0 {
-		wlog.Critical(fmt.Sprintf("failed to open grpc connection %v", settings.Urls))
+	if len(settings.Connections) == 0 {
+		wlog.Critical(fmt.Sprintf("failed to open grpc connection: not found config"))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -44,19 +44,19 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 	)
 
 	r := &CallCommandsImpl{
-		connections: make([]*CallConnection, 0, len(settings.Urls)),
+		connections: make([]*CallConnection, 0, len(settings.Connections)),
 	}
 
-	for _, h := range settings.Urls {
+	for _, h := range settings.Connections {
 		c, err := newConnection(h, opts)
 		if err != nil {
-			wlog.Critical(fmt.Sprintf("failed to open grpc connection %v error: %s", h, err.Error()))
+			wlog.Critical(fmt.Sprintf("failed to open grpc connection %v[%v] error: %s", c.Name(), c.Host(), err.Error()))
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
 
 		if v, err := c.GetServerVersion(); err == nil {
-			wlog.Info(fmt.Sprintf("[%s] %v", h, v))
+			wlog.Info(fmt.Sprintf("%v[%v] version: %s", c.Name(), c.Host(), v))
 		} else {
 			wlog.Critical(err.Error())
 		}
@@ -71,7 +71,7 @@ func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
 		length: len(r.connections),
 	}
 
-	wlog.Debug(fmt.Sprintf("success to open grpc connection %v", settings.Urls))
+	wlog.Debug(fmt.Sprintf("success to open grpc connection"))
 	return r
 }
 
@@ -96,6 +96,25 @@ func (c *CallCommandsImpl) GetCallConnection() model.CallCommands {
 	con := c.connections[c.iterator.Next()]
 
 	return con
+}
+
+func (c *CallCommandsImpl) GetCallConnectionByName(name string) (*model.AppError, model.CallCommands) {
+	c.Lock()
+	defer c.Unlock()
+
+	for _, v := range c.connections {
+		if v.name == name {
+			switch v.client.GetState() {
+			case connectivity.Idle, connectivity.Ready:
+				return nil, v
+			default:
+				break
+			}
+
+		}
+	}
+
+	return nil, nil
 }
 
 func (c *CallCommandsImpl) Close() {

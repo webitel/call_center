@@ -14,20 +14,20 @@ func (cm *CallManagerImpl) handleCallEvent(event mq.Event) {
 
 	if linkId, ok = event.GetVariable(model.CALL_ID); !ok {
 		//
-		wlog.Debug(fmt.Sprintf("skip event %s [%s]", event.Name(), event.Id()))
+		wlog.Debug(fmt.Sprintf("skip event %s [%s - %s]", event.Name(), event.NodeName(), event.Id()))
 		return
 	}
 
 	if call, ok = cm.GetCall(linkId); !ok {
 		//
-		wlog.Debug(fmt.Sprintf("skip event %s [%s]", event.Name(), event.Id()))
+		wlog.Debug(fmt.Sprintf("skip event %s [%s - %s]", event.Name(), event.NodeName(), event.Id()))
 		return
 	}
 
 	switch event.Name() {
 	case model.CALL_EVENT_HANGUP:
 		if _, ok = event.GetVariable("grpc_originate_success"); !ok {
-			wlog.Debug(fmt.Sprintf("skip event %s [%s]", event.Name(), event.Id()))
+			wlog.Debug(fmt.Sprintf("skip event %s [%s - %s]", event.Name(), event.NodeName(), event.Id()))
 			return
 		}
 		call.SetHangupCall(event)

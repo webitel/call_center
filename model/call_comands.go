@@ -9,5 +9,6 @@ type CallCommands interface {
 
 type Commands interface {
 	GetCallConnection() CallCommands
+	GetCallConnectionByName(name string) (*AppError, CallCommands)
 	Close()
 }
