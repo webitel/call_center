@@ -10,14 +10,6 @@ func NewPredictCallQueue(callQueue CallingQueue) QueueObject {
 	}
 }
 
-func (queue *PredictCallQueue) RouteAgentToAttempt(attempt *Attempt) {
-
-}
-
-func (queue *PredictCallQueue) JoinAttempt(attempt *Attempt) {
-
-}
-
-func (queue *PredictCallQueue) TimeoutAttempt(attempt *Attempt) {
+func (queue *PredictCallQueue) DistributeAttempt(attempt *Attempt) {
 
 }

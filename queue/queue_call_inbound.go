@@ -15,33 +15,30 @@ func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject 
 	}
 }
 
-func (queue *InboundQueue) RouteAgentToAttempt(attempt *Attempt) {
-	Assert(attempt.Agent())
-	attempt.Log(fmt.Sprintf("distribute agent %s [%d]", attempt.Agent().Name(), attempt.Agent().Id()))
-	//
-	queue.queueManager.SetFindAgentState(attempt.Id())
-	queue.queueManager.agentManager.SetAgentState(attempt.Agent(), model.AGENT_STATE_FINE, 1)
-}
+func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 
-func (queue *InboundQueue) JoinAttempt(attempt *Attempt) {
+	go func() {
+		attempt.Log("wait agent")
+		queue.queueManager.SetFindAgentState(attempt.Id())
+		for {
+			select {
+			case <-attempt.timeout:
+				info := queue.GetCallInfoFromAttempt(attempt)
+				info.Timeout = true
 
-	attempt.Info = &AttemptInfoCall{}
+				queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
 
-	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_FIND_AGENT)
-	if err != nil {
-		//TODO
-		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-		queue.queueManager.LeavingMember(attempt, queue)
-		return
-	}
-	attempt.Log("finding agent")
-}
+				attempt.Done()
+			case agent := <-attempt.distributeAgent:
+				attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-func (queue *InboundQueue) TimeoutAttempt(attempt *Attempt) {
-	attempt.Log("timeout")
-	info := queue.GetCallInfoFromAttempt(attempt)
-	info.Timeout = true
+				queue.queueManager.SetFindAgentState(attempt.Id())
+				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_FINE, 1)
 
-	queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-	queue.queueManager.LeavingMember(attempt, queue)
+			case <-attempt.done:
+				queue.queueManager.LeavingMember(attempt, queue)
+				return
+			}
+		}
+	}()
 }

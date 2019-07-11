@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package cc;
+
+service CallCenter {
+    rpc JoinToInboundQueue(InboundMember) returns (Error) {}
+}
+
+message Error {
+
+}
+
+message InboundMember {
+
+}

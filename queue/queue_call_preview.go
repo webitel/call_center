@@ -18,20 +18,7 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 	}
 }
 
-func (preview *PreviewCallQueue) RouteAgentToAttempt(attempt *Attempt) {
-	Assert(attempt.Agent())
-	go preview.makeCallToAgent(attempt, attempt.Agent())
-}
-
-func (preview *PreviewCallQueue) TimeoutAttempt(attempt *Attempt) {
-	info := preview.GetCallInfoFromAttempt(attempt)
-	info.Timeout = true
-
-	preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-	preview.queueManager.LeavingMember(attempt, preview)
-}
-
-func (preview *PreviewCallQueue) JoinAttempt(attempt *Attempt) {
+func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) {
 	Assert(attempt.resource)
 
 	attempt.Info = &AttemptInfoCall{}

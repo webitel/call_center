@@ -173,12 +173,6 @@ func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject)
 	}
 }
 
-func (queueManager *QueueManager) attemptTimeout(attempt *Attempt, queue QueueObject) {
-	wlog.Debug(fmt.Sprintf("timeout member %s[%d] AttemptId=%d from queue \"%s\"", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
-
-	queue.TimeoutAttempt(attempt)
-}
-
 func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 
 	queue, err := queueManager.GetQueue(int(attempt.QueueId()), attempt.QueueUpdatedAt())
@@ -195,12 +189,12 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 
 	if attempt.IsTimeout() {
-		queueManager.attemptTimeout(attempt, queue)
+		attempt.SetTimeout()
 		return
 	}
 
 	attempt.resource = queueManager.GetAttemptResource(attempt)
-	queue.JoinAttempt(attempt)
+	queue.DistributeAttempt(attempt)
 	queueManager.notifyChangedQueueLength(queue)
 
 	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", attempt.Name(),

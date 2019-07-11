@@ -18,11 +18,7 @@ func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObjec
 	}
 }
 
-func (voice *IVRQueue) RouteAgentToAttempt(attempt *Attempt) {
-	panic(`Broadcast queue not reserve agents`)
-}
-
-func (voice *IVRQueue) JoinAttempt(attempt *Attempt) {
+func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) {
 	Assert(attempt.resource)
 
 	attempt.Info = &AttemptInfoCall{}
@@ -39,7 +35,20 @@ func (voice *IVRQueue) JoinAttempt(attempt *Attempt) {
 		panic(e)
 	}
 
-	go voice.makeCall(attempt, endpoint)
+	go func() {
+		voice.makeCall(attempt, endpoint)
+		for {
+			select {
+			case <-attempt.timeout:
+
+				attempt.Done()
+
+			case <-attempt.done:
+				return
+			}
+		}
+	}()
+
 }
 
 func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
@@ -132,8 +141,4 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	}
 
 	voice.queueManager.LeavingMember(attempt, voice)
-}
-
-func (queue *IVRQueue) TimeoutAttempt(attempt *Attempt) {
-
 }

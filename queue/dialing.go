@@ -97,9 +97,9 @@ func (d *DialingImpl) routeIdleAgents() {
 func (d *DialingImpl) routeAgentToAttempt(attemptId int64, agent agent_manager.AgentObject) {
 	if attempt, ok := d.queueManager.membersCache.Get(attemptId); ok {
 
-		if queue, err := d.queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
-			attempt.(*Attempt).agent = agent
-			queue.RouteAgentToAttempt(attempt.(*Attempt))
+		if _, err := d.queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
+			attempt.(*Attempt).DistributeAgent(agent)
+			//go queue.RouteAgentToAttempt(attempt.(*Attempt))
 		} else {
 			//todo not found queue
 			wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()))

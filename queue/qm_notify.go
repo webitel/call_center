@@ -38,5 +38,5 @@ func (queueManager *QueueManager) notifyChangedQueueLength(queue QueueObject) {
 }
 
 func (queueManager *QueueManager) notifyStopAttempt(attempt *Attempt, stopped bool) {
-	fmt.Println(fmt.Sprintf("Stopped attempt %v", attempt.Id()))
+	//fmt.Println(fmt.Sprintf("Stopped attempt %v", attempt.Id()))
 }

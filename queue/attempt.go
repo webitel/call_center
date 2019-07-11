@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"sync"
 )
 
 type AttemptInfo interface {
@@ -13,11 +14,15 @@ type AttemptInfo interface {
 }
 
 type Attempt struct {
-	member   *model.MemberAttempt
-	resource ResourceObject
-	agent    agent_manager.AgentObject
-	Info     AttemptInfo `json:"info"`
-	Logs     []LogItem   `json:"logs"`
+	member          *model.MemberAttempt
+	resource        ResourceObject
+	agent           agent_manager.AgentObject
+	Info            AttemptInfo `json:"info"`
+	Logs            []LogItem   `json:"logs"`
+	timeout         chan struct{}
+	done            chan struct{}
+	distributeAgent chan agent_manager.AgentObject
+	sync.RWMutex
 }
 
 type LogItem struct {
@@ -27,8 +32,28 @@ type LogItem struct {
 
 func NewAttempt(member *model.MemberAttempt) *Attempt {
 	return &Attempt{
-		member: member,
+		member:          member,
+		timeout:         make(chan struct{}, 1),
+		done:            make(chan struct{}, 1),
+		distributeAgent: make(chan agent_manager.AgentObject),
 	}
+}
+
+func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
+	a.Lock()
+	a.agent = agent
+	a.Unlock()
+
+	a.distributeAgent <- agent
+}
+
+func (a *Attempt) SetTimeout() {
+	a.Log("timeout")
+	a.timeout <- struct{}{}
+}
+
+func (a *Attempt) Done() {
+	close(a.done)
 }
 
 func (a *Attempt) SetMember(member *model.MemberAttempt) {

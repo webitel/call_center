@@ -52,6 +52,8 @@ func (c *consul) RegisterService() *model.AppError {
 		Name: model.APP_SERVICE_NAME,
 		ID:   c.id,
 		Tags: []string{c.id},
+		//Address: "10.10.10.25",
+		//Port:    50003,
 		Check: &api.AgentServiceCheck{
 			TTL: model.APP_SERVICE_TTL.String(),
 		},

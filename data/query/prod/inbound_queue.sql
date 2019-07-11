@@ -44,16 +44,16 @@ $do$
   declare
      i int;
 begin
-  FOR i IN 1..1000 LOOP
+  FOR i IN 1..1 LOOP
 
    -- raise notice '%', i;
     perform from cc_add_to_queue(3, null, '7777' || i, 'IGOR', 100);
---     commit;
+     --commit;
 --     perform from cc_add_to_queue(3, null, '7778' || i, 'IGOR', 100);
 --     commit;
 
 
-    --perform pg_sleep(1);
+--     perform pg_sleep(1);
   end loop;
 end
 $do$;
@@ -61,13 +61,45 @@ $do$;
 ;
 
 
+select count(*)
+from cc_member_communications;
+
+select count(*), agent_id
+from cc_member_attempt
+where hangup_at = 0
+group by agent_id
+having count(*) > 0;
+
+select a.hangup_at - a.created_at
+from cc_member_attempt a
+where a.hangup_at > 0
+order by a.id desc
+limit 100;
+
+ select cc_available_agents_by_strategy(3, 'bla', 1000, array[0]::bigint[] , array[0]::bigint[]);
+
+
+    select r.agent_id, r.attempt_id, a2.updated_at
+    from cc_distribute_agent_to_attempt('node-1') r
+    inner join cc_agent a2 on a2.id = r.agent_id;
+
+
+
+update cc_agent
+set status = 'online',
+    state = 'waiting'
+where 1=1;
+
+select *
+from cc_agent;
+
 
 vacuum full cc_member_communications;
 
-select count(*)
+select * --count(*)
 --delete
 from cc_member_attempt
-where state != -1
+where state > 0
 ;
 
 
