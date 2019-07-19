@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	CONNECTION_TIMEOUT = 5 * time.Second
+	CONNECTION_TIMEOUT = 2 * time.Second
 )
 
 type CallConnection struct {
@@ -20,21 +20,6 @@ type CallConnection struct {
 	host   string
 	client *grpc.ClientConn
 	api    fs.ApiClient
-}
-
-func newConnection(config *model.ExternalCommandsConnection, opts []grpc.DialOption) (*CallConnection, error) {
-	var err error
-	c := &CallConnection{
-		name: config.Name,
-		host: config.Url,
-	}
-
-	c.client, err = grpc.Dial(config.Url, opts...)
-	if err != nil {
-		return nil, err
-	}
-	c.api = fs.NewApiClient(c.client)
-	return c, nil
 }
 
 func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {

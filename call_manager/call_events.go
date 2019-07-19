@@ -13,14 +13,12 @@ func (cm *CallManagerImpl) handleCallEvent(event mq.Event) {
 	var call Call
 
 	if linkId, ok = event.GetVariable(model.CALL_ID); !ok {
-		//
-		wlog.Debug(fmt.Sprintf("skip event %s [%s - %s]", event.Name(), event.NodeName(), event.Id()))
+		wlog.Debug(fmt.Sprintf("skip event %s [%s] Id: %s, not found ID]", event.Name(), event.NodeName(), event.Id()))
 		return
 	}
 
 	if call, ok = cm.GetCall(linkId); !ok {
-		//
-		wlog.Debug(fmt.Sprintf("skip event %s [%s - %s]", event.Name(), event.NodeName(), event.Id()))
+		wlog.Debug(fmt.Sprintf("skip event %s [%s] Id: %s, not found %s]", event.Name(), event.NodeName(), event.Id(), linkId))
 		return
 	}
 

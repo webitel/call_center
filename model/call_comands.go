@@ -15,5 +15,7 @@ type CallCommands interface {
 	HangupCall(id, cause string) *AppError
 	Hold(id string) *AppError
 	SetCallVariables(id string, variables map[string]string) *AppError
+	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)
+
 	Close() *AppError
 }

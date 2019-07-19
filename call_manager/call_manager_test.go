@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/utils"
 	"testing"
+	"time"
 )
 
 const (
@@ -34,6 +35,7 @@ func TestCallManager(t *testing.T) {
 	testCallStates(cm, t)
 	testCallHangup(cm, t)
 	testCallHold(cm, t)
+	testParentCall(cm, t)
 
 	if cm.ActiveCalls() != 0 {
 		t.Errorf("Call manager calls %v", cm.ActiveCalls())
@@ -219,5 +221,61 @@ func testCallHold(cm CallManager, t *testing.T) {
 	}
 	if call.HangupCause() != model.CALL_HANGUP_NO_ANSWER {
 		t.Errorf("assert hangup case error: %s", call.HangupCause())
+	}
+}
+
+func testParentCall(cm CallManager, t *testing.T) {
+	t.Log("testParentCall")
+
+	ch := make(chan struct{})
+
+	close(ch)
+	<-ch
+
+	cr := &model.CallRequest{
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Variables: map[string]string{
+			"cc_test_call_manager": "true",
+		},
+		Applications: []*model.CallRequestApplication{
+			{
+				AppName: model.CALL_ANSWER_APPLICATION,
+			},
+			{
+				AppName: model.CALL_SLEEP_APPLICATION,
+				Args:    "50000",
+			},
+		},
+	}
+	call := cm.NewCall(cr)
+	if call.Err() != nil {
+		t.Errorf("call error: %s", call.Err().Error())
+	}
+
+	call2 := call.NewCall(cr)
+	if call2.Err() != nil {
+		t.Errorf("call error: %s", call2.Err().Error())
+	}
+
+	if err := call2.Bridge(call); err != nil {
+		t.Errorf("call error: %s", err.Error())
+	}
+
+	go func() {
+		time.Sleep(time.Millisecond * 100)
+
+		call.Hangup(model.CALL_NORMAL_CLEARING)
+		call2.Hangup(model.CALL_NORMAL_CLEARING)
+	}()
+
+	call.WaitForHangup()
+	call2.WaitForHangup()
+
+	if call.HangupCause() != model.CALL_NORMAL_CLEARING || call2.HangupCause() != model.CALL_NORMAL_CLEARING {
+		t.Errorf("call error: bad hangup cause")
+	}
+
+	if call.BridgeAt() == 0 || call2.BridgeAt() == 0 {
+		t.Errorf("call error: no bridge time")
 	}
 }

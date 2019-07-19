@@ -26,6 +26,7 @@ type CallManager interface {
 
 type Call interface {
 	Id() string
+	NodeName() string
 	HangupCause() string
 	GetState() uint8
 	Err() *model.AppError
@@ -43,8 +44,12 @@ type Call interface {
 
 	WaitForHangup()
 
+	NewCall(callRequest *model.CallRequest) Call
+
 	Hangup(cause string) *model.AppError
 	Hold() *model.AppError
+
+	Bridge(other Call) *model.AppError
 }
 
 type CallManagerImpl struct {
@@ -111,16 +116,8 @@ func (cm *CallManagerImpl) Stop() {
 }
 
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
-	id := model.NewId()
-	callRequest.Variables[model.CALL_ID] = id
-	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
-
 	api, _ := cm.pool.getByRoundRobin()
-	call := NewCall(callRequest, api)
-	if call.Id() != "" {
-		cm.SetCall(id, call)
-	}
-	return call
+	return NewCall(callRequest, cm, api)
 }
 
 func (cm *CallManagerImpl) ActiveCalls() int {

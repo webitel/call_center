@@ -3,12 +3,14 @@ package call_manager
 import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
+	"net/http"
 	"sync"
 )
 
 type CallImpl struct {
 	callRequest *model.CallRequest
 	api         model.CallCommands
+	cm          *CallManagerImpl
 	id          string
 	hangupCause string
 	hangup      chan struct{}
@@ -32,16 +34,37 @@ const (
 	CALL_STATE_HANGUP
 )
 
-func NewCall(callRequest *model.CallRequest, api model.CallCommands) Call {
+var (
+	errBadBridgeNode = model.NewAppError("Call", "call.bridge.bad_request.node_difference", nil, "", http.StatusBadRequest)
+)
+
+func NewCall(callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
+	id := model.NewId()
+	callRequest.Variables[model.CALL_ID] = id
+	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
+
 	call := &CallImpl{
 		callRequest: callRequest,
 		api:         api,
+		cm:          cm,
 		hangup:      make(chan struct{}),
 	}
+	cm.SetCall(id, call)
 	call.setState(CALL_STATE_RINGING)
 	call.id, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
+	if call.err != nil {
+		cm.RemoveCall(id)
+	}
 	call.setState(CALL_STATE_ACCEPT)
 	return call
+}
+
+func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
+	return NewCall(callRequest, c.cm, c.api)
+}
+
+func (call *CallImpl) NodeName() string {
+	return call.api.Name()
 }
 
 func (call *CallImpl) setState(state uint8) {
@@ -157,4 +180,18 @@ func (call *CallImpl) Mute(on bool) *model.AppError {
 
 func (call *CallImpl) Hold() *model.AppError {
 	return call.api.Hold(call.id)
+}
+
+func (call *CallImpl) Bridge(other Call) *model.AppError {
+	if call.NodeName() != other.NodeName() {
+		return errBadBridgeNode
+	}
+
+	_, err := call.api.BridgeCall(other.Id(), call.Id(), "")
+
+	if err == nil {
+		call.bridgeAt = model.GetMillis()
+	}
+
+	return err
 }
