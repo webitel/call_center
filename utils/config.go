@@ -32,7 +32,7 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			AvailableLocales:    model.NewString(model.DEFAULT_LOCALE),
 		},
 		ServiceSettings: model.ServiceSettings{
-			NodeId:                model.NewString("node-1"),
+			NodeId:                model.NewString("call-center-1"),
 			ListenAddress:         model.NewString(":10023"),
 			SessionCacheInMinutes: &sessionCacheInMinutes,
 		},
@@ -45,17 +45,13 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			Trace: false,
 		},
 		MQSettings: model.MQSettings{
-			Url: model.NewString("amqp://webitel:webitel@192.168.177.189:5672?heartbeat=0"), //http://192.168.177.189:15672/
+			Url: model.NewString("amqp://webitel:webitel@192.168.177.199:5672?heartbeat=0"), //http://192.168.177.189:15672/
 		},
 		ExternalCommandsSettings: model.ExternalCommandsSettings{
 			Connections: []*model.ExternalCommandsConnection{
 				{
 					Name: "fs1",
-					Url:  "192.168.177.185:50051",
-				},
-				{
-					Name: "fs2",
-					Url:  "192.168.177.184:50051",
+					Url:  "192.168.177.10:50051",
 				},
 			},
 

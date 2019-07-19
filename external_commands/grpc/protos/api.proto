@@ -3,13 +3,18 @@ syntax = "proto3";
 package cc;
 
 service CallCenter {
-    rpc JoinToInboundQueue(InboundMember) returns (Error) {}
+    rpc CreateMemberInQueue(InboundMember) returns (Error) {}
+    rpc CancelMemberInQueue(InboundMember) returns (Error) {}
 }
 
 message Error {
-
+    string messsage = 1;
 }
 
 message InboundMember {
-
+    int64 queue_id = 1;
+    string call_id = 2;
+    string number = 3;
+    string name = 4;
+    int32 priority = 5;
 }

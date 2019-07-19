@@ -1,11 +1,15 @@
 package call_manager
 
 import (
-	"github.com/webitel/call_center/external_commands"
+	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/utils"
 	"testing"
+)
+
+const (
+	TEST_NODE_ID = "call-center-test"
 )
 
 func TestCallManager(t *testing.T) {
@@ -16,10 +20,13 @@ func TestCallManager(t *testing.T) {
 
 	}
 
-	mq := rabbit.NewRabbitMQ(cfg.MQSettings, "node-1")
+	mq := rabbit.NewRabbitMQ(cfg.MQSettings, TEST_NODE_ID)
 
-	api := external_commands.NewCallCommands(cfg.ExternalCommandsSettings)
-	cm := NewCallManager("node-1", api, mq)
+	service, err := cluster.NewServiceDiscovery(TEST_NODE_ID, func() (bool, *model.AppError) {
+		return true, nil
+	})
+
+	cm := NewCallManager(TEST_NODE_ID, service, mq)
 	cm.Start()
 
 	testCallError(cm, t)
@@ -34,7 +41,7 @@ func TestCallManager(t *testing.T) {
 
 	cm.Stop()
 	mq.Close()
-	api.Close()
+
 }
 
 func testCallError(cm CallManager, t *testing.T) {

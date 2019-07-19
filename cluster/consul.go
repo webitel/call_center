@@ -20,8 +20,11 @@ type consul struct {
 	registerService bool
 }
 
-func NewConsul(check func() (bool, *model.AppError)) (*consul, *model.AppError) {
-	cli, err := api.NewClient(api.DefaultConfig())
+func NewConsul(id string, check func() (bool, *model.AppError)) (*consul, *model.AppError) {
+	conf := api.DefaultConfig()
+	conf.Address = "192.168.177.199:8500"
+
+	cli, err := api.NewClient(conf)
 
 	if err != nil {
 		return nil, model.NewAppError("Cluster.NewConsul", "cluster.consul.create.app_error", nil,
@@ -29,8 +32,8 @@ func NewConsul(check func() (bool, *model.AppError)) (*consul, *model.AppError) 
 	}
 
 	c := &consul{
-		id:              model.NewId(),
-		registerService: false,
+		id:              id,
+		registerService: true,
 		cli:             cli,
 		agent:           cli.Agent(),
 		stop:            make(chan struct{}),
@@ -39,6 +42,26 @@ func NewConsul(check func() (bool, *model.AppError)) (*consul, *model.AppError) 
 	}
 
 	return c, nil
+}
+
+func (c *consul) GetByName(serviceName string) ([]*model.ServiceConnection, *model.AppError) {
+	list, err := c.agent.ServicesWithFilter(fmt.Sprintf("Service == %s", serviceName))
+	if err != nil {
+		return nil, model.NewAppError("Cluster.GetServiceByName", "cluster.get_service_by_name.app_error", nil,
+			fmt.Sprintf("Service=%v, %s", serviceName, err.Error()), http.StatusInternalServerError)
+	}
+
+	result := make([]*model.ServiceConnection, 0, len(list))
+	for _, v := range list {
+		result = append(result, &model.ServiceConnection{
+			Id:      v.ID,
+			Service: v.Service,
+			Host:    v.Address,
+			Port:    v.Port,
+		})
+	}
+
+	return result, nil
 }
 
 func (c *consul) RegisterService() *model.AppError {
@@ -55,6 +78,7 @@ func (c *consul) RegisterService() *model.AppError {
 		//Address: "10.10.10.25",
 		//Port:    50003,
 		Check: &api.AgentServiceCheck{
+			DeregisterCriticalServiceAfter: model.APP_DEREGESTER_CRITICAL_TTL.String(),
 			TTL: model.APP_SERVICE_TTL.String(),
 		},
 	}

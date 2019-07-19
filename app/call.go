@@ -1,7 +1,6 @@
 package app
 
 import (
-	//"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 )
 

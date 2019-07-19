@@ -2,9 +2,10 @@ package call_manager
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
-	"github.com/webitel/storage/utils"
+	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"sync"
 )
@@ -12,6 +13,8 @@ import (
 const (
 	MAX_CALL_CACHE        = 10000
 	MAX_CALL_EXPIRE_CACHE = 60 * 60 * 24 //day
+
+	WATCHER_INTERVAL = 1000 * 5 // 30s
 )
 
 type CallManager interface {
@@ -45,23 +48,25 @@ type Call interface {
 }
 
 type CallManagerImpl struct {
-	nodeId       string
-	callCommands model.Commands
-	mq           mq.MQ
-	calls        utils.ObjectCache
-	stop         chan struct{}
-	stopped      chan struct{}
-	startOnce    sync.Once
+	nodeId string
+
+	pool      *callConnectionsPool
+	mq        mq.MQ
+	calls     utils.ObjectCache
+	stop      chan struct{}
+	stopped   chan struct{}
+	watcher   *utils.Watcher
+	startOnce sync.Once
 }
 
-func NewCallManager(nodeId string, cc model.Commands, mq mq.MQ) CallManager {
+func NewCallManager(nodeId string, cluster cluster.ServiceDiscovery, mq mq.MQ) CallManager {
 	return &CallManagerImpl{
-		nodeId:       nodeId,
-		callCommands: cc,
-		mq:           mq,
-		stop:         make(chan struct{}),
-		stopped:      make(chan struct{}),
-		calls:        utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
+		nodeId:  nodeId,
+		pool:    newCallConnectionsPool(cluster),
+		mq:      mq,
+		stop:    make(chan struct{}),
+		stopped: make(chan struct{}),
+		calls:   utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -69,6 +74,8 @@ func (cm *CallManagerImpl) Start() {
 	wlog.Debug("CallManager started")
 
 	cm.startOnce.Do(func() {
+		cm.watcher = utils.MakeWatcher("CallManager", WATCHER_INTERVAL, cm.pool.checkConnection)
+		go cm.watcher.Start()
 		go func() {
 			defer func() {
 				wlog.Debug("Stopped CallManager")
@@ -94,6 +101,11 @@ func (cm *CallManagerImpl) Start() {
 
 func (cm *CallManagerImpl) Stop() {
 	wlog.Debug("CallManager Stopping")
+
+	if cm.watcher != nil {
+		cm.watcher.Stop()
+	}
+	cm.pool.closeAllConnections()
 	close(cm.stop)
 	<-cm.stopped
 }
@@ -103,7 +115,8 @@ func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 	callRequest.Variables[model.CALL_ID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
 
-	call := NewCall(callRequest, cm.callCommands.GetCallConnection())
+	api, _ := cm.pool.getByRoundRobin()
+	call := NewCall(callRequest, api)
 	if call.Id() != "" {
 		cm.SetCall(id, call)
 	}

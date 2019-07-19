@@ -41,12 +41,16 @@ $BODY$
 BEGIN
   RETURN QUERY SELECT count(*) :: integer
                FROM cc_member_attempt
-               WHERE hangup_at = 0 AND queue_id = $1 AND state > -1;
+               WHERE hangup_at = 0 AND queue_id = $1; -- AND state > -1; TODO
   RETURN;
 END
 $BODY$
 LANGUAGE plpgsql;
 
+explain analyze
+ SELECT count(*) :: integer
+               FROM cc_member_attempt
+               WHERE hangup_at = 0 AND queue_id = 3  ;
 
 select proname,prosrc from pg_proc where proname = 'get_count_call';
 

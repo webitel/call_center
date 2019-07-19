@@ -4,6 +4,8 @@ const (
 	MEMBER_CAUSE_SYSTEM_SHUTDOWN     = "SYSTEM_SHUTDOWN"
 	MEMBER_CAUSE_DATABASE_ERROR      = "DATABASE_ERROR"
 	MEMBER_CAUSE_ABANDONED           = "ABANDONED"
+	MEMBER_CAUSE_TIMEOUT             = "TIMEOUT"
+	MEMBER_CAUSE_CANCEL              = "CANCEL"
 	MEMBER_CAUSE_SUCCESSFUL          = "SUCCESSFUL"
 	MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT = "QUEUE_NOT_IMPLEMENT"
 )
@@ -17,6 +19,7 @@ const (
 	MEMBER_STATE_PROGRESS     = 4
 	MEMBER_STATE_ACTIVE       = 5
 	MEMBER_STATE_POST_PROCESS = 6
+	MEMBER_STATE_CANCEL       = 7
 )
 
 type MemberAttempt struct {
@@ -38,6 +41,14 @@ type MemberAttempt struct {
 	Description       string  `json:"description" db:"description"`
 	Variables         []byte  `json:"variables" db:"variables"`
 	Name              string  `json:"name" db:"name"`
+}
+
+type InboundMember struct {
+	QueueId  int64  `json:"queue_id"`
+	CallId   string `json:"call_id"`
+	Number   string `json:"number"`
+	Name     string `json:"name"`
+	Priority int    `json:"priority"`
 }
 
 func (ma *MemberAttempt) IsTimeout() bool {

@@ -25,7 +25,7 @@ BEGIN
     update cc_member_attempt a
       set state = 1
         ,node_id = node
-        ,result = case when c.state = 3 then 'TIMEOUT' else a.result end
+        ,result = case c.state when  3 then 'TIMEOUT' when 7 then 'CANCEL' else a.result end
       from (
         select
                c.id,
@@ -44,9 +44,12 @@ BEGIN
                inner join cc_queue cq on cm.queue_id = cq.id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
-        where  (c.state = 0 or
-                (c.state = 3 and c.agent_id isnull and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)  ) and c.hangup_at = 0
+        where c.hangup_at = 0 and (c.state = 0
+                or (c.state = 3 and c.agent_id isnull and cq.sec_locate_agent > 0 and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)
+                or c.state = 7
+          )
         order by cq.priority desc, cm.priority desc
+        limit 1000
         for update of c
       ) c
       where a.id = c.id
@@ -86,14 +89,17 @@ explain analyze
                inner join cc_queue cq on cm.queue_id = cq.id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
-        where  (c.state = 0 or
-                (c.state = 3 and c.agent_id isnull and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)  ) and c.hangup_at = 0
+        where  (c.state = 0
+                or (c.state = 3 and c.agent_id isnull and cq.sec_locate_agent > 0 and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)
+                or c.state = 7
+          ) and c.hangup_at = 0
         order by cq.priority desc, cm.priority desc
         for update of c;
 
 1558005839648
 1562578328
 select extract(EPOCH  from current_timestamp)::bigint * 1000;
+
 
 select *
 from cc_member_attempt

@@ -20,9 +20,13 @@ type cluster struct {
 	consul          *consul
 }
 
+func NewServiceDiscovery(id string, check func() (bool, *model.AppError)) (ServiceDiscovery, *model.AppError) {
+	return NewConsul(id, check)
+}
+
 func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
 
-	cons, err := NewConsul(func() (bool, *model.AppError) {
+	cons, err := NewConsul(nodeId, func() (bool, *model.AppError) {
 		return true, nil //TODO
 	})
 
@@ -50,6 +54,7 @@ func (c *cluster) Start() {
 		go c.watcher.Start()
 	})
 }
+
 func (c *cluster) Stop() {
 	if c.watcher != nil {
 		c.watcher.Stop()
@@ -67,4 +72,8 @@ func (c *cluster) Setup() *model.AppError {
 		c.info = info
 	}
 	return nil
+}
+
+func (c *cluster) ServiceDiscovery() ServiceDiscovery {
+	return c.consul
 }

@@ -147,7 +147,7 @@ func (a *AMQP) subscribe() {
 				wlog.Warn(fmt.Sprintf("Failed parse json event, skip %s", m.Body))
 				continue
 			}
-			wlog.Debug(fmt.Sprintf("Receive event %v [%v]", e.Name(), e.Id()))
+			wlog.Debug(fmt.Sprintf("Receive event %v [%v - %v]", e.Name(), e.NodeName(), e.Id()))
 			a.callEvent <- e
 			m.Ack(false)
 		}

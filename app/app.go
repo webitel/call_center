@@ -8,7 +8,6 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
-	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
@@ -26,7 +25,6 @@ type App struct {
 	Srv          *Server
 	Store        store.Store
 	MQ           mq.MQ
-	callCommands model.Commands
 	Log          *wlog.Logger
 	configFile   string
 	config       atomic.Value
@@ -93,8 +91,6 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.Srv.Store
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	app.callCommands = external_commands.NewCallCommands(app.Config().ExternalCommandsSettings)
-
 	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
 
 	app.cluster, err = cluster.NewCluster(*app.id, app.Store)
@@ -107,7 +103,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	}
 	app.cluster.Start()
 
-	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.callCommands, app.MQ)
+	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ)
 	app.callManager.Start()
 
 	app.engine = engine.NewEngine(*app.id, app.Store)
@@ -151,7 +147,6 @@ func (app *App) Shutdown() {
 	}
 
 	app.MQ.Close()
-	app.callCommands.Close()
 }
 
 func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {

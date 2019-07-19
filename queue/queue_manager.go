@@ -15,6 +15,7 @@ import (
 
 const (
 	MAX_QUEUES_CACHE        = 10000
+	MAX_MEMBERS_CACHE       = 30000
 	MAX_QUEUES_EXPIRE_CACHE = 60 * 60 * 24 //day
 )
 
@@ -45,7 +46,7 @@ func NewQueueManager(app App, s store.Store, callManager call_manager.CallManage
 		stop:            make(chan struct{}),
 		stopped:         make(chan struct{}),
 		queuesCache:     utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
-		membersCache:    utils.NewLruWithParams(MAX_QUEUES_CACHE, "MembersInQueue", MAX_QUEUES_EXPIRE_CACHE, ""),
+		membersCache:    utils.NewLruWithParams(MAX_MEMBERS_CACHE, "Members", MAX_QUEUES_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -65,7 +66,6 @@ func (queueManager *QueueManager) Start() {
 			close(queueManager.input)
 			return
 		case attempt := <-queueManager.input:
-			queueManager.attemptCount++
 			queueManager.DistributeAttempt(attempt)
 		}
 	}
@@ -89,11 +89,12 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 
 	if a, ok = queueManager.GetAttempt(attempt.Id); ok {
 
-		if !attempt.IsTimeout() {
+		if attempt.Result == nil {
 			wlog.Error(fmt.Sprintf("Attempt %v in queue", a.Id()))
-			return
+		} else {
+			a.SetMember(attempt)
 		}
-		a.SetMember(attempt)
+		return
 	} else {
 		a = queueManager.NewAttempt(attempt)
 	}
@@ -106,6 +107,7 @@ func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt
 	attempt := NewAttempt(conf)
 	queueManager.membersCache.AddWithDefaultExpires(attempt.Id(), attempt)
 	queueManager.wg.Add(1)
+	queueManager.attemptCount++
 
 	wlog.Debug(fmt.Sprintf("new attempt %d", attempt.Id()))
 
@@ -189,7 +191,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 
 	if attempt.IsTimeout() {
-		attempt.SetTimeout()
+		panic("CHANGE TO SET MEMBER FUNCTION")
 		return
 	}
 

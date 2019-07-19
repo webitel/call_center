@@ -5,6 +5,6 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-func NewCallCommands(settings model.ExternalCommandsSettings) model.Commands {
-	return grpc.NewCallCommands(settings)
+func NewCallConnection(name, url string) (model.CallCommands, *model.AppError) {
+	return grpc.NewCallConnection(name, url)
 }

@@ -13,13 +13,15 @@ type AttemptInfo interface {
 	Data() []byte
 }
 
+type Result string
+
 type Attempt struct {
 	member          *model.MemberAttempt
 	resource        ResourceObject
 	agent           agent_manager.AgentObject
 	Info            AttemptInfo `json:"info"`
 	Logs            []LogItem   `json:"logs"`
-	timeout         chan struct{}
+	cancel          chan Result
 	done            chan struct{}
 	distributeAgent chan agent_manager.AgentObject
 	sync.RWMutex
@@ -33,8 +35,8 @@ type LogItem struct {
 func NewAttempt(member *model.MemberAttempt) *Attempt {
 	return &Attempt{
 		member:          member,
-		timeout:         make(chan struct{}, 1),
-		done:            make(chan struct{}, 1),
+		cancel:          make(chan Result),
+		done:            make(chan struct{}),
 		distributeAgent: make(chan agent_manager.AgentObject),
 	}
 }
@@ -47,11 +49,6 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.distributeAgent <- agent
 }
 
-func (a *Attempt) SetTimeout() {
-	a.Log("timeout")
-	a.timeout <- struct{}{}
-}
-
 func (a *Attempt) Done() {
 	close(a.done)
 }
@@ -59,6 +56,10 @@ func (a *Attempt) Done() {
 func (a *Attempt) SetMember(member *model.MemberAttempt) {
 	if a.Id() == member.Id {
 		a.member = member
+		if a.member.Result != nil {
+			a.Log(fmt.Sprintf("set result %s", *member.Result))
+			a.cancel <- Result(*a.member.Result)
+		}
 	}
 }
 

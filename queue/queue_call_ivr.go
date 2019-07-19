@@ -39,7 +39,7 @@ func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) {
 		voice.makeCall(attempt, endpoint)
 		for {
 			select {
-			case <-attempt.timeout:
+			case <-attempt.cancel:
 
 				attempt.Done()
 

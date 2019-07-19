@@ -5,8 +5,14 @@ import (
 	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"net/http"
 	"strings"
+	"time"
+)
+
+const (
+	CONNECTION_TIMEOUT = 5 * time.Second
 )
 
 type CallConnection struct {
@@ -17,18 +23,52 @@ type CallConnection struct {
 }
 
 func newConnection(config *model.ExternalCommandsConnection, opts []grpc.DialOption) (*CallConnection, error) {
-	client, err := grpc.Dial(config.Url, opts...)
+	var err error
+	c := &CallConnection{
+		name: config.Name,
+		host: config.Url,
+	}
+
+	c.client, err = grpc.Dial(config.Url, opts...)
 	if err != nil {
 		return nil, err
 	}
+	c.api = fs.NewApiClient(c.client)
+	return c, nil
+}
 
-	return &CallConnection{
-		name:   config.Name,
-		host:   config.Url,
-		client: client,
-		api:    fs.NewApiClient(client),
-	}, nil
+func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {
+	var err error
+	c := &CallConnection{
+		name: name,
+		host: url,
+	}
 
+	c.client, err = grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(CONNECTION_TIMEOUT))
+
+	if err != nil {
+		return nil, model.NewAppError("NewCallConnection", "grpc.create_connection.app_error", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	c.api = fs.NewApiClient(c.client)
+	return c, nil
+}
+
+func (c *CallConnection) Ready() bool {
+	switch c.client.GetState() {
+	case connectivity.Idle, connectivity.Ready:
+		return true
+	}
+	return false
+}
+
+func (c *CallConnection) Close() *model.AppError {
+	err := c.client.Close()
+	if err != nil {
+		return model.NewAppError("CallConnection", "grpc.close_connection.app_error", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
 }
 
 func (c *CallConnection) Name() string {

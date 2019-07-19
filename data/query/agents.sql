@@ -22,7 +22,7 @@ END;
 $$ LANGUAGE plpgsql;
 ;
 
-select get_agents_available_count_by_queue_id(1);
+select get_agents_available_count_by_queue_id(3);
 
 explain analyse
 select distinct qa.agent_id, qa.queue_id
@@ -60,6 +60,7 @@ where q1.queue_id = r.queue_id and q1.pos_idx  = (r.pos % q1.cnt) ;
 
 select *
 from reserve_members_with_resources('test');
+
 
 
 

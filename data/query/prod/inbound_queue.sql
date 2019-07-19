@@ -58,7 +58,40 @@ begin
 end
 $do$;
 
+
+
+update cc_member_attempt a
+set state = 7
+where a.id = 11 and state != 5;
+
 ;
+select q.id as queue_id, q.enabled,  case when q.enabled is true
+  then (select attempt_id
+     from cc_add_to_queue(q.id::bigint, '4dd01b60-cc8c-417e-baef-f9e8d19032d7'::varchar(36), 'linphone'::varchar(50), 'aaaa'::varchar(50), 0) attempt_id)
+  else null
+  end as attempt_id
+from cc_queue q
+where q.name = '32908' and q.type = 0;
+
+select *
+from cc_queue q
+where q.name = '32908';
+
+select attempt_id
+from cc_add_to_queue(3, null, '7777' || 5, 'IGOR', 100) attempt_id;
+
+select *
+from cc_member_attempt
+where id = 998851;
+
+
+select q.id, case when q.enabled is true
+  then (select attempt_id
+     from cc_add_to_queue(3, null, '7777' || 5, 'IGOR', 100) attempt_id)
+  else null
+  end as attempt_id
+from cc_queue q
+where q.id = 3 and q.type = 0 ;
 
 
 select count(*)
@@ -76,12 +109,76 @@ where a.hangup_at > 0
 order by a.id desc
 limit 100;
 
+explain analyze
+select *
+from cc_member_attempt
+where state > -1 and hangup_at = 0
+order by leg_a_id;
+
+
+select count(*)
+from cc_member_attempt
+where state > -1;
+
+
+vacuum full cc_member_attempt;
+
+
  select cc_available_agents_by_strategy(3, 'bla', 1000, array[0]::bigint[] , array[0]::bigint[]);
 
 
     select r.agent_id, r.attempt_id, a2.updated_at
     from cc_distribute_agent_to_attempt('node-1') r
     inner join cc_agent a2 on a2.id = r.agent_id;
+
+select *
+			from cc_reserve_members_with_resources('node-1');
+
+select *
+from cc_set_active_members('node-1');
+
+
+create or replace view dispatcher as
+SELECT t1.id,
+       t1.destination,
+       t1.attrs,
+       t1.setid
+FROM call_center.dblink(
+         'hostaddr=192.168.177.199 dbname=webitel user=opensips password=webitel options=-csearch_path=public'::text, 'select id, destination, attrs, setid
+from dispatcher'::text) t1(id integer, destination character varying(192), attrs character varying(128), setid integer);
+
+
+select *
+from get_free_resources();
+
+select *
+from cc_queue_is_working;
+
+explain analyze
+update cc_agent
+set state = 'waiting',
+    state_timeout = null
+where state_timeout < now()
+returning id, state;
+
+
+select *
+			from cc_set_active_members('node-1') s;
+
+
+explain analyze
+select count(distinct  COALESCE(aq.agent_id, csia.agent_id)) as cnt
+from cc_agent_in_queue aq
+   left join cc_skils cs on aq.skill_id = cs.id
+   left join cc_skill_in_agent csia on cs.id = csia.skill_id
+where aq.queue_id = 3
+  --and COALESCE(aq.agent_id, csia.agent_id) notnull
+  and  COALESCE(aq.agent_id, csia.agent_id) not in (
+    select a.agent_id
+    from cc_member_attempt a
+    where a.state > 0 and not a.agent_id isnull
+  );
+
 
 
 
@@ -96,7 +193,7 @@ from cc_agent;
 
 vacuum full cc_member_communications;
 
-select * --count(*)
+select count(*)
 --delete
 from cc_member_attempt
 where state > 0

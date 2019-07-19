@@ -74,7 +74,6 @@ func (d *DialingImpl) routeIdleAgents() {
 	if !d.app.IsReady() {
 		return
 	}
-	//TODO
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
 	if err != nil {
@@ -86,7 +85,6 @@ func (d *DialingImpl) routeIdleAgents() {
 	for _, v := range result {
 		agent, err := d.agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt)
 		if err != nil {
-			//TODO
 			wlog.Error(err.Error())
 			continue
 		}
@@ -99,12 +97,12 @@ func (d *DialingImpl) routeAgentToAttempt(attemptId int64, agent agent_manager.A
 
 		if _, err := d.queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
 			attempt.(*Attempt).DistributeAgent(agent)
-			//go queue.RouteAgentToAttempt(attempt.(*Attempt))
 		} else {
 			//todo not found queue
 			wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()))
 		}
 	} else {
+		//TODO panic ?
 		wlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()))
 	}
 }

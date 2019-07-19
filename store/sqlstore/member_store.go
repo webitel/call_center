@@ -67,7 +67,7 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_member_attempt
 			set state = :State,
 				agent_id = null
-			where id = :Id`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT}); err != nil {
+			where id = :Id and state != :CancelState`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT, "CancelState": model.MEMBER_STATE_CANCEL}); err != nil {
 		return model.NewAppError("SqlMemberStore.SetFindAgentState", "store.sql_member.set_attempt_state_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 	}
@@ -139,4 +139,18 @@ func (s SqlMemberStore) SetAttemptAgentId(attemptId int64, agentId *int64) *mode
 			fmt.Sprintf("Id=%v, AgentId=%v %s", attemptId, agentId, err.Error()), http.StatusInternalServerError)
 	}
 	return nil
+}
+
+func (s SqlMemberStore) AddMemberToQueue(queueId int64, callId string, number string, name string, priority int) (int64, *model.AppError) {
+	var attemptId int64
+
+	if err := s.GetMaster().SelectOne(&attemptId, `select attempt_id
+		from cc_add_to_queue(:QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
+	}); err != nil {
+		return 0, model.NewAppError("SqlMemberStore.AddMemberToQueue", "store.sql_member.add_member_to_queue.app_error", nil,
+			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
+	}
+
+	return attemptId, nil
 }
