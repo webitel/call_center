@@ -27,6 +27,8 @@ type MemberAttempt struct {
 	CommunicationId   int64   `json:"communication_id" db:"communication_id"`
 	QueueId           int64   `json:"queue_id" db:"queue_id"`
 	QueueUpdatedAt    int64   `json:"queue_updated_at" db:"queue_updated_at"`
+	QueueCount        int     `json:"queue_count" db:"queue_count"`
+	QueueActiveCount  int     `json:"queue_active_count" db:"queue_active_count"`
 	State             uint8   `json:"state" db:"state"`
 	MemberId          int64   `json:"member_id" db:"member_id"`
 	CreatedAt         int64   `json:"created_at" db:"created_at"`

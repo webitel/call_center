@@ -17,7 +17,7 @@ SELECT *, pg_size_pretty(total_bytes) AS total
 ) a
 order by 2, 8 desc;
 
-
+vacuum full cc_member_attempt;
 
 vacuum full cc_member_communications;
 

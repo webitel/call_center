@@ -77,7 +77,7 @@ func (c *CallConnection) GetServerVersion() (string, *model.AppError) {
 	return strings.TrimSpace(res.Data), nil
 }
 
-func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
+func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.CallRequest) (string, string, *model.AppError) {
 	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,
 		Destination:  settings.Destination,
@@ -109,7 +109,7 @@ func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *
 		break
 	}
 
-	response, err := c.api.Originate(context.Background(), request)
+	response, err := c.api.Originate(ctx, request)
 
 	if err != nil {
 		return "", "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
@@ -122,6 +122,10 @@ func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *
 	}
 
 	return response.Uuid, "", nil
+}
+
+func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
+	return c.NewCallContext(context.Background(), settings)
 }
 
 func (c *CallConnection) HangupCall(id, cause string) *model.AppError {

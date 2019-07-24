@@ -67,7 +67,7 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_member_attempt
 			set state = :State,
 				agent_id = null
-			where id = :Id and state != :CancelState`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT, "CancelState": model.MEMBER_STATE_CANCEL}); err != nil {
+			where id = :Id and state != :CancelState and result isnull`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT, "CancelState": model.MEMBER_STATE_CANCEL}); err != nil {
 		return model.NewAppError("SqlMemberStore.SetFindAgentState", "store.sql_member.set_attempt_state_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 	}

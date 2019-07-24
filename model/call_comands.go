@@ -1,5 +1,7 @@
 package model
 
+import "context"
+
 type CallCommandsEndpoint struct {
 	Name string `json:"name" db:"name"`
 	Host string `json:"host" db:"host"`
@@ -12,6 +14,8 @@ type CallCommands interface {
 	GetServerVersion() (string, *AppError)
 
 	NewCall(settings *CallRequest) (string, string, *AppError)
+	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, *AppError)
+
 	HangupCall(id, cause string) *AppError
 	Hold(id string) *AppError
 	SetCallVariables(id string, variables map[string]string) *AppError

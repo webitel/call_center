@@ -65,7 +65,3 @@ from reserve_members_with_resources('test');
 
 
 
-
-
-
-

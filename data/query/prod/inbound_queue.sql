@@ -44,11 +44,11 @@ $do$
   declare
      i int;
 begin
-  FOR i IN 1..1 LOOP
+  FOR i IN 1..10 LOOP
 
    -- raise notice '%', i;
     perform from cc_add_to_queue(3, null, '7777' || i, 'IGOR', 100);
-     --commit;
+    commit;
 --     perform from cc_add_to_queue(3, null, '7778' || i, 'IGOR', 100);
 --     commit;
 
@@ -57,6 +57,24 @@ begin
   end loop;
 end
 $do$;
+
+select count(*)
+--delete
+from cc_member_attempt
+where hangup_at = 0;
+
+
+
+
+select *
+from cc_member_attempt a
+where a.id = 1124579 and hangup_at = 0 and state > -1 and state != 5;; [1:map[AttemptId:1124579]] (35.133802126s)
+
+
+
+select r.agent_id, r.attempt_id, a2.updated_at
+  from cc_distribute_agent_to_attempt('call-center') r
+  inner join cc_agent a2 on a2.id = r.agent_id;
 
 
 
@@ -103,11 +121,28 @@ where hangup_at = 0
 group by agent_id
 having count(*) > 0;
 
-select a.hangup_at - a.created_at
+select count(*)
+from cc_member_attempt
+where hangup_at = 0;
+
+
+
+update cc_agent
+set status = 'online'
+where 1=1;
+
+
+select count(*)
+from cc_member_attempt
+where hangup_at = 0;
+
+select a.id, a.hangup_at - a.created_at, a.result, a.logs
 from cc_member_attempt a
 where a.hangup_at > 0
 order by a.id desc
 limit 100;
+
+
 
 explain analyze
 select *
@@ -116,26 +151,48 @@ where state > -1 and hangup_at = 0
 order by leg_a_id;
 
 
-select count(*)
+select  extract(epoch from created_at)::bigint * 1000
 from cc_member_attempt
-where state > -1;
+where created_at > 0
+order by id desc
+limit 1;
 
+explain (analyse, COSTS )
+select *
+from cc_member_attempt
+where member_id = 100090 and node_id = 'call-center-1';
 
-vacuum full cc_member_attempt;
+select *
+from cc_set_active_members();
 
 
  select cc_available_agents_by_strategy(3, 'bla', 1000, array[0]::bigint[] , array[0]::bigint[]);
 
 
     select r.agent_id, r.attempt_id, a2.updated_at
-    from cc_distribute_agent_to_attempt('node-1') r
+    from cc_distribute_agent_to_attempt('test') r
     inner join cc_agent a2 on a2.id = r.agent_id;
+
 
 select *
 			from cc_reserve_members_with_resources('node-1');
 
 select *
 from cc_set_active_members('node-1');
+
+
+select count(*)
+--delete
+from cc_member_attempt
+where hangup_at = 0;
+
+
+update cc_member_attempt
+set state  = 3, agent_id = null
+where hangup_at = 0;
+
+
+
 
 
 create or replace view dispatcher as
@@ -157,13 +214,22 @@ from cc_queue_is_working;
 explain analyze
 update cc_agent
 set state = 'waiting',
-    state_timeout = null
-where state_timeout < now()
-returning id, state;
+    status = 'offline',
+    state_timeout = null;
+--where state_timeout < now();
 
+select *
+from cc_agent;
+
+select *
+from cc_member_attempt
+where hangup_at = 0;
 
 select *
 			from cc_set_active_members('node-1') s;
+
+
+
 
 
 explain analyze

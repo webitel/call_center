@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
@@ -24,6 +25,7 @@ type Attempt struct {
 	cancel          chan Result
 	done            chan struct{}
 	distributeAgent chan agent_manager.AgentObject
+	ctx             context.Context
 	sync.RWMutex
 }
 
@@ -35,9 +37,10 @@ type LogItem struct {
 func NewAttempt(member *model.MemberAttempt) *Attempt {
 	return &Attempt{
 		member:          member,
-		cancel:          make(chan Result),
+		cancel:          make(chan Result, 1),
 		done:            make(chan struct{}),
 		distributeAgent: make(chan agent_manager.AgentObject),
+		ctx:             context.Background(),
 	}
 }
 
