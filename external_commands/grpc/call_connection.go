@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
@@ -196,6 +197,19 @@ func (c *CallConnection) BridgeCall(legAId, legBId, legBReserveId string) (strin
 	}
 
 	return response.Uuid, nil
+}
+
+func (c *CallConnection) DTMF(id string, ch rune) *model.AppError {
+	_, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "uuid_recv_dtmf",
+		Args:    fmt.Sprintf("%s %c", id, ch),
+	})
+
+	if err != nil {
+		return model.NewAppError("DTMF", "external.dtmf.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+	return nil
 }
 
 func (c *CallConnection) close() {

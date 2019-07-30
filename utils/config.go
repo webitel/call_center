@@ -42,9 +42,10 @@ func LoadConfig(fileName string) (*model.Config, string, map[string]interface{},
 			MaxIdleConns:                &maxIdleConns,
 			MaxOpenConns:                &maxOpenConns,
 			ConnMaxLifetimeMilliseconds: &connMaxLifetimeMilliseconds,
-			Trace: false,
+			Trace:                       false,
 		},
 		MQSettings: model.MQSettings{
+			//Url: model.NewString("amqp://webitel:webitel@192.168.177.199:5672?heartbeat=0"), //http://192.168.177.189:15672/
 			Url: model.NewString("amqp://webitel:webitel@192.168.177.199:5672?heartbeat=0"), //http://192.168.177.189:15672/
 		},
 		ExternalCommandsSettings: model.ExternalCommandsSettings{

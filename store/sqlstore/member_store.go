@@ -141,14 +141,14 @@ func (s SqlMemberStore) SetAttemptAgentId(attemptId int64, agentId *int64) *mode
 	return nil
 }
 
-func (s SqlMemberStore) AddMemberToQueue(queueId int64, callId string, number string, name string, priority int) (int64, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToQueue(queueId int64, callId string, number string, name string, priority int) (int64, *model.AppError) {
 	var attemptId int64
 
 	if err := s.GetMaster().SelectOne(&attemptId, `select attempt_id
-		from cc_add_to_queue(:QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		from cc_distribute_inbound_call_to_queue(:QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
 		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
 	}); err != nil {
-		return 0, model.NewAppError("SqlMemberStore.AddMemberToQueue", "store.sql_member.add_member_to_queue.app_error", nil,
+		return 0, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
 	}
 

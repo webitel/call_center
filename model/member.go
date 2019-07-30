@@ -43,6 +43,7 @@ type MemberAttempt struct {
 	Description       string  `json:"description" db:"description"`
 	Variables         []byte  `json:"variables" db:"variables"`
 	Name              string  `json:"name" db:"name"`
+	CallFromId        *string `json:"call_from_id" db:"leg_a_id"`
 }
 
 type InboundMember struct {

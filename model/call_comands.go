@@ -20,6 +20,7 @@ type CallCommands interface {
 	Hold(id string) *AppError
 	SetCallVariables(id string, variables map[string]string) *AppError
 	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)
+	DTMF(id string, ch rune) *AppError
 
 	Close() *AppError
 }

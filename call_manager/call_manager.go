@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	MAX_CALL_CACHE        = 10000
-	MAX_CALL_EXPIRE_CACHE = 60 * 60 * 24 //day
+	MAX_CALL_CACHE         = 10000
+	MAX_CALL_EXPIRE_CACHE  = 60 * 60 * 24 //day
+	MAX_INBOUND_CALL_QUEUE = 1000
 
 	WATCHER_INTERVAL = 1000 * 5 // 30s
 )
@@ -22,15 +23,24 @@ type CallManager interface {
 	Stop()
 	ActiveCalls() int
 	NewCall(callRequest *model.CallRequest) Call
+	GetCall(id string) (Call, bool)
+	InboundCall() <-chan Call
 }
 
 type Call interface {
 	Id() string
 	NodeName() string
+
+	FromNumber() string
+	FromName() string
+
 	HangupCause() string
 	GetState() uint8
 	Err() *model.AppError
-	SetHangupCall(event mq.Event)
+	GetAttribute(name string) (string, bool)
+	GetIntAttribute(name string) (int, bool)
+
+	SetHangupCall(event *CallEvent)
 
 	OfferingAt() int64
 	AcceptAt() int64
@@ -43,11 +53,13 @@ type Call interface {
 	WaitSeconds() int
 
 	WaitForHangup()
+	HangupChan() <-chan struct{}
 
 	NewCall(callRequest *model.CallRequest) Call
 
 	Hangup(cause string) *model.AppError
 	Hold() *model.AppError
+	DTMF(val rune) *model.AppError
 
 	Bridge(other Call) *model.AppError
 }
@@ -55,23 +67,25 @@ type Call interface {
 type CallManagerImpl struct {
 	nodeId string
 
-	pool      *callConnectionsPool
-	mq        mq.MQ
-	calls     utils.ObjectCache
-	stop      chan struct{}
-	stopped   chan struct{}
-	watcher   *utils.Watcher
-	startOnce sync.Once
+	pool        *callConnectionsPool
+	mq          mq.MQ
+	calls       utils.ObjectCache
+	stop        chan struct{}
+	stopped     chan struct{}
+	inboundCall chan Call
+	watcher     *utils.Watcher
+	startOnce   sync.Once
 }
 
 func NewCallManager(nodeId string, cluster cluster.ServiceDiscovery, mq mq.MQ) CallManager {
 	return &CallManagerImpl{
-		nodeId:  nodeId,
-		pool:    newCallConnectionsPool(cluster),
-		mq:      mq,
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
-		calls:   utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
+		nodeId:      nodeId,
+		pool:        newCallConnectionsPool(cluster),
+		mq:          mq,
+		stop:        make(chan struct{}),
+		stopped:     make(chan struct{}),
+		inboundCall: make(chan Call, MAX_INBOUND_CALL_QUEUE),
+		calls:       utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -131,12 +145,16 @@ func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {
 	return nil, false
 }
 
-func (cm *CallManagerImpl) SetCall(id string, call Call) {
-	wlog.Debug(fmt.Sprintf("save store call %s %s", id, call.Id()))
-	cm.calls.AddWithDefaultExpires(id, call)
+func (cm *CallManagerImpl) saveToCacheCall(call Call) {
+	wlog.Debug(fmt.Sprintf("[%s] call %s save to store", call.NodeName(), call.Id()))
+	cm.calls.AddWithDefaultExpires(call.Id(), call)
 }
 
-func (cm *CallManagerImpl) RemoveCall(id string) {
-	wlog.Debug(fmt.Sprintf("remove store call %s", id))
-	cm.calls.Remove(id)
+func (cm *CallManagerImpl) removeFromCacheCall(call Call) {
+	wlog.Debug(fmt.Sprintf("[%s] call %s remove from store", call.NodeName(), call.Id()))
+	cm.calls.Remove(call.Id())
+}
+
+func (cm *CallManagerImpl) InboundCall() <-chan Call {
+	return cm.inboundCall
 }

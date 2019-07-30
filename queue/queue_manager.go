@@ -8,9 +8,7 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"math/rand"
 	"sync"
-	"time"
 )
 
 const (
@@ -52,7 +50,6 @@ func NewQueueManager(app App, s store.Store, callManager call_manager.CallManage
 
 func (queueManager *QueueManager) Start() {
 	wlog.Debug("QueueManager started")
-	rand.Seed(time.Now().Unix())
 
 	defer func() {
 		wlog.Debug("Stopped QueueManager")
@@ -67,6 +64,8 @@ func (queueManager *QueueManager) Start() {
 			return
 		case attempt := <-queueManager.input:
 			queueManager.DistributeAttempt(attempt)
+		case call := <-queueManager.callManager.InboundCall():
+			go queueManager.DistributeCall(call)
 		}
 	}
 }
@@ -201,6 +200,28 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 
 	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name()))
+}
+
+func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {
+	var queueId, priority int
+	var ok bool
+
+	queueId, ok = call.GetIntAttribute(model.QUEUE_ID_FIELD)
+	if !ok {
+		wlog.Warn(fmt.Sprintf("[%s] call %s distribute to queue error: not found variable %s", call.NodeName(), call.Id(), model.QUEUE_ID_FIELD))
+		return
+	}
+
+	priority, _ = call.GetIntAttribute(model.QUEUE_MEMBER_PRIORITY)
+
+	attemptId, err := queueManager.store.Member().DistributeCallToQueue(int64(queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
+
+	if err != nil {
+		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
+		return
+	}
+
+	wlog.Debug(fmt.Sprintf("[%s] call %s distributed, AttemptId=%d", call.NodeName(), call.Id(), attemptId))
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {

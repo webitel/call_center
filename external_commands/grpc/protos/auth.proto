@@ -1,0 +1,53 @@
+syntax="proto3";
+
+package auth;
+
+// AccessToken: dsvsetbveqrtbqetb
+
+// Authorization token
+message Authorization {
+
+    string id = 1;     // session key
+
+    int64  dc = 2;     // primary domain.dc::component.id
+    int64  roleId = 3; // current auth.id (either: role -or- user)
+
+    string domain = 4; // session domain.name
+    string username = 5; // session user-friendly role name
+
+    map <string, int64>  roles = 6; // map[role]oid
+    map <string, string> privs = 7; // map[priv]uuid { "sysadmin":1, "CALL_MANAGER":123421, "CALL_CENTER":32435 }
+    repeated ClassScope  scope = 8; // [{id:1,"class":"queue", "obac":false, "rbac":true, "access":7 }]
+}
+
+// ClassAccess flags:  [ ---- CRUD ]
+enum ClassAccess {
+    DENIED = 0x00; // [ ---- 0000 ]
+    DELETE = 0x01; // [ ---- 0001 ]
+    UPDATE = 0x02; // [ ---- 0010 ]
+    SELECT = 0x04; // [ ---- 0100 ]
+    CREATE = 0x08; // [ ---- 1000 ]
+}
+
+// CHECK hasPericilege(SELECT): (.access & SELECT) == SELECT
+
+// ObjectAccess flags: [ ---- -RUD ]
+enum ObjectAccess {
+    DENIED = 0x00; // [ ---- 0000 ]
+    DELETE = 0x01; // [ ---- 0001 ]
+    UPDATE = 0x02; // [ ---- 0010 ]
+    SELECT = 0x04; // [ ---- 0100 ]
+    // NO CREATE !!!  [ ---- -000 ]
+}
+
+message ClassScope {
+
+    int64  id = 1;    // class: object id
+    string class = 2; // class: alphanumeric code name
+    // Is [?]-[b]ased [A]ccess [C]ontrol *model enabled ?
+    bool   abac = 3;  // [A]ttribute-[b]ased;  not implemented; next releases ...
+    bool   obac = 4;  // [O]peration-[b]ased;  Mandatory: control access to object.class (alias: collection, section, etc.)
+    bool   rbac = 5;  // [R]ecord-[b]ased; Discretionary: control access to object.entry (alias: resource, record, etc.)
+    // ClassAccess flags: CREATE | SELECT | UPDATE | DELETE
+    uint32 access = 6;
+}

@@ -19,8 +19,12 @@ const (
 )
 
 const (
-	QUEUE_SIDE_FIELD        = "cc_side"
-	QUEUE_ID_FIELD          = "cc_queue_id"
+	QUEUE_SIDE_FIELD       = "cc_side"
+	QUEUE_ID_FIELD         = "cc_queue_id"
+	QUEUE_UPDATED_AT_FIELD = "cc_queue_updated_at"
+
+	QUEUE_MEMBER_PRIORITY = "cc_queue_member_priority"
+
 	QUEUE_NAME_FIELD        = "cc_queue_name"
 	QUEUE_TYPE_NAME_FIELD   = "cc_queue_type"
 	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"

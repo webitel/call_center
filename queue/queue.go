@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"net/http"
 )
@@ -77,6 +78,10 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 	return queue.updatedAt != updatedAt
 }
 
+func (queue *BaseQueue) SipRouterAddr() string {
+	return "sip:192.168.177.13"
+}
+
 func (queue *BaseQueue) Name() string {
 	return fmt.Sprintf("%s-%s", queue.TypeName(), queue.name)
 }
@@ -112,4 +117,8 @@ func (qeueu *BaseQueue) Domain() string {
 
 func (queue *BaseQueue) Id() int {
 	return queue.id
+}
+
+func (queue *BaseQueue) CallManager() call_manager.CallManager {
+	return queue.queueManager.callManager
 }

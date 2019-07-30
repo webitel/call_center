@@ -1,6 +1,8 @@
 package call_manager
 
 import (
+	"context"
+	"fmt"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
@@ -29,7 +31,7 @@ func TestCallManager(t *testing.T) {
 
 	cm := NewCallManager(TEST_NODE_ID, service, mq)
 	cm.Start()
-
+	//testAsync(cm.(*CallManagerImpl), t)
 	testCallError(cm, t)
 	testCallAnswer(cm, t)
 	testCallStates(cm, t)
@@ -43,6 +45,40 @@ func TestCallManager(t *testing.T) {
 
 	cm.Stop()
 	mq.Close()
+
+}
+
+func testAsync(cm *CallManagerImpl, t *testing.T) {
+	cr := &model.CallRequest{
+		Endpoints: []string{`loopback/sleep:100000\,park/default/inline`},
+		Variables: map[string]string{
+			"cc_test_call_manager": "true",
+		},
+		Applications: []*model.CallRequestApplication{
+			{
+				AppName: model.CALL_SLEEP_APPLICATION,
+				Args:    "20000",
+			},
+		},
+	}
+
+	api, _ := cm.pool.getByRoundRobin()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	call := NewAsyncCall(ctx, cr, cm, api)
+
+	go func() {
+		time.Sleep(time.Second)
+		cancel()
+	}()
+
+	select {
+	case <-call.HangupChan():
+		time.Sleep(time.Second)
+		fmt.Println(">>>>>>>>>>> ", call.HangupCause())
+		return
+	}
 
 }
 

@@ -29,7 +29,7 @@ func (l *LayeredMQ) Close() {
 	l.MQLayer.Close()
 }
 
-func (l *LayeredMQ) ConsumeCallEvent() <-chan Event {
+func (l *LayeredMQ) ConsumeCallEvent() <-chan model.Event {
 	return l.MQLayer.ConsumeCallEvent()
 }
 

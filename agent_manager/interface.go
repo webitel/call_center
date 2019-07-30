@@ -26,6 +26,11 @@ type AgentObject interface {
 	Online() *model.AppError
 	Offline() *model.AppError
 
+	SetStateOffering(deadline int) *model.AppError
+	SetStateTalking(deadline int) *model.AppError
+	SetStateReporting(deadline int) *model.AppError
+	SetStateFine(deadline int) *model.AppError
+
 	MaxNoAnswer() int
 	WrapUpTime() int
 	RejectDelayTime() int

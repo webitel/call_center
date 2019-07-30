@@ -31,14 +31,14 @@ type AMQP struct {
 	nodeName           string
 	connectionAttempts int
 	stopping           bool
-	callEvent          chan mq.Event
+	callEvent          chan model.Event
 	queueEvent         mq.QueueEvent
 }
 
 func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
-		callEvent: make(chan mq.Event),
+		callEvent: make(chan model.Event),
 		nodeName:  nodeName,
 	}
 	mq_.queueEvent = NewQueueMQ(mq_)
@@ -82,7 +82,7 @@ func (a *AMQP) initQueues() {
 	var err error
 	var queue amqp.Queue
 	err = a.channel.ExchangeDeclare(
-		model.EXCHANGE_MQ,
+		model.MQ_CALL_EXCHANGE,
 		"direct",
 		true,
 		false,
@@ -111,9 +111,9 @@ func (a *AMQP) initQueues() {
 }
 
 func (a *AMQP) subscribe() {
-	err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.EXCHANGE_MQ, false, nil)
+	err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.MQ_CALL_EXCHANGE, false, nil)
 	if err != nil {
-		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.EXCHANGE_MQ, err.Error()))
+		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.MQ_CALL_EXCHANGE, err.Error()))
 		time.Sleep(time.Second)
 		os.Exit(EXIT_BIND)
 	}
@@ -134,21 +134,18 @@ func (a *AMQP) subscribe() {
 	}
 
 	go func() {
-		var err error
 		for m := range msgs {
 			if m.ContentType != "text/json" {
 				wlog.Warn(fmt.Sprintf("Failed receive event content type: %v\n%s", m.ContentType, m.Body))
 				continue
 			}
-			e := &REvent{}
-			err = json.Unmarshal(m.Body, e)
-			if err != nil {
-				wlog.Warn(err.Error())
-				wlog.Warn(fmt.Sprintf("Failed parse json event, skip %s", m.Body))
-				continue
+
+			switch m.Exchange {
+			case model.MQ_CALL_EXCHANGE:
+				a.handleCallMessage(m.Body)
+			default:
+				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange", m.Exchange))
 			}
-			wlog.Debug(fmt.Sprintf("Receive event %v [%v - %v]", e.Name(), e.NodeName(), e.Id()))
-			a.callEvent <- e
 			m.Ack(false)
 		}
 
@@ -156,6 +153,16 @@ func (a *AMQP) subscribe() {
 			a.initConnection()
 		}
 	}()
+}
+
+func (a *AMQP) handleCallMessage(data []byte) {
+	e := make(model.Event)
+	if err := json.Unmarshal(data, &e); err != nil {
+		wlog.Error(fmt.Sprintf("parse error: %s", err.Error()))
+		return
+	}
+
+	a.callEvent <- e
 }
 
 func (a *AMQP) Close() {
@@ -175,7 +182,7 @@ func (a *AMQP) Close() {
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	//todo, check connection
 	err := a.channel.Publish(
-		model.EXCHANGE_MQ,
+		model.MQ_CALL_EXCHANGE,
 		key,
 		false,
 		false,
@@ -191,7 +198,7 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	return nil
 }
 
-func (a *AMQP) ConsumeCallEvent() <-chan mq.Event {
+func (a *AMQP) ConsumeCallEvent() <-chan model.Event {
 	return a.callEvent
 }
 

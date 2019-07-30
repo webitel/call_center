@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
 )
@@ -15,10 +16,27 @@ func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject 
 	}
 }
 
+func stopInboundAttempt(queue *InboundQueue, attempt *Attempt) {
+	queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
+	queue.queueManager.LeavingMember(attempt, queue)
+	return
+}
+
 func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 
 	go func() {
-		attempt.Log("wait agent")
+		info := queue.GetCallInfoFromAttempt(attempt)
+
+		call, ok := queue.CallManager().GetCall(*attempt.member.CallFromId)
+		info.fromCall = call
+
+		if !ok {
+			attempt.Log("not found active call")
+			queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
+			queue.queueManager.LeavingMember(attempt, queue)
+			return
+		}
+
 		defer attempt.Log("stopped queue")
 
 		//TODO
@@ -26,14 +44,26 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 			queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
 			queue.queueManager.LeavingMember(attempt, queue)
 			return
-		} else {
-			queue.queueManager.SetFindAgentState(attempt.Id())
 		}
+
+		attempt.Log("wait agent")
+		queue.queueManager.SetFindAgentState(attempt.Id())
+
+		defer func() {
+			if info.agent != nil {
+				info.agent.SetStateReporting(10)
+			}
+		}()
+
 		for {
 			select {
+			case <-call.HangupChan():
+				stopInboundAttempt(queue, attempt)
+				return
+
 			case reason, ok := <-attempt.cancel:
 				if !ok {
-					continue //
+					continue //TODO
 				}
 				info := queue.GetCallInfoFromAttempt(attempt)
 
@@ -46,16 +76,68 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 					panic(reason)
 				}
 
-				attempt.Done()
+				stopInboundAttempt(queue, attempt)
+				return
 
 			case agent := <-attempt.distributeAgent:
 				attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_FINE, 10)
-				//time.Sleep(time.Second * 5)
-				queue.queueManager.SetFindAgentState(attempt.Id())
+				info.agent = agent
+				agent.SetStateOffering(0)
+
+				ctx, cancel := context.WithCancel(context.Background())
+
+				go func() {
+					select {
+					case <-ctx.Done():
+						fmt.Println("DONE")
+						cancel()
+					}
+				}()
+
+				agentCall := call.NewCall(&model.CallRequest{
+					Endpoints: agent.GetCallEndpoints(), //[]string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
+					Strategy:  model.CALL_STRATEGY_DEFAULT,
+					Variables: model.UnionStringMaps(
+						queue.Variables(),
+						attempt.Variables(),
+						map[string]string{
+							"sip_route_uri":                        queue.SipRouterAddr(),
+							"sip_h_X-Webitel-Direction":            "internal",
+							"absolute_codec_string":                "PCMA",
+							"valet_hold_music":                     "silence",
+							model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
+							model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
+							model.CALL_DOMAIN_VARIABLE:             queue.Domain(),
+							model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", queue.id),
+							model.QUEUE_NAME_FIELD:                 queue.name,
+							model.QUEUE_TYPE_NAME_FIELD:            queue.TypeName(),
+							model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_AGENT,
+							model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
+							model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
+						},
+					),
+					Timeout:      agent.CallTimeout(),
+					CallerName:   attempt.Name(),
+					CallerNumber: attempt.Destination(),
+					Applications: []*model.CallRequestApplication{
+						{
+							AppName: "valet_park",
+							Args:    fmt.Sprintf("queue_%d %s", queue.Id(), call.Id()),
+						},
+					},
+				})
+
+				if agentCall.Err() != nil {
+					agent.SetStateFine(5)
+					queue.queueManager.SetFindAgentState(attempt.Id())
+				} else {
+					agent.SetStateTalking(0)
+					//agentCall.Bridge(call)
+				}
 
 			case <-attempt.done:
+
 				queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
 				queue.queueManager.LeavingMember(attempt, queue)
 				return

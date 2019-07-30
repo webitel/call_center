@@ -8,7 +8,7 @@ type MQ interface {
 	SendJSON(name string, data []byte) *model.AppError
 	Close()
 
-	ConsumeCallEvent() <-chan Event
+	ConsumeCallEvent() <-chan model.Event
 
 	QueueEvent() QueueEvent
 }

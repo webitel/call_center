@@ -19,12 +19,20 @@ const (
 	CALL_EVENT_HANGUP   = "CHANNEL_HANGUP_COMPLETE"
 	CALL_EVENT_BRIDGE   = "CHANNEL_BRIDGE"
 	CALL_EVENT_UNBRIDGE = "CHANNEL_UNBRIDGE"
+
+	CALL_EVENT_CUSTOM = "CUSTOM"
+
+	CALL_ATTRIBUTE_EVENT_NAME        = "Event-Name"
+	CALL_ATTRIBUTE_DURATION_NAME     = "variable_duration"
+	CALL_ATTRIBUTE_HANGUP_CAUSE_NAME = "variable_hangup_cause"
+
+	CALL_ATTRIBUTE_FROM_NUMBER = "Caller-Caller-ID-Number"
+	CALL_ATTRIBUTE_FROM_NAME   = "Caller-Caller-ID-Name"
 )
 
 const (
-	CALL_ID                              = "cc_call_id"
+	CALL_ORIGINATION_UUID                = "origination_uuid"
 	CALL_TIMEOUT_VARIABLE                = "call_timeout"
-	CALL_HANGUP_CAUSE_VARIABLE           = "hangup_cause"
 	CALL_PROGRESS_TIMEOUT_VARIABLE       = "progress_timeout"
 	CALL_DOMAIN_VARIABLE                 = "domain_name"
 	CALL_IGNORE_EARLY_MEDIA_VARIABLE     = "ignore_early_media"
@@ -41,6 +49,7 @@ const (
 	CALL_PLAYBACK_APPLICATION = "playback"
 	CALL_TRANSFER_APPLICATION = "transfer"
 	CALL_HANGUP_APPLICATION   = "hangup"
+	CALL_PARK_APPLICATION     = "park"
 )
 
 const (

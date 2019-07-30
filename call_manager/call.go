@@ -1,8 +1,9 @@
 package call_manager
 
 import (
+	"context"
+	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/call_center/mq"
 	"net/http"
 	"sync"
 )
@@ -14,7 +15,7 @@ type CallImpl struct {
 	id          string
 	hangupCause string
 	hangup      chan struct{}
-	lastEvent   mq.Event
+	lastEvent   *CallEvent
 	err         *model.AppError
 	state       uint8
 
@@ -39,28 +40,84 @@ var (
 )
 
 func NewCall(callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
-	id := model.NewId()
-	callRequest.Variables[model.CALL_ID] = id
+	id := model.NewUuid()
+	//callRequest.Variables[model.CALL_ID] = id
+	callRequest.Variables[model.CALL_ORIGINATION_UUID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
 
 	call := &CallImpl{
 		callRequest: callRequest,
+		id:          id,
 		api:         api,
 		cm:          cm,
 		hangup:      make(chan struct{}),
 	}
-	cm.SetCall(id, call)
+	cm.saveToCacheCall(call)
 	call.setState(CALL_STATE_RINGING)
-	call.id, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
+	_, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
 	if call.err != nil {
-		cm.RemoveCall(id)
+		cm.removeFromCacheCall(call)
 	}
 	call.setState(CALL_STATE_ACCEPT)
 	return call
 }
 
+func NewAsyncCall(ctx context.Context, callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
+	id := model.NewUuid()
+	callRequest.Variables[model.CALL_ORIGINATION_UUID] = id
+	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
+	call := &CallImpl{
+		callRequest: callRequest,
+		id:          id,
+		api:         api,
+		cm:          cm,
+		hangup:      make(chan struct{}),
+	}
+	cm.saveToCacheCall(call)
+	call.setState(CALL_STATE_RINGING)
+
+	go func() {
+		_, call.hangupCause, call.err = call.api.NewCall(call.callRequest)
+		if call.err != nil {
+			cm.removeFromCacheCall(call)
+			call.setState(CALL_STATE_HANGUP)
+			close(call.hangup)
+			return
+		}
+		call.setState(CALL_STATE_ACCEPT)
+	}()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			call.Hangup("LOSE_RACE") //TODO
+			fmt.Println("DONE")
+		case <-call.hangup:
+			fmt.Println("HANGUP")
+		}
+	}()
+
+	return call
+}
+
 func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
 	return NewCall(callRequest, c.cm, c.api)
+}
+
+func (call *CallImpl) FromNumber() string {
+	if call.lastEvent != nil {
+		v, _ := call.lastEvent.GetStrAttribute(model.CALL_ATTRIBUTE_FROM_NUMBER)
+		return v
+	}
+	return ""
+}
+
+func (call *CallImpl) FromName() string {
+	if call.lastEvent != nil {
+		v, _ := call.lastEvent.GetStrAttribute(model.CALL_ATTRIBUTE_FROM_NAME)
+		return v
+	}
+	return ""
 }
 
 func (call *CallImpl) NodeName() string {
@@ -103,6 +160,10 @@ func (call *CallImpl) WaitForHangup() {
 	}
 }
 
+func (call *CallImpl) HangupChan() <-chan struct{} {
+	return call.hangup
+}
+
 func (call *CallImpl) OfferingAt() int64 {
 	return call.offeringAt
 }
@@ -123,7 +184,7 @@ func (call *CallImpl) intVarIfLastEvent(name string) int {
 	if call.lastEvent == nil {
 		return 0
 	}
-	v, _ := call.lastEvent.GetIntVariable(name)
+	v, _ := call.lastEvent.GetIntAttribute(name)
 	return v
 }
 
@@ -143,11 +204,11 @@ func (call *CallImpl) WaitSeconds() int {
 	return call.intVarIfLastEvent("waitsec")
 }
 
-func (call *CallImpl) SetHangupCall(event mq.Event) {
+func (call *CallImpl) SetHangupCall(event *CallEvent) {
 	if call.GetState() < CALL_STATE_HANGUP {
 		call.setState(CALL_STATE_HANGUP)
 		call.lastEvent = event
-		call.hangupCause, _ = event.GetVariable(model.CALL_HANGUP_CAUSE_VARIABLE)
+		call.hangupCause, _ = event.GetStrAttribute(model.CALL_ATTRIBUTE_HANGUP_CAUSE_NAME)
 		close(call.hangup)
 	}
 }
@@ -194,4 +255,22 @@ func (call *CallImpl) Bridge(other Call) *model.AppError {
 	}
 
 	return err
+}
+
+func (call *CallImpl) DTMF(val rune) *model.AppError {
+	return call.api.DTMF(call.id, val)
+}
+
+func (call *CallImpl) GetAttribute(name string) (string, bool) {
+	if call.lastEvent != nil {
+		return call.lastEvent.GetVariable(name)
+	}
+	return "", false
+}
+
+func (call *CallImpl) GetIntAttribute(name string) (int, bool) {
+	if call.lastEvent != nil {
+		return call.lastEvent.GetIntAttribute("variable_" + name)
+	}
+	return 0, false
 }

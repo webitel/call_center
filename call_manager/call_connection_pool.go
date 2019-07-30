@@ -69,7 +69,7 @@ func (c *callConnectionsPool) registerConnection(config *model.ServiceConnection
 func (c *callConnectionsPool) appendConnection(client model.CallCommands) {
 	version, err := client.GetServerVersion()
 	if err != nil {
-		wlog.Error(fmt.Sprintf("opened connection %s, error:", client.Name(), err.Error()))
+		wlog.Error(fmt.Sprintf("opened connection %s, error: %s", client.Name(), err.Error()))
 		return
 	}
 	c.Lock()

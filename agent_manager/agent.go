@@ -17,6 +17,22 @@ func NewAgent(info *model.Agent, am AgentManager) AgentObject {
 	}
 }
 
+func (agent *Agent) SetStateOffering(deadline int) *model.AppError {
+	return agent.manager.SetAgentState(agent, model.AGENT_STATE_OFFERING, deadline)
+}
+
+func (agent *Agent) SetStateTalking(deadline int) *model.AppError {
+	return agent.manager.SetAgentState(agent, model.AGENT_STATE_TALK, deadline)
+}
+
+func (agent *Agent) SetStateReporting(deadline int) *model.AppError {
+	return agent.manager.SetAgentState(agent, model.AGENT_STATE_REPORTING, deadline)
+}
+
+func (agent *Agent) SetStateFine(deadline int) *model.AppError {
+	return agent.manager.SetAgentState(agent, model.AGENT_STATE_FINE, deadline)
+}
+
 func (agent *Agent) Name() string {
 	return agent.info.Name
 }

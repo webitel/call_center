@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"github.com/webitel/wlog"
-	"math/rand"
 	"time"
 )
 
@@ -29,8 +28,6 @@ func MakeWatcher(name string, pollingInterval int, pollAndNotify WatcherNotify) 
 
 func (watcher *Watcher) Start() {
 	wlog.Debug(fmt.Sprintf("Watcher [%s] started", watcher.name))
-
-	rand.Seed(time.Now().UTC().UnixNano())
 	//<-time.After(time.Duration(rand.Intn(watcher.pollingInterval)) * time.Millisecond)
 
 	defer func() {

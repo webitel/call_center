@@ -73,7 +73,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_route_uri":             "sip:172.17.2.2", //"$${outbound_sip_proxy}",
+				"sip_route_uri":             "sip:192.168.177.13", //"$${outbound_sip_proxy}",
 				"sip_h_X-Webitel-Direction": "internal",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",

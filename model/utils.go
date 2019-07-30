@@ -90,6 +90,10 @@ func NewId() string {
 	return b.String()
 }
 
+func NewUuid() string {
+	return uuid.NewRandom().String()
+}
+
 // MapToJson converts a map to a json string
 func MapToJson(objmap map[string]string) string {
 	b, _ := json.Marshal(objmap)

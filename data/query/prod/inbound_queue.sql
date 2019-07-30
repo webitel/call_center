@@ -1,3 +1,6 @@
+
+drop function cc_add_to_queue;
+
 CREATE OR REPLACE FUNCTION cc_add_to_queue(_queue_id bigint, _call_id varchar(36), _number varchar(50), _name varchar(50), _priority integer = 0)
   RETURNS bigint AS
 $$
@@ -262,8 +265,55 @@ vacuum full cc_member_communications;
 select count(*)
 --delete
 from cc_member_attempt
-where state > 0
-;
+where hangup_at = 0;
+
+
+ select *
+from cc_set_active_members('aaa');
+
+SELECT * FROM heap_page('cc_member_attempt',0);
+
+
+explain analyze
+select count(*)
+from cc_member_attempt
+where hangup_at = 0;
+
+
+
+ select s as count
+from cc_reserve_members_with_resources('aaa') s;
+
+
+select *
+from get_free_resources();
+
+
+select *
+from cc_queue_is_working;
+
+
+
+explain analyze
+select id, name, timeout, updated_at, max_calls, active_calls.cnt as active_calls, enabled, calendar.ready as calendar_ready
+from cc_queue q,
+ lateral (
+   select exists(
+     select *
+     from calendar_accept_of_day d
+       inner join calendar c2 on d.calendar_id = c2.id
+     where d.calendar_id = q.calendar_id AND
+           (to_char(current_timestamp AT TIME ZONE c2.timezone, 'SSSS') :: int / 60)
+           between d.start_time_of_day AND d.end_time_of_day
+     ) as ready
+ ) calendar
+ left join lateral (
+    select count(*) cnt
+    from cc_member_attempt a
+    where a.hangup_at = 0 and a.queue_id = q.id
+ ) active_calls on true
+where q.type = 0 and q.domain_id = 1
+limit 1;
 
 
   select * from cc_add_to_queue(3, null, '7777' || 10, 'IGOR', 100);

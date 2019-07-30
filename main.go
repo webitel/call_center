@@ -6,12 +6,18 @@ import (
 	"github.com/webitel/call_center/app"
 
 	"github.com/webitel/wlog"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 func main() {
 	interruptChan := make(chan os.Signal, 1)
@@ -40,8 +46,8 @@ func setDebug() {
 	//debug.SetGCPercent(-1)
 
 	go func() {
-		fmt.Println("Start debug server on http://localhost:8090/debug/pprof/")
-		fmt.Println("Debug: ", http.ListenAndServe(":8090", nil))
+		wlog.Info(fmt.Sprintf("Start debug server on http://localhost:8090/debug/pprof/"))
+		wlog.Info(fmt.Sprintf("Debug: ", http.ListenAndServe(":8090", nil)))
 	}()
 
 }
