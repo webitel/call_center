@@ -27,43 +27,6 @@ type CallManager interface {
 	InboundCall() <-chan Call
 }
 
-type Call interface {
-	Id() string
-	NodeName() string
-
-	FromNumber() string
-	FromName() string
-
-	HangupCause() string
-	GetState() uint8
-	Err() *model.AppError
-	GetAttribute(name string) (string, bool)
-	GetIntAttribute(name string) (int, bool)
-
-	SetHangupCall(event *CallEvent)
-
-	OfferingAt() int64
-	AcceptAt() int64
-	BridgeAt() int64
-	HangupAt() int64
-
-	DurationSeconds() int
-	BillSeconds() int
-	AnswerSeconds() int
-	WaitSeconds() int
-
-	WaitForHangup()
-	HangupChan() <-chan struct{}
-
-	NewCall(callRequest *model.CallRequest) Call
-
-	Hangup(cause string) *model.AppError
-	Hold() *model.AppError
-	DTMF(val rune) *model.AppError
-
-	Bridge(other Call) *model.AppError
-}
-
 type CallManagerImpl struct {
 	nodeId string
 
@@ -130,8 +93,8 @@ func (cm *CallManagerImpl) Stop() {
 }
 
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
-	api, _ := cm.pool.getByRoundRobin()
-	return NewCall(callRequest, cm, api)
+	api, _ := cm.pool.getByRoundRobin() //TODO check error
+	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
 }
 
 func (cm *CallManagerImpl) ActiveCalls() int {

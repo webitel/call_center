@@ -1,8 +1,8 @@
 package queue
 
 import (
-	"context"
 	"fmt"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 )
 
@@ -85,16 +85,6 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				info.agent = agent
 				agent.SetStateOffering(0)
 
-				ctx, cancel := context.WithCancel(context.Background())
-
-				go func() {
-					select {
-					case <-ctx.Done():
-						fmt.Println("DONE")
-						cancel()
-					}
-				}()
-
 				agentCall := call.NewCall(&model.CallRequest{
 					Endpoints: agent.GetCallEndpoints(), //[]string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
 					Strategy:  model.CALL_STRATEGY_DEFAULT,
@@ -128,12 +118,24 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 					},
 				})
 
-				if agentCall.Err() != nil {
-					agent.SetStateFine(5)
-					queue.queueManager.SetFindAgentState(attempt.Id())
-				} else {
-					agent.SetStateTalking(0)
-					//agentCall.Bridge(call)
+				agentCall.Invite()
+
+				for agentCall.HangupCause() == "" {
+					select {
+					case state := <-agentCall.State():
+						switch state {
+						case call_manager.CALL_STATE_ACCEPT:
+							agent.SetStateTalking(0)
+
+						case call_manager.CALL_STATE_HANGUP:
+							agent.SetStateFine(5)
+							queue.queueManager.SetFindAgentState(attempt.Id())
+						}
+					case <-call.HangupChan():
+						agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+						agentCall.WaitForHangup()
+						break
+					}
 				}
 
 			case <-attempt.done:

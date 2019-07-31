@@ -113,6 +113,10 @@ func (c *callConnectionsPool) getByRoundRobin() (model.CallCommands, *model.AppE
 	c.RLock()
 	defer c.RUnlock()
 
+	if c.iterator.length == 0 {
+		return nil, errNotOpenedConnection
+	}
+
 	i := c.iterator.index
 
 	for j := c.iterator.Next(); ; j = c.iterator.Next() {

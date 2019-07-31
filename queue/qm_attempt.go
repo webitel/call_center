@@ -33,5 +33,5 @@ func (queueManager *QueueManager) SetAttemptStop(attempt *Attempt, cause string)
 }
 
 func (queueManager *QueueManager) SetAttemptBarred(attempt *Attempt) (bool, *model.AppError) {
-	return queueManager.store.Member().SetAttemptBarred(attempt.Id(), model.GetMillis(), model.CALL_OUTGOING_CALL_BARRED, attempt.LogsData())
+	return queueManager.store.Member().SetAttemptBarred(attempt.Id(), model.GetMillis(), model.CALL_HANGUP_OUTGOING_CALL_BARRED, attempt.LogsData())
 }

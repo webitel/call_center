@@ -130,13 +130,18 @@ func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *
 }
 
 func (c *CallConnection) HangupCall(id, cause string) *model.AppError {
-	_, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
+	res, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
 		Uuid:  id,
 		Cause: cause,
 	})
 
 	if err != nil {
 		return model.NewAppError("HangupCall", "external.hangup_call.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return model.NewAppError("HangupCall", "external.hangup_call.app_error", nil, res.Error.String(),
 			http.StatusInternalServerError)
 	}
 	return nil

@@ -128,7 +128,7 @@ func (a *Attempt) GetCommunicationPattern() *string {
 }
 
 func (a *Attempt) IsBarred() bool {
-	if a.member.Result != nil && *a.member.Result == model.CALL_OUTGOING_CALL_BARRED {
+	if a.member.Result != nil && *a.member.Result == model.CALL_HANGUP_OUTGOING_CALL_BARRED {
 		return true
 	}
 	return false

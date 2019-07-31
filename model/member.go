@@ -55,5 +55,5 @@ type InboundMember struct {
 }
 
 func (ma *MemberAttempt) IsTimeout() bool {
-	return ma.Result != nil && *ma.Result == CALL_TIMEOUT
+	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
 }

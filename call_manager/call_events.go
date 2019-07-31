@@ -28,29 +28,6 @@ func (e *CallEvent) Name() string {
 	return v
 }
 
-func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *model.AppError {
-	api, err := cm.pool.getByName(fromNode)
-
-	if err != nil {
-		return err
-	}
-
-	call := &CallImpl{
-		id:        event.Id(),
-		api:       api,
-		cm:        cm,
-		hangup:    make(chan struct{}),
-		lastEvent: event,
-	}
-
-	call.setState(CALL_STATE_ACCEPT)
-	cm.saveToCacheCall(call)
-
-	cm.inboundCall <- call
-
-	return nil
-}
-
 func (cm *CallManagerImpl) handleCallEvent(event model.Event) {
 	var ok bool
 	var name string
@@ -85,8 +62,9 @@ func (cm *CallManagerImpl) handleCallEvent(event model.Event) {
 				if _, ok = callEvent.GetStrAttribute("Other-Leg-Unique-ID"); ok {
 					return
 				}
-				call.SetHangupCall(callEvent)
-				cm.removeFromCacheCall(call)
+				//TODO check cause
+
+				call.(*CallImpl).setHangupCall(nil, callEvent, "")
 			}
 
 		default:
@@ -107,17 +85,22 @@ func (cm *CallManagerImpl) handleOutboundCalls(eventName string, event *CallEven
 	}
 
 	switch eventName {
+	case model.CALL_EVENT_CREATE:
+		call.(*CallImpl).setState(event, CALL_STATE_RINGING)
+	case model.CALL_EVENT_ANSWER:
+		call.(*CallImpl).setState(event, CALL_STATE_ACCEPT)
+	case model.CALL_EVENT_BRIDGE:
+		call.(*CallImpl).setState(event, CALL_STATE_BRIDGE)
+	case model.CALL_EVENT_PARK:
+		call.(*CallImpl).setState(event, CALL_STATE_PARK)
 	case model.CALL_EVENT_HANGUP:
 		if _, ok = event.GetVariable("grpc_originate_success"); !ok {
 			wlog.Debug(fmt.Sprintf("[%s] call %s skip event %s, bad originate]", event.NodeName(), event.Id(), eventName))
 			return
 		}
-		call.SetHangupCall(event)
-		cm.removeFromCacheCall(call)
-	case model.CALL_EVENT_BRIDGE:
-		call.(*CallImpl).setState(CALL_STATE_BRIDGE)
-	case model.CALL_EVENT_PARK:
-		//TODO
-		call.(*CallImpl).setState(CALL_STATE_PARK)
+		cause, _ := event.GetStrAttribute(model.CALL_ATTRIBUTE_HANGUP_CAUSE_NAME)
+		call.(*CallImpl).setHangupCall(nil, event, cause)
+	default:
+		wlog.Debug(fmt.Sprintf("[%s] call %s no handler event %s", call.NodeName(), call.Id(), eventName))
 	}
 }
