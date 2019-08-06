@@ -229,7 +229,8 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
 
-	wlog.Debug(fmt.Sprintf("leaving member %s[%d] AttemptId=%d from queue \"%s\"", attempt.Name(), attempt.MemberId(), attempt.Id(), queue.Name()))
+	wlog.Debug(fmt.Sprintf("leaving member %s[%d] AttemptId=%d from queue \"%s\" [%d]", attempt.Name(),
+		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 
 func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {

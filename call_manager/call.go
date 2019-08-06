@@ -16,10 +16,10 @@ type Call interface {
 	FromName() string
 
 	Invite() *model.AppError
-	State() <-chan uint8
+	State() <-chan CallState
 
 	HangupCause() string
-	GetState() uint8
+	GetState() CallState
 	Err() *model.AppError
 	GetAttribute(name string) (string, bool)
 	GetIntAttribute(name string) (int, bool)
@@ -54,9 +54,10 @@ type CallImpl struct {
 	hangup      chan struct{}
 	lastEvent   *CallEvent
 	err         *model.AppError
-	state       uint8
+	state       CallState
+	cancel      string
 
-	chState chan uint8
+	chState chan CallState
 
 	offeringAt int64
 	acceptAt   int64
@@ -67,18 +68,25 @@ type CallImpl struct {
 }
 
 type CallDirection string
+type CallState uint8
 
 const (
-	CALL_STATE_NEW = iota
-	CALL_STATE_RINGING
+	CALL_STATE_NEW CallState = iota
 	CALL_STATE_ACCEPT
+	CALL_STATE_RINGING
 	CALL_STATE_BRIDGE
 	CALL_STATE_PARK
 	CALL_STATE_HANGUP
-
-	CALL_DIRECTION_INBOUND  = "inbound"
-	CALL_DIRECTION_OUTBOUND = "outbound"
 )
+
+const (
+	CALL_DIRECTION_INBOUND  CallDirection = "inbound"
+	CALL_DIRECTION_OUTBOUND               = "outbound"
+)
+
+func (s CallState) String() string {
+	return [...]string{"new", "accept", "ringing", "bridge", "park", "hangup"}[s]
+}
 
 var (
 	errBadBridgeNode   = model.NewAppError("Call", "call.bridge.bad_request.node_difference", nil, "", http.StatusBadRequest)
@@ -97,7 +105,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		api:         api,
 		cm:          cm,
 		hangup:      make(chan struct{}),
-		chState:     make(chan uint8),
+		chState:     make(chan CallState, 5),
 		state:       CALL_STATE_NEW,
 	}
 
@@ -120,7 +128,7 @@ func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *mo
 		direction: CALL_DIRECTION_INBOUND,
 		hangup:    make(chan struct{}),
 		lastEvent: event,
-		chState:   make(chan uint8, 5),
+		chState:   make(chan CallState, 5),
 		state:     CALL_STATE_ACCEPT,
 	}
 
@@ -138,6 +146,7 @@ func (call *CallImpl) Invite() *model.AppError {
 	}
 
 	go func() {
+		wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 		_, cause, err := call.api.NewCall(call.callRequest)
 		if err != nil {
 			wlog.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()))
@@ -173,7 +182,7 @@ func (call *CallImpl) NodeName() string {
 	return call.api.Name()
 }
 
-func (call *CallImpl) setState(event *CallEvent, state uint8) {
+func (call *CallImpl) setState(event *CallEvent, state CallState) {
 	call.Lock()
 	switch state {
 	case CALL_STATE_RINGING:
@@ -189,18 +198,28 @@ func (call *CallImpl) setState(event *CallEvent, state uint8) {
 	if event != nil {
 		call.lastEvent = event
 	}
+
+	if call.cancel != "" && state < CALL_STATE_HANGUP {
+		if err := call.api.HangupCall(call.Id(), call.cancel); err != nil {
+			wlog.Error(fmt.Sprintf("[%s] call %s error: \"%s\"", call.NodeName(), call.Id(), err.Error()))
+		}
+		wlog.Debug(fmt.Sprintf("[%s] call %s send hangup \"%s\"", call.NodeName(), call.Id(), call.cancel))
+		call.cancel = ""
+	}
+
 	call.state = state
+
 	call.Unlock()
 
 	call.chState <- state
-	wlog.Debug(fmt.Sprintf("[%s] call %s set state  %d", call.NodeName(), call.Id(), state))
+	wlog.Debug(fmt.Sprintf("[%s] call %s set state \"%s\"", call.NodeName(), call.Id(), state.String()))
 }
 
-func (call *CallImpl) State() <-chan uint8 {
+func (call *CallImpl) State() <-chan CallState {
 	return call.chState
 }
 
-func (call *CallImpl) GetState() uint8 {
+func (call *CallImpl) GetState() CallState {
 	call.RLock()
 	defer call.RUnlock()
 	return call.state
@@ -222,8 +241,6 @@ func (call *CallImpl) WaitForHangup() {
 			select {
 			case <-call.HangupChan():
 				return
-			case <-call.chState:
-
 			}
 		}
 	}
@@ -304,8 +321,26 @@ func (call *CallImpl) Err() *model.AppError {
 }
 
 func (call *CallImpl) Hangup(cause string) *model.AppError {
+
+	if call.GetState() == CALL_STATE_NEW {
+		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
+		call.setCancel(cause)
+		return nil
+	}
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
 	return call.api.HangupCall(call.id, cause)
+}
+
+func (call *CallImpl) setCancel(cause string) {
+	call.Lock()
+	defer call.Unlock()
+	call.cancel = cause
+}
+
+func (call *CallImpl) Cancel() string {
+	call.RLock()
+	defer call.RUnlock()
+	return call.cancel
 }
 
 func (call *CallImpl) Mute(on bool) *model.AppError {

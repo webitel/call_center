@@ -39,7 +39,7 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 		member:          member,
 		cancel:          make(chan Result, 1),
 		done:            make(chan struct{}),
-		distributeAgent: make(chan agent_manager.AgentObject),
+		distributeAgent: make(chan agent_manager.AgentObject, 1),
 		ctx:             context.Background(),
 	}
 }

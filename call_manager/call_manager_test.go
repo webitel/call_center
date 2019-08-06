@@ -31,6 +31,7 @@ func TestCallManager(t *testing.T) {
 	cm := NewCallManager(TEST_NODE_ID, service, mq)
 	cm.Start()
 
+	testCallCancel(cm, t)
 	testCallError(cm, t)
 	testWaitForHangup(cm, t)
 	testCallAnswer(cm, t)
@@ -107,6 +108,63 @@ func testWaitForHangup(cm CallManager, t *testing.T) {
 
 	if call.HangupCause() != model.CALL_HANGUP_REJECTED {
 		t.Errorf("Call %s hangup assert error: %s", call.Id(), call.HangupCause())
+	}
+}
+
+func testCallCancel(cm CallManager, t *testing.T) {
+	t.Log("testCallAnswer")
+	cr := &model.CallRequest{
+		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Variables: map[string]string{
+			"cc_test_call_manager": "true",
+		},
+		Timeout: 5,
+		Applications: []*model.CallRequestApplication{
+			{
+				AppName: model.CALL_ANSWER_APPLICATION,
+			},
+			{
+				AppName: model.CALL_SLEEP_APPLICATION,
+				Args:    "1000",
+			},
+			{
+				AppName: model.CALL_HANGUP_APPLICATION,
+				Args:    model.CALL_HANGUP_REJECTED,
+			},
+		},
+	}
+	call := cm.NewCall(cr)
+	call.Invite()
+
+	if call.Err() != nil {
+		t.Errorf("call %s error: %s", call.Id(), call.Err().Error())
+	}
+
+	call.Hangup(model.CALL_HANGUP_USER_BUSY)
+	for {
+		select {
+		case state := <-call.State():
+
+			switch state {
+			case CALL_STATE_ACCEPT:
+				call.WaitForHangup()
+
+			case CALL_STATE_HANGUP:
+				//if call.Err() != nil {
+				//	t.Errorf("call %s error: %s", call.Id(), call.Err().Error())
+				//}
+				if call.HangupCause() != model.CALL_HANGUP_USER_BUSY {
+					t.Errorf("call %s assert hangup case error: %s", call.Id(), call.HangupCause())
+				}
+
+				return
+			}
+		case <-call.HangupChan():
+			if call.HangupCause() != model.CALL_HANGUP_USER_BUSY {
+				t.Errorf("call %s assert hangup case error: %s", call.Id(), call.HangupCause())
+			}
+			return
+		}
 	}
 }
 

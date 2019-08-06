@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type InboundQueue struct {
@@ -38,6 +39,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 		}
 
 		defer attempt.Log("stopped queue")
+		defer close(attempt.distributeAgent)
 
 		//TODO
 		if attempt.member.Result != nil {
@@ -54,7 +56,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				info.agent.SetStateReporting(10)
 			}
 		}()
-
+		//originate {sip_route_uri=sip:192.168.177.13,sip_h_X-Webitel-Direction=outbound}sofia/sip/agent@10.10.10.200:5080 &sleep(1
 		for {
 			select {
 			case <-call.HangupChan():
@@ -80,20 +82,27 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				return
 
 			case agent := <-attempt.distributeAgent:
+
+				if call.HangupCause() != "" {
+					attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))
+					continue
+				}
+
 				attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 				info.agent = agent
 				agent.SetStateOffering(0)
 
 				agentCall := call.NewCall(&model.CallRequest{
-					Endpoints: agent.GetCallEndpoints(), //[]string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
+					Endpoints: []string{`sofia/sip/agent@10.10.10.200:5080`}, //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
 					Strategy:  model.CALL_STRATEGY_DEFAULT,
 					Variables: model.UnionStringMaps(
 						queue.Variables(),
 						attempt.Variables(),
 						map[string]string{
 							"sip_route_uri":                        queue.SipRouterAddr(),
-							"sip_h_X-Webitel-Direction":            "internal",
+							"sip_h_X-Webitel-Direction":            "outbound",
+							"other_loopback_leg_uuid":              model.NewUuid(),
 							"absolute_codec_string":                "PCMA",
 							"valet_hold_music":                     "silence",
 							model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
@@ -120,6 +129,9 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 
 				agentCall.Invite()
 
+				wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", call.Id(), agentCall.Id()))
+
+			top:
 				for agentCall.HangupCause() == "" {
 					select {
 					case state := <-agentCall.State():
@@ -128,14 +140,21 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 							agent.SetStateTalking(0)
 
 						case call_manager.CALL_STATE_HANGUP:
-							agent.SetStateFine(5)
-							queue.queueManager.SetFindAgentState(attempt.Id())
+							break top
 						}
 					case <-call.HangupChan():
 						agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
 						agentCall.WaitForHangup()
-						break
+						wlog.Debug(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
+						break top
 					}
+				}
+
+				if call.BridgeAt() > 0 {
+					agent.SetStateReporting(5)
+				} else {
+					agent.SetStateFine(5)
+					queue.queueManager.SetFindAgentState(attempt.Id())
 				}
 
 			case <-attempt.done:

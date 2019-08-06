@@ -252,20 +252,31 @@ where aq.queue_id = 3
 
 
 update cc_agent
-set status = 'online',
+set status = 'ofline',
     state = 'waiting'
 where 1=1;
 
 select *
-from cc_agent;
+from cc_agent
+where state != 'waiting' or status != 'online';
 
 
 vacuum full cc_member_communications;
 
-select count(*)
+explain (analyze, buffers )
+select *
 --delete
 from cc_member_attempt
 where hangup_at = 0;
+
+
+select *
+from cc_member_communications
+where number = 'igor_test_ca';
+
+select 1565017190698 - 1565017190782;
+
+vacuum analyze cc_member_attempt;
 
 
  select *

@@ -43,6 +43,11 @@ func (cm *CallManagerImpl) handleCallEvent(event model.Event) {
 
 	if name == model.CALL_EVENT_CUSTOM {
 
+		if side, ok := callEvent.GetVariable(model.QUEUE_SIDE_FIELD); ok && side == model.QUEUE_SIDE_AGENT {
+			wlog.Debug(fmt.Sprintf("[%s] call %s skip event %s, agent side", callEvent.NodeName(), callEvent.Id(), name))
+			return
+		}
+
 		var action string
 		action, ok = callEvent.GetStrAttribute("Action")
 
@@ -64,7 +69,7 @@ func (cm *CallManagerImpl) handleCallEvent(event model.Event) {
 				}
 				//TODO check cause
 
-				call.(*CallImpl).setHangupCall(nil, callEvent, "")
+				call.(*CallImpl).setHangupCall(nil, callEvent, model.CALL_HANGUP_NORMAL_CLEARING)
 			}
 
 		default:

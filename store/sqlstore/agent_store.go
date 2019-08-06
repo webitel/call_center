@@ -29,7 +29,7 @@ from (
   from cc_distribute_agent_to_attempt($1) r
   inner join cc_agent a2 on a2.id = r.agent_id
 ) r
-where a.id = r.attempt_id
+where a.id = r.attempt_id and a.hangup_at = 0
 returning a.id as attempt_id, a.agent_id as agent_id, r.updated_at agent_updated_at`, nodeId); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 			map[string]interface{}{"Error": err.Error()},
