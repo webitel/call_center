@@ -252,7 +252,7 @@ where aq.queue_id = 3
 
 
 update cc_agent
-set status = 'ofline',
+set status = 'offline',
     state = 'waiting'
 where 1=1;
 

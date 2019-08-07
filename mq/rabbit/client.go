@@ -134,6 +134,13 @@ func (a *AMQP) subscribe() {
 	}
 
 	go func() {
+
+		defer func() {
+			if !a.stopping {
+				panic(1)
+			}
+		}()
+
 		for m := range msgs {
 			if m.ContentType != "text/json" {
 				wlog.Warn(fmt.Sprintf("Failed receive event content type: %v\n%s", m.ContentType, m.Body))

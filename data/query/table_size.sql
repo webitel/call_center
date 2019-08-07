@@ -15,6 +15,7 @@ SELECT *, pg_size_pretty(total_bytes) AS total
           WHERE relkind = 'r'
   ) a
 ) a
+where a.TABLE_NAME like 'cc_member_attempt%'
 order by 2, 8 desc;
 
 vacuum full cc_member_attempt;
