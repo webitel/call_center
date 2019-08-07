@@ -31,14 +31,22 @@ func TestCallManager(t *testing.T) {
 	cm := NewCallManager(TEST_NODE_ID, service, mq)
 	cm.Start()
 
-	testCallCancel(cm, t)
-	testCallError(cm, t)
-	testWaitForHangup(cm, t)
-	testCallAnswer(cm, t)
-	testCallStates(cm, t)
-	testCallHangup(cm, t)
-	testCallHold(cm, t)
-	testParentCall(cm, t)
+	var i = 0
+
+	for {
+		i++
+		if i > 100 {
+			break
+		}
+		testCallCancel(cm, t)
+		testCallError(cm, t)
+		testWaitForHangup(cm, t)
+		testCallAnswer(cm, t)
+		testCallStates(cm, t)
+		testCallHangup(cm, t)
+		testCallHold(cm, t)
+		testParentCall(cm, t)
+	}
 
 	if cm.ActiveCalls() != 0 {
 		t.Errorf("Call manager calls %v", cm.ActiveCalls())
@@ -83,7 +91,7 @@ func testCallError(cm CallManager, t *testing.T) {
 func testWaitForHangup(cm CallManager, t *testing.T) {
 	t.Log("testCallAnswer")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -114,7 +122,7 @@ func testWaitForHangup(cm CallManager, t *testing.T) {
 func testCallCancel(cm CallManager, t *testing.T) {
 	t.Log("testCallAnswer")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -171,7 +179,7 @@ func testCallCancel(cm CallManager, t *testing.T) {
 func testCallAnswer(cm CallManager, t *testing.T) {
 	t.Log("testCallAnswer")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -221,7 +229,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 func testCallHangup(cm CallManager, t *testing.T) {
 	t.Log("testCallHangup")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -267,7 +275,7 @@ func testCallHangup(cm CallManager, t *testing.T) {
 func testCallStates(cm CallManager, t *testing.T) {
 	t.Log("testCallStates")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -322,7 +330,7 @@ func testCallStates(cm CallManager, t *testing.T) {
 func testCallHold(cm CallManager, t *testing.T) {
 	t.Log("testCallHold")
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 		},
@@ -367,7 +375,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 	t.Log("testParentCall")
 
 	cr := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 			"hangup_after_bridge":  "true",
@@ -384,7 +392,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 	}
 
 	cr2 := &model.CallRequest{
-		Endpoints: []string{`loopback/answer\,park/default/inline`},
+		Endpoints: []string{`null`},
 		Variables: map[string]string{
 			"cc_test_call_manager": "true",
 			"hangup_after_bridge":  "true",
