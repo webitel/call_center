@@ -94,14 +94,14 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				agent.SetStateOffering(0)
 
 				agentCall := call.NewCall(&model.CallRequest{
-					Endpoints: []string{`loopback/answer\,park/default/inline`}, //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
+					Endpoints: []string{`null`}, //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
 					Strategy:  model.CALL_STRATEGY_DEFAULT,
 					Variables: model.UnionStringMaps(
 						queue.Variables(),
 						attempt.Variables(),
 						map[string]string{
 							"sip_route_uri":                        queue.SipRouterAddr(),
-							"sip_h_X-Webitel-Direction":            "outbound",
+							"sip_h_X-Webitel-Direction":            "internal",
 							"other_loopback_leg_uuid":              model.NewUuid(),
 							"absolute_codec_string":                "PCMU",
 							"valet_hold_music":                     "silence",
@@ -132,7 +132,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", call.Id(), agentCall.Id()))
 
 			top:
-				for agentCall.HangupCause() == "" {
+				for agentCall.HangupCause() == "" && call.HangupCause() == "" {
 					select {
 					case state := <-agentCall.State():
 						switch state {

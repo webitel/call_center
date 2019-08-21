@@ -249,10 +249,10 @@ where aq.queue_id = 3
   );
 
 
-
+select cc_reserve_members_with_resources('1');
 
 update cc_agent
-set status = 'offline',
+set status = 'online',
     state = 'waiting'
 where 1=1;
 
@@ -282,7 +282,7 @@ vacuum analyze cc_member_attempt;
  select *
 from cc_set_active_members('aaa');
 
-SELECT * FROM heap_page('cc_member_attempt',0);
+SELECT * FROM heap_page('cc_member_attempt',1);
 
 
 explain analyze

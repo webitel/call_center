@@ -44,6 +44,7 @@ func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) {
 				attempt.Done()
 
 			case <-attempt.done:
+				voice.queueManager.LeavingMember(attempt, voice)
 				return
 			}
 		}
@@ -64,7 +65,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	*/
 
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/sip/400@webitel.lo"}, // []string{dst},
+		Endpoints:    []string{"null"}, // []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      voice.Timeout(),
@@ -73,7 +74,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			voice.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_route_uri":             "sip:192.168.177.13", //"$${outbound_sip_proxy}",
+				"sip_route_uri":             voice.SipRouterAddr(), //"$${outbound_sip_proxy}",
 				"sip_h_X-Webitel-Direction": "internal",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
@@ -110,13 +111,14 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	} else {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "sleep",
-			Args:    "100000",
+			Args:    "1000",
 		})
 	}
 
 	info.LegAUri = dst
 	info.LegBUri = legB
 	call := voice.NewCallUseResource(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	call.Invite()
 	if call.Err() != nil {
 		voice.CallError(attempt, call.Err(), call.HangupCause())
 		voice.queueManager.LeavingMember(attempt, voice)
@@ -140,5 +142,5 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 		voice.StopAttemptWithCallDuration(attempt, call.HangupCause(), 10) //TODO
 	}
 
-	voice.queueManager.LeavingMember(attempt, voice)
+	attempt.Done()
 }

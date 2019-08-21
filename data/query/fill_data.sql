@@ -14,6 +14,10 @@ select sum(r.id) from  (
 select *
 from calendar;
 
+
+select (RANDOM() * 10::int )::int;
+
+
 --agents
 
 --calendar
