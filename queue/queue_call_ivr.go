@@ -111,7 +111,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 	} else {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "sleep",
-			Args:    "1000",
+			Args:    "900",
 		})
 	}
 

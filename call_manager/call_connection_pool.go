@@ -67,16 +67,25 @@ func (c *callConnectionsPool) registerConnection(config *model.ServiceConnection
 }
 
 func (c *callConnectionsPool) appendConnection(client model.CallCommands) {
+	var sps int
 	version, err := client.GetServerVersion()
 	if err != nil {
 		wlog.Error(fmt.Sprintf("opened connection %s, error: %s", client.Name(), err.Error()))
 		return
 	}
+
+	if sps, err = client.GetRemoteSps(); err != nil {
+		wlog.Error(fmt.Sprintf("connection %s, session per seconds configuration error: %s", client.Name(), err.Error()))
+		return
+	} else {
+		client.SetConnectionSps(sps)
+	}
+
 	c.Lock()
 	c.connections = append(c.connections, client)
 	c.iterator.length = len(c.connections)
 	c.Unlock()
-	wlog.Debug(fmt.Sprintf("opened connection %s [%s]", client.Name(), version))
+	wlog.Debug(fmt.Sprintf("opened connection %s [sps = %d, version = %s]", client.Name(), sps, version))
 }
 
 func (c *callConnectionsPool) removeConnectionByName(name string) {

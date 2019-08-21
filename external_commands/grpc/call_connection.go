@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
+	"go.uber.org/ratelimit"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,11 +19,15 @@ const (
 	CONNECTION_TIMEOUT = 2 * time.Second
 )
 
+var patternSps = regexp.MustCompile(`\D+`)
+var patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
+
 type CallConnection struct {
-	name   string
-	host   string
-	client *grpc.ClientConn
-	api    fs.ApiClient
+	name        string
+	host        string
+	rateLimiter ratelimit.Limiter
+	client      *grpc.ClientConn
+	api         fs.ApiClient
 }
 
 func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {
@@ -75,7 +82,28 @@ func (c *CallConnection) GetServerVersion() (string, *model.AppError) {
 			http.StatusInternalServerError)
 	}
 
-	return strings.TrimSpace(res.Data), nil
+	return patternVersion.ReplaceAllString(strings.TrimSpace(res.Data), "$1"), nil
+}
+
+func (c *CallConnection) SetConnectionSps(sps int) (int, *model.AppError) {
+	if sps > 0 {
+		c.rateLimiter = ratelimit.New(sps)
+	}
+	return sps, nil
+}
+
+func (c *CallConnection) GetRemoteSps() (int, *model.AppError) {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "fsctl",
+		Args:    "sps",
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("GetRemoteSps", "external.get_sps.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	return parseSps(res.String()), nil
 }
 
 func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.CallRequest) (string, string, *model.AppError) {
@@ -108,6 +136,10 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 	case model.CALL_STRATEGY_MULTIPLE:
 		request.Strategy = fs.OriginateRequest_MULTIPLE
 		break
+	}
+
+	if c.rateLimiter != nil {
+		c.rateLimiter.Take()
 	}
 
 	response, err := c.api.Originate(ctx, request)
@@ -219,4 +251,9 @@ func (c *CallConnection) DTMF(id string, ch rune) *model.AppError {
 
 func (c *CallConnection) close() {
 	c.client.Close()
+}
+
+func parseSps(str string) int {
+	i, _ := strconv.Atoi(patternSps.ReplaceAllString(str, ""))
+	return i
 }

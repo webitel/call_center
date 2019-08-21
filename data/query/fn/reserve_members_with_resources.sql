@@ -281,6 +281,15 @@ limit 10::int;
 ;
 
 
+
+select *
+from cc_member_attempt;;
+
+
+
+truncate table cc_member_attempt;
+
+
 select routing_ids, count(*)
 from cc_member_communications
 group by routing_ids;
