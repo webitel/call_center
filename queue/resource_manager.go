@@ -47,7 +47,7 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 	}
 
 	r.resourcesCache.AddWithDefaultExpires(id, dialResource)
-	wlog.Debug(fmt.Sprintf("Add resource %s to cache", dialResource.Name()))
+	wlog.Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
 	return dialResource, nil
 }
 
@@ -61,7 +61,7 @@ func (r *ResourceManager) GetEndpoint(pattern string) (*Endpoint, *model.AppErro
 			return nil, err
 		}
 
-		wlog.Debug(fmt.Sprintf("Add endpoint pattern %s to cache", pattern))
+		wlog.Debug(fmt.Sprintf("add endpoint pattern %s to cache", pattern))
 		r.patternsCache.AddWithDefaultExpires(pattern, endpoint)
 	} else {
 		endpoint = p.(*Endpoint)

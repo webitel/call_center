@@ -94,7 +94,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 				agent.SetStateOffering(0)
 
 				agentCall := call.NewCall(&model.CallRequest{
-					Endpoints: []string{`null`}, //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
+					Endpoints: agent.GetCallEndpoints(), //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
 					Strategy:  model.CALL_STRATEGY_DEFAULT,
 					Variables: model.UnionStringMaps(
 						queue.Variables(),

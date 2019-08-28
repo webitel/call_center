@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 400
+var DEFAULT_WATCHER_POLLING_INTERVAL = 600
 
 type EngineImp struct {
 	nodeId          string
@@ -26,7 +26,7 @@ func NewEngine(id string, s store.Store) Engine {
 }
 
 func (e *EngineImp) Start() {
-	wlog.Info("Starting engine service")
+	wlog.Info("starting engine service")
 	e.watcher = utils.MakeWatcher("Engine", e.pollingInterval, e.ReserveMembers)
 	e.UnReserveMembers()
 	e.startOnce.Do(func() {

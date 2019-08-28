@@ -48,7 +48,7 @@ func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
 }
 
 func (c *cluster) Start() {
-	wlog.Info("Starting cluster service")
+	wlog.Info("starting cluster service")
 	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 	c.startOnce.Do(func() {
 		go c.watcher.Start()

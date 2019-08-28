@@ -28,6 +28,7 @@ const (
 	AGENT_STATE_LOGOUT    = "logged_out"
 	AGENT_STATE_WAITING   = "waiting"
 	AGENT_STATE_OFFERING  = "offering"
+	AGENT_STATE_RINGING   = "ringing"
 	AGENT_STATE_TALK      = "talking"
 	AGENT_STATE_REPORTING = "reporting"
 	AGENT_STATE_BREAK     = "break"

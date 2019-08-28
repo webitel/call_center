@@ -72,8 +72,8 @@ type CallState uint8
 
 const (
 	CALL_STATE_NEW CallState = iota
-	CALL_STATE_ACCEPT
 	CALL_STATE_RINGING
+	CALL_STATE_ACCEPT
 	CALL_STATE_BRIDGE
 	CALL_STATE_PARK
 	CALL_STATE_HANGUP
@@ -85,7 +85,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "accept", "ringing", "bridge", "park", "hangup"}[s]
+	return [...]string{"new", "ringing", "accept", "bridge", "park", "hangup"}[s]
 }
 
 var (
@@ -145,8 +145,9 @@ func (call *CallImpl) Invite() *model.AppError {
 		return errInviteDirection
 	}
 
+	wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
+
 	go func() {
-		wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 		_, cause, err := call.api.NewCall(call.callRequest)
 		if err != nil {
 			wlog.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()))
@@ -279,7 +280,7 @@ func (call *CallImpl) DurationSeconds() int {
 }
 
 func (call *CallImpl) BillSeconds() int {
-	return call.intVarIfLastEvent("billsec")
+	return call.intVarIfLastEvent("variable_billsec")
 }
 
 func (call *CallImpl) AnswerSeconds() int {

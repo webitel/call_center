@@ -14,7 +14,7 @@ func (e *EngineImp) ReserveMembers() {
 		time.Sleep(time.Second * 5)
 	} else {
 		if cnt > 0 {
-			wlog.Debug(fmt.Sprintf("Reserve %v members", cnt))
+			wlog.Debug(fmt.Sprintf("reserve %v members", cnt))
 		}
 	}
 }
@@ -25,7 +25,7 @@ func (e *EngineImp) UnReserveMembers() {
 		wlog.Error(err.Error())
 	} else {
 		if cnt > 0 {
-			wlog.Debug(fmt.Sprintf("Un reserve %v members", cnt))
+			wlog.Debug(fmt.Sprintf("un reserve %v members", cnt))
 		}
 	}
 }

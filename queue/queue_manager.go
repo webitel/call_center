@@ -49,17 +49,17 @@ func NewQueueManager(app App, s store.Store, callManager call_manager.CallManage
 }
 
 func (queueManager *QueueManager) Start() {
-	wlog.Debug("QueueManager started")
+	wlog.Debug("queueManager started")
 
 	defer func() {
-		wlog.Debug("Stopped QueueManager")
+		wlog.Debug("stopped QueueManager")
 		close(queueManager.stopped)
 	}()
 
 	for {
 		select {
 		case <-queueManager.stop:
-			wlog.Debug("QueueManager received stop signal")
+			wlog.Debug("queueManager received stop signal")
 			close(queueManager.input)
 			return
 		case attempt := <-queueManager.input:
@@ -71,8 +71,8 @@ func (queueManager *QueueManager) Start() {
 }
 
 func (queueManager *QueueManager) Stop() {
-	wlog.Debug("QueueManager Stopping")
-	wlog.Debug(fmt.Sprintf("Wait for close attempts %d", queueManager.membersCache.Len()))
+	wlog.Debug("queueManager Stopping")
+	wlog.Debug(fmt.Sprintf("wait for close attempts %d", queueManager.membersCache.Len()))
 	queueManager.wg.Wait()
 	close(queueManager.stop)
 	<-queueManager.stopped
@@ -89,13 +89,20 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 	if a, ok = queueManager.GetAttempt(attempt.Id); ok {
 
 		if attempt.Result == nil {
-			wlog.Error(fmt.Sprintf("Attempt %v in queue", a.Id()))
+			wlog.Error(fmt.Sprintf("attempt %v in queue", a.Id()))
 		} else {
 			a.SetMember(attempt)
 		}
 		return
 	} else {
 		a = queueManager.NewAttempt(attempt)
+		if attempt.AgentId != nil && attempt.AgentUpdatedAt != nil {
+			if agent, err := queueManager.agentManager.GetAgent(*attempt.AgentId, *attempt.AgentUpdatedAt); err != nil {
+				panic("TODO")
+			} else {
+				a.SetAgent(agent)
+			}
+		}
 	}
 
 	queueManager.input <- a
@@ -136,7 +143,7 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 	}
 
 	queueManager.queuesCache.AddWithDefaultExpires(id, queue)
-	wlog.Debug(fmt.Sprintf("Add queue %s to cache", queue.Name()))
+	wlog.Debug(fmt.Sprintf("add queue %s to cache", queue.Name()))
 	return queue, nil
 }
 
@@ -146,20 +153,20 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 
 func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, errorId string) {
 	if resource.CheckIfError(errorId) {
-		wlog.Warn(fmt.Sprintf("Resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
+		wlog.Warn(fmt.Sprintf("resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
 		if responseError, err := queueManager.store.OutboundResource().
 			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
 
 			wlog.Error(err.Error())
 		} else {
 			if responseError.Stopped != nil && *responseError.Stopped {
-				wlog.Info(fmt.Sprintf("Resource %s [%d] stopped, because: %s", resource.Name(), resource.Id(), errorId))
+				wlog.Info(fmt.Sprintf("resource %s [%d] stopped, because: %s", resource.Name(), resource.Id(), errorId))
 
 				queueManager.notifyStoppedResource(resource)
 			}
 
 			if responseError.UnReserveResourceId != nil {
-				wlog.Info(fmt.Sprintf("New resource ResourceId=%d from reserve", *responseError.UnReserveResourceId))
+				wlog.Info(fmt.Sprintf("new resource ResourceId=%d from reserve", *responseError.UnReserveResourceId))
 			}
 			queueManager.resourceManager.RemoveFromCacheById(int64(resource.Id()))
 		}
@@ -198,8 +205,8 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	queue.DistributeAttempt(attempt)
 	queueManager.notifyChangedQueueLength(queue)
 
-	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\"", attempt.Name(),
-		attempt.MemberId(), attempt.Id(), queue.Name()))
+	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", attempt.Name(),
+		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 
 func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {

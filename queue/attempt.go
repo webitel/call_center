@@ -44,6 +44,12 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 	}
 }
 
+func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
+	a.Lock()
+	defer a.Unlock()
+	a.agent = agent
+}
+
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.Lock()
 	a.agent = agent
@@ -116,7 +122,7 @@ func (a *Attempt) CommunicationId() int64 {
 	return a.member.CommunicationId
 }
 
-func (a *Attempt) GetCommunicationRoutingId() int {
+func (a *Attempt) CommunicationRoutingId() int {
 	if a.member.RoutingId == nil {
 		return 0
 	}

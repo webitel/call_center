@@ -53,21 +53,21 @@ func NewCallManager(nodeId string, cluster cluster.ServiceDiscovery, mq mq.MQ) C
 }
 
 func (cm *CallManagerImpl) Start() {
-	wlog.Debug("CallManager started")
+	wlog.Debug("callManager started")
 
 	cm.startOnce.Do(func() {
 		cm.watcher = utils.MakeWatcher("CallManager", WATCHER_INTERVAL, cm.pool.checkConnection)
 		go cm.watcher.Start()
 		go func() {
 			defer func() {
-				wlog.Debug("Stopped CallManager")
+				wlog.Debug("stopped CallManager")
 				close(cm.stopped)
 			}()
 
 			for {
 				select {
 				case <-cm.stop:
-					wlog.Debug("CallManager received stop signal")
+					wlog.Debug("callManager received stop signal")
 					return
 				case e, ok := <-cm.mq.ConsumeCallEvent():
 					if !ok {
@@ -82,7 +82,7 @@ func (cm *CallManagerImpl) Start() {
 }
 
 func (cm *CallManagerImpl) Stop() {
-	wlog.Debug("CallManager Stopping")
+	wlog.Debug("callManager Stopping")
 
 	if cm.watcher != nil {
 		cm.watcher.Stop()

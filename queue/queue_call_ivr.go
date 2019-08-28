@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"math/rand"
 )
 
 type IVRQueue struct {
@@ -88,10 +89,15 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.GetCommunicationRoutingId()),
+				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.CommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
+	}
+
+	err := voice.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ORIGINATE)
+	if err != nil {
+		panic(err.Error())
 	}
 
 	if voice.RecordCallEnabled() {
@@ -114,10 +120,11 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 			Args:    "900",
 		})
 	}
+	fmt.Sprintf("%d", rand.Int31n(35000))
 
 	info.LegAUri = dst
 	info.LegBUri = legB
-	call := voice.NewCallUseResource(callRequest, attempt.GetCommunicationRoutingId(), attempt.resource)
+	call := voice.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
 	call.Invite()
 	if call.Err() != nil {
 		voice.CallError(attempt, call.Err(), call.HangupCause())
@@ -127,7 +134,7 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 
 	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
-	err := voice.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
+	err = voice.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
 
 	if err != nil {
 		//todo

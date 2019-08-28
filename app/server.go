@@ -68,7 +68,7 @@ func (rl *RecoveryLogger) Println(i ...interface{}) {
 }
 
 func (a *App) StartServer() error {
-	wlog.Info("Starting Server...")
+	wlog.Info("starting server...")
 
 	var handler http.Handler = &CorsWrapper{a.Srv.RootRouter}
 
@@ -85,7 +85,7 @@ func (a *App) StartServer() error {
 	}
 
 	a.Srv.ListenAddr = listener.Addr().(*net.TCPAddr)
-	wlog.Info(fmt.Sprintf("Server is listening on %v", listener.Addr().String()))
+	wlog.Info(fmt.Sprintf("server is listening on %v", listener.Addr().String()))
 	a.Srv.didFinishListen = make(chan struct{})
 
 	go func() {
@@ -93,7 +93,7 @@ func (a *App) StartServer() error {
 
 		err = a.Srv.Server.Serve(listener)
 		if err != nil && err != http.ErrServerClosed {
-			wlog.Critical(fmt.Sprintf("Error starting server, err:%v", err))
+			wlog.Critical(fmt.Sprintf("error starting server, err:%v", err))
 			time.Sleep(time.Second)
 		}
 		close(a.Srv.didFinishListen)

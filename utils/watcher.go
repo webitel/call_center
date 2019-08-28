@@ -27,18 +27,18 @@ func MakeWatcher(name string, pollingInterval int, pollAndNotify WatcherNotify) 
 }
 
 func (watcher *Watcher) Start() {
-	wlog.Debug(fmt.Sprintf("Watcher [%s] started", watcher.name))
+	wlog.Debug(fmt.Sprintf("watcher [%s] started", watcher.name))
 	//<-time.After(time.Duration(rand.Intn(watcher.pollingInterval)) * time.Millisecond)
 
 	defer func() {
-		wlog.Debug(fmt.Sprintf("Watcher [%s] finished", watcher.name))
+		wlog.Debug(fmt.Sprintf("watcher [%s] finished", watcher.name))
 		close(watcher.stopped)
 	}()
 
 	for {
 		select {
 		case <-watcher.stop:
-			wlog.Debug(fmt.Sprintf("Watcher [%s] Received stop signal", watcher.name))
+			wlog.Debug(fmt.Sprintf("watcher [%s] Received stop signal", watcher.name))
 			return
 		case <-time.After(time.Duration(watcher.pollingInterval) * time.Millisecond):
 			watcher.PollAndNotify()
@@ -47,7 +47,7 @@ func (watcher *Watcher) Start() {
 }
 
 func (watcher *Watcher) Stop() {
-	wlog.Debug(fmt.Sprintf("Watcher [%s] Stopping", watcher.name))
+	wlog.Debug(fmt.Sprintf("watcher [%s] Stopping", watcher.name))
 	close(watcher.stop)
 	<-watcher.stopped
 }

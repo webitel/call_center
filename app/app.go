@@ -79,7 +79,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, errors.Wrapf(err, "unable to load translation files")
 	}
 
-	wlog.Info("Server is initializing...")
+	wlog.Info("server is initializing...")
 
 	if app.newStore == nil {
 		app.newStore = func() store.Store {
@@ -124,7 +124,7 @@ func (app *App) IsReady() bool {
 }
 
 func (app *App) Shutdown() {
-	wlog.Info("Stopping Server...")
+	wlog.Info("stopping Server...")
 
 	if app.cluster != nil {
 		app.cluster.Stop()

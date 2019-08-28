@@ -35,7 +35,7 @@ func TestCallManager(t *testing.T) {
 
 	for {
 		i++
-		if i > 100 {
+		if i > 5 {
 			break
 		}
 		testCallCancel(cm, t)
