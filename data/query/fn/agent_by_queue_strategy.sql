@@ -39,12 +39,76 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
+drop function cc_waiting_agents;
+CREATE OR REPLACE FUNCTION cc_waiting_agents(queue_id_ bigint, limit_ int, strategy_ varchar(50))
+  RETURNS table (
+    agent_id bigint,
+    pos int
+  ) AS
+$$
+BEGIN
+  return query select distinct on(a.agent_id) a.agent_id::bigint agent_id, (row_number() over (order by a.lvl, a.capacity desc))::int as pos
+  from (
+    select aq.agent_id, aq.lvl, aq.capacity
+    from (
+      select sa.agent_id, aq.lvl, sa.capacity
+      from cc_agent_in_queue aq
+        left join cc_skill_in_agent sa on sa.skill_id = aq.skill_id
+      where aq.queue_id = queue_id_ and aq.skill_id notnull
+
+      union distinct
+
+      select aq.agent_id, lvl, 0
+      from cc_agent_in_queue aq
+      where aq.queue_id = queue_id_ and aq.agent_id notnull
+    ) aq
+      inner join cc_agent a on a.id = aq.agent_id
+    where a.state = 'waiting' and a.status = 'online' and not exists(
+        select 1
+        from cc_member_attempt at
+        where at.agent_id = a.id
+    )
+    order by aq.lvl, aq.capacity desc
+    limit limit_
+  ) a;
+END;
+$$ LANGUAGE 'plpgsql' cost 70;
+
+select * --(array[aq.agent_id])::int[]
+from available_agent_in_queue aq
+  inner join cc_agent a on a.id = aq.agent_id
+where aq.queue_id = 1 --and a.status = 'online' and a.state = 'waiting';
 
 
-
+select *
+from cc_waiting_agents(1, 10, '') a;
 
 --where aq.queue_id = 1
 ;
+
+
+explain analyze
+
+select array_agg(a.agent_id) agent_ids
+from (
+  select aq.agent_id
+  from (
+    select sa.agent_id, aq.lvl, sa.capacity
+    from cc_agent_in_queue aq
+      left join cc_skill_in_agent sa on sa.skill_id = aq.skill_id
+    where aq.queue_id = 1 and aq.skill_id notnull
+
+    union distinct
+
+    select agent_id, lvl, 0
+    from cc_agent_in_queue aq
+    where aq.queue_id = 1 and aq.agent_id notnull
+  ) aq
+    inner join cc_agent a on a.id = aq.agent_id
+  where a.state = 'waiting' and a.status = 'online'
+  order by aq.lvl, aq.capacity desc
+  limit 10
+) a;
 
 
 explain analyse

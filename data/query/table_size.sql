@@ -15,18 +15,24 @@ SELECT *, pg_size_pretty(total_bytes) AS total
           WHERE relkind = 'r'
   ) a
 ) a
-where a.TABLE_NAME like 'cc_member_attempt%'
-order by 2, 8 desc;
+where a.TABLE_NAME like 'cc_member_%'
+order by 2, 8 desc
+limit 5;
 
 vacuum full cc_member_attempt;
 
 vacuum full cc_member_communications;
-
+truncate table cc_member_attempt_log;
 
 update cc_member_communications
 set state = 998
 where 1= 1;
 
+select *
+from cc_member_communications m
+where m.state = 0 and m.member_id in (select id
+from cc_member
+where queue_id =1 and stop_at = 0);
 
 
 create extension pgstattuple;

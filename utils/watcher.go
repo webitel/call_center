@@ -38,7 +38,7 @@ func (watcher *Watcher) Start() {
 	for {
 		select {
 		case <-watcher.stop:
-			wlog.Debug(fmt.Sprintf("watcher [%s] Received stop signal", watcher.name))
+			wlog.Debug(fmt.Sprintf("watcher [%s] received stop signal", watcher.name))
 			return
 		case <-time.After(time.Duration(watcher.pollingInterval) * time.Millisecond):
 			watcher.PollAndNotify()
@@ -47,7 +47,7 @@ func (watcher *Watcher) Start() {
 }
 
 func (watcher *Watcher) Stop() {
-	wlog.Debug(fmt.Sprintf("watcher [%s] Stopping", watcher.name))
+	wlog.Debug(fmt.Sprintf("watcher [%s] stopping", watcher.name))
 	close(watcher.stop)
 	<-watcher.stopped
 }

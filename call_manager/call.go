@@ -115,7 +115,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 }
 
 func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *model.AppError {
-	api, err := cm.pool.getByName(fromNode)
+	api, err := cm.getApiConnectionById(fromNode)
 
 	if err != nil {
 		return err

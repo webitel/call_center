@@ -56,23 +56,10 @@ select a.attempt_id, a.agent_id, a.agent_updated_at
 			from cc_reserved_agent_for_attempt('test') a;
 
 
-delete from cc_member_attempt
-where node_id = 'test'
-
-select count(*)
-from cc_member_communications
-where state != 0;
-
 
 update cc_agent
 set status = 'online'
 where id != 1;
-
-select *
-from cc_agent_activity
-where last_bridge_start_at != 0
-;
-
 
 explain (analyse, buffers )
 select a.id, h.timeout_at, case when a.status = 'online' then 'waiting' else a.status end, a.status_payload, h.state
@@ -87,16 +74,8 @@ from cc_agent a
 where  a.status in  ('online', 'pause') and h.state = 'waiting' -- h.timeout_at < now();
 
 
-select *
-from cc_member_attempt;
 
 
-
-select *
-from cc_member_attempt
-where hangup_at = 0 and not agent_id is null;
-
-vacuum full cc_agent_state_history;
 
 
 update cc_agent
@@ -107,20 +86,54 @@ set status = 'online',
     reject_delay_time = 1
 where 1=1;
 
+drop view cc_queue_distribute_resources;
+create or replace view cc_queue_distribute_resources as
+SELECT
+  r.queue_id,
+   r.resource_id,
+   r.routing_ids,
+   (((date_part('epoch'::text, now()) * (1000)::double precision))::bigint - (q.sec_between_retries * 1000))::bigint min_activity_at,
+   r.call_count,
+   q.dnc_list_id,
+   a::cc_communication_type_l[] as times,
+   q.type,
+   q.strategy,
+   q.payload
+from get_free_resources() r
+  inner join cc_queue q on q.id = r.queue_id
+  cross join cc_queue_timing_timezones(q.id, q.calendar_id::bigint) a
+where r.call_count > 0 and a notnull
+group by r.queue_id, a, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
+order by q.priority desc;
 
+explain analyze
+select r.payload->'amd'->'greeting', json_extract_path_text(r.payload, 'amd', 'greeting') from
+      cc_queue_distribute_resources r;
+
+
+vacuum analyze cc_member;
+
+select *
+from cc_queue_timing_timezones(1,1);
+select *
+from calendar_accept_of_day
+where calendar_id = 1;
+
+select *
+from cc_reserve_members_with_resources('n');
+
+truncate table cc_member_attempt;
+
+select count(*)
+from cc_member_attempt_log;
 
 drop function cc_reserve_members_with_resources;
 CREATE OR REPLACE FUNCTION cc_reserve_members_with_resources(node_id varchar(20))
 RETURNS integer AS $$
 DECLARE
-    rec RECORD;
-    count integer;
-    v_cnt integer;
-    seg_cnt integer;
-    x cc_communication_type_l;
+    rec cc_queue_distribute_resources;
+    count integer = 0;
 BEGIN
-    count = 0;
-
 
     if NOT pg_try_advisory_xact_lock(13213211) then
       raise notice 'LOCK';
@@ -128,80 +141,35 @@ BEGIN
     end if;
 
 
-    FOR rec IN SELECT r.queue_id, r.resource_id, r.routing_ids, q.sec_between_retries, r.call_count, q.dnc_list_id, a::cc_communication_type_l[] as times
-      from get_free_resources() r
-        inner join cc_queue q on q.id = r.queue_id
-        cross join cc_queue_timing_timezones(q.id, q.calendar_id::bigint) a
-      where r.call_count > 0
-      group by r.queue_id, a, resource_id, routing_ids, call_count, r.sec_between_retries, q.id
-      order by q.priority desc
+    FOR rec IN select
+          queue_id,
+          resource_id,
+          routing_ids,
+          min_activity_at,
+          call_count,
+          dnc_list_id,
+          times,
+          type,
+          strategy
+      from cc_queue_distribute_resources
     LOOP
 
-      seg_cnt = 0;
-
-      foreach x in array rec.times
-      loop
-
-        execute 'insert into cc_member_attempt(result, communication_id, queue_id, member_id, resource_id, routing_id, node_id)
-      select
-              case when lc.number is null then null else ''OUTGOING_CALL_BARRED'' end,
-             t.communication_id,
-             $2,
-             t.member_id,
-             $7,
-             t.routing_id,
-             $8
-      from (
-        select
-           c.communication_id,
-           c.communication_number,
-           c.member_id,
-          (c.routing_ids & $1::int[])[1] as routing_id,
-           row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d
-        from (
-          select cmc.id as communication_id, cmc.number as communication_number, cmc.routing_ids, cmc.last_hangup_at, cmc.priority, cmc.member_id
-          from cc_member m
-           cross join cc_member_communications cmc
-              where m.queue_id = $2
-                and not exists(
-                select *
-                from cc_member_attempt a
-                where a.member_id = m.id and a.state > 0
-              )
-              and m.stop_at = 0
-              and m.last_hangup_at < $3
-              and m."offset"::interval = any ($4::interval[])
-
-              and cmc.member_id = m.id
-              and cmc.state = 0
-              and cmc.routing_ids && $1
-              and cmc.communication_id = $5
-
-            order by m.priority desc, m.last_hangup_at asc
-          limit $6 * 3 --todo 3 is avg communication count
-        ) c
-      ) t
-      left join cc_list_communications lc on lc.list_id = $9 and lc.number = t.communication_number
-      where t.d =1
-      limit $6'
-        using
-          rec.routing_ids::int[],
-          rec.queue_id::bigint,
-          (((date_part('epoch'::text, now()) * (1000)::double precision))::bigint - (rec.sec_between_retries * 1000))::bigint,
-          x.l::interval [],
-          x.type_id::int,
-          rec.call_count::int - seg_cnt,
-          rec.resource_id::int,
-          node_id::text,
-          rec.dnc_list_id::bigint;
-
-      get diagnostics v_cnt = row_count;
-      count = count + v_cnt;
-      seg_cnt = seg_cnt + v_cnt;
-
-      exit when rec.call_count::int - seg_cnt <= 0;
-
-      end loop;
+      case rec.type
+        when 1 then
+          select count +  r
+          into count
+          from cc_queue_distribute_ivr(node_id::varchar(50), rec) r;
+        when 2 then
+          select count +  r
+          into count
+          from cc_queue_distribute_preview(node_id::varchar(50), rec) r;
+        when 3 then
+          select count +  r
+          into count
+          from cc_queue_distribute_progressive(node_id::varchar(50), rec) r;
+        else
+          raise exception 'not implement type %', rec.type;
+        end CASE;
 
     END LOOP;
     return count;
@@ -210,13 +178,28 @@ $$ LANGUAGE plpgsql;
 
 
 select *
-from cc_reserve_members_with_resources('aa');
+from cc_member_attempt;
+
+
+update cc_member
+set stop_at = 0
+where 1=1;
+
+vacuum full cc_member_communications;
 
 truncate table cc_member_attempt;
 
+select *
+from cc_member_attempt
+where id = 2815020;
 
 
-truncate table cc_member_attempt;
+select *
+from cc_agent;
+
+update cc_agent
+set wrap_up_time = 60
+where 1=1;
 
 explain analyse
 select *
@@ -226,7 +209,7 @@ order by a.id desc ;
 
 drop index cc_member_communications_member_id_communication_id_routing_ids_index;
 create index cc_member_communications_member_id_communication_id_routing_ids_index
-	on call_center.cc_member_communications using  btree(member_id, communication_id, routing_ids, last_hangup_at asc, priority desc) include (id, number)
+	on call_center.cc_member_communications using  btree(member_id, coalesce(communication_id, 0), routing_ids, last_hangup_at asc, priority desc) include (id, number)
 where state = 0;
 
 drop index cc_member_communications_routing_ids_member_id_communication_id_index;
@@ -238,20 +221,75 @@ explain (analyze, format text )
 select
         case when lc.number is null then null else 'OUTGOING_CALL_BARRED' end,
        t.communication_id,
-       1, -- queue_id
+      -- 1, -- queue_id
        t.member_id,
-       1, --resource_id
-       t.routing_id,
-       'node-id'
+     --  1, --resource_id
+       t.routing_id
+    --   'node-id'
 from (
   select
          c.communication_id,
          c.communication_number,
          c.member_id,
-        (c.routing_ids & array[18])[1] as routing_id
-        -- row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d
+        (c.routing_ids & array[18])[1] as routing_id,
+        row_number() over (partition by c.member_id order by c.last_hangup_at, c.priority desc) d,
+         pos
   from (
-    select cmc.id as communication_id, cmc.number as communication_number, cmc.routing_ids, cmc.last_hangup_at, cmc.priority, cmc.member_id
+    select cmc.id as communication_id, cmc.number as communication_number, cmc.routing_ids, cmc.last_hangup_at, cmc.priority, cmc.member_id,
+           row_number() over (order by m.priority desc, m.last_hangup_at asc) pos
+    from cc_member m
+     cross join cc_member_communications cmc
+        where m.queue_id = 1
+          and not exists(
+          select *
+          from cc_member_attempt a
+          where a.member_id = m.id and a.state > 0
+        )
+        and m.stop_at = 0
+        and m.last_hangup_at < ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint
+                                    - (10 * 1000)
+        and m."offset"::interval = any ('{00:00:00}'::interval [])
+
+        and cmc.state = 0
+        and cmc.member_id = m.id
+        and cmc.routing_ids && array[18]::int[]
+        and cmc.communication_id = 1
+
+      order by m.priority desc, m.last_hangup_at asc
+    limit 2::int * 3 --todo 3 is avg communication count
+  ) c
+) t
+left join cc_list_communications lc on lc.list_id = 1 and lc.number = t.communication_number
+where t.d =1
+order by t.pos asc
+limit 2::int;
+
+
+drop index call_center.cc_member_communications_member_id_communication_id_routing_ids_x2;
+
+create index cc_member_communications_member_id_communication_id_routing_ids_x2
+	on call_center.cc_member_communications using gin(routing_ids gin__int_ops,  communication_id , member_id )
+	where (state = 0);
+
+drop index cc_member_communications_member_id_communication_id_routing_ids_x3;
+create index cc_member_communications_member_id_communication_id_routing_ids_x3
+	on call_center.cc_member_communications using gin(routing_ids gin__int_ops,  communication_id , member_id )
+	where (state = 0);
+
+drop index call_center.cc_member_communications_member_id_communication_id_member_id;
+
+create index cc_member_communications_member_id_communication_id_member_id
+	on call_center.cc_member_communications (member_id);
+
+
+drop index call_center.cc_member_communications_member_id_communication_test_1;
+create index cc_member_communications_member_id_communication_test_1
+	on call_center.cc_member_communications using btree( member_id) include (id, routing_ids, number, last_hangup_at, priority)
+	where (state = 0);
+
+
+explain analyze
+select cmc.id as communication_id, cmc.number as communication_number, cmc.routing_ids, cmc.last_hangup_at, cmc.priority, cmc.member_id
     from cc_member m
      cross join cc_member_communications cmc
         where m.queue_id = 1
@@ -265,20 +303,18 @@ from (
                                     - (10 * 1000)
         and m."offset"::interval = any ('{00:00:00,01:00:00}'::interval [])
 
-        and cmc.state = 0
-        and cmc.member_id = m.id
-        and cmc.routing_ids && array[0]::int[]
-        and coalesce(cmc.communication_id, 0) = 0
+         and cmc.state = 0
+         and cmc.member_id = m.id
+         and cmc.routing_ids && array[18]::int[]
+         and cmc.communication_id = 1
 
       order by m.priority desc, m.last_hangup_at asc
-    limit 10::int * 3 --todo 3 is avg communication count
-  ) c
-) t
-left join cc_list_communications lc on lc.list_id = 1 and lc.number = t.communication_number
---where t.d =1
-limit 10::int;
+    limit 100::int * 3; --todo 3 is avg communication count;
 
-;
+vacuum full analyze cc_member;
+vacuum full analyze cc_member_communications;
+vacuum full analyze cc_member_communications_old;
+
 
 
 

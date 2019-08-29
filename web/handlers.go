@@ -56,7 +56,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wlog.String("path", c.Path),
 		wlog.String("request_id", c.RequestId),
 		wlog.String("ip_addr", c.IpAddress),
-		wlog.String("user_id", c.Session.UserId),
+		wlog.Int64("user_id", c.Session.UserId),
 		wlog.String("method", r.Method),
 	)
 

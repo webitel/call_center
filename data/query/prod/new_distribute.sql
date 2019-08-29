@@ -59,7 +59,7 @@ from unnest(array['asc','desc','nulls_first','nulls_last','orderable','distance_
 drop index call_center.cc_member_queue_id_priority_last_hangup_at_timezone_index;
 
 create index cc_member_queue_id_priority_last_hangup_at_timezone_index
-	on call_center.cc_member using btree (queue_id,  priority desc, last_hangup_at, "offset") include (id)
+	on call_center.cc_member using btree (queue_id,  "offset", last_hangup_at,  priority desc) include (id)
 	where (stop_at = 0);
 
 
@@ -123,9 +123,7 @@ create type cc_communication_type_l as (
   l interval[]
 );
 
-select array_agg((type_id, l)::cc_communication_type_l)
-
-from cc_queue_timing_timezones(1);
+select * from unnest(cc_queue_timing_timezones(1,1));
 
 --IVR
 set enable_seqscan = on;
@@ -411,13 +409,14 @@ SELECT r.queue_id, r.resource_id, r.routing_ids, q.sec_between_retries, r.call_c
 
 
 drop function cc_queue_timing_timezones;
-CREATE OR REPLACE FUNCTION cc_queue_timing_timezones(queue_id_ bigint, calendar_id_ bigint)
-  RETURNS cc_communication_type_l[] AS
+create or replace function cc_queue_timing_timezones(queue_id_ bigint, calendar_id_ bigint) returns call_center.cc_communication_type_l[]
+  language plpgsql
+as
 $$
-  declare res_types cc_communication_type_l[];
+declare res_types cc_communication_type_l[];
   declare res_type cc_communication_type_l;
   declare r record;
-  declare i int default 1;
+  declare i int default 0;
 BEGIN
   for r in select t.id
            , t.communication_id
@@ -442,38 +441,29 @@ BEGIN
       where t.queue_id = queue_id_ and z.ofs notnull
       order by priority desc
   loop
-    if res_type is null then
-      res_type = (r.communication_id, r.ofs)::cc_communication_type_l;
-      res_types[i] = res_type;
-    end if;
 
-    if res_type.type_id::bigint = r.communication_id::bigint then
+    if res_types[i] notnull and (res_types[i]::cc_communication_type_l).type_id = r.communication_id  then
 
-      select array_agg(distinct t.v)
-      into res_type.l
+      SELECT r.communication_id::int, array_agg(distinct t.v)::interval[]
+      into res_type
       from (
-         select unnest(array_cat(res_type.l, r.ofs)) v
-      ) t;
+           select unnest(array_cat(res_types[i].l, r.ofs)) v
+      ) t
+      limit 1;
 
-    else
-      res_type = (r.communication_id, r.ofs)::cc_communication_type_l;
-      i = i + 1;
       res_types[i] = res_type;
+    else
+      SELECT
+             array_append(res_types, (r.communication_id, r.ofs)::cc_communication_type_l)
+      into res_types;
+      i = i + 1;
     end if;
 
   end loop;
-
   return res_types;
-
---   return query select t.rn::int, t.tp::int, t.l::interval []
---     from (
---        select *
---        from unnest(res_types) WITH ORDINALITY a(tp, l, rn)
---     ) t
---     order by t.rn asc
---     ;
 END;
-$$ LANGUAGE 'plpgsql';
+$$;
+;
 
 select ((r.v)::cc_communication_type_l).type_id, ((r.v)::cc_communication_type_l).l
 from (
@@ -497,10 +487,12 @@ select unnest(cc_queue_timing_timezones(1::bigint, 1::bigint));
 select array [(1, array['1h']::interval[])] ;
 
 
-
+select *
+from cc_member_attempt;
+select *
+from cc_distribute_inbound_call_to_queue(1, 'dasdsada', '123213');
 
 select *
-
 from calendar_accept_of_day
 where calendar_id = 7;
 
@@ -508,7 +500,11 @@ select *
 from cc_queue_timing
 where queue_id = 1;
 
+  select r.agent_id, r.attempt_id, a2.updated_at
+  from cc_distribute_agent_to_attempt('call-center-1') r
+  inner join cc_agent a2 on a2.id = r.agent_id;
 
+select cc_available_agents_by_strategy(1, '132131', 1, null::bigint[], null::bigint[]);
 
 
 select calendar_accept_of_day_timezones(20);

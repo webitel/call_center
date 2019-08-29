@@ -3,6 +3,7 @@ package call_manager
 import (
 	"fmt"
 	"github.com/webitel/call_center/cluster"
+	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/utils"
@@ -30,7 +31,9 @@ type CallManager interface {
 type CallManagerImpl struct {
 	nodeId string
 
-	pool        *callConnectionsPool
+	serviceDiscovery cluster.ServiceDiscovery
+	poolConnections  cluster.Pool
+
 	mq          mq.MQ
 	calls       utils.ObjectCache
 	stop        chan struct{}
@@ -40,23 +43,32 @@ type CallManagerImpl struct {
 	startOnce   sync.Once
 }
 
-func NewCallManager(nodeId string, cluster cluster.ServiceDiscovery, mq mq.MQ) CallManager {
+func NewCallManager(nodeId string, serviceDiscovery cluster.ServiceDiscovery, mq mq.MQ) CallManager {
 	return &CallManagerImpl{
-		nodeId:      nodeId,
-		pool:        newCallConnectionsPool(cluster),
-		mq:          mq,
-		stop:        make(chan struct{}),
-		stopped:     make(chan struct{}),
-		inboundCall: make(chan Call, MAX_INBOUND_CALL_QUEUE),
-		calls:       utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
+		nodeId:           nodeId,
+		poolConnections:  cluster.NewPoolConnections(),
+		serviceDiscovery: serviceDiscovery,
+		mq:               mq,
+		stop:             make(chan struct{}),
+		stopped:          make(chan struct{}),
+		inboundCall:      make(chan Call, MAX_INBOUND_CALL_QUEUE),
+		calls:            utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
 	}
 }
 
 func (cm *CallManagerImpl) Start() {
-	wlog.Debug("callManager started")
+	wlog.Debug("starting call manager service")
+
+	if services, err := cm.serviceDiscovery.GetByName(model.CLUSTER_CALL_SERVICE_NAME); err != nil {
+		panic(err) //TODO
+	} else {
+		for _, v := range services {
+			cm.registerConnection(v)
+		}
+	}
 
 	cm.startOnce.Do(func() {
-		cm.watcher = utils.MakeWatcher("CallManager", WATCHER_INTERVAL, cm.pool.checkConnection)
+		cm.watcher = utils.MakeWatcher("CallManager", WATCHER_INTERVAL, cm.wakeUp)
 		go cm.watcher.Start()
 		go func() {
 			defer func() {
@@ -87,13 +99,17 @@ func (cm *CallManagerImpl) Stop() {
 	if cm.watcher != nil {
 		cm.watcher.Stop()
 	}
-	cm.pool.closeAllConnections()
+
+	if cm.poolConnections != nil {
+		cm.poolConnections.CloseAllConnections()
+	}
+
 	close(cm.stop)
 	<-cm.stopped
 }
 
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
-	api, _ := cm.pool.getByRoundRobin() //TODO check error
+	api, _ := cm.getApiConnection() //TODO check error
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
 }
 
@@ -108,6 +124,65 @@ func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {
 	return nil, false
 }
 
+func (cm *CallManagerImpl) InboundCall() <-chan Call {
+	return cm.inboundCall
+}
+
+func (cm *CallManagerImpl) registerConnection(v *model.ServiceConnection) {
+	var version string
+	var sps int
+	client, err := external_commands.NewCallConnection(v.Id, fmt.Sprintf("%s:%d", v.Host, v.Port))
+	if err != nil {
+		wlog.Error(fmt.Sprintf("connection %s error: %s", v.Id, err.Error()))
+		return
+	}
+
+	if version, err = client.GetServerVersion(); err != nil {
+		wlog.Error(fmt.Sprintf("connection %s get version error: %s", v.Id, err.Error()))
+		return
+	}
+
+	if sps, err = client.GetRemoteSps(); err != nil {
+		wlog.Error(fmt.Sprintf("connection %s get SPS error: %s", v.Id, err.Error()))
+		return
+	}
+	client.SetConnectionSps(sps)
+
+	cm.poolConnections.Append(client)
+	wlog.Debug(fmt.Sprintf("register connection %s [%s] [sps=%d]", client.Name(), version, sps))
+}
+
+func (cm *CallManagerImpl) getApiConnection() (model.CallCommands, *model.AppError) {
+	conn, err := cm.poolConnections.Get(cluster.StrategyRoundRobin)
+	if err != nil {
+		return nil, err
+	}
+	return conn.(model.CallCommands), nil
+}
+
+func (cm *CallManagerImpl) getApiConnectionById(id string) (model.CallCommands, *model.AppError) {
+	conn, err := cm.poolConnections.GetById(id)
+	if err != nil {
+		return nil, err
+	}
+	return conn.(model.CallCommands), nil
+}
+
+func (cm *CallManagerImpl) wakeUp() {
+	list, err := cm.serviceDiscovery.GetByName(model.CLUSTER_CALL_SERVICE_NAME)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+
+	for _, v := range list {
+		if _, err := cm.poolConnections.GetById(v.Id); err == cluster.ErrNotFoundConnection {
+			cm.registerConnection(v)
+		}
+	}
+	cm.poolConnections.RecheckConnections()
+}
+
 func (cm *CallManagerImpl) saveToCacheCall(call Call) {
 	wlog.Debug(fmt.Sprintf("[%s] call %s save to store", call.NodeName(), call.Id()))
 	cm.calls.AddWithDefaultExpires(call.Id(), call)
@@ -116,8 +191,4 @@ func (cm *CallManagerImpl) saveToCacheCall(call Call) {
 func (cm *CallManagerImpl) removeFromCacheCall(call Call) {
 	wlog.Debug(fmt.Sprintf("[%s] call %s remove from store", call.NodeName(), call.Id()))
 	cm.calls.Remove(call.Id())
-}
-
-func (cm *CallManagerImpl) InboundCall() <-chan Call {
-	return cm.inboundCall
 }

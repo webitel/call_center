@@ -3,119 +3,117 @@
   <ID>DATABASE</ID>
   <OriginalElement>4d07127e-c340-4624-84fa-68ba950b6ea6.TABLE:webitel.call_center.cc_agent_in_queue</OriginalElement>
   <nodes>
-    <node x="1455.8110772357725" y="1502.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications</node>
-    <node x="694.3619918699187" y="1466.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent</node>
-    <node x="1302.1860772357725" y="272.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list</node>
-    <node x="1191.8110772357725" y="1550.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_timing</node>
-    <node x="676.7360772357724" y="260.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar</node>
-    <node x="1550.3110772357725" y="2086.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_messages</node>
-    <node x="1798.3110772357725" y="1918.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt_log</node>
-    <node x="1199.3110772357725" y="1918.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt</node>
-    <node x="447.2360772357724" y="762.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_except</node>
-    <node x="956.6659090909092" y="182.3636363636361">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member</node>
-    <node x="826.4860772357724" y="0.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain</node>
-    <node x="743.3619918699187" y="1204.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.user</node>
-    <node x="2071.3110772357722" y="0.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_cluster</node>
-    <node x="350.8110772357725" y="1192.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_routing</node>
-    <node x="0.0" y="2110.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skill_in_agent</node>
-    <node x="194.25" y="1586.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_resource_in_routing</node>
-    <node x="656.3110772357725" y="2014.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_activity</node>
-    <node x="0.25" y="1610.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skils</node>
-    <node x="968.3110772357725" y="2086.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_state_history</node>
-    <node x="656.2360772357724" y="750.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_accept_of_day</node>
-    <node x="1537.1860772357725" y="296.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.projects</node>
-    <node x="1087.9360772357725" y="606.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue</node>
-    <node x="464.3110772357725" y="2098.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_in_queue</node>
-    <node x="1393.8110772357725" y="1192.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_communication</node>
-    <node x="1365.9360772357725" y="774.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list_communications</node>
-    <node x="96.25" y="140.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_outbound_resource</node>
+    <node x="1079.9532657657658" y="1880.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt</node>
+    <node x="1704.697635135135" y="1214.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skill_in_agent</node>
+    <node x="1081.0917792792793" y="260.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar</node>
+    <node x="693.2792792792793" y="1500.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications</node>
+    <node x="641.7792792792793" y="2048.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_messages</node>
+    <node x="329.0917792792794" y="1880.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt_log</node>
+    <node x="0.0" y="2437.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_cluster</node>
+    <node x="1781.572635135135" y="630.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent</node>
+    <node x="1830.572635135135" y="296.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.user</node>
+    <node x="655.1739864864865" y="1106.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member</node>
+    <node x="755.7167792792793" y="0.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain</node>
+    <node x="1296.5917792792793" y="750.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_accept_of_day</node>
+    <node x="200.09177927927942" y="1214.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_routing</node>
+    <node x="638.3417792792793" y="272.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list</node>
+    <node x="102.5" y="1584.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_resource_in_routing</node>
+    <node x="2126.697635135135" y="1118.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_activity</node>
+    <node x="1580.635135135135" y="774.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skils</node>
+    <node x="1895.697635135135" y="1190.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_state_history</node>
+    <node x="445.3417792792794" y="296.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.projects</node>
+    <node x="1087.5917792792793" y="762.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_except</node>
+    <node x="809.5917792792793" y="606.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue</node>
+    <node x="1505.260135135135" y="1202.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_in_queue</node>
+    <node x="916.1306306306308" y="1214.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_communication</node>
+    <node x="985.2792792792793" y="1548.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_timing</node>
+    <node x="594.5917792792793" y="774.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list_communications</node>
+    <node x="0.0" y="140.0">bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_outbound_resource</node>
   </nodes>
   <notes />
   <edges>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.projects" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-52.0" />
-      <point x="1623.6860772357725" y="100.0" />
-      <point x="985.0694105691057" y="100.0" />
-      <point x="72.08333333333326" y="40.0" />
+      <point x="531.8417792792794" y="110.0" />
+      <point x="798.9667792792793" y="110.0" />
+      <point x="-43.25" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-220.0" />
-      <point x="1216.9360772357725" y="120.0" />
-      <point x="927.4027439024389" y="120.0" />
-      <point x="14.416666666666629" y="40.0" />
+      <point x="938.5917792792793" y="120.0" />
+      <point x="856.633445945946" y="120.0" />
+      <point x="14.416666666666742" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skils" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-52.0" />
-      <point x="85.25" y="100.0" />
-      <point x="840.9027439024389" y="100.0" />
-      <point x="-72.08333333333337" y="40.0" />
+      <point x="1665.635135135135" y="100.0" />
+      <point x="914.3001126126126" y="100.0" />
+      <point x="72.08333333333326" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skill_in_agent" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skils">
       <point x="-42.75" y="-64.0" />
-      <point x="-42.5" y="52.0" />
+      <point x="1747.447635135135" y="1076.0" />
+      <point x="1708.135135135135" y="1076.0" />
+      <point x="42.5" y="52.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_outbound_resource" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-208.0" />
-      <point x="237.75" y="110.0" />
-      <point x="869.7360772357724" y="110.0" />
-      <point x="-43.25" y="40.0" />
+      <point x="141.5" y="100.0" />
+      <point x="770.133445945946" y="100.0" />
+      <point x="-72.08333333333326" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-76.0" />
-      <point x="1409.6860772357725" y="110.0" />
-      <point x="956.2360772357724" y="110.0" />
-      <point x="43.25" y="40.0" />
+      <point x="745.8417792792793" y="120.0" />
+      <point x="827.8001126126126" y="120.0" />
+      <point x="-14.416666666666742" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list_communications" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list">
       <point x="0.0" y="-52.0" />
-      <point x="53.75" y="76.0" />
+      <point x="-53.75" y="76.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_state_history" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
       <point x="0.0" y="-88.0" />
-      <point x="1073.8110772357725" y="1898.0" />
-      <point x="884.0619918699188" y="1898.0" />
-      <point x="54.200000000000045" y="196.0" />
+      <point x="2001.197635135135" y="1086.0" />
+      <point x="1950.947635135135" y="1086.0" />
+      <point x="33.875" y="196.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_accept_of_day" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar">
       <point x="0.0" y="-76.0" />
-      <point x="0.0" y="88.0" />
+      <point x="1418.0917792792793" y="581.0" />
+      <point x="1249.4251126126126" y="581.0" />
+      <point x="67.33333333333326" y="88.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_routing" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
       <point x="0.0" y="-64.0" />
-      <point x="445.3110772357725" y="1066.0" />
-      <point x="1109.4360772357725" y="1066.0" />
+      <point x="294.5917792792794" y="1066.0" />
+      <point x="831.0917792792793" y="1066.0" />
       <point x="-107.5" y="220.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications">
-      <point x="91.20000000000005" y="-256.0" />
-      <point x="1404.5110772357725" y="1898.0" />
-      <point x="1500.9777439024392" y="1898.0" />
-      <point x="-90.33333333333326" y="160.0" />
+      <point x="-85.5" y="-256.0" />
+      <point x="1108.4532657657658" y="1860.0" />
+      <point x="919.1126126126126" y="1860.0" />
+      <point x="90.33333333333326" y="160.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member">
-      <point x="67.75" y="-160.0" />
-      <point x="1659.0610772357725" y="1441.0" />
-      <point x="1692.825" y="1441.0" />
-      <point x="-26.875" y="160.0" />
+      <point x="-67.75" y="-160.0" />
+      <point x="761.0292792792793" y="1480.0" />
+      <point x="789.5489864864865" y="1480.0" />
+      <point x="26.875" y="172.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_messages" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member">
-      <point x="57.0" y="-88.0" />
-      <point x="1721.3110772357725" y="1898.0" />
-      <point x="1737.3110772357725" y="1898.0" />
-      <point x="1737.3110772357725" y="1441.0" />
-      <point x="1746.575" y="1441.0" />
-      <point x="26.875" y="160.0" />
-    </edge>
-    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
-      <point x="-91.20000000000005" y="-256.0" />
-      <point x="1222.1110772357724" y="1888.0" />
-      <point x="938.2619918699187" y="1888.0" />
-      <point x="108.39999999999998" y="196.0" />
+      <point x="-57.0" y="-88.0" />
+      <point x="698.7792792792793" y="1850.0" />
+      <point x="682.7792792792793" y="1850.0" />
+      <point x="682.7792792792793" y="1480.0" />
+      <point x="735.7989864864865" y="1480.0" />
+      <point x="-26.875" y="172.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_timing" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
-      <point x="-60.75" y="-112.0" />
-      <point x="1252.5610772357725" y="1076.0" />
-      <point x="1238.4360772357725" y="1076.0" />
+      <point x="60.75" y="-112.0" />
+      <point x="1167.5292792792793" y="1086.0" />
+      <point x="960.0917792792793" y="1086.0" />
       <point x="21.5" y="220.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.user">
@@ -123,137 +121,137 @@
       <point x="0.0" y="52.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_in_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skils">
-      <point x="-57.33333333333337" y="-76.0" />
-      <point x="492.9777439024391" y="1878.0" />
-      <point x="127.75" y="1878.0" />
-      <point x="42.5" y="52.0" />
+      <point x="0.0" y="-76.0" />
+      <point x="1591.260135135135" y="1086.0" />
+      <point x="1623.135135135135" y="1086.0" />
+      <point x="-42.5" y="52.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt_log" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member">
       <point x="0.0" y="-256.0" />
-      <point x="1912.3110772357725" y="1898.0" />
-      <point x="1944.8110772357725" y="1898.0" />
-      <point x="1944.8110772357725" y="1441.0" />
-      <point x="1800.325" y="1441.0" />
-      <point x="80.625" y="160.0" />
+      <point x="443.0917792792794" y="1860.0" />
+      <point x="410.5917792792794" y="1860.0" />
+      <point x="410.5917792792794" y="1470.0" />
+      <point x="682.0489864864865" y="1470.0" />
+      <point x="-80.625" y="172.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member">
-      <point x="45.59999999999991" y="-256.0" />
-      <point x="1358.9110772357724" y="1888.0" />
-      <point x="1445.3110772357725" y="1888.0" />
-      <point x="1445.3110772357725" y="1441.0" />
-      <point x="1639.075" y="1441.0" />
-      <point x="-80.625" y="160.0" />
+      <point x="-28.5" y="-256.0" />
+      <point x="1165.4532657657658" y="1850.0" />
+      <point x="974.7792792792793" y="1850.0" />
+      <point x="974.7792792792793" y="1470.0" />
+      <point x="843.2989864864865" y="1470.0" />
+      <point x="80.625" y="172.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.domain">
       <point x="0.0" y="-88.0" />
-      <point x="777.7360772357724" y="120.0" />
-      <point x="898.5694105691057" y="120.0" />
-      <point x="-14.416666666666629" y="40.0" />
+      <point x="1182.0917792792793" y="110.0" />
+      <point x="885.4667792792793" y="110.0" />
+      <point x="43.25" y="40.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_timing">
-      <point x="0.0" y="-256.0" />
+      <point x="28.5" y="-256.0" />
+      <point x="1222.4532657657658" y="1840.0" />
+      <point x="1106.7792792792793" y="1840.0" />
       <point x="0.0" y="112.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar_except" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar">
       <point x="0.0" y="-64.0" />
-      <point x="541.7360772357724" y="581.0" />
-      <point x="710.4027439024392" y="581.0" />
-      <point x="-67.33333333333326" y="88.0" />
+      <point x="0.0" y="88.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt_log" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications">
-      <point x="-76.0" y="-256.0" />
-      <point x="1836.3110772357725" y="1888.0" />
-      <point x="1681.6444105691057" y="1888.0" />
-      <point x="90.33333333333326" y="160.0" />
+      <point x="76.0" y="-256.0" />
+      <point x="519.0917792792794" y="1860.0" />
+      <point x="738.445945945946" y="1860.0" />
+      <point x="-90.33333333333326" y="160.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_in_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
       <point x="57.33333333333337" y="-76.0" />
-      <point x="607.6444105691058" y="1898.0" />
-      <point x="775.6619918699187" y="1898.0" />
-      <point x="-54.200000000000045" y="196.0" />
+      <point x="1648.5934684684685" y="1086.0" />
+      <point x="1815.447635135135" y="1086.0" />
+      <point x="-101.625" y="196.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt_log" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
-      <point x="76.0" y="-256.0" />
-      <point x="1988.3110772357725" y="1898.0" />
-      <point x="1955.8110772357725" y="1898.0" />
-      <point x="1955.8110772357725" y="1066.0" />
-      <point x="1324.4360772357725" y="1066.0" />
-      <point x="107.5" y="220.0" />
-    </edge>
-    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_activity" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
-      <point x="0.0" y="-160.0" />
-      <point x="802.3110772357725" y="1898.0" />
-      <point x="829.8619918699187" y="1898.0" />
-      <point x="0.0" y="196.0" />
+      <point x="-76.0" y="-256.0" />
+      <point x="367.0917792792794" y="1860.0" />
+      <point x="399.5917792792794" y="1860.0" />
+      <point x="399.5917792792794" y="1076.0" />
+      <point x="874.0917792792793" y="1076.0" />
+      <point x="-64.5" y="220.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_resource_in_routing" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_routing">
       <point x="48.0" y="-76.0" />
-      <point x="338.25" y="1441.0" />
-      <point x="445.3110772357725" y="1441.0" />
+      <point x="246.5" y="1480.0" />
+      <point x="294.5917792792794" y="1480.0" />
       <point x="0.0" y="64.0" />
     </edge>
-    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar">
-      <point x="-86.0" y="-220.0" />
-      <point x="1130.9360772357725" y="581.0" />
-      <point x="845.0694105691057" y="581.0" />
-      <point x="67.33333333333326" y="88.0" />
+    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_activity" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
+      <point x="0.0" y="-160.0" />
+      <point x="2272.697635135135" y="1086.0" />
+      <point x="2018.697635135135" y="1086.0" />
+      <point x="101.625" y="196.0" />
     </edge>
-    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_communication">
-      <point x="-67.75" y="-160.0" />
-      <point x="43.25" y="64.0" />
+    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.calendar">
+      <point x="86.0" y="-220.0" />
+      <point x="1024.5917792792793" y="581.0" />
+      <point x="1114.758445945946" y="581.0" />
+      <point x="-67.33333333333326" y="88.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_attempt" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
-      <point x="-45.59999999999991" y="-256.0" />
-      <point x="1267.7110772357726" y="1878.0" />
-      <point x="1168.2926829268295" y="1878.0" />
-      <point x="1168.2926829268295" y="1076.0" />
-      <point x="1195.4360772357725" y="1076.0" />
-      <point x="-21.5" y="220.0" />
+      <point x="85.5" y="-256.0" />
+      <point x="1279.4532657657658" y="1860.0" />
+      <point x="1429.4532657657658" y="1860.0" />
+      <point x="1429.4532657657658" y="1076.0" />
+      <point x="1003.0917792792793" y="1076.0" />
+      <point x="64.5" y="220.0" />
+    </edge>
+    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_communication">
+      <point x="67.75" y="-160.0" />
+      <point x="896.5292792792793" y="1480.0" />
+      <point x="959.3806306306308" y="1480.0" />
+      <point x="-43.25" y="64.0" />
+    </edge>
+    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list">
+      <point x="-86.0" y="-220.0" />
+      <point x="852.5917792792793" y="581.0" />
+      <point x="799.5917792792793" y="581.0" />
+      <point x="53.75" y="76.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_resource_in_routing" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_outbound_resource">
       <point x="-48.0" y="-76.0" />
-      <point x="242.25" y="1441.0" />
-      <point x="237.75" y="1441.0" />
+      <point x="150.5" y="1480.0" />
+      <point x="141.5" y="1480.0" />
       <point x="0.0" y="208.0" />
-    </edge>
-    <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_list">
-      <point x="86.0" y="-220.0" />
-      <point x="1302.9360772357725" y="581.0" />
-      <point x="1355.9360772357725" y="581.0" />
-      <point x="-53.75" y="76.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_skill_in_agent" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent">
       <point x="42.75" y="-64.0" />
-      <point x="128.25" y="1888.0" />
-      <point x="721.4619918699187" y="1888.0" />
-      <point x="-108.39999999999998" y="196.0" />
+      <point x="1832.947635135135" y="1086.0" />
+      <point x="1883.197635135135" y="1086.0" />
+      <point x="-33.875" y="196.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
-      <point x="0.0" y="-160.0" />
-      <point x="1719.7" y="1076.0" />
-      <point x="1281.4360772357725" y="1076.0" />
-      <point x="64.5" y="220.0" />
+      <point x="0.0" y="-172.0" />
+      <point x="762.6739864864865" y="1086.0" />
+      <point x="917.0917792792793" y="1086.0" />
+      <point x="-21.5" y="220.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_agent_in_queue" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue">
-      <point x="0.0" y="-76.0" />
-      <point x="550.3110772357725" y="1076.0" />
-      <point x="1152.4360772357725" y="1076.0" />
-      <point x="-64.5" y="220.0" />
+      <point x="-57.33333333333337" y="-76.0" />
+      <point x="1533.9268018018017" y="1066.0" />
+      <point x="1046.0917792792793" y="1066.0" />
+      <point x="107.5" y="220.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_queue_timing" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_communication">
-      <point x="60.75" y="-112.0" />
-      <point x="1374.0610772357725" y="1441.0" />
-      <point x="1437.0610772357725" y="1441.0" />
-      <point x="-43.25" y="64.0" />
+      <point x="-60.75" y="-112.0" />
+      <point x="43.25" y="64.0" />
     </edge>
     <edge source="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_messages" target="bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member_communications">
-      <point x="-57.0" y="-88.0" />
-      <point x="1607.3110772357725" y="1898.0" />
-      <point x="1591.3110772357725" y="1898.0" />
+      <point x="57.0" y="-88.0" />
+      <point x="812.7792792792793" y="1860.0" />
+      <point x="828.7792792792793" y="1860.0" />
       <point x="0.0" y="160.0" />
     </edge>
   </edges>
-  <settings layout="Hierarchic Group" zoom="0.8756218905472636" x="1002.1511736081641" y="438.8767133409534" />
+  <settings layout="Hierarchic Group" zoom="0.8" x="874.2222222222224" y="1809.2222222222222" />
   <SelectedNodes>
     <node>bb4871d8-bc25-44cb-b61f-ecf4d9016d0e.TABLE:webitel.call_center.cc_member</node>
   </SelectedNodes>

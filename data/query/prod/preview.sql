@@ -155,7 +155,6 @@ BEGIN
             rec.min_activity_at,
             x.l,
             x.type_id,
-            rec.call_count,
             rec.call_count::int - seg_cnt;
 
       get diagnostics v_cnt = row_count;

@@ -60,7 +60,7 @@ func (c *Context) LogDebug(err *model.AppError) {
 }
 
 func (c *Context) SessionRequired() {
-	if len(c.Session.UserId) == 0 {
+	if c.Session.UserId < 1 {
 		c.Err = model.NewAppError("", "api.context.session_expired.app_error", nil, "UserRequired", http.StatusUnauthorized)
 		return
 	}

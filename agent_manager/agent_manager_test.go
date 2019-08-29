@@ -33,7 +33,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 
 	err = am.SetOnline(agent)
 	if err != nil {
-		t.Errorf("Set agent login %s error: %s", agent.Id(), err.Error())
+		t.Errorf("Set agent login %d error: %s", agent.Id(), err.Error())
 	}
 
 	return agent
@@ -43,21 +43,21 @@ func testLogOut(t *testing.T, am AgentManager, agent AgentObject) {
 	err := am.SetOffline(agent)
 
 	if err != nil {
-		t.Errorf("Set agent logout %s error: %s", agent.Id(), err.Error())
+		t.Errorf("Set agent logout %d error: %s", agent.Id(), err.Error())
 	}
 }
 
 func testPause(t *testing.T, am AgentManager, agent AgentObject) {
 	err := am.SetPause(agent, []byte(`{"img":"src/img.jpeg","code":"chat"}`), 0)
 	if err != nil {
-		t.Errorf("Set agent pause %s error: %s", agent.Id(), err.Error())
+		t.Errorf("Set agent pause %d error: %s", agent.Id(), err.Error())
 	}
 }
 
 func testCustomState(t *testing.T, am AgentManager, agent AgentObject) {
 	err := am.SetAgentState(agent, "cc_test", 1)
 	if err != nil {
-		t.Errorf("Set agent test state %s error: %s", agent.Id(), err.Error())
+		t.Errorf("Set agent test state %d error: %s", agent.Id(), err.Error())
 	}
 
 	time.Sleep(time.Second * 3)

@@ -1,56 +1,75 @@
 drop function cc_set_active_members;
 
-CREATE OR REPLACE FUNCTION cc_set_active_members(node varchar(20))
-  RETURNS TABLE
+create or replace function cc_set_active_members(node character varying)
+  returns TABLE
           (
-            id          bigint,
-            member_id   bigint,
-            communication_id bigint,
-            result varchar(50),
-            queue_id    int,
-            queue_updated_at bigint,
-            resource_id int,
+            id                  bigint,
+            member_id           bigint,
+            communication_id    bigint,
+            result              character varying,
+            queue_id            integer,
+            queue_updated_at    bigint,
+            queue_count  int,
+            queue_active_count int,
+            resource_id  integer,
             resource_updated_at bigint,
-            routing_id int,
-            routing_pattern varchar(50),
-
-            destination varchar(50),
-            description varchar(50),
-            variables jsonb,
-            name varchar(50)
-          ) AS
+            routing_id          integer,
+            routing_pattern     character varying,
+            destination         character varying,
+            description         character varying,
+            variables           jsonb,
+            name                character varying,
+            leg_a_id            character varying,
+            agent_id bigint,
+            agent_updated_at bigint
+          )
+  language plpgsql
+as
 $$
 BEGIN
-  RETURN QUERY
-    update cc_member_attempt a
+    return query update cc_member_attempt a
       set state = 1
         ,node_id = node
-        ,result = case c.state when  3 then 'TIMEOUT' when 7 then 'CANCEL' else a.result end
+        ,result = case c.state when 3 then 'TIMEOUT' when 7 then 'CANCEL' else a.result end
       from (
-        select
-               c.id,
-               cq.updated_at as queue_updated_at,
-               r.updated_at as resource_updated_at,
-               qr.id as routing_id,
-               qr.pattern as routing_pattern,
-               cmc.number as destination,
+--         with stats as (
+--           select a.queue_id,
+--                  count(*)                            count,
+--                  count(*) filter ( where state = 5 ) active
+--           from cc_member_attempt a
+--           where a.hangup_at = 0
+--           group by a.queue_id
+--         )
+        select c.id,
+               cq.updated_at   as queue_updated_at,
+               r.updated_at    as resource_updated_at,
+               qr.id           as routing_id,
+               qr.pattern      as routing_pattern,
+               cmc.number      as destination,
                cmc.description as description,
-               cm.variables as variables,
-               cm.name as member_name,
-               c.state as state
+               cm.variables    as variables,
+               cm.name         as member_name,
+               c.state         as state,
+               cq.sec_locate_agent,
+--                s.count as queue_cnt,
+               0 as queue_cnt,
+--                s.active as queue_active_cnt
+               0 as queue_active_cnt,
+               ca.updated_at as agent_updated_at
         from cc_member_attempt c
+               --inner join stats s on s.queue_id = c.queue_id
                inner join cc_member cm on c.member_id = cm.id
                inner join cc_member_communications cmc on cmc.id = c.communication_id
                inner join cc_queue cq on cm.queue_id = cq.id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
-        where c.hangup_at = 0 and (c.state = 0
+               left join cc_agent ca on c.agent_id = ca.id
+        where (c.state = 0
                 or (c.state = 3 and c.agent_id isnull and cq.sec_locate_agent > 0 and c.created_at <= (extract(EPOCH  from current_timestamp)::bigint - cq.sec_locate_agent) * 1000)
                 or c.state = 7
-          )
-        order by cq.priority desc, cm.priority desc
-        limit 1000
-        for update of c
+          ) and c.hangup_at = 0
+        order by cq.priority desc, c.weight desc
+                 for update of c skip locked
       ) c
       where a.id = c.id
       returning
@@ -60,6 +79,8 @@ BEGIN
         a.result as result,
         a.queue_id::int as qeueue_id,
         c.queue_updated_at::bigint as queue_updated_at,
+        c.queue_cnt::int,
+        c.queue_active_cnt::int,
         a.resource_id::int as resource_id,
         c.resource_updated_at::bigint as resource_updated_at,
         c.routing_id,
@@ -67,9 +88,22 @@ BEGIN
         c.destination,
         c.description,
         c.variables,
-        c.member_name;
+        c.member_name,
+        a.leg_a_id,
+        a.agent_id,
+        c.agent_updated_at;
 END;
-$$ LANGUAGE 'plpgsql';
+$$;
+
+
+select *
+from cc_set_active_members('call-center-1');
+
+
+select *
+from cc_member_attempt;
+
+truncate table cc_member_attempt;
 
 explain analyze
  select
@@ -103,7 +137,7 @@ select extract(EPOCH  from current_timestamp)::bigint * 1000;
 
 select *
 from cc_member_attempt
-where state <> -1 and hangup_at <> 0
+where id = 2815020
 order by id desc ;
 
 

@@ -26,7 +26,7 @@ BEGIN
              inner join cc_queue_routing r on q.id = r.queue_id
              inner join cc_resource_in_routing crir2 on r.id = crir2.routing_id
              inner join cc_queue_resources_is_working cor on crir2.resource_id = cor.id
-      where q.need_call > 0 and q.type != 2 --todo
+      where q.need_call > 0 and q.type != 0 --todo
       group by q.id, q.sec_between_retries, q.need_call, cor.id, cor.max_call_count, cor.reserved_count
 
     ), res_s as (
