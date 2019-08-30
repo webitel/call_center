@@ -5,7 +5,9 @@ import (
 	"github.com/webitel/call_center/external_commands/grpc/auth"
 	"github.com/webitel/call_center/model"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/status"
 	"net/http"
 )
 
@@ -39,11 +41,14 @@ func (ac *authConnection) GetSession(token string) (*model.Session, *model.AppEr
 	resp, err := ac.api.Current(context.TODO(), &auth.VerifyTokenRequest{token})
 
 	if err != nil {
+		if status.Code(err) == codes.Unauthenticated {
+			return nil, model.NewAppError("AuthConnection.GetSession", "grpc.get_session.app_error", nil, err.Error(), http.StatusForbidden)
+		}
 		return nil, model.NewAppError("AuthConnection.GetSession", "grpc.get_session.app_error", nil, err.Error(), http.StatusInternalServerError)
 	}
 
 	if resp.Session == nil {
-		panic("TODO")
+		return nil, model.NewAppError("AuthConnection.GetSession", "grpc.get_session.app_error", nil, "Not found", http.StatusForbidden)
 	}
 
 	session := &model.Session{
@@ -78,10 +83,10 @@ func (ac *authConnection) Close() *model.AppError {
 	return nil
 }
 
-func transformScopes(src []*auth.AccessScope) []*model.SessionScope {
-	dst := make([]*model.SessionScope, 0, len(src))
+func transformScopes(src []*auth.AccessScope) []model.SessionPermission {
+	dst := make([]model.SessionPermission, 0, len(src))
 	for _, v := range src {
-		dst = append(dst, &model.SessionScope{
+		dst = append(dst, model.SessionPermission{
 			Id:     int(v.Id),
 			Name:   v.Class,
 			Abac:   v.Abac,

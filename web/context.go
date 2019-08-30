@@ -81,6 +81,10 @@ func (c *Context) SetInvalidUrlParam(parameter string) {
 	c.Err = NewInvalidUrlParamError(parameter)
 }
 
+func (c *Context) SetPermissionError(permission model.SessionPermission, access model.PermissionAccess) {
+	c.Err = c.App.MakePermissionError(&c.Session, permission, access)
+}
+
 func NewInvalidUrlParamError(parameter string) *model.AppError {
 	err := model.NewAppError("Context", "api.context.invalid_url_param.app_error", map[string]interface{}{"Name": parameter}, "", http.StatusBadRequest)
 	return err

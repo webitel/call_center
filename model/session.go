@@ -14,7 +14,7 @@ type AuthClient interface {
 	GetSession(token string) (*Session, *AppError)
 }
 
-type SessionScope struct {
+type SessionPermission struct {
 	Id     int    `json:"id"`
 	Name   string `json:"name"`
 	Abac   bool   `json:"abac"`
@@ -31,7 +31,59 @@ type Session struct {
 	RoleIds  []int64 `json:"role_ids"`
 
 	Token  string `json:"token"`
-	Scopes []*SessionScope
+	Scopes []SessionPermission
+}
+
+func NotAllowPermission(name string) SessionPermission {
+	return SessionPermission{
+		Id:     0,
+		Name:   name,
+		Abac:   true,
+		Obac:   true,
+		Rbac:   true,
+		Access: 0,
+	}
+}
+
+func (s SessionPermission) CanCreate() bool {
+	if s.Obac || s.Rbac {
+		return s.Access&PERMISSION_ACCESS_CREATE.Value() == PERMISSION_ACCESS_CREATE.Value()
+	}
+	return !s.Rbac && !s.Obac
+}
+
+func (s SessionPermission) CanRead() bool {
+	if s.Obac || s.Rbac {
+		return s.Access&PERMISSION_ACCESS_READ.Value() == PERMISSION_ACCESS_READ.Value()
+	}
+	return !s.Rbac && !s.Obac
+}
+
+func (s SessionPermission) CanUpdate() bool {
+	if s.Obac || s.Rbac {
+		return s.Access&PERMISSION_ACCESS_UPDATE.Value() == PERMISSION_ACCESS_UPDATE.Value()
+	}
+	return !s.Rbac && !s.Obac
+}
+
+func (s SessionPermission) CanDelete() bool {
+	if s.Obac || s.Rbac {
+		return s.Access&PERMISSION_ACCESS_DELETE.Value() == PERMISSION_ACCESS_DELETE.Value()
+	}
+	return !s.Rbac && !s.Obac
+}
+
+func (self *Session) HasLicense() bool {
+	return true
+}
+
+func (self *Session) GetPermission(name string) SessionPermission {
+	for _, v := range self.Scopes {
+		if v.Name == name {
+			return v
+		}
+	}
+	return NotAllowPermission(name)
 }
 
 func (self *Session) IsExpired() bool {

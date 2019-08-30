@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/model"
 	"net/http"
 	"strings"
@@ -30,4 +31,10 @@ func ParseAuthTokenFromRequest(r *http.Request) (string, TokenLocation) {
 	}
 
 	return "", TokenLocationNotFound
+}
+
+func (a *App) MakePermissionError(session *model.Session, permission model.SessionPermission, access model.PermissionAccess) *model.AppError {
+
+	return model.NewAppError("Permissions", "api.context.permissions.app_error", nil,
+		fmt.Sprintf("userId=%d, permission=%s access=%s", session.UserId, permission.Name, access.Name()), http.StatusForbidden)
 }

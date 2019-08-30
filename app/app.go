@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/auth_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
@@ -28,13 +29,13 @@ type App struct {
 	Log          *wlog.Logger
 	configFile   string
 	config       atomic.Value
-	sessionCache *utils.Cache
 	newStore     func() store.Store
 	cluster      cluster.Cluster
 	engine       engine.Engine
 	dialing      queue.Dialing
 	agentManager agent_manager.AgentManager
 	callManager  call_manager.CallManager
+	authManager  auth_manager.AuthManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -45,7 +46,6 @@ func New(options ...string) (outApp *App, outErr error) {
 		Srv: &Server{
 			RootRouter: rootRouter,
 		},
-		sessionCache: utils.NewLru(model.SESSION_CACHE_SIZE),
 	}
 	app.Srv.Router = app.Srv.RootRouter.PathPrefix("/").Subrouter()
 
@@ -115,6 +115,9 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.dialing = queue.NewDialing(app, app.callManager, app.agentManager, app.Store)
 	app.dialing.Start()
 
+	app.authManager = auth_manager.NewAuthManager(app.Cluster().ServiceDiscovery())
+	app.authManager.Start()
+
 	return app, outErr
 }
 
@@ -144,6 +147,10 @@ func (app *App) Shutdown() {
 
 	if app.callManager != nil {
 		app.callManager.Stop()
+	}
+
+	if app.authManager != nil {
+		app.authManager.Stop()
 	}
 
 	app.MQ.Close()

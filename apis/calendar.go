@@ -1,18 +1,35 @@
 package apis
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/model"
 	"net/http"
 )
 
 func (api *API) InitCalendar() {
-	api.Routes.Calendar.Handle("", api.ApiHandler(listCalendars)).Methods("GET")
-	api.Routes.Calendar.Handle("", api.ApiHandler(createCalendar)).Methods("POST")
-	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiHandler(getCalendar)).Methods("GET")
-	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiHandler(deleteCalendar)).Methods("DELETE")
+	api.Routes.Calendar.Handle("", api.ApiSessionRequired(listCalendars)).Methods("GET")
+	api.Routes.Calendar.Handle("", api.ApiSessionRequired(createCalendar)).Methods("POST")
+	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiSessionRequired(getCalendar)).Methods("GET")
+	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiSessionRequired(deleteCalendar)).Methods("DELETE")
 }
 
 func listCalendars(c *Context, w http.ResponseWriter, r *http.Request) {
+
+	permission := c.Session.GetPermission(model.PERMISSION_SCOPE_CALENDAR)
+	if !permission.CanRead() {
+		c.SetPermissionError(permission, model.PERMISSION_ACCESS_READ)
+	}
+
+	if c.Err != nil {
+		return
+	}
+
+	if permission.Rbac {
+		fmt.Println("RBAC")
+		//dsadsa
+	} else {
+		// dsadsa
+	}
 
 	calendars, err := c.App.GetCalendarsPage(c.Params.Filter, c.Params.Page, c.Params.PerPage, c.Params.SortFieldName, c.Params.SortDesc)
 	if err != nil {
