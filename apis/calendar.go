@@ -1,12 +1,21 @@
 package apis
 
 import (
-	"fmt"
 	"github.com/webitel/call_center/model"
 	"net/http"
 )
 
 func (api *API) InitCalendar() {
+	// swagger:operation GET /calendars calendars
+	//
+	// ---
+	// produces:
+	// - application/json
+	// responses:
+	//   '200':
+	//     description: successful operation
+	//     schema:
+	//       $ref: '#/definitions/Calendar'
 	api.Routes.Calendar.Handle("", api.ApiSessionRequired(listCalendars)).Methods("GET")
 	api.Routes.Calendar.Handle("", api.ApiSessionRequired(createCalendar)).Methods("POST")
 	api.Routes.Calendar.Handle("/{id:[0-9]+}", api.ApiSessionRequired(getCalendar)).Methods("GET")
@@ -14,6 +23,12 @@ func (api *API) InitCalendar() {
 }
 
 func listCalendars(c *Context, w http.ResponseWriter, r *http.Request) {
+	var calendars []*model.Calendar
+
+	c.RequireDomainId()
+	if c.Err != nil {
+		return
+	}
 
 	permission := c.Session.GetPermission(model.PERMISSION_SCOPE_CALENDAR)
 	if !permission.CanRead() {
@@ -25,28 +40,50 @@ func listCalendars(c *Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if permission.Rbac {
-		fmt.Println("RBAC")
-		//dsadsa
+		calendars, c.Err = c.App.GetCalendarsPageByGroups(c.DomainId(), c.Session.RoleIds, c.Params.Page, c.Params.PerPage)
 	} else {
-		// dsadsa
+		calendars, c.Err = c.App.GetCalendarsPage(c.DomainId(), c.Params.Page, c.Params.PerPage)
 	}
 
-	calendars, err := c.App.GetCalendarsPage(c.Params.Filter, c.Params.Page, c.Params.PerPage, c.Params.SortFieldName, c.Params.SortDesc)
-	if err != nil {
-		c.Err = err
+	if c.Err != nil {
 		return
 	}
 
-	w.Write([]byte(model.CalendarsToJson(calendars)))
+	w.Write([]byte(model.NewListJson(calendars)))
 }
 
 func getCalendar(c *Context, w http.ResponseWriter, r *http.Request) {
+	var calendar *model.Calendar
 	c.RequireId()
 	if c.Err != nil {
 		return
 	}
 
-	calendar, err := c.App.GetCalendar(c.Params.Id)
+	c.RequireDomainId()
+	if c.Err != nil {
+		return
+	}
+
+	permission := c.Session.GetPermission(model.PERMISSION_SCOPE_CALENDAR)
+	if !permission.CanRead() {
+		c.SetPermissionError(permission, model.PERMISSION_ACCESS_READ)
+	}
+
+	if c.Err != nil {
+		return
+	}
+
+	if permission.Rbac {
+		calendar, c.Err = c.App.GetCalendarByGroup(c.DomainId(), c.Params.Id, c.Session.RoleIds)
+	} else {
+		calendar, c.Err = c.App.GetCalendar(c.DomainId(), c.Params.Id)
+	}
+
+	if c.Err != nil {
+		return
+	}
+
+	calendar, err := c.App.GetCalendar(c.DomainId(), c.Params.Id)
 	if err != nil {
 		c.Err = err
 		return
@@ -61,7 +98,12 @@ func deleteCalendar(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.Err = c.App.DeleteCalendar(c.Params.Id)
+	c.RequireDomainId()
+	if c.Err != nil {
+		return
+	}
+
+	c.Err = c.App.DeleteCalendar(c.DomainId(), c.Params.Id)
 	if c.Err != nil {
 		return
 	}

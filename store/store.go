@@ -25,8 +25,11 @@ type ClusterStore interface {
 
 type CalendarStore interface {
 	Create(calendar *model.Calendar) (*model.Calendar, *model.AppError)
-	GetAllPage(filter string, offset, limit int, sortField string, desc bool) ([]*model.Calendar, *model.AppError)
-	Get(id int) (*model.Calendar, *model.AppError)
+	GetAllPage(domainId int64, offset, limit int) ([]*model.Calendar, *model.AppError)
+	GetAllPageByGroups(domainId int64, groups []int, offset, limit int) ([]*model.Calendar, *model.AppError)
+	Get(domainId int64, id int) (*model.Calendar, *model.AppError)
+	GetByGroups(domainId int64, id int, groups []int) (*model.Calendar, *model.AppError)
+
 	Delete(id int) *model.AppError
 }
 

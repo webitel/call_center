@@ -179,6 +179,44 @@ $$ LANGUAGE plpgsql;
 
 select *
 from cc_member_attempt;
+;
+
+explain analyze
+select c.id, c.name, c.start, c.finish, c.description, json_build_object('id', ct.id, 'name', ct.name)::jsonb as timezone
+from calendar c
+       left join calendar_timezones ct on c.timezone_id = ct.id
+where c.domain_id = 1;
+
+update calendar
+set domain_id = 1
+where 1=1;
+
+insert into cc_test (val)
+select array[a1,a2,a3,a4]
+from generate_series(1,200000) c,
+     lateral (
+       select (random()::int)::int a1,  (random()::int)::int a2, (random()::int)::int a3,
+              (random()::int)::int a4
+       where c > 0
+     ) r ;
+
+select (random()::int)::text || (random()::int)::text|| (random()::int)::text|| (random()::int)::text;
+
+vacuum full cc_test;
+
+drop index call_center.cc_test_val_index;
+create index cc_test_val_index
+	on call_center.cc_test using gin(val );
+
+
+explain analyze
+select val
+from cc_test t
+where t.val[1] = 1;
+
+
+select count(*)
+from cc_test;
 
 
 update cc_member

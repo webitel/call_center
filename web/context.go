@@ -77,6 +77,24 @@ func (c *Context) RequireId() *Context {
 	return c
 }
 
+func (c *Context) RequireDomainId() *Context {
+	if c.Err != nil {
+		return c
+	}
+
+	if c.DomainId() == 0 {
+		c.SetInvalidUrlParam("domain_id")
+	}
+	return c
+}
+
+func (c *Context) DomainId() int64 {
+	if c.Session.DomainId != 0 {
+		return c.Session.DomainId
+	}
+	return c.Params.DomainId
+}
+
 func (c *Context) SetInvalidUrlParam(parameter string) {
 	c.Err = NewInvalidUrlParamError(parameter)
 }

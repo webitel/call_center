@@ -135,11 +135,11 @@ func (a *AMQP) subscribe() {
 
 	go func() {
 
-		defer func() {
-			if !a.stopping {
-				panic(1)
-			}
-		}()
+		//defer func() {
+		//	if !a.stopping {
+		//		panic(1)
+		//	}
+		//}()
 
 		for m := range msgs {
 			if m.ContentType != "text/json" {

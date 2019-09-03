@@ -4,6 +4,7 @@ import "net/http"
 
 const (
 	SESSION_CACHE_SIZE = 35000
+	SESSION_CACHE_TIME = 60 * 5 // 5min
 )
 
 type AuthClient interface {
@@ -24,11 +25,11 @@ type SessionPermission struct {
 }
 
 type Session struct {
-	Id       string  `json:"id"`
-	DomainId int64   `json:"domain_id"`
-	Expire   int64   `json:"expire"`
-	UserId   int64   `json:"user_id"`
-	RoleIds  []int64 `json:"role_ids"`
+	Id       string `json:"id"`
+	DomainId int64  `json:"domain_id"`
+	Expire   int64  `json:"expire"`
+	UserId   int64  `json:"user_id"`
+	RoleIds  []int  `json:"role_ids"`
 
 	Token  string `json:"token"`
 	Scopes []SessionPermission

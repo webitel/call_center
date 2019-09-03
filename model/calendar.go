@@ -21,15 +21,16 @@ type CalendarExceptDate struct {
 	Date       int  `json:"date"`
 }
 
+// Description of the Calendar
+// swagger:model Calendar
 type Calendar struct {
-	Id       int    `json:"id" db:"id"`
-	Name     string `json:"name" db:"name"`
-	Timezone string `json:"timezone" db:"timezone"`
-	Start    *int   `json:"start" db:"start"`
-	Finish   *int   `json:"finish" db:"finish"`
-	//Description string `json:"description"`
-	//	Accept      []CalendarAcceptOfDay `json:"accept"`
-	//	Except      []CalendarExceptDate  `json:"except"`
+	Id          int     `json:"id" db:"id"`
+	Name        string  `json:"name" db:"name"`
+	DomainId    int64   `json:"domain_id"`
+	Start       *int    `json:"start" db:"start"`
+	Finish      *int    `json:"finish" db:"finish"`
+	Timezone    Lookup  `json:"timezone"`
+	Description *string `json:"description,omitempty"`
 }
 
 func (c *Calendar) IsValid() *AppError {
@@ -37,8 +38,8 @@ func (c *Calendar) IsValid() *AppError {
 		return NewAppError("Calendar.IsValid", "model.calendar.is_valid.name.app_error", nil, "name="+c.Name, http.StatusBadRequest)
 	}
 
-	if len(c.Timezone) <= 3 {
-		return NewAppError("Calendar.IsValid", "model.calendar.is_valid.timezone.app_error", nil, "timezone="+c.Timezone, http.StatusBadRequest)
+	if c.DomainId == 0 {
+		return NewAppError("Calendar.IsValid", "model.calendar.is_valid.domain_id.app_error", nil, "name="+c.Name, http.StatusBadRequest)
 	}
 	return nil
 }

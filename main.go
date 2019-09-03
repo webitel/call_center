@@ -4,20 +4,16 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/apis"
 	"github.com/webitel/call_center/app"
+	"math/rand"
+	"time"
 
 	"github.com/webitel/wlog"
-	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 func main() {
 	interruptChan := make(chan os.Signal, 1)
@@ -50,4 +46,8 @@ func setDebug() {
 		wlog.Info(fmt.Sprintf("Debug: ", http.ListenAndServe(":8090", nil)))
 	}()
 
+}
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
 }

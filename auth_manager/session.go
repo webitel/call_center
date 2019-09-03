@@ -4,7 +4,7 @@ import "github.com/webitel/call_center/model"
 
 func (am *authManager) GetSession(token string) (*model.Session, *model.AppError) {
 
-	if v, ok := am.session.Get(token); ok {
+	if v, ok := am.session.Get(token); ok && false {
 		return v.(*model.Session), nil
 	}
 

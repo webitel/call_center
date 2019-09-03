@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -15,10 +16,12 @@ const (
 
 type Params struct {
 	Id            int
+	DomainId      int64
 	Page          int
 	PerPage       int
 	SortFieldName string
 	SortDesc      bool
+	Fields        []string
 	Filter        string
 }
 
@@ -29,6 +32,10 @@ func ParamsFromRequest(r *http.Request) *Params {
 
 	if val := query.Get(model.API_URL_FILTER_NAME); val != "" {
 		params.Filter = val
+	}
+
+	if val := query.Get(model.API_URL_FIELDS_NAME); val != "" {
+		params.Fields = parseFields(val)
 	}
 
 	if val := query.Get(model.API_URL_SORT_FIELD_NAME); val != "" {
@@ -53,6 +60,10 @@ func ParamsFromRequest(r *http.Request) *Params {
 		params.PerPage = val
 	}
 
+	if val, err := strconv.Atoi(query.Get(model.API_URL_DOMAIN_ID)); err == nil && val > 0 {
+		params.DomainId = int64(val)
+	}
+
 	if val, ok := props["id"]; ok {
 		if id, err := strconv.Atoi(val); err == nil {
 			params.Id = id
@@ -60,4 +71,8 @@ func ParamsFromRequest(r *http.Request) *Params {
 	}
 
 	return params
+}
+
+func parseFields(src string) []string {
+	return strings.Split(src, ",")
 }

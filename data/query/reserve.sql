@@ -43,6 +43,9 @@ where mem.position = 1;
 select *
 from pg_locks;
 
+select *
+from get_calendars();
+
 select pg_advisory_unlock_all();
 
 truncate table cc_member_attempt;

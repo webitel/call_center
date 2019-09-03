@@ -20,9 +20,9 @@ func ParseAuthTokenFromRequest(r *http.Request) (string, TokenLocation) {
 	if len(authHeader) > 6 && strings.ToUpper(authHeader[0:6]) == model.HEADER_BEARER {
 		// Default session token
 		return authHeader[7:], TokenLocationHeader
-	} else if len(authHeader) > 5 && strings.ToLower(authHeader[0:5]) == model.HEADER_TOKEN {
+	} else if len(authHeader) > 14 && authHeader[0:14] == model.HEADER_TOKEN {
 		// OAuth token
-		return authHeader[6:], TokenLocationHeader
+		return authHeader[15:], TokenLocationHeader
 	}
 
 	// Attempt to parse token out of the query string

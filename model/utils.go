@@ -15,6 +15,10 @@ type StringInterface map[string]interface{}
 type StringMap map[string]string
 type StringArray []string
 type Int64Array []int64
+type Lookup struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
 
 type AppError struct {
 	Id            string `json:"id"`

@@ -285,6 +285,16 @@ func (me typeConverter) ToDb(val interface{}) (interface{}, error) {
 
 func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	switch target.(type) {
+	case *model.Lookup:
+		binder := func(holder, target interface{}) error {
+			s, ok := holder.(*string)
+			if !ok {
+				return errors.New(utils.T("store.sql.convert_string_map"))
+			}
+			b := []byte(*s)
+			return json.Unmarshal(b, target)
+		}
+		return gorp.CustomScanner{Holder: new(string), Target: target, Binder: binder}, true
 	case *model.StringMap:
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)

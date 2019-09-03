@@ -101,3 +101,42 @@ from (
     indexrelname ~ ''
 ) t
 order by free_space desc;
+
+
+
+SELECT now() - pg_postmaster_start_time()                              "Uptime",
+       now() - stats_reset                                             "Minutes since stats reset",
+       round(100.0 * checkpoints_req / checkpoints, 1)                 "Forced
+checkpoint ratio (%)",
+       round(min_since_reset / checkpoints, 2)                         "Minutes between
+checkpoints",
+       round(checkpoint_write_time::numeric / (checkpoints * 1000), 2) "Average
+write time per checkpoint (s)",
+       round(checkpoint_sync_time::numeric / (checkpoints * 1000), 2)  "Average
+sync time per checkpoint (s)",
+       round(total_buffers / pages_per_mb, 1)                          "Total MB written",
+       round(buffers_checkpoint / (pages_per_mb * checkpoints), 2)     "MB per
+checkpoint",
+       round(buffers_checkpoint / (pages_per_mb * min_since_reset * 60), 2)
+                                                                       "Checkpoint MBps"
+FROM (
+         SELECT checkpoints_req,
+                checkpoints_timed + checkpoints_req                        checkpoints,
+                checkpoint_write_time,
+                checkpoint_sync_time,
+                buffers_checkpoint,
+                buffers_checkpoint + buffers_clean + buffers_backend       total_buffers,
+                stats_reset,
+                round(extract('epoch' from now() - stats_reset) / 60)::numeric
+                                                                           min_since_reset,
+                (1024.0 * 1024 / (current_setting('block_size')::numeric)) pages_per_mb
+         FROM pg_stat_bgwriter
+     ) bg;
+
+
+
+select *
+from pg_stat_bgwriter;
+
+select *
+from pgbench;

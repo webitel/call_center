@@ -7,15 +7,22 @@ export class Application {
     constructor() {
         this.baseApiServer =  `http://10.10.10.25:10023`;
         this.apiVersionUrl = `/api/v2`;
-
-        this.log = new Logger()
+        // axios.defaults.headers.common['X-Access-Token'] = 'GUEST_TOKEN';
+        this.log = new Logger();
+        this.cli = axios.create({
+            headers: {
+                common: {
+                    'Authorization': 'X-Access-Token GUEST_TOKEN',
+                },
+            },
+        });
     }
 
     request(method = 'get', path = '', data) {
         this.log.debug(`request[${method}] to ${path}`);
-        return axios({
+        return this.cli({
             method,
-            url: `${this.baseApiServer}/${this.apiVersionUrl}/${path}`,
+            url: `${this.baseApiServer}${this.apiVersionUrl}${path}`,
             data
         }).catch((e) => {
             if (e.response && e.response.data instanceof Object) {

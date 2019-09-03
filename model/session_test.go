@@ -19,7 +19,7 @@ var (
 				Abac:   false,
 				Obac:   true,
 				Rbac:   false,
-				Access: PERMISSION_ACCESS_READ | PERMISSION_ACCESS_CREATE,
+				Access: PERMISSION_ACCESS_READ.Value() | PERMISSION_ACCESS_CREATE.Value(),
 			},
 		},
 	}

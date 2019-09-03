@@ -37,7 +37,7 @@ func NewAuthManager(serviceDiscovery cluster.ServiceDiscovery) AuthManager {
 		stop:             make(chan struct{}),
 		stopped:          make(chan struct{}),
 		poolConnections:  cluster.NewPoolConnections(),
-		session:          utils.NewLruWithParams(model.SESSION_CACHE_SIZE, "auth manager", 5, ""), //TODO session from config ?
+		session:          utils.NewLruWithParams(model.SESSION_CACHE_SIZE, "auth manager", model.SESSION_CACHE_TIME, ""), //TODO session from config ?
 		serviceDiscovery: serviceDiscovery,
 	}
 }

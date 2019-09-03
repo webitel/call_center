@@ -90,7 +90,7 @@ func transformScopes(src []*auth.AccessScope) []model.SessionPermission {
 			Id:     int(v.Id),
 			Name:   v.Class,
 			Abac:   v.Abac,
-			Obac:   v.Rbac,
+			Obac:   v.Obac,
 			Rbac:   v.Rbac,
 			Access: v.Access,
 		})
@@ -98,10 +98,10 @@ func transformScopes(src []*auth.AccessScope) []model.SessionPermission {
 	return dst
 }
 
-func transformRoles(src map[string]int64) []int64 {
-	dst := make([]int64, 0, len(src))
+func transformRoles(src map[string]int64) []int {
+	dst := make([]int, 0, len(src))
 	for _, v := range src {
-		dst = append(dst, v)
+		dst = append(dst, int(v))
 	}
 	return dst
 }

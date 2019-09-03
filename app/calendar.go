@@ -2,21 +2,25 @@ package app
 
 import "github.com/webitel/call_center/model"
 
-func (a *App) GetCalendarsPage(filter string, page, perPage int, sortField string, desc bool) ([]*model.Calendar, *model.AppError) {
-	return a.GetCalendars(filter, page*perPage, perPage, sortField, desc)
+func (a *App) GetCalendarsPage(domainId int64, page, perPage int) ([]*model.Calendar, *model.AppError) {
+	return a.Srv.Store.Calendar().GetAllPage(domainId, page*perPage, perPage)
 }
 
-func (a *App) GetCalendars(filter string, offset, limit int, sortField string, desc bool) ([]*model.Calendar, *model.AppError) {
-	return a.Srv.Store.Calendar().GetAllPage(filter, offset, limit, sortField, desc)
+func (a *App) GetCalendarsPageByGroups(domainId int64, groups []int, page, perPage int) ([]*model.Calendar, *model.AppError) {
+	return a.Srv.Store.Calendar().GetAllPageByGroups(domainId, groups, page*perPage, perPage)
 }
 
-func (a *App) GetCalendar(id int) (*model.Calendar, *model.AppError) {
-	return a.Srv.Store.Calendar().Get(id)
+func (a *App) GetCalendar(domainId int64, id int) (*model.Calendar, *model.AppError) {
+	return a.Srv.Store.Calendar().Get(domainId, id)
 }
 
-func (a *App) DeleteCalendar(id int) *model.AppError {
+func (a *App) GetCalendarByGroup(domainId int64, id int, groups []int) (*model.Calendar, *model.AppError) {
+	return a.Srv.Store.Calendar().GetByGroups(domainId, id, groups)
+}
 
-	if _, err := a.GetCalendar(id); err != nil {
+func (a *App) DeleteCalendar(domainId int64, id int) *model.AppError {
+
+	if _, err := a.GetCalendar(domainId, id); err != nil {
 		return err
 	}
 

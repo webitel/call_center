@@ -133,8 +133,8 @@ export const calendarStore = {
 
             return rootGetters.core.request('get', `/calendars?&per_page=${ROW_PER_PAGE}&${params.join('&')}`)
                 .then(response => {
-                    if (response.data instanceof Array) {
-                        commit(SET_ITEMS, response.data)
+                    if (response.data && response.data.items instanceof Array) {
+                        commit(SET_ITEMS, response.data.items)
                     }
                     commit(SUCCESS);
                 })
