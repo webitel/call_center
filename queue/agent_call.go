@@ -11,7 +11,7 @@ func (queueManager *QueueManager) AgentCallRequest(agent agent_manager.Agent) (*
 	return nil, nil
 }
 
-func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentObject, call call_manager.Call) {
+func (queueManager *QueueManager) AgentReportingCall(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
 	var noAnswer = false
 	var timeout = 0
 
@@ -19,12 +19,12 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		switch call.HangupCause() {
 		case model.CALL_HANGUP_NO_ANSWER:
 			noAnswer = true
-			timeout = agent.NoAnswerDelayTime()
+			timeout = int(team.NoAnswerDelayTime())
 		case model.CALL_HANGUP_REJECTED:
-			timeout = agent.RejectDelayTime()
+			timeout = int(team.RejectDelayTime())
 		//case model.CALL_HANGUP_USER_BUSY:
 		default:
-			timeout = agent.BusyDelayTime()
+			timeout = int(team.BusyDelayTime())
 		}
 
 		if cnt, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); err != nil {
@@ -47,10 +47,10 @@ func (queueManager *QueueManager) AgentReportingCall(agent agent_manager.AgentOb
 		if _, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); err != nil {
 			wlog.Error(err.Error())
 		}
-		if agent.WrapUpTime() == 0 {
+		if team.WrapUpTime() == 0 {
 			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0)
 		} else {
-			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_REPORTING, int(agent.WrapUpTime()))
+			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_REPORTING, int(team.WrapUpTime()))
 		}
 	}
 }

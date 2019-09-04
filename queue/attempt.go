@@ -58,6 +58,10 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.distributeAgent <- agent
 }
 
+func (a *Attempt) TeamUpdatedAt() *int64 {
+	return a.member.TeamUpdatedAt
+}
+
 func (a *Attempt) Done() {
 	close(a.done)
 }

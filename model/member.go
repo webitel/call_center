@@ -43,6 +43,7 @@ type MemberAttempt struct {
 	Description       string  `json:"description" db:"description"`
 	AgentId           *int64  `json:"agent_id" db:"agent_id"`
 	AgentUpdatedAt    *int64  `json:"agent_updated_at" db:"agent_updated_at"`
+	TeamUpdatedAt     *int64  `json:"team_updated_at" db:"team_updated_at"`
 	Variables         []byte  `json:"variables" db:"variables"`
 	Name              string  `json:"name" db:"name"`
 	CallFromId        *string `json:"call_from_id" db:"leg_a_id"`

@@ -43,11 +43,14 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 	info.LegBUri = endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 	info.LegAUri = strings.Join(agent.GetCallEndpoints(), ",")
 
+	team, _ := preview.GetTeam(attempt)
+	fmt.Println(team.CallTimeout())
+
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{"sofia/sip/agent@10.10.10.200:5080"}, //agent.GetCallEndpoints(), //agent.GetCallEndpoints(), // []string{"null"},
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
-		Timeout:      agent.CallTimeout(),
+		Timeout:      60,
 		Variables: model.UnionStringMaps(
 			attempt.resource.Variables(),
 			preview.Variables(),
@@ -88,15 +91,10 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		Args: "sofia/sip/member@10.10.10.200:5080",
 	})
 
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "echo",
-		Args:    "", // fmt.Sprintf("%d", rand.Int31n(60000)),
-	})
-
 	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
 	call := preview.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
 
-	defer preview.queueManager.AgentReportingCall(agent, call)
+	defer preview.queueManager.AgentReportingCall(team, agent, call)
 
 	if call.Err() != nil {
 		preview.CallError(attempt, call.Err(), call.HangupCause())

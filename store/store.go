@@ -12,6 +12,7 @@ type Store interface {
 	Member() MemberStore
 	OutboundResource() OutboundResourceStore
 	Agent() AgentStore
+	Team() TeamStore
 }
 
 type SessionStore interface {
@@ -75,4 +76,8 @@ type AgentStore interface {
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
 	ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError)
+}
+
+type TeamStore interface {
+	Get(id int64) (*model.Team, *model.AppError)
 }

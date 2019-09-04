@@ -30,11 +30,4 @@ type AgentObject interface {
 	SetStateTalking(deadline int) *model.AppError
 	SetStateReporting(deadline int) *model.AppError
 	SetStateFine(deadline int) *model.AppError
-
-	MaxNoAnswer() int
-	WrapUpTime() int
-	RejectDelayTime() int
-	BusyDelayTime() int
-	NoAnswerDelayTime() int
-	CallTimeout() uint16
 }

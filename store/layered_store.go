@@ -53,3 +53,7 @@ func (s *LayeredStore) Member() MemberStore {
 func (s *LayeredStore) Agent() AgentStore {
 	return s.DatabaseLayer.Agent()
 }
+
+func (s *LayeredStore) Team() TeamStore {
+	return s.DatabaseLayer.Team()
+}

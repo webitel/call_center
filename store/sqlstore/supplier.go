@@ -39,6 +39,7 @@ type SqlSupplierOldStores struct {
 	member           store.MemberStore
 	outboundResource store.OutboundResourceStore
 	agent            store.AgentStore
+	team             store.TeamStore
 	cluster          store.ClusterStore
 }
 
@@ -73,6 +74,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.member = NewSqlMemberStore(supplier)
 	supplier.oldStores.outboundResource = NewSqlOutboundResourceStore(supplier)
 	supplier.oldStores.agent = NewSqlAgentStore(supplier)
+	supplier.oldStores.team = NewSqlTeamStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -261,6 +263,10 @@ func (ss *SqlSupplier) Calendar() store.CalendarStore {
 
 func (ss *SqlSupplier) Agent() store.AgentStore {
 	return ss.oldStores.agent
+}
+
+func (ss *SqlSupplier) Team() store.TeamStore {
+	return ss.oldStores.team
 }
 
 type typeConverter struct{}

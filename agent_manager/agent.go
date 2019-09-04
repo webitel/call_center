@@ -57,30 +57,6 @@ func (agent *Agent) GetCallEndpoints() []string {
 	return []string{fmt.Sprintf("sofia/sip/400@webitel.lo")}
 }
 
-func (agent *Agent) MaxNoAnswer() int {
-	return agent.info.MaxNoAnswer
-}
-
-func (agent *Agent) WrapUpTime() int {
-	return agent.info.WrapUpTime
-}
-
-func (agent *Agent) RejectDelayTime() int {
-	return agent.info.RejectDelayTime
-}
-
-func (agent *Agent) BusyDelayTime() int {
-	return agent.info.BusyDelayTime
-}
-
-func (agent *Agent) NoAnswerDelayTime() int {
-	return agent.info.NoAnswerDelayTime
-}
-
-func (agent *Agent) CallTimeout() uint16 {
-	return uint16(agent.info.CallTimeout)
-}
-
 func (agent *Agent) Online() *model.AppError {
 	return agent.manager.SetOnline(agent)
 }

@@ -30,6 +30,7 @@ type QueueManager struct {
 	resourceManager *ResourceManager
 	agentManager    agent_manager.AgentManager
 	callManager     call_manager.CallManager
+	teamManager     *teamManager
 	sync.Mutex
 }
 
@@ -40,6 +41,7 @@ func NewQueueManager(app App, s store.Store, callManager call_manager.CallManage
 		callManager:     callManager,
 		resourceManager: resourceManager,
 		agentManager:    agentManager,
+		teamManager:     NewTeamManager(s),
 		input:           make(chan *Attempt),
 		stop:            make(chan struct{}),
 		stopped:         make(chan struct{}),

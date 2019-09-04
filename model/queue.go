@@ -44,6 +44,7 @@ type Queue struct {
 	UpdatedAt int64             `json:"updated_at" db:"updated_at"`
 	MaxCalls  uint16            `json:"max_calls" db:"max_calls"`
 	Variables map[string]string `json:"variables" db:"variables"`
+	TeamId    *int64            `json:"team_id" db:"team_id"`
 	Timeout   uint16            `json:"timeout" db:"timeout"`
 }
 

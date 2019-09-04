@@ -116,7 +116,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 							model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
 						},
 					),
-					Timeout:      agent.CallTimeout(),
+					Timeout:      60,
 					CallerName:   attempt.Name(),
 					CallerNumber: attempt.Destination(),
 					Applications: []*model.CallRequestApplication{

@@ -27,6 +27,7 @@ type BaseQueue struct {
 	queueManager    *QueueManager
 	variables       map[string]string
 	timeout         uint16
+	teamId          *int64
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -39,6 +40,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		resourceManager: resourceManager,
 		variables:       settings.Variables,
 		timeout:         settings.Timeout,
+		teamId:          settings.TeamId,
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_INBOUND:
@@ -88,6 +90,18 @@ func (queue *BaseQueue) Name() string {
 
 func (queue *BaseQueue) Timeout() uint16 {
 	return queue.timeout
+}
+
+func (queue *BaseQueue) TeamManager() *teamManager {
+	return queue.queueManager.teamManager
+}
+
+func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) {
+	if queue.teamId != nil && attempt.TeamUpdatedAt() != nil {
+		return queue.TeamManager().GetTeam(*queue.teamId, *attempt.TeamUpdatedAt())
+	}
+
+	return nil, model.NewAppError("BaseQueue.GetTeam", "queue.team.get_by_id.app_error", nil, "Not found parameters", http.StatusInternalServerError)
 }
 
 func (queue *BaseQueue) TypeName() string {
