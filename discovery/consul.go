@@ -1,11 +1,9 @@
-package cluster
+package discovery
 
 import (
 	"fmt"
 	"github.com/hashicorp/consul/api"
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"net/http"
 	"time"
 )
 
@@ -15,20 +13,21 @@ type consul struct {
 	kv              *api.KV
 	agent           *api.Agent
 	stop            chan struct{}
-	check           func() (bool, *model.AppError)
+	check           CheckFunction
 	checkId         string
 	registerService bool
 }
 
-func NewConsul(id string, check func() (bool, *model.AppError)) (*consul, *model.AppError) {
+type CheckFunction func() (bool, error)
+
+func NewConsul(id, addr string, check CheckFunction) (*consul, error) {
 	conf := api.DefaultConfig()
-	conf.Address = "192.168.177.199:8500"
+	conf.Address = addr
 
 	cli, err := api.NewClient(conf)
 
 	if err != nil {
-		return nil, model.NewAppError("Cluster.NewConsul", "cluster.consul.create.app_error", nil,
-			err.Error(), http.StatusInternalServerError)
+		return nil, err
 	}
 
 	c := &consul{
@@ -44,16 +43,15 @@ func NewConsul(id string, check func() (bool, *model.AppError)) (*consul, *model
 	return c, nil
 }
 
-func (c *consul) GetByName(serviceName string) ([]*model.ServiceConnection, *model.AppError) {
+func (c *consul) GetByName(serviceName string) ([]*ServiceConnection, error) {
 	list, err := c.agent.ServicesWithFilter(fmt.Sprintf("Service == %s", serviceName))
 	if err != nil {
-		return nil, model.NewAppError("Cluster.GetServiceByName", "cluster.get_service_by_name.app_error", nil,
-			fmt.Sprintf("Service=%v, %s", serviceName, err.Error()), http.StatusInternalServerError)
+		return nil, err
 	}
 
-	result := make([]*model.ServiceConnection, 0, len(list))
+	result := make([]*ServiceConnection, 0, len(list))
 	for _, v := range list {
-		result = append(result, &model.ServiceConnection{
+		result = append(result, &ServiceConnection{
 			Id:      v.ID,
 			Service: v.Service,
 			Host:    v.Address,
@@ -64,7 +62,7 @@ func (c *consul) GetByName(serviceName string) ([]*model.ServiceConnection, *mod
 	return result, nil
 }
 
-func (c *consul) RegisterService() *model.AppError {
+func (c *consul) RegisterService(name string, pubHost string, pubPort int, ttl, criticalTtl time.Duration) error {
 	if !c.registerService {
 		return nil
 	}
@@ -72,26 +70,24 @@ func (c *consul) RegisterService() *model.AppError {
 	var err error
 
 	as := &api.AgentServiceRegistration{
-		Name: model.APP_SERVICE_NAME,
-		ID:   c.id,
-		Tags: []string{c.id},
-		//Address: "10.10.10.25",
-		//Port:    50003,
+		Name:    name,
+		ID:      c.id,
+		Tags:    []string{c.id},
+		Address: pubHost,
+		Port:    pubPort,
 		Check: &api.AgentServiceCheck{
-			DeregisterCriticalServiceAfter: model.APP_DEREGESTER_CRITICAL_TTL.String(),
-			TTL: model.APP_SERVICE_TTL.String(),
+			DeregisterCriticalServiceAfter: criticalTtl.String(),
+			TTL:                            ttl.String(),
 		},
 	}
 
 	if err = c.agent.ServiceRegister(as); err != nil {
-		return model.NewAppError("Cluster.RegisterService", "cluster.consul.service_register.app_error", nil,
-			err.Error(), http.StatusInternalServerError)
+		return err
 	}
 
 	var checks map[string]*api.AgentCheck
 	if checks, err = c.agent.Checks(); err != nil {
-		return model.NewAppError("Cluster.RegisterService", "cluster.consul.service_check.app_error", nil,
-			fmt.Sprintf("failed to query checks from consul agent: %v", err.Error()), http.StatusInternalServerError)
+		return err
 	}
 
 	var serviceCheck *api.AgentCheck
@@ -102,15 +98,14 @@ func (c *consul) RegisterService() *model.AppError {
 	}
 
 	if serviceCheck == nil {
-		return model.NewAppError("Cluster.RegisterService", "cluster.consul.service_find.app_error", nil,
-			"failed to find service after registration at consul", http.StatusInternalServerError)
+		return err
 	}
 	c.checkId = serviceCheck.CheckID
 	c.update()
 
 	wlog.Info(fmt.Sprintf("started consul service id: %s", c.id))
 
-	go c.updateTTL()
+	go c.updateTTL(ttl / 2)
 
 	return nil
 }
@@ -122,16 +117,16 @@ func (c *consul) update() {
 			wlog.Error(agentErr.Error())
 		}
 	} else {
-		if agentErr := c.agent.PassTTL(c.checkId, "I'm ready..."); agentErr != nil {
+		if agentErr := c.agent.PassTTL(c.checkId, "ready..."); agentErr != nil {
 			wlog.Error(agentErr.Error())
 		}
 	}
 }
 
-func (c *consul) updateTTL() {
+func (c *consul) updateTTL(ttl time.Duration) {
 	defer wlog.Info("stopped consul checker")
 
-	ticker := time.NewTicker(model.APP_SERVICE_TTL / 2)
+	ticker := time.NewTicker(ttl / 2)
 	for {
 		select {
 		case <-c.stop:

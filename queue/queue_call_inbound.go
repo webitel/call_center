@@ -23,7 +23,7 @@ func stopInboundAttempt(queue *InboundQueue, attempt *Attempt) {
 	return
 }
 
-func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
+func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 
 	go func() {
 		info := queue.GetCallInfoFromAttempt(attempt)
@@ -165,4 +165,6 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) {
 			}
 		}
 	}()
+
+	return nil
 }

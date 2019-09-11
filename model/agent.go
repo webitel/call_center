@@ -42,17 +42,12 @@ const (
 )
 
 type Agent struct {
-	Id                int64  `json:"id" db:"id"`
-	Name              string `json:"name" db:"name"`
-	MaxNoAnswer       int    `json:"max_no_answer" db:"max_no_answer"`
-	WrapUpTime        int    `json:"wrap_up_time" db:"wrap_up_time"`
-	RejectDelayTime   int    `json:"reject_delay_time" db:"reject_delay_time"`
-	BusyDelayTime     int    `json:"busy_delay_time" db:"busy_delay_time"`
-	NoAnswerDelayTime int    `json:"no_answer_delay_time" db:"no_answer_delay_time"`
-	CallTimeout       int    `json:"call_timeout" db:"call_timeout"`
-	UserId            *int64 `json:"user_id" db:"user_id"`
-	UpdatedAt         int64  `json:"updated_at" db:"updated_at"`
-	Destination       string `json:"destination" db:"destination"`
+	Id   int64  `json:"id" db:"id"`
+	Name string `json:"name" db:"name"`
+
+	UserId      *int64 `json:"user_id" db:"user_id"`
+	UpdatedAt   int64  `json:"updated_at" db:"updated_at"`
+	Destination string `json:"destination" db:"destination"`
 	AgentStatus
 }
 

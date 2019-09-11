@@ -2,7 +2,7 @@ package call_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/cluster"
+	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/utils"
@@ -24,7 +24,7 @@ func TestCallManager(t *testing.T) {
 
 	mq := rabbit.NewRabbitMQ(cfg.MQSettings, TEST_NODE_ID)
 
-	service, err := cluster.NewServiceDiscovery(TEST_NODE_ID, func() (bool, *model.AppError) {
+	service, _ := discovery.NewServiceDiscovery(TEST_NODE_ID, "192.168.177.199:8500", func() (bool, error) {
 		return true, nil
 	})
 

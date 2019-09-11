@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/apis"
 	"github.com/webitel/call_center/app"
 	"math/rand"
 	"time"
@@ -22,13 +21,6 @@ func main() {
 		panic(err.Error())
 	}
 	defer a.Shutdown()
-
-	serverErr := a.StartServer()
-	if serverErr != nil {
-		wlog.Critical(serverErr.Error())
-		return
-	}
-	apis.Init(a, a.Srv.Router)
 
 	setDebug()
 	// wait for kill signal before attempting to gracefully shutdown

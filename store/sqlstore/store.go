@@ -12,8 +12,6 @@ type SqlStore interface {
 	GetReplica() *gorp.DbMap
 	GetAllConns() []*gorp.DbMap
 
-	Session() store.SessionStore
-	Calendar() store.CalendarStore
 	Queue() store.QueueStore
 	Agent() store.AgentStore
 }

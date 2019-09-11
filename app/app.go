@@ -1,11 +1,8 @@
 package app
 
 import (
-	"fmt"
-	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/auth_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
@@ -17,13 +14,11 @@ import (
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"net/http"
 	"sync/atomic"
 )
 
 type App struct {
 	id           *string
-	Srv          *Server
 	Store        store.Store
 	MQ           mq.MQ
 	Log          *wlog.Logger
@@ -35,19 +30,12 @@ type App struct {
 	dialing      queue.Dialing
 	agentManager agent_manager.AgentManager
 	callManager  call_manager.CallManager
-	authManager  auth_manager.AuthManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
 	var err *model.AppError
-	rootRouter := mux.NewRouter()
 
-	app := &App{
-		Srv: &Server{
-			RootRouter: rootRouter,
-		},
-	}
-	app.Srv.Router = app.Srv.RootRouter.PathPrefix("/").Subrouter()
+	app := &App{}
 
 	defer func() {
 		if outErr != nil {
@@ -87,15 +75,13 @@ func New(options ...string) (outApp *App, outErr error) {
 		}
 	}
 
-	app.Srv.Store = app.newStore()
-	app.Store = app.Srv.Store
+	app.Store = app.newStore()
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	app.Srv.Router.NotFoundHandler = http.HandlerFunc(app.Handle404)
-
-	app.cluster, err = cluster.NewCluster(*app.id, app.Store)
-	if err != nil {
+	if cluster, err := cluster.NewCluster(*app.id, "192.168.177.199:8500", app.Store.Cluster()); err != nil {
 		return nil, err
+	} else {
+		app.cluster = cluster
 	}
 
 	if err := app.cluster.Setup(); err != nil {
@@ -114,9 +100,6 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.dialing = queue.NewDialing(app, app.callManager, app.agentManager, app.Store)
 	app.dialing.Start()
-
-	app.authManager = auth_manager.NewAuthManager(app.Cluster().ServiceDiscovery())
-	app.authManager.Start()
 
 	return app, outErr
 }
@@ -149,17 +132,7 @@ func (app *App) Shutdown() {
 		app.callManager.Stop()
 	}
 
-	if app.authManager != nil {
-		app.authManager.Stop()
-	}
-
 	app.MQ.Close()
-}
-
-func (a *App) Handle404(w http.ResponseWriter, r *http.Request) {
-	err := model.NewAppError("Handle404", "api.context.404.app_error", nil, r.URL.String(), http.StatusNotFound)
-	wlog.Debug(fmt.Sprintf("%v: code=404 ip=%v", r.URL.Path, utils.GetIpAddress(r)))
-	utils.RenderWebAppError(a.Config(), w, r, err)
 }
 
 func (a *App) GetInstanceId() string {

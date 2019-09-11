@@ -1,37 +1,22 @@
 package store
 
 import (
+	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 )
 
 type Store interface {
 	Cluster() ClusterStore
-	Session() SessionStore
 	Queue() QueueStore
-	Calendar() CalendarStore
 	Member() MemberStore
 	OutboundResource() OutboundResourceStore
 	Agent() AgentStore
 	Team() TeamStore
 }
 
-type SessionStore interface {
-	Get(sessionIdOrToken string) (*model.Session, *model.AppError)
-}
-
 type ClusterStore interface {
-	CreateOrUpdate(nodeId string) (*model.ClusterInfo, *model.AppError)
-	UpdateUpdatedTime(nodeId string) *model.AppError
-}
-
-type CalendarStore interface {
-	Create(calendar *model.Calendar) (*model.Calendar, *model.AppError)
-	GetAllPage(domainId int64, offset, limit int) ([]*model.Calendar, *model.AppError)
-	GetAllPageByGroups(domainId int64, groups []int, offset, limit int) ([]*model.Calendar, *model.AppError)
-	Get(domainId int64, id int) (*model.Calendar, *model.AppError)
-	GetByGroups(domainId int64, id int, groups []int) (*model.Calendar, *model.AppError)
-
-	Delete(id int) *model.AppError
+	CreateOrUpdate(nodeId string) (discovery.ClusterData, error)
+	UpdateUpdatedTime(nodeId string) error
 }
 
 type OutboundResourceStore interface {

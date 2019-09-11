@@ -11,7 +11,7 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 
-	DistributeAttempt(attempt *Attempt)
+	DistributeAttempt(attempt *Attempt) *model.AppError
 
 	Variables() map[string]string
 	Domain() string
@@ -127,6 +127,10 @@ func (queue *BaseQueue) Variables() map[string]string {
 
 func (qeueu *BaseQueue) Domain() string {
 	return "10.10.10.144" //todo add domain
+}
+
+func (queue *BaseQueue) DomainId() int {
+	return queue.id
 }
 
 func (queue *BaseQueue) Id() int {

@@ -33,9 +33,7 @@ const (
 )
 
 type SqlSupplierOldStores struct {
-	session          store.SessionStore
 	queue            store.QueueStore
-	calendar         store.CalendarStore
 	member           store.MemberStore
 	outboundResource store.OutboundResourceStore
 	agent            store.AgentStore
@@ -68,8 +66,6 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 
 	supplier.oldStores.cluster = NewSqlClusterStore(supplier)
 
-	supplier.oldStores.session = NewSqlSessionStore(supplier)
-	supplier.oldStores.calendar = NewSqlCalendarStore(supplier)
 	supplier.oldStores.queue = NewSqlQueueStore(supplier)
 	supplier.oldStores.member = NewSqlMemberStore(supplier)
 	supplier.oldStores.outboundResource = NewSqlOutboundResourceStore(supplier)
@@ -84,10 +80,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	}
 
 	supplier.oldStores.cluster.(*SqlClusterStore).CreateTableIfNotExists()
-	supplier.oldStores.calendar.(*SqlCalendarStore).CreateTableIfNotExists()
 	supplier.oldStores.agent.(*SqlAgentStore).CreateTableIfNotExists()
-
-	supplier.oldStores.session.(*SqlSessionStore).CreateIndexesIfNotExists()
 
 	return supplier
 }
@@ -241,10 +234,6 @@ func (ss *SqlSupplier) Cluster() store.ClusterStore {
 	return ss.oldStores.cluster
 }
 
-func (ss *SqlSupplier) Session() store.SessionStore {
-	return ss.oldStores.session
-}
-
 func (ss *SqlSupplier) OutboundResource() store.OutboundResourceStore {
 	return ss.oldStores.outboundResource
 }
@@ -255,10 +244,6 @@ func (ss *SqlSupplier) Queue() store.QueueStore {
 
 func (ss *SqlSupplier) Member() store.MemberStore {
 	return ss.oldStores.member
-}
-
-func (ss *SqlSupplier) Calendar() store.CalendarStore {
-	return ss.oldStores.calendar
 }
 
 func (ss *SqlSupplier) Agent() store.AgentStore {

@@ -2,6 +2,8 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
@@ -54,6 +56,14 @@ func (at *agentTeam) BusyDelayTime() uint16 {
 
 func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
+}
+
+func (at *agentTeam) OfferingCall() {
+
+}
+
+func (at *agentTeam) Reporting(queue QueueObject, agent agent_manager.AgentObject, call call_manager.Call) {
+
 }
 
 func NewTeamManager(s store.Store) *teamManager {

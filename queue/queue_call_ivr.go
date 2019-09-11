@@ -19,7 +19,7 @@ func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObjec
 	}
 }
 
-func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) {
+func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	Assert(attempt.resource)
 
 	attempt.Info = &AttemptInfoCall{}
@@ -51,6 +51,7 @@ func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) {
 		}
 	}()
 
+	return nil
 }
 
 func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {

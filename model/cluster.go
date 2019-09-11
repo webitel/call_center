@@ -11,10 +11,3 @@ type ClusterInfo struct {
 	UpdatedAt int64  `json:"updated_at" db:"updated_at"`
 	Master    bool   `json:"master" db:"master"`
 }
-
-type ServiceConnection struct {
-	Id      string
-	Service string
-	Host    string
-	Port    int
-}

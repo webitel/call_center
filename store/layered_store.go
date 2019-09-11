@@ -30,20 +30,12 @@ func (s *LayeredStore) Cluster() ClusterStore {
 	return s.DatabaseLayer.Cluster()
 }
 
-func (s *LayeredStore) Session() SessionStore {
-	return s.DatabaseLayer.Session()
-}
-
 func (s *LayeredStore) OutboundResource() OutboundResourceStore {
 	return s.DatabaseLayer.OutboundResource()
 }
 
 func (s *LayeredStore) Queue() QueueStore {
 	return s.DatabaseLayer.Queue()
-}
-
-func (s *LayeredStore) Calendar() CalendarStore {
-	return s.DatabaseLayer.Calendar()
 }
 
 func (s *LayeredStore) Member() MemberStore {

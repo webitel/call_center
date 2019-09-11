@@ -42,7 +42,7 @@ returning a.id as attempt_id, a.agent_id as agent_id, r.updated_at agent_updated
 func (s SqlAgentStore) Get(id int64) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
 	if err := s.GetReplica().SelectOne(&agent, `
-			select id, name, max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time, no_answer_delay_time, call_timeout, user_id, updated_at, destination,
+			select id, name, user_id, updated_at, destination,
 				status, status_payload
 			from cc_agent where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {

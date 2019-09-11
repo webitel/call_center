@@ -5,8 +5,6 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
-	"strings"
 )
 
 type PreviewCallQueue struct {
@@ -19,56 +17,61 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 	}
 }
 
-func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) {
-	Assert(attempt.resource)
-	Assert(attempt.agent)
+func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
+	if attempt.resource == nil {
+		return NewErrorResourceRequired(preview, attempt)
+	}
 
-	attempt.Info = &AttemptInfoCall{}
-
-	go preview.makeCallToAgent(attempt, attempt.Agent())
-}
-
-func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_manager.AgentObject) {
-
-	info := preview.GetCallInfoFromAttempt(attempt)
+	if attempt.agent == nil {
+		return NewErrorAgentRequired(preview, attempt)
+	}
 
 	if attempt.GetCommunicationPattern() == nil {
-		panic(123) //TODO
-	}
-	endpoint, e := preview.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
-	if e != nil {
-		panic(e.Error()) //TODO
+		return NewErrorCommunicationPatternRequired(preview, attempt)
 	}
 
-	info.LegBUri = endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
-	info.LegAUri = strings.Join(agent.GetCallEndpoints(), ",")
+	endpoint, err := preview.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
+	if err != nil {
+		return err
+	}
 
-	team, _ := preview.GetTeam(attempt)
-	fmt.Println(team.CallTimeout())
+	destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
+
+	team, err := preview.GetTeam(attempt)
+	if err != nil {
+		return err
+	}
+
+	go preview.run(team, attempt, attempt.Agent(), destination)
+
+	return nil
+}
+
+func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject, destination string) {
 
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{"sofia/sip/agent@10.10.10.200:5080"}, //agent.GetCallEndpoints(), //agent.GetCallEndpoints(), // []string{"null"},
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
-		Timeout:      60,
+		Timeout:      team.CallTimeout(),
 		Variables: model.UnionStringMaps(
 			attempt.resource.Variables(),
-			preview.Variables(),
+			queue.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				model.CALL_TIMEOUT_VARIABLE:            fmt.Sprintf("%d", preview.Timeout()),
+				model.CALL_TIMEOUT_VARIABLE:            fmt.Sprintf("%d", queue.Timeout()),
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				"ignore_display_updates":               "true",
 				"hangup_after_bridge":                  "true",
 				"absolute_codec_string":                "PCMA",
 				//"sip_h_X-Webitel-Direction":            "internal",
 				//"sip_h_X-Webitel-Direction":   "inbound",
-				//"sip_route_uri":               preview.SipRouterAddr(),
+				"sip_route_uri":               queue.SipRouterAddr(),
 				model.CALL_DIRECTION_VARIABLE: model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE:    preview.Domain(),
-				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", preview.id),
-				model.QUEUE_NAME_FIELD:        preview.name,
-				model.QUEUE_TYPE_NAME_FIELD:   preview.TypeName(),
+				model.CALL_DOMAIN_VARIABLE:    queue.Domain(),
+				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.id),
+				model.QUEUE_NAME_FIELD:        queue.name,
+				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
 				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_AGENT,
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
@@ -79,11 +82,6 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		Applications: make([]*model.CallRequestApplication, 0, 4),
 	}
 
-	if preview.RecordCallEnabled() {
-		preview.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
-		info.UseRecordings = true
-	}
-
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
 		//Args:    info.LegBUri,
@@ -91,19 +89,7 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		Args: "sofia/sip/member@10.10.10.200:5080",
 	})
 
-	preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_OFFERING, 0)
-	call := preview.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
-
-	defer preview.queueManager.AgentReportingCall(team, agent, call)
-
-	if call.Err() != nil {
-		preview.CallError(attempt, call.Err(), call.HangupCause())
-		preview.queueManager.LeavingMember(attempt, preview)
-		return
-	}
-
-	wlog.Debug(fmt.Sprintf("create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
-
+	call := queue.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
 	call.Invite()
 
 	var calling = true
@@ -113,22 +99,21 @@ func (preview *PreviewCallQueue) makeCallToAgent(attempt *Attempt, agent agent_m
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT:
-				preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_RINGING, 0)
+				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_RINGING, 0)
 			case call_manager.CALL_STATE_BRIDGE:
-				preview.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
+				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
 			}
 		case <-call.HangupChan():
 			calling = false
 		}
 	}
 
-	call.WaitForHangup()
-
 	if call.HangupCause() == "" {
-		preview.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
+		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
 	} else {
-		preview.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
+		queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
 	}
 
-	preview.queueManager.LeavingMember(attempt, preview)
+	queue.queueManager.LeavingMember(attempt, queue)
+
 }

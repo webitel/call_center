@@ -3,7 +3,7 @@ package app
 import "github.com/webitel/call_center/model"
 
 func (a *App) GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError) {
-	return a.Srv.Store.OutboundResource().GetById(id)
+	return a.Store.OutboundResource().GetById(id)
 }
 
 func (a *App) GetOutboundResourcesPage(filter string, page, perPage int, sortField string, desc bool) ([]*model.OutboundResource, *model.AppError) {
@@ -11,11 +11,11 @@ func (a *App) GetOutboundResourcesPage(filter string, page, perPage int, sortFie
 }
 
 func (a *App) GetOutboundResources(filter string, offset, limit int, sortField string, desc bool) ([]*model.OutboundResource, *model.AppError) {
-	return a.Srv.Store.OutboundResource().GetAllPage(filter, offset, limit, sortField, desc)
+	return a.Store.OutboundResource().GetAllPage(filter, offset, limit, sortField, desc)
 }
 
 func (a *App) CreateOutboundResource(resource *model.OutboundResource) (*model.OutboundResource, *model.AppError) {
-	return a.Srv.Store.OutboundResource().Create(resource)
+	return a.Store.OutboundResource().Create(resource)
 }
 
 func (a *App) DeleteOutboundResource(id int64) *model.AppError {
@@ -24,5 +24,5 @@ func (a *App) DeleteOutboundResource(id int64) *model.AppError {
 		return err
 	}
 
-	return a.Srv.Store.OutboundResource().Delete(id)
+	return a.Store.OutboundResource().Delete(id)
 }

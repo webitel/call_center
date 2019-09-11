@@ -100,7 +100,7 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 		a = queueManager.NewAttempt(attempt)
 		if attempt.AgentId != nil && attempt.AgentUpdatedAt != nil {
 			if agent, err := queueManager.agentManager.GetAgent(*attempt.AgentId, *attempt.AgentUpdatedAt); err != nil {
-				panic("TODO")
+				panic(err.Error())
 			} else {
 				a.SetAgent(agent)
 			}
@@ -204,7 +204,11 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 
 	attempt.resource = queueManager.GetAttemptResource(attempt)
-	queue.DistributeAttempt(attempt)
+
+	if err = queue.DistributeAttempt(attempt); err != nil {
+		wlog.Error(err.Error()) //TODO
+		panic(err.Error())
+	}
 	queueManager.notifyChangedQueueLength(queue)
 
 	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", attempt.Name(),

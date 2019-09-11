@@ -2,12 +2,13 @@ package call_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/cluster"
+	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
+	"net/http"
 	"sync"
 )
 
@@ -31,8 +32,8 @@ type CallManager interface {
 type CallManagerImpl struct {
 	nodeId string
 
-	serviceDiscovery cluster.ServiceDiscovery
-	poolConnections  cluster.Pool
+	serviceDiscovery discovery.ServiceDiscovery
+	poolConnections  discovery.Pool
 
 	mq          mq.MQ
 	calls       utils.ObjectCache
@@ -43,10 +44,10 @@ type CallManagerImpl struct {
 	startOnce   sync.Once
 }
 
-func NewCallManager(nodeId string, serviceDiscovery cluster.ServiceDiscovery, mq mq.MQ) CallManager {
+func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ) CallManager {
 	return &CallManagerImpl{
 		nodeId:           nodeId,
-		poolConnections:  cluster.NewPoolConnections(),
+		poolConnections:  discovery.NewPoolConnections(),
 		serviceDiscovery: serviceDiscovery,
 		mq:               mq,
 		stop:             make(chan struct{}),
@@ -128,7 +129,7 @@ func (cm *CallManagerImpl) InboundCall() <-chan Call {
 	return cm.inboundCall
 }
 
-func (cm *CallManagerImpl) registerConnection(v *model.ServiceConnection) {
+func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 	var version string
 	var sps int
 	client, err := external_commands.NewCallConnection(v.Id, fmt.Sprintf("%s:%d", v.Host, v.Port))
@@ -153,9 +154,9 @@ func (cm *CallManagerImpl) registerConnection(v *model.ServiceConnection) {
 }
 
 func (cm *CallManagerImpl) getApiConnection() (model.CallCommands, *model.AppError) {
-	conn, err := cm.poolConnections.Get(cluster.StrategyRoundRobin)
+	conn, err := cm.poolConnections.Get(discovery.StrategyRoundRobin)
 	if err != nil {
-		return nil, err
+		return nil, model.NewAppError("CallManager", "call_manager.get_client.app_error", nil, err.Error(), http.StatusInternalServerError)
 	}
 	return conn.(model.CallCommands), nil
 }
@@ -163,7 +164,7 @@ func (cm *CallManagerImpl) getApiConnection() (model.CallCommands, *model.AppErr
 func (cm *CallManagerImpl) getApiConnectionById(id string) (model.CallCommands, *model.AppError) {
 	conn, err := cm.poolConnections.GetById(id)
 	if err != nil {
-		return nil, err
+		return nil, model.NewAppError("CallManager", "call_manager.get_client.app_error", nil, err.Error(), http.StatusInternalServerError)
 	}
 	return conn.(model.CallCommands), nil
 }
@@ -176,7 +177,7 @@ func (cm *CallManagerImpl) wakeUp() {
 	}
 
 	for _, v := range list {
-		if _, err := cm.poolConnections.GetById(v.Id); err == cluster.ErrNotFoundConnection {
+		if _, err := cm.poolConnections.GetById(v.Id); err == discovery.ErrNotFoundConnection {
 			cm.registerConnection(v)
 		}
 	}

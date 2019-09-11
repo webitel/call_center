@@ -24,5 +24,5 @@ type CallCommands interface {
 	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)
 	DTMF(id string, ch rune) *AppError
 
-	Close() *AppError
+	Close() error
 }

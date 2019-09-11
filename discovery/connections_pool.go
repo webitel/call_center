@@ -1,16 +1,15 @@
-package cluster
+package discovery
 
 import (
+	"errors"
 	"fmt"
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"net/http"
 	"sync"
 )
 
 var (
-	ErrNotFoundConnection  = model.NewAppError("Cluster", "cluster.pool.connection_not_found", nil, "", http.StatusInternalServerError)
-	ErrNotOpenedConnection = model.NewAppError("Cluster", "cluster.pool.connection_not_opened", nil, "", http.StatusInternalServerError)
+	ErrNotFoundConnection  = errors.New("Not found connection")
+	ErrNotOpenedConnection = errors.New("Connection closed")
 )
 
 type Strategy string
@@ -19,17 +18,24 @@ const (
 	StrategyRoundRobin Strategy = "round-robin"
 )
 
+type ServiceConnection struct {
+	Id      string
+	Service string
+	Host    string
+	Port    int
+}
+
 type Connection interface {
 	Name() string
 	Ready() bool
-	Close() *model.AppError
+	Close() error
 }
 
 type Pool interface {
 	Append(connection Connection)
 	Remove(id string)
-	GetById(id string) (Connection, *model.AppError)
-	Get(strategy Strategy) (Connection, *model.AppError)
+	GetById(id string) (Connection, error)
+	Get(strategy Strategy) (Connection, error)
 	All() []Connection
 	CloseAllConnections()
 	RecheckConnections()
@@ -85,7 +91,7 @@ func (c *connectionsPool) Remove(id string) {
 	}
 }
 
-func (c *connectionsPool) GetById(id string) (Connection, *model.AppError) {
+func (c *connectionsPool) GetById(id string) (Connection, error) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -98,7 +104,7 @@ func (c *connectionsPool) GetById(id string) (Connection, *model.AppError) {
 	return nil, ErrNotFoundConnection
 }
 
-func (c *connectionsPool) Get(strategy Strategy) (Connection, *model.AppError) {
+func (c *connectionsPool) Get(strategy Strategy) (Connection, error) {
 	c.RLock()
 	defer c.RUnlock()
 

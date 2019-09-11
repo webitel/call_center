@@ -55,7 +55,7 @@ func (c *CallConnection) Ready() bool {
 	return false
 }
 
-func (c *CallConnection) Close() *model.AppError {
+func (c *CallConnection) Close() error {
 	err := c.client.Close()
 	if err != nil {
 		return model.NewAppError("CallConnection", "grpc.close_connection.app_error", nil, err.Error(), http.StatusInternalServerError)

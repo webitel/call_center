@@ -1,8 +1,8 @@
 package cluster
 
 import (
+	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"sync"
@@ -11,22 +11,30 @@ import (
 var DEFAULT_WATCHER_POLLING_INTERVAL = 30 * 1000 //30s
 
 type cluster struct {
-	store           store.Store
+	store           discovery.ClusterStore
 	nodeId          string
 	startOnce       sync.Once
 	pollingInterval int
-	info            *model.ClusterInfo
+	info            discovery.ClusterData
 	watcher         *utils.Watcher
-	consul          *consul
+	discovery       discovery.ServiceDiscovery
 }
 
-func NewServiceDiscovery(id string, check func() (bool, *model.AppError)) (ServiceDiscovery, *model.AppError) {
-	return NewConsul(id, check)
+type Cluster interface {
+	Setup() error
+	Start()
+	Stop()
+
+	ServiceDiscovery() discovery.ServiceDiscovery
 }
 
-func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
+func NewServiceDiscovery(id, addr string, check func() (bool, error)) (discovery.ServiceDiscovery, error) {
+	return discovery.NewConsul(id, addr, check)
+}
 
-	cons, err := NewConsul(nodeId, func() (bool, *model.AppError) {
+func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, error) {
+
+	cons, err := NewServiceDiscovery(nodeId, addr, func() (bool, error) {
 		return true, nil //TODO
 	})
 
@@ -34,13 +42,13 @@ func NewCluster(nodeId string, store store.Store) (Cluster, *model.AppError) {
 		return nil, err
 	}
 
-	err = cons.RegisterService()
+	err = cons.RegisterService(model.APP_SERVICE_NAME, "", 0, model.APP_SERVICE_TTL, model.APP_DEREGESTER_CRITICAL_TTL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cluster{
-		consul:          cons,
+		discovery:       cons,
 		nodeId:          nodeId,
 		store:           store,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,
@@ -60,13 +68,13 @@ func (c *cluster) Stop() {
 		c.watcher.Stop()
 	}
 
-	if c.consul != nil {
-		c.consul.Shutdown()
+	if c.discovery != nil {
+		c.discovery.Shutdown()
 	}
 }
 
-func (c *cluster) Setup() *model.AppError {
-	if info, err := c.store.Cluster().CreateOrUpdate(c.nodeId); err != nil {
+func (c *cluster) Setup() error {
+	if info, err := c.store.CreateOrUpdate(c.nodeId); err != nil {
 		return err
 	} else {
 		c.info = info
@@ -74,6 +82,6 @@ func (c *cluster) Setup() *model.AppError {
 	return nil
 }
 
-func (c *cluster) ServiceDiscovery() ServiceDiscovery {
-	return c.consul
+func (c *cluster) ServiceDiscovery() discovery.ServiceDiscovery {
+	return c.discovery
 }

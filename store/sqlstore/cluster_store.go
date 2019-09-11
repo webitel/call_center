@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"net/http"
@@ -18,7 +19,7 @@ func NewSqlClusterStore(sqlStore SqlStore) store.ClusterStore {
 func (s *SqlClusterStore) CreateTableIfNotExists() {
 }
 
-func (s SqlClusterStore) CreateOrUpdate(nodeId string) (*model.ClusterInfo, *model.AppError) {
+func (s SqlClusterStore) CreateOrUpdate(nodeId string) (discovery.ClusterData, error) {
 	var info *model.ClusterInfo
 	if err := s.GetMaster().SelectOne(&info, `
            insert into cc_cluster (node_name, updated_at, master)
@@ -37,7 +38,7 @@ func (s SqlClusterStore) CreateOrUpdate(nodeId string) (*model.ClusterInfo, *mod
 	}
 }
 
-func (s SqlClusterStore) UpdateUpdatedTime(nodeId string) *model.AppError {
+func (s SqlClusterStore) UpdateUpdatedTime(nodeId string) error {
 	if _, err := s.GetMaster().Exec(`update cc_cluster
             set updated_at = :Time
             where node_name = :NodeId`, map[string]interface{}{"NodeId": nodeId, "Time": model.GetMillis()}); err != nil {
