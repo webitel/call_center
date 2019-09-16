@@ -61,6 +61,8 @@ type AgentStore interface {
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
 	ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError)
+
+	ConfirmAttempt(agentId int64, attemptId int64) (int, *model.AppError)
 }
 
 type TeamStore interface {

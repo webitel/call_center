@@ -206,7 +206,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	attempt.resource = queueManager.GetAttemptResource(attempt)
 
 	if err = queue.DistributeAttempt(attempt); err != nil {
-		wlog.Error(err.Error()) //TODO
+		wlog.Error(err.Error()) //TODO fixme - close attempt
 		panic(err.Error())
 	}
 	queueManager.notifyChangedQueueLength(queue)

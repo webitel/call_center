@@ -49,8 +49,10 @@ func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppE
 
 func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject, destination string) {
 
+	defer queue.queueManager.LeavingMember(attempt, queue)
+
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/sip/agent@10.10.10.200:5080"}, //agent.GetCallEndpoints(), //agent.GetCallEndpoints(), // []string{"null"},
+		Endpoints:    agent.GetCallEndpoints(), //agent.GetCallEndpoints(), //agent.GetCallEndpoints(), // []string{"null"},
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
 		Timeout:      team.CallTimeout(),
@@ -64,7 +66,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"ignore_display_updates":               "true",
 				"hangup_after_bridge":                  "true",
 				"absolute_codec_string":                "PCMA",
-				//"sip_h_X-Webitel-Direction":            "internal",
+				"sip_h_X-Webitel-Direction":            "internal",
 				//"sip_h_X-Webitel-Direction":   "inbound",
 				"sip_route_uri":               queue.SipRouterAddr(),
 				model.CALL_DIRECTION_VARIABLE: model.CALL_DIRECTION_DIALER,
@@ -113,7 +115,4 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	} else {
 		queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
 	}
-
-	queue.queueManager.LeavingMember(attempt, queue)
-
 }

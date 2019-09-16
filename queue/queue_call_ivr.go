@@ -2,9 +2,9 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"math/rand"
 )
 
 type IVRQueue struct {
@@ -19,73 +19,55 @@ func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObjec
 	}
 }
 
-func (voice *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
-	Assert(attempt.resource)
+func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
+	if attempt.resource == nil {
+		return NewErrorResourceRequired(queue, attempt)
+	}
+
+	if attempt.GetCommunicationPattern() == nil {
+		return NewErrorCommunicationPatternRequired(queue, attempt)
+	}
+
+	endpoint, err := queue.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
+	if err != nil {
+		return err
+	}
+
+	destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
 
 	attempt.Info = &AttemptInfoCall{}
 
-	if attempt.GetCommunicationPattern() == nil {
-		//todo
-		panic("no pattern")
-	}
-
-	endpoint, e := voice.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
-
-	if e != nil {
-		//TODO
-		panic(e)
-	}
-
-	go func() {
-		voice.makeCall(attempt, endpoint)
-		for {
-			select {
-			case <-attempt.cancel:
-
-				attempt.Done()
-
-			case <-attempt.done:
-				voice.queueManager.LeavingMember(attempt, voice)
-				return
-			}
-		}
-	}()
+	go queue.run(attempt, destination)
 
 	return nil
 }
 
-func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
-	dst := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
-	attempt.Log(`dial string: ` + dst)
-	//legB := fmt.Sprintf("100 XML default '%s' '%s'", "100", "100") //TODO
+func (queue *IVRQueue) run(attempt *Attempt, destination string) {
+
+	defer queue.queueManager.LeavingMember(attempt, queue)
+
 	legB := fmt.Sprintf("1@webitel.lo") //TODO
 
-	info := voice.GetCallInfoFromAttempt(attempt)
-
-	/*
-		TODO: timeout: NO_ANSWER vs PROGRESS_TIMEOUT ?
-	*/
-
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"null"}, // []string{dst},
+		Endpoints:    []string{"sofia/sip/member@10.10.10.200:5080"}, // []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		Timeout:      voice.Timeout(),
+		Timeout:      queue.Timeout(),
 		Variables: model.UnionStringMaps(
 			attempt.resource.Variables(),
-			voice.Variables(),
+			queue.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_route_uri":             voice.SipRouterAddr(), //"$${outbound_sip_proxy}",
-				"sip_h_X-Webitel-Direction": "internal",
+				"sip_route_uri":             queue.SipRouterAddr(), //"$${outbound_sip_proxy}",
+				"sip_h_X-Webitel-Direction": "inbound",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE:             voice.Domain(),
-				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", voice.id),
-				model.QUEUE_NAME_FIELD:                 voice.name,
-				model.QUEUE_TYPE_NAME_FIELD:            voice.TypeName(),
+				model.CALL_DOMAIN_VARIABLE:             queue.Domain(),
+				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", queue.id),
+				model.QUEUE_NAME_FIELD:                 queue.name,
+				model.QUEUE_TYPE_NAME_FIELD:            queue.TypeName(),
 				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_MEMBER,
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
@@ -96,59 +78,56 @@ func (voice *IVRQueue) makeCall(attempt *Attempt, endpoint *Endpoint) {
 		Applications: make([]*model.CallRequestApplication, 0, 4),
 	}
 
-	err := voice.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ORIGINATE)
+	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ORIGINATE)
 	if err != nil {
-		panic(err.Error())
+		panic(err.Error()) //TODO
 	}
 
-	if voice.RecordCallEnabled() {
-		voice.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
-		info.UseRecordings = true
+	if queue.RecordCallEnabled() {
+		queue.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
 	}
 
-	if voice.amd != nil && voice.amd.Enabled {
-		voice.SetAmdCall(
+	if queue.amd != nil && queue.amd.Enabled {
+		queue.SetAmdCall(
 			callRequest,
-			voice.amd,
+			queue.amd,
 			fmt.Sprintf("%s::%s", model.CALL_TRANSFER_APPLICATION, legB),
 			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
 			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
 		)
-		info.UseAmd = true
 	} else {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "sleep",
-			Args:    "900",
+			Args:    "5000",
 		})
 	}
-	fmt.Sprintf("%d", rand.Int31n(35000))
 
-	info.LegAUri = dst
-	info.LegBUri = legB
-	call := voice.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
+	call := queue.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
 	call.Invite()
 	if call.Err() != nil {
-		voice.CallError(attempt, call.Err(), call.HangupCause())
-		voice.queueManager.LeavingMember(attempt, voice)
+		queue.CallError(attempt, call.Err(), call.HangupCause())
 		return
 	}
 
 	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
-	err = voice.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
+	var calling = true
 
-	if err != nil {
-		//todo
-		panic(err.Error())
+	for calling {
+		select {
+		case state := <-call.State():
+			switch state {
+			case call_manager.CALL_STATE_RINGING:
+				queue.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
+			}
+		case <-call.HangupChan():
+			calling = false
+		}
 	}
-	call.WaitForHangup()
-	wlog.Debug(fmt.Sprintf("Hangup call %s billing seconds: %d", call.Id(), call.BillSeconds()))
 
 	if call.HangupCause() == "" {
-		voice.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 10) //TODO
+		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
 	} else {
-		voice.StopAttemptWithCallDuration(attempt, call.HangupCause(), 10) //TODO
+		queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
 	}
-
-	attempt.Done()
 }

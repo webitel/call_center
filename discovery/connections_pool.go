@@ -105,8 +105,8 @@ func (c *connectionsPool) GetById(id string) (Connection, error) {
 }
 
 func (c *connectionsPool) Get(strategy Strategy) (Connection, error) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	if c.iterator.length == 0 {
 		return nil, ErrNotOpenedConnection
