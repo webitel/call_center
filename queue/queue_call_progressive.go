@@ -100,6 +100,7 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil {
 					call.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED) // TODO
 				} else if cnt > 0 {
+					//agent.SetStateTalking(0)
 					call.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
 					agent.SetStateReporting(5)
 				}

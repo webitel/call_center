@@ -189,6 +189,33 @@ $$;
 ALTER FUNCTION call_center.cc_available_agents_by_strategy(_queue_id bigint, _strategy character varying, _limit integer, _last_agents bigint[], _except_agents bigint[]) OWNER TO webitel;
 
 --
+-- Name: cc_confirm_agent_attempt(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: webitel
+--
+
+CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+    declare cnt int;
+BEGIN
+    update cc_member_attempt
+    set bridged_at = case id when _attempt_id then 1 else 0 end,
+        result = case id when _attempt_id then null else 'ABANDONED' end,
+        state = case id when _attempt_id then state else 7 end
+    where agent_id = _agent_id and not exists(
+       select 1
+       from cc_member_attempt a
+       where a.agent_id = _agent_id and a.result notnull
+       for update
+    );
+    get diagnostics cnt = row_count;
+    return cnt::int;
+END;
+$$;
+
+
+ALTER FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) OWNER TO webitel;
+
+--
 -- Name: cc_distribute_agent_to_attempt(character varying); Type: FUNCTION; Schema: call_center; Owner: webitel
 --
 
@@ -495,6 +522,10 @@ CREATE FUNCTION call_center.cc_queue_distribute_preview(node_ character varying,
   x cc_communication_type_l;
 BEGIN
     seg_cnt = 0;
+    
+    if rec.team_id isnull then 
+      return 0;
+    end if;
 
     foreach x in array rec.times
     loop
@@ -557,8 +588,6 @@ BEGIN
             x.type_id,
             rec.call_count::int - seg_cnt,
             rec.team_id;
-            
-      raise notice 'aaaa = %', rec.team_id;
 
       get diagnostics v_cnt = row_count;
       count = count + v_cnt;
@@ -813,16 +842,7 @@ BEGIN
 
 
     FOR rec IN select
-          queue_id,
-          resource_id,
-          routing_ids,
-          min_activity_at,
-          call_count,
-          dnc_list_id,
-          times,
-          type,
-          strategy,
-          team_id
+          *
       from cc_queue_distribute_resources
     LOOP
 
@@ -948,7 +968,7 @@ ALTER FUNCTION call_center.cc_resource_set_error(_id bigint, _routing_id bigint,
 -- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: webitel
 --
 
-CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, communication_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, resource_id integer, resource_updated_at bigint, routing_id integer, routing_pattern character varying, destination character varying, description character varying, variables jsonb, name character varying, leg_a_id character varying, agent_id bigint, agent_updated_at bigint)
+CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, communication_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, resource_id integer, resource_updated_at bigint, routing_id integer, routing_pattern character varying, destination character varying, description character varying, variables jsonb, name character varying, leg_a_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -980,12 +1000,14 @@ BEGIN
                0 as queue_cnt,
 --                s.active as queue_active_cnt
                0 as queue_active_cnt,
-               ca.updated_at as agent_updated_at
+               ca.updated_at as agent_updated_at,
+               tm.updated_at as team_updated_at
         from cc_member_attempt c
                --inner join stats s on s.queue_id = c.queue_id
                inner join cc_member cm on c.member_id = cm.id
                inner join cc_member_communications cmc on cmc.id = c.communication_id
                inner join cc_queue cq on cm.queue_id = cq.id
+               left join cc_team tm on tm.id = cq.team_id
                left join cc_queue_routing qr on qr.id = c.routing_id
                left join cc_outbound_resource r on r.id = c.resource_id
                left join cc_agent ca on c.agent_id = ca.id
@@ -1016,7 +1038,8 @@ BEGIN
         c.member_name,
         a.leg_a_id,
         a.agent_id,
-        c.agent_updated_at;
+        c.agent_updated_at,
+        c.team_updated_at;
 END;
 $$;
 
@@ -1489,10 +1512,12 @@ BEGIN
   from (
     select aq.agent_id, aq.lvl, aq.capacity
     from (
-      select sa.agent_id, aq.lvl, sa.capacity
-      from cc_agent_in_team aq
-        left join cc_skill_in_agent sa on sa.skill_id = aq.skill_id
-      where aq.team_id = team_id_ and aq.skill_id notnull
+
+      select sa.agent_id, max(aq.lvl) lvl, max(sa.capacity) capacity
+       from cc_agent_in_team aq
+          inner join cc_skill_in_agent sa on sa.skill_id = aq.skill_id
+       where aq.team_id = team_id_ and aq.skill_id notnull and sa.capacity between aq.min_capacity and aq.max_capacity
+       group by sa.agent_id
 
       union distinct
 
@@ -1506,7 +1531,7 @@ BEGIN
         from cc_member_attempt at
         where at.agent_id = a.id
     )
-    order by aq.lvl, aq.capacity desc
+    order by aq.lvl, aq.capacity desc, random()
     limit limit_
   ) a;
 END;
@@ -1686,7 +1711,7 @@ CREATE FUNCTION call_center.get_agents_available_count_by_queue_id(_queue_id int
 BEGIN
   return query select (count(distinct  COALESCE(aq.agent_id, csia.agent_id)))::integer as cnt
     from cc_agent_in_queue aq
-       left join cc_skils cs on aq.skill_id = cs.id
+       left join cc_skill cs on aq.skill_id = cs.id
        left join cc_skill_in_agent csia on cs.id = csia.skill_id
     where aq.queue_id = _queue_id
       --and COALESCE(aq.agent_id, csia.agent_id) notnull
@@ -2197,15 +2222,9 @@ ALTER TABLE call_center.agents OWNER TO webitel;
 CREATE TABLE call_center.cc_agent (
     id integer NOT NULL,
     name character varying(50) NOT NULL,
-    max_no_answer integer DEFAULT 0 NOT NULL,
-    wrap_up_time integer DEFAULT 0 NOT NULL,
-    reject_delay_time integer DEFAULT 0 NOT NULL,
-    busy_delay_time integer DEFAULT 0 NOT NULL,
-    no_answer_delay_time integer DEFAULT 0 NOT NULL,
     user_id bigint,
     updated_at bigint DEFAULT 0 NOT NULL,
     destination character varying(50) DEFAULT 'error/USER_BUSY'::character varying NOT NULL,
-    call_timeout integer DEFAULT 0 NOT NULL,
     status character varying(20) DEFAULT ''::character varying NOT NULL,
     status_payload jsonb,
     state character varying(20) DEFAULT '_none_'::character varying NOT NULL,
@@ -2232,6 +2251,20 @@ CREATE TABLE call_center.cc_agent_in_queue (
 ALTER TABLE call_center.cc_agent_in_queue OWNER TO webitel;
 
 --
+-- Name: cc_skill; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.cc_skill (
+    id integer NOT NULL,
+    name character varying(20) NOT NULL,
+    domain_id bigint,
+    description character varying(100)
+);
+
+
+ALTER TABLE call_center.cc_skill OWNER TO webitel;
+
+--
 -- Name: cc_skill_in_agent; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -2244,19 +2277,6 @@ CREATE TABLE call_center.cc_skill_in_agent (
 
 
 ALTER TABLE call_center.cc_skill_in_agent OWNER TO webitel;
-
---
--- Name: cc_skils; Type: TABLE; Schema: call_center; Owner: webitel
---
-
-CREATE TABLE call_center.cc_skils (
-    id integer NOT NULL,
-    code character varying(20) NOT NULL,
-    domain_id bigint
-);
-
-
-ALTER TABLE call_center.cc_skils OWNER TO webitel;
 
 --
 -- Name: available_agent_in_queue; Type: VIEW; Schema: call_center; Owner: webitel
@@ -2274,7 +2294,7 @@ CREATE VIEW call_center.available_agent_in_queue AS
             COALESCE((max(csia.capacity))::integer, 0) AS max_of_capacity,
             max(aq.lvl) AS max_of_lvl
            FROM ((call_center.cc_agent_in_queue aq
-             LEFT JOIN call_center.cc_skils cs ON ((aq.skill_id = cs.id)))
+             LEFT JOIN call_center.cc_skill cs ON ((aq.skill_id = cs.id)))
              LEFT JOIN call_center.cc_skill_in_agent csia ON ((cs.id = csia.skill_id)))
           WHERE (NOT (COALESCE(aq.agent_id, csia.agent_id) IS NULL))
           GROUP BY aq.queue_id, COALESCE(aq.agent_id, csia.agent_id)) ag
@@ -2516,6 +2536,41 @@ CREATE TABLE call_center.callflow_variables (
 ALTER TABLE call_center.callflow_variables OWNER TO webitel;
 
 --
+-- Name: cc_agent_attempt; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.cc_agent_attempt (
+    id bigint NOT NULL,
+    queue_id bigint NOT NULL,
+    agent_id bigint,
+    attempt_id bigint NOT NULL
+);
+
+
+ALTER TABLE call_center.cc_agent_attempt OWNER TO webitel;
+
+--
+-- Name: cc_agent_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.cc_agent_attempt_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.cc_agent_attempt_id_seq OWNER TO webitel;
+
+--
+-- Name: cc_agent_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.cc_agent_attempt_id_seq OWNED BY call_center.cc_agent_attempt.id;
+
+
+--
 -- Name: cc_agent_state_history; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -2605,7 +2660,9 @@ CREATE TABLE call_center.cc_agent_in_team (
     team_id bigint NOT NULL,
     agent_id bigint,
     skill_id integer,
-    lvl integer DEFAULT 0 NOT NULL
+    lvl integer DEFAULT 0 NOT NULL,
+    min_capacity smallint DEFAULT 0 NOT NULL,
+    max_capacity smallint DEFAULT 100 NOT NULL
 );
 
 
@@ -2744,7 +2801,8 @@ CREATE TABLE call_center.cc_communication (
     id integer NOT NULL,
     name character varying(50) NOT NULL,
     code character varying(10) NOT NULL,
-    type character varying(5)
+    type character varying(5),
+    domain_id bigint
 );
 
 
@@ -3185,39 +3243,6 @@ ALTER SEQUENCE call_center.cc_queue_routing_id_seq OWNED BY call_center.cc_queue
 
 
 --
--- Name: cc_queue_states; Type: TABLE; Schema: call_center; Owner: webitel
---
-
-CREATE TABLE call_center.cc_queue_states (
-    id bigint NOT NULL,
-    queue_id bigint NOT NULL
-);
-
-
-ALTER TABLE call_center.cc_queue_states OWNER TO webitel;
-
---
--- Name: cc_queue_states_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
---
-
-CREATE SEQUENCE call_center.cc_queue_states_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER TABLE call_center.cc_queue_states_id_seq OWNER TO webitel;
-
---
--- Name: cc_queue_states_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
---
-
-ALTER SEQUENCE call_center.cc_queue_states_id_seq OWNED BY call_center.cc_queue_states.id;
-
-
---
 -- Name: cc_queue_timing; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -3335,7 +3360,7 @@ ALTER TABLE call_center.cc_skils_id_seq OWNER TO webitel;
 -- Name: cc_skils_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
 --
 
-ALTER SEQUENCE call_center.cc_skils_id_seq OWNED BY call_center.cc_skils.id;
+ALTER SEQUENCE call_center.cc_skils_id_seq OWNED BY call_center.cc_skill.id;
 
 
 --
@@ -3346,7 +3371,15 @@ CREATE TABLE call_center.cc_team (
     id bigint NOT NULL,
     domain_id bigint NOT NULL,
     name character varying(50) NOT NULL,
-    description character varying(500)
+    description character varying(500),
+    strategy character varying(20) NOT NULL,
+    max_no_answer smallint DEFAULT 0 NOT NULL,
+    wrap_up_time smallint DEFAULT 0 NOT NULL,
+    reject_delay_time smallint DEFAULT 0 NOT NULL,
+    busy_delay_time smallint DEFAULT 0 NOT NULL,
+    no_answer_delay_time smallint DEFAULT 0 NOT NULL,
+    call_timeout smallint DEFAULT 0 NOT NULL,
+    updated_at bigint DEFAULT 0 NOT NULL
 );
 
 
@@ -3623,6 +3656,13 @@ ALTER TABLE ONLY call_center.cc_agent_activity ALTER COLUMN id SET DEFAULT nextv
 
 
 --
+-- Name: cc_agent_attempt id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_agent_attempt ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_attempt_id_seq'::regclass);
+
+
+--
 -- Name: cc_agent_in_queue id; Type: DEFAULT; Schema: call_center; Owner: webitel
 --
 
@@ -3728,13 +3768,6 @@ ALTER TABLE ONLY call_center.cc_queue_routing ALTER COLUMN id SET DEFAULT nextva
 
 
 --
--- Name: cc_queue_states id; Type: DEFAULT; Schema: call_center; Owner: webitel
---
-
-ALTER TABLE ONLY call_center.cc_queue_states ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_states_id_seq'::regclass);
-
-
---
 -- Name: cc_queue_timing id; Type: DEFAULT; Schema: call_center; Owner: webitel
 --
 
@@ -3749,17 +3782,17 @@ ALTER TABLE ONLY call_center.cc_resource_in_routing ALTER COLUMN id SET DEFAULT 
 
 
 --
+-- Name: cc_skill id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_skill ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skils_id_seq'::regclass);
+
+
+--
 -- Name: cc_skill_in_agent id; Type: DEFAULT; Schema: call_center; Owner: webitel
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skill_in_agent_id_seq'::regclass);
-
-
---
--- Name: cc_skils id; Type: DEFAULT; Schema: call_center; Owner: webitel
---
-
-ALTER TABLE ONLY call_center.cc_skils ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skils_id_seq'::regclass);
 
 
 --
@@ -3843,6 +3876,14 @@ ALTER TABLE ONLY call_center.calendar_timezones
 
 ALTER TABLE ONLY call_center.call_list_communications
     ADD CONSTRAINT call_list_communications_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_agent_attempt cc_agent_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_agent_attempt
+    ADD CONSTRAINT cc_agent_attempt_pk PRIMARY KEY (id);
 
 
 --
@@ -3990,14 +4031,6 @@ ALTER TABLE ONLY call_center.cc_queue_routing
 
 
 --
--- Name: cc_queue_states cc_queue_states_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
---
-
-ALTER TABLE ONLY call_center.cc_queue_states
-    ADD CONSTRAINT cc_queue_states_pk PRIMARY KEY (id);
-
-
---
 -- Name: cc_queue_timing cc_queue_timing_pkey; Type: CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
@@ -4022,10 +4055,10 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skils cc_skils_pkey; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+-- Name: cc_skill cc_skils_pkey; Type: CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
-ALTER TABLE ONLY call_center.cc_skils
+ALTER TABLE ONLY call_center.cc_skill
     ADD CONSTRAINT cc_skils_pkey PRIMARY KEY (id);
 
 
@@ -4152,6 +4185,13 @@ CREATE UNIQUE INDEX call_list_communications_id_uindex ON call_center.call_list_
 --
 
 CREATE UNIQUE INDEX cc_agent_activity_agent_id_last_offering_call_at_uindex ON call_center.cc_agent_activity USING btree (agent_id, last_offering_call_at);
+
+
+--
+-- Name: cc_agent_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX cc_agent_attempt_id_uindex ON call_center.cc_agent_attempt USING btree (id);
 
 
 --
@@ -4309,6 +4349,13 @@ CREATE UNIQUE INDEX cc_list_communications_list_id_number_uindex ON call_center.
 
 
 --
+-- Name: cc_member_agent_id_index; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE INDEX cc_member_agent_id_index ON call_center.cc_member USING btree (agent_id);
+
+
+--
 -- Name: cc_member_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
@@ -4449,13 +4496,6 @@ CREATE INDEX cc_queue_routing_queue_id_index ON call_center.cc_queue_routing USI
 
 
 --
--- Name: cc_queue_states_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
---
-
-CREATE UNIQUE INDEX cc_queue_states_id_uindex ON call_center.cc_queue_states USING btree (id);
-
-
---
 -- Name: cc_queue_timing_communication_id_max_attempt_index; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
@@ -4515,7 +4555,7 @@ CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_
 -- Name: cc_skils_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
-CREATE UNIQUE INDEX cc_skils_id_uindex ON call_center.cc_skils USING btree (id);
+CREATE UNIQUE INDEX cc_skils_id_uindex ON call_center.cc_skill USING btree (id);
 
 
 --
@@ -4691,7 +4731,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_queue
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_queue
-    ADD CONSTRAINT cc_agent_in_queue_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skils(id);
+    ADD CONSTRAINT cc_agent_in_queue_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id);
 
 
 --
@@ -4707,7 +4747,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
-    ADD CONSTRAINT cc_agent_in_team_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skils(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT cc_agent_in_team_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -4947,14 +4987,14 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
-    ADD CONSTRAINT cc_skill_in_agent_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skils(id);
+    ADD CONSTRAINT cc_skill_in_agent_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id);
 
 
 --
--- Name: cc_skils cc_skils_domain_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+-- Name: cc_skill cc_skils_domain_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
-ALTER TABLE ONLY call_center.cc_skils
+ALTER TABLE ONLY call_center.cc_skill
     ADD CONSTRAINT cc_skils_domain_id_fk FOREIGN KEY (domain_id) REFERENCES call_center.domain(id);
 
 
