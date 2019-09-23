@@ -15,8 +15,9 @@ type Store interface {
 }
 
 type ClusterStore interface {
-	CreateOrUpdate(nodeId string) (discovery.ClusterData, error)
-	UpdateUpdatedTime(nodeId string) error
+	//CreateOrUpdate(nodeId string) (*discovery.ClusterData, error)
+	//UpdateUpdatedTime(nodeId string) (*discovery.ClusterData, error)
+	UpdateClusterInfo(nodeId string, started bool) (*discovery.ClusterData, error)
 }
 
 type OutboundResourceStore interface {

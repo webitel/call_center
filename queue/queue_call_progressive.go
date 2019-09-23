@@ -53,7 +53,7 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 	defer queue.queueManager.LeavingMember(attempt, queue)
 
 	callRequest := &model.CallRequest{
-		Endpoints:    agent.GetCallEndpoints(), // []string{dst},
+		Endpoints:    []string{"null"}, //agent.GetCallEndpoints(), // []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      queue.Timeout(),
@@ -102,7 +102,7 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 				} else if cnt > 0 {
 					//agent.SetStateTalking(0)
 					call.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
-					agent.SetStateReporting(5)
+					agent.SetStateReporting(50)
 				}
 			case call_manager.CALL_STATE_BRIDGE:
 				agent.SetStateTalking(0)

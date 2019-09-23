@@ -34,7 +34,7 @@ func (agent *Agent) SetStateFine(deadline int) *model.AppError {
 }
 
 func (agent *Agent) Name() string {
-	return agent.info.Name
+	return "FIXME from user reference"
 }
 
 func (agent *Agent) Id() int64 {

@@ -70,7 +70,7 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, routingId int, resource ResourceObject) call_manager.Call {
 	resource.Take() // rps
 
-	//DUMP(callRequest)
+	DUMP(callRequest)
 
 	call := queue.queueManager.callManager.NewCall(callRequest)
 	if call.Err() != nil {

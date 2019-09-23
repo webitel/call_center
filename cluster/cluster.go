@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
@@ -8,14 +9,14 @@ import (
 	"sync"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 30 * 1000 //30s
+var DEFAULT_WATCHER_POLLING_INTERVAL = 10 * 1000 //30s
 
 type cluster struct {
 	store           discovery.ClusterStore
 	nodeId          string
 	startOnce       sync.Once
 	pollingInterval int
-	info            discovery.ClusterData
+	info            *discovery.ClusterData
 	watcher         *utils.Watcher
 	discovery       discovery.ServiceDiscovery
 }
@@ -24,6 +25,7 @@ type Cluster interface {
 	Setup() error
 	Start()
 	Stop()
+	Master() bool
 
 	ServiceDiscovery() discovery.ServiceDiscovery
 }
@@ -56,7 +58,7 @@ func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, err
 }
 
 func (c *cluster) Start() {
-	wlog.Info("starting cluster service")
+	wlog.Info(fmt.Sprintf("starting cluster [%s] service", c.nodeId))
 	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 	c.startOnce.Do(func() {
 		go c.watcher.Start()
@@ -74,14 +76,22 @@ func (c *cluster) Stop() {
 }
 
 func (c *cluster) Setup() error {
-	if info, err := c.store.CreateOrUpdate(c.nodeId); err != nil {
+	if info, err := c.store.UpdateClusterInfo(c.nodeId, true); err != nil {
 		return err
 	} else {
 		c.info = info
+		wlog.Debug(fmt.Sprintf("cluster [%s] %v", c.nodeId, info))
 	}
 	return nil
 }
 
 func (c *cluster) ServiceDiscovery() discovery.ServiceDiscovery {
 	return c.discovery
+}
+
+func (c *cluster) Master() bool {
+	if c.info == nil {
+		return false
+	}
+	return c.info.Master
 }

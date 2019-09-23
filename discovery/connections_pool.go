@@ -112,9 +112,7 @@ func (c *connectionsPool) Get(strategy Strategy) (Connection, error) {
 		return nil, ErrNotOpenedConnection
 	}
 
-	i := c.iterator.index
-
-	for j := c.iterator.Next(); ; j = c.iterator.Next() {
+	for i, j := c.iterator.index, c.iterator.Next(); ; j = c.iterator.Next() {
 		if c.connections[j].Ready() {
 			return c.connections[j], nil
 		}

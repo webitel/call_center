@@ -7,11 +7,17 @@ func NewServiceDiscovery(id, addr string, check CheckFunction) (ServiceDiscovery
 }
 
 type ClusterStore interface {
-	CreateOrUpdate(nodeId string) (ClusterData, error)
-	UpdateUpdatedTime(nodeId string) error
+	//CreateOrUpdate(nodeId string) (*ClusterData, error)
+	//UpdateUpdatedTime(nodeId string) (*ClusterData, error)
+	UpdateClusterInfo(nodeId string, started bool) (*ClusterData, error)
 }
 
-type ClusterData interface {
+type ClusterData struct {
+	Id        int64  `json:"id" db:"id"`
+	NodeName  string `json:"node_name" db:"node_name"`
+	Master    bool   `json:"master" db:"master"`
+	UpdatedAt int64  `json:"updated_at" db:"updated_at"`
+	StartedAt int64  `json:"started_at" db:"started_at"`
 }
 
 type ServiceDiscovery interface {

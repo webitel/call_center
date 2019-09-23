@@ -326,6 +326,25 @@ $$;
 ALTER FUNCTION call_center.cc_distribute_inbound_call_to_queue(_queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer) OWNER TO webitel;
 
 --
+-- Name: cc_get_lookup(bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: webitel
+--
+
+CREATE FUNCTION call_center.cc_get_lookup(_id bigint, _name character varying) RETURNS jsonb
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    if _id isnull then
+        return null;
+    else
+        return json_build_object('id', _id, 'name', _name)::jsonb;
+    end if;
+END;
+$$;
+
+
+ALTER FUNCTION call_center.cc_get_lookup(_id bigint, _name character varying) OWNER TO webitel;
+
+--
 -- Name: cc_get_time(character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: webitel
 --
 
@@ -2161,6 +2180,173 @@ $$;
 ALTER FUNCTION call_center.un_reserve_members_with_resources(node character varying, res character varying) OWNER TO webitel;
 
 --
+-- Name: acr_routing_inbound_call; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.acr_routing_inbound_call (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying(100) NOT NULL,
+    description character varying(200) DEFAULT ''::character varying NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_at bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    start_scheme_id bigint NOT NULL,
+    stop_scheme_id bigint,
+    numbers character varying(50)[] DEFAULT '{}'::character varying[] NOT NULL,
+    host character varying(50),
+    timezone_id integer NOT NULL,
+    debug boolean DEFAULT false NOT NULL,
+    disabled boolean DEFAULT false
+);
+
+
+ALTER TABLE call_center.acr_routing_inbound_call OWNER TO webitel;
+
+--
+-- Name: acr_routing_inbound_call_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.acr_routing_inbound_call_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.acr_routing_inbound_call_id_seq OWNER TO webitel;
+
+--
+-- Name: acr_routing_inbound_call_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.acr_routing_inbound_call_id_seq OWNED BY call_center.acr_routing_inbound_call.id;
+
+
+--
+-- Name: acr_routing_outbound_call; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.acr_routing_outbound_call (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying(100) NOT NULL,
+    description character varying(200) DEFAULT ''::character varying NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_at bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    pattern character varying(50) NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    disabled boolean DEFAULT false,
+    scheme_id bigint NOT NULL
+);
+
+
+ALTER TABLE call_center.acr_routing_outbound_call OWNER TO webitel;
+
+--
+-- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.acr_routing_outbound_call_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.acr_routing_outbound_call_id_seq OWNER TO webitel;
+
+--
+-- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.acr_routing_outbound_call_id_seq OWNED BY call_center.acr_routing_outbound_call.id;
+
+
+--
+-- Name: acr_routing_scheme; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.acr_routing_scheme (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying(100) NOT NULL,
+    scheme jsonb NOT NULL,
+    payload jsonb,
+    type smallint DEFAULT 0 NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_at bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    description character varying(200) DEFAULT ''::character varying NOT NULL,
+    debug boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE call_center.acr_routing_scheme OWNER TO webitel;
+
+--
+-- Name: acr_routing_scheme_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.acr_routing_scheme_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.acr_routing_scheme_id_seq OWNER TO webitel;
+
+--
+-- Name: acr_routing_scheme_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.acr_routing_scheme_id_seq OWNED BY call_center.acr_routing_scheme.id;
+
+
+--
+-- Name: acr_routing_variables; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.acr_routing_variables (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    key character varying(20) NOT NULL,
+    value character varying(100) DEFAULT ''::character varying NOT NULL
+);
+
+
+ALTER TABLE call_center.acr_routing_variables OWNER TO webitel;
+
+--
+-- Name: acr_routing_variables_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.acr_routing_variables_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.acr_routing_variables_id_seq OWNER TO webitel;
+
+--
+-- Name: acr_routing_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.acr_routing_variables_id_seq OWNED BY call_center.acr_routing_variables.id;
+
+
+--
 -- Name: cc_agent_activity; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -2221,15 +2407,15 @@ ALTER TABLE call_center.agents OWNER TO webitel;
 
 CREATE TABLE call_center.cc_agent (
     id integer NOT NULL,
-    name character varying(50) NOT NULL,
-    user_id bigint,
+    user_id bigint NOT NULL,
     updated_at bigint DEFAULT 0 NOT NULL,
     destination character varying(50) DEFAULT 'error/USER_BUSY'::character varying NOT NULL,
-    status character varying(20) DEFAULT ''::character varying NOT NULL,
+    status character varying(20) DEFAULT 'offline'::character varying NOT NULL,
     status_payload jsonb,
-    state character varying(20) DEFAULT '_none_'::character varying NOT NULL,
+    state character varying(20) DEFAULT 'waiting'::character varying NOT NULL,
     state_timeout timestamp without time zone,
-    supervisor boolean DEFAULT false NOT NULL
+    description character varying(250) DEFAULT ''::character varying NOT NULL,
+    domain_id bigint NOT NULL
 );
 
 
@@ -2257,8 +2443,8 @@ ALTER TABLE call_center.cc_agent_in_queue OWNER TO webitel;
 CREATE TABLE call_center.cc_skill (
     id integer NOT NULL,
     name character varying(20) NOT NULL,
-    domain_id bigint,
-    description character varying(100)
+    domain_id bigint NOT NULL,
+    description character varying(100) DEFAULT ''::character varying NOT NULL
 );
 
 
@@ -2272,7 +2458,11 @@ CREATE TABLE call_center.cc_skill_in_agent (
     id integer NOT NULL,
     skill_id integer NOT NULL,
     agent_id integer NOT NULL,
-    capacity smallint DEFAULT 0 NOT NULL
+    capacity smallint DEFAULT 0 NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_at bigint NOT NULL,
+    updated_by bigint NOT NULL
 );
 
 
@@ -2534,6 +2724,43 @@ CREATE TABLE call_center.callflow_variables (
 
 
 ALTER TABLE call_center.callflow_variables OWNER TO webitel;
+
+--
+-- Name: cc_agent_acl; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.cc_agent_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint NOT NULL,
+    object bigint NOT NULL,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE call_center.cc_agent_acl OWNER TO webitel;
+
+--
+-- Name: cc_agent_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.cc_agent_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.cc_agent_acl_id_seq OWNER TO webitel;
+
+--
+-- Name: cc_agent_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.cc_agent_acl_id_seq OWNED BY call_center.cc_agent_acl.id;
+
 
 --
 -- Name: cc_agent_attempt; Type: TABLE; Schema: call_center; Owner: webitel
@@ -2911,7 +3138,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     answered_at bigint DEFAULT 0 NOT NULL,
     routing_id integer,
     logs jsonb,
-    agent_id bigint
+    agent_id bigint,
+    success boolean DEFAULT false NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -3364,6 +3592,40 @@ ALTER SEQUENCE call_center.cc_skils_id_seq OWNED BY call_center.cc_skill.id;
 
 
 --
+-- Name: cc_supervisor_in_team; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.cc_supervisor_in_team (
+    id bigint NOT NULL,
+    agent_id bigint NOT NULL,
+    team_id bigint NOT NULL
+);
+
+
+ALTER TABLE call_center.cc_supervisor_in_team OWNER TO webitel;
+
+--
+-- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.cc_supervisor_in_team_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.cc_supervisor_in_team_id_seq OWNER TO webitel;
+
+--
+-- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.cc_supervisor_in_team_id_seq OWNED BY call_center.cc_supervisor_in_team.id;
+
+
+--
 -- Name: cc_team; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -3371,7 +3633,7 @@ CREATE TABLE call_center.cc_team (
     id bigint NOT NULL,
     domain_id bigint NOT NULL,
     name character varying(50) NOT NULL,
-    description character varying(500),
+    description character varying(500) DEFAULT ''::character varying NOT NULL,
     strategy character varying(20) NOT NULL,
     max_no_answer smallint DEFAULT 0 NOT NULL,
     wrap_up_time smallint DEFAULT 0 NOT NULL,
@@ -3384,6 +3646,43 @@ CREATE TABLE call_center.cc_team (
 
 
 ALTER TABLE call_center.cc_team OWNER TO webitel;
+
+--
+-- Name: cc_team_acl; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.cc_team_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint NOT NULL,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL,
+    object bigint NOT NULL
+);
+
+
+ALTER TABLE call_center.cc_team_acl OWNER TO webitel;
+
+--
+-- Name: cc_team_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.cc_team_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.cc_team_acl_id_seq OWNER TO webitel;
+
+--
+-- Name: cc_team_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.cc_team_acl_id_seq OWNED BY call_center.cc_team_acl.id;
+
 
 --
 -- Name: cc_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
@@ -3552,6 +3851,41 @@ CREATE TABLE call_center.session (
 ALTER TABLE call_center.session OWNER TO webitel;
 
 --
+-- Name: sip_gateway; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.sip_gateway (
+    id bigint NOT NULL,
+    name character varying(50) DEFAULT 'none'::character varying NOT NULL,
+    scheme_id bigint NOT NULL,
+    dc integer
+);
+
+
+ALTER TABLE call_center.sip_gateway OWNER TO webitel;
+
+--
+-- Name: sip_gateway_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.sip_gateway_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.sip_gateway_id_seq OWNER TO webitel;
+
+--
+-- Name: sip_gateway_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.sip_gateway_id_seq OWNED BY call_center.sip_gateway.id;
+
+
+--
 -- Name: user; Type: TABLE; Schema: call_center; Owner: webitel
 --
 
@@ -3600,11 +3934,73 @@ CREATE TABLE call_center.wbt_domain (
     streetaddr text,
     postaladdr text,
     postalcode text,
-    attrs character varying(255)
+    attrs character varying(255),
+    timezone_id bigint
 );
 
 
 ALTER TABLE call_center.wbt_domain OWNER TO webitel;
+
+--
+-- Name: wbt_user; Type: TABLE; Schema: call_center; Owner: webitel
+--
+
+CREATE TABLE call_center.wbt_user (
+    id bigint NOT NULL,
+    name character varying(50) NOT NULL
+);
+
+
+ALTER TABLE call_center.wbt_user OWNER TO webitel;
+
+--
+-- Name: wbt_user_id_seq; Type: SEQUENCE; Schema: call_center; Owner: webitel
+--
+
+CREATE SEQUENCE call_center.wbt_user_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE call_center.wbt_user_id_seq OWNER TO webitel;
+
+--
+-- Name: wbt_user_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: webitel
+--
+
+ALTER SEQUENCE call_center.wbt_user_id_seq OWNED BY call_center.wbt_user.id;
+
+
+--
+-- Name: acr_routing_inbound_call id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_inbound_call ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_inbound_call_id_seq'::regclass);
+
+
+--
+-- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_outbound_call_id_seq'::regclass);
+
+
+--
+-- Name: acr_routing_scheme id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_scheme ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_scheme_id_seq'::regclass);
+
+
+--
+-- Name: acr_routing_variables id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_variables ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_variables_id_seq'::regclass);
+
 
 --
 -- Name: calendar id; Type: DEFAULT; Schema: call_center; Owner: webitel
@@ -3646,6 +4042,13 @@ ALTER TABLE ONLY call_center.call_list_communications ALTER COLUMN id SET DEFAUL
 --
 
 ALTER TABLE ONLY call_center.cc_agent ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_id_seq'::regclass);
+
+
+--
+-- Name: cc_agent_acl id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_agent_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_acl_id_seq'::regclass);
 
 
 --
@@ -3796,10 +4199,24 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent ALTER COLUMN id SET DEFAULT nextv
 
 
 --
+-- Name: cc_supervisor_in_team id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_supervisor_in_team ALTER COLUMN id SET DEFAULT nextval('call_center.cc_supervisor_in_team_id_seq'::regclass);
+
+
+--
 -- Name: cc_team id; Type: DEFAULT; Schema: call_center; Owner: webitel
 --
 
 ALTER TABLE ONLY call_center.cc_team ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_id_seq'::regclass);
+
+
+--
+-- Name: cc_team_acl id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_team_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_acl_id_seq'::regclass);
 
 
 --
@@ -3824,10 +4241,56 @@ ALTER TABLE ONLY call_center.projects ALTER COLUMN id SET DEFAULT nextval('call_
 
 
 --
+-- Name: sip_gateway id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.sip_gateway ALTER COLUMN id SET DEFAULT nextval('call_center.sip_gateway_id_seq'::regclass);
+
+
+--
 -- Name: user id; Type: DEFAULT; Schema: call_center; Owner: webitel
 --
 
 ALTER TABLE ONLY call_center."user" ALTER COLUMN id SET DEFAULT nextval('call_center.users_id_seq'::regclass);
+
+
+--
+-- Name: wbt_user id; Type: DEFAULT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.wbt_user ALTER COLUMN id SET DEFAULT nextval('call_center.wbt_user_id_seq'::regclass);
+
+
+--
+-- Name: acr_routing_inbound_call acr_routing_inbound_call_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_inbound_call
+    ADD CONSTRAINT acr_routing_inbound_call_pk PRIMARY KEY (id);
+
+
+--
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_pk PRIMARY KEY (id);
+
+
+--
+-- Name: acr_routing_scheme acr_routing_scheme_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_scheme
+    ADD CONSTRAINT acr_routing_scheme_pk PRIMARY KEY (id);
+
+
+--
+-- Name: acr_routing_variables acr_routing_variables_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_variables
+    ADD CONSTRAINT acr_routing_variables_pk PRIMARY KEY (id);
 
 
 --
@@ -3876,6 +4339,14 @@ ALTER TABLE ONLY call_center.calendar_timezones
 
 ALTER TABLE ONLY call_center.call_list_communications
     ADD CONSTRAINT call_list_communications_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_agent_acl cc_agent_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_agent_acl
+    ADD CONSTRAINT cc_agent_acl_pk PRIMARY KEY (id);
 
 
 --
@@ -4063,6 +4534,22 @@ ALTER TABLE ONLY call_center.cc_skill
 
 
 --
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_supervisor_in_team
+    ADD CONSTRAINT cc_supervisor_in_team_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_team_acl cc_team_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_team_acl
+    ADD CONSTRAINT cc_team_acl_pk PRIMARY KEY (id);
+
+
+--
 -- Name: cc_team cc_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
@@ -4103,11 +4590,69 @@ ALTER TABLE ONLY call_center.session
 
 
 --
+-- Name: sip_gateway sip_gateway_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.sip_gateway
+    ADD CONSTRAINT sip_gateway_pk PRIMARY KEY (id);
+
+
+--
 -- Name: user users_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
 ALTER TABLE ONLY call_center."user"
     ADD CONSTRAINT users_pk PRIMARY KEY (id);
+
+
+--
+-- Name: wbt_user wbt_user_pk; Type: CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.wbt_user
+    ADD CONSTRAINT wbt_user_pk PRIMARY KEY (id);
+
+
+--
+-- Name: acr_routing_inbound_call_domain_id_numbers_host_disabled_index; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE INDEX acr_routing_inbound_call_domain_id_numbers_host_disabled_index ON call_center.acr_routing_inbound_call USING btree (domain_id, numbers, host, disabled);
+
+
+--
+-- Name: acr_routing_inbound_call_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX acr_routing_inbound_call_id_uindex ON call_center.acr_routing_inbound_call USING btree (id);
+
+
+--
+-- Name: acr_routing_outbound_call_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX acr_routing_outbound_call_id_uindex ON call_center.acr_routing_outbound_call USING btree (id);
+
+
+--
+-- Name: acr_routing_scheme_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX acr_routing_scheme_id_uindex ON call_center.acr_routing_scheme USING btree (id);
+
+
+--
+-- Name: acr_routing_variables_domain_id_index; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE INDEX acr_routing_variables_domain_id_index ON call_center.acr_routing_variables USING btree (domain_id);
+
+
+--
+-- Name: acr_routing_variables_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX acr_routing_variables_id_uindex ON call_center.acr_routing_variables USING btree (id);
 
 
 --
@@ -4178,6 +4723,13 @@ CREATE UNIQUE INDEX calendar_timezones_utc_offset_index ON call_center.calendar_
 --
 
 CREATE UNIQUE INDEX call_list_communications_id_uindex ON call_center.call_list_communications USING btree (id);
+
+
+--
+-- Name: cc_agent_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX cc_agent_acl_id_uindex ON call_center.cc_agent_acl USING btree (id);
 
 
 --
@@ -4363,6 +4915,13 @@ CREATE UNIQUE INDEX cc_member_attempt_id_uindex ON call_center.cc_member_attempt
 
 
 --
+-- Name: cc_member_attempt_log_created_at_index; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE INDEX cc_member_attempt_log_created_at_index ON call_center.cc_member_attempt_log USING btree (created_at DESC);
+
+
+--
 -- Name: cc_member_attempt_log_hangup_at_index; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
@@ -4471,7 +5030,7 @@ CREATE INDEX cc_queue_enabled_priority_index ON call_center.cc_queue USING btree
 -- Name: cc_queue_id_priority_uindex; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
-CREATE UNIQUE INDEX cc_queue_id_priority_uindex ON call_center.cc_queue USING btree (priority, sec_locate_agent, updated_at);
+CREATE INDEX cc_queue_id_priority_uindex ON call_center.cc_queue USING btree (priority, sec_locate_agent, updated_at);
 
 
 --
@@ -4559,6 +5118,20 @@ CREATE UNIQUE INDEX cc_skils_id_uindex ON call_center.cc_skill USING btree (id);
 
 
 --
+-- Name: cc_supervisor_in_team_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX cc_supervisor_in_team_id_uindex ON call_center.cc_supervisor_in_team USING btree (id);
+
+
+--
+-- Name: cc_team_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX cc_team_acl_id_uindex ON call_center.cc_team_acl USING btree (id);
+
+
+--
 -- Name: cc_team_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
@@ -4587,10 +5160,24 @@ CREATE UNIQUE INDEX projects_id_uindex ON call_center.projects USING btree (id);
 
 
 --
+-- Name: sip_gateway_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX sip_gateway_id_uindex ON call_center.sip_gateway USING btree (id);
+
+
+--
 -- Name: users_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
 --
 
 CREATE UNIQUE INDEX users_id_uindex ON call_center."user" USING btree (id);
+
+
+--
+-- Name: wbt_user_id_uindex; Type: INDEX; Schema: call_center; Owner: webitel
+--
+
+CREATE UNIQUE INDEX wbt_user_id_uindex ON call_center.wbt_user USING btree (id);
 
 
 --
@@ -4671,6 +5258,38 @@ CREATE TRIGGER tg_set_routing_ids_on_update_pattern AFTER UPDATE ON call_center.
 
 
 --
+-- Name: acr_routing_inbound_call acr_routing_inbound_call___fka; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_inbound_call
+    ADD CONSTRAINT acr_routing_inbound_call___fka FOREIGN KEY (stop_scheme_id) REFERENCES call_center.acr_routing_scheme(id);
+
+
+--
+-- Name: acr_routing_inbound_call acr_routing_inbound_call_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_inbound_call
+    ADD CONSTRAINT acr_routing_inbound_call_acr_routing_scheme_id_fk FOREIGN KEY (start_scheme_id) REFERENCES call_center.acr_routing_scheme(id);
+
+
+--
+-- Name: acr_routing_inbound_call acr_routing_inbound_call_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_inbound_call
+    ADD CONSTRAINT acr_routing_inbound_call_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES call_center.calendar_timezones(id);
+
+
+--
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_acr_routing_scheme_id_fk FOREIGN KEY (scheme_id) REFERENCES call_center.acr_routing_scheme(id);
+
+
+--
 -- Name: calendar_accept_of_day calendar_accept_of_day_calendar_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
@@ -4708,6 +5327,14 @@ ALTER TABLE ONLY call_center.calendar
 
 ALTER TABLE ONLY call_center.calendar_except
     ADD CONSTRAINT calendar_except_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES call_center.calendar(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_agent_acl cc_agent_acl_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_agent_acl
+    ADD CONSTRAINT cc_agent_acl_cc_agent_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_agent(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -4775,11 +5402,11 @@ ALTER TABLE ONLY call_center.cc_agent_state_history
 
 
 --
--- Name: cc_agent cc_agent_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+-- Name: cc_agent cc_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
 --
 
 ALTER TABLE ONLY call_center.cc_agent
-    ADD CONSTRAINT cc_agent_user_id_fk FOREIGN KEY (user_id) REFERENCES call_center."user"(id);
+    ADD CONSTRAINT cc_agent_wbt_user_id_fk FOREIGN KEY (user_id) REFERENCES call_center.wbt_user(id);
 
 
 --
@@ -4996,6 +5623,30 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 ALTER TABLE ONLY call_center.cc_skill
     ADD CONSTRAINT cc_skils_domain_id_fk FOREIGN KEY (domain_id) REFERENCES call_center.domain(id);
+
+
+--
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_supervisor_in_team
+    ADD CONSTRAINT cc_supervisor_in_team_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id);
+
+
+--
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_supervisor_in_team
+    ADD CONSTRAINT cc_supervisor_in_team_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_team_acl cc_team_acl_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: webitel
+--
+
+ALTER TABLE ONLY call_center.cc_team_acl
+    ADD CONSTRAINT cc_team_acl_cc_team_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_team(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --

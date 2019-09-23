@@ -109,6 +109,10 @@ func (app *App) IsReady() bool {
 	return true
 }
 
+func (app *App) Master() bool {
+	return app.cluster.Master()
+}
+
 func (app *App) Shutdown() {
 	wlog.Info("stopping Server...")
 
