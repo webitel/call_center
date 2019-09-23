@@ -2,9 +2,9 @@ package sqlstore
 
 import (
 	_ "github.com/lib/pq"
+	"github.com/webitel/call_center/store"
 
 	"github.com/go-gorp/gorp"
-	"github.com/webitel/call_center/store"
 )
 
 type SqlStore interface {
@@ -12,6 +12,10 @@ type SqlStore interface {
 	GetReplica() *gorp.DbMap
 	GetAllConns() []*gorp.DbMap
 
+	Cluster() store.ClusterStore
 	Queue() store.QueueStore
+	Member() store.MemberStore
+	OutboundResource() store.OutboundResourceStore
 	Agent() store.AgentStore
+	Team() store.TeamStore
 }
