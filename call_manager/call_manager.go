@@ -110,7 +110,7 @@ func (cm *CallManagerImpl) Stop() {
 }
 
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
-	api, _ := cm.getApiConnection() //TODO check error
+	api, _ := cm.getApiConnection() //FIXME!!! check error
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
 }
 
