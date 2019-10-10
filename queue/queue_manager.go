@@ -154,7 +154,7 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 }
 
 func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, errorId string) {
-	if resource.CheckIfError(errorId) {
+	if resource.CheckCodeError(errorId) {
 		wlog.Warn(fmt.Sprintf("resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
 		if responseError, err := queueManager.store.OutboundResource().
 			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
@@ -211,7 +211,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 	queueManager.notifyChangedQueueLength(queue)
 
-	wlog.Debug(fmt.Sprintf("join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", attempt.Name(),
+	wlog.Debug(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 
@@ -242,7 +242,7 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
 
-	wlog.Debug(fmt.Sprintf("leaving member %s[%d] AttemptId=%d from queue \"%s\" [%d]", attempt.Name(),
+	wlog.Debug(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 

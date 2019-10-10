@@ -59,7 +59,7 @@ func (queue *IVRQueue) run(attempt *Attempt, destination string) {
 			attempt.Variables(),
 			map[string]string{
 				"sip_route_uri":             queue.SipRouterAddr(), //"$${outbound_sip_proxy}",
-				"sip_h_X-Webitel-Direction": "inbound",
+				"sip_h_X-Webitel-Direction": "outbound",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",

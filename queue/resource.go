@@ -5,10 +5,14 @@ import (
 	"go.uber.org/ratelimit"
 )
 
+const (
+	MASK_CHAR = 'X'
+)
+
 type ResourceObject interface {
 	Name() string
 	IsExpire(updatedAt int64) bool
-	CheckIfError(errorId string) bool
+	CheckCodeError(errorId string) bool
 	GetDialString() string
 	Id() int
 	SuccessivelyErrors() uint16
@@ -77,13 +81,34 @@ func (r *Resource) Take() {
 	}
 }
 
-func (r *Resource) CheckIfError(errorId string) bool {
+func (r *Resource) CheckCodeError(errorCode string) bool {
 	if r.max_successively_errors < 1 {
 		return false
 	}
 
+	if len(errorCode) != len(r.errorIds) {
+		return false
+	}
+
+	e := []rune(errorCode)
 	for _, v := range r.errorIds {
-		if v == errorId {
+		if checkCodeMask(v, e) {
+			return true
+		}
+	}
+	return false
+}
+
+func checkCodeMask(maskCode string, code []rune) bool {
+	if len(maskCode) != len(code) {
+		return false
+	}
+
+	for i, v := range maskCode {
+		if v == MASK_CHAR {
+			continue
+		}
+		if v != code[i] {
 			return true
 		}
 	}

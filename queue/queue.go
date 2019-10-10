@@ -10,6 +10,7 @@ import (
 type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
+	TypeName() string
 
 	DistributeAttempt(attempt *Attempt) *model.AppError
 
@@ -85,7 +86,7 @@ func (queue *BaseQueue) SipRouterAddr() string {
 }
 
 func (queue *BaseQueue) Name() string {
-	return fmt.Sprintf("%s-%s", queue.TypeName(), queue.name)
+	return queue.name
 }
 
 func (queue *BaseQueue) Timeout() uint16 {
