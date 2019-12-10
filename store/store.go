@@ -12,6 +12,7 @@ type Store interface {
 	OutboundResource() OutboundResourceStore
 	Agent() AgentStore
 	Team() TeamStore
+	Gateway() GatewayStore
 }
 
 type ClusterStore interface {
@@ -25,7 +26,7 @@ type OutboundResourceStore interface {
 	GetAllPage(filter string, offset, limit int, sortField string, desc bool) ([]*model.OutboundResource, *model.AppError)
 	Create(resource *model.OutboundResource) (*model.OutboundResource, *model.AppError)
 	Delete(id int64) *model.AppError
-	SetError(id int64, routingId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError)
+	SetError(id int64, queueId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError)
 	SetSuccessivelyErrorsById(id int64, successivelyErrors uint16) *model.AppError
 }
 
@@ -68,4 +69,8 @@ type AgentStore interface {
 
 type TeamStore interface {
 	Get(id int64) (*model.Team, *model.AppError)
+}
+
+type GatewayStore interface {
+	Get(id int64) (*model.SipGateway, *model.AppError)
 }

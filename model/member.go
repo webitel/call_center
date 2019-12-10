@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 const (
 	MEMBER_CAUSE_SYSTEM_SHUTDOWN     = "SYSTEM_SHUTDOWN"
 	MEMBER_CAUSE_DATABASE_ERROR      = "DATABASE_ERROR"
@@ -23,30 +25,29 @@ const (
 )
 
 type MemberAttempt struct {
-	Id                int64   `json:"id" db:"id"`
-	CommunicationId   int64   `json:"communication_id" db:"communication_id"`
-	QueueId           int64   `json:"queue_id" db:"queue_id"`
-	QueueUpdatedAt    int64   `json:"queue_updated_at" db:"queue_updated_at"`
-	QueueCount        int     `json:"queue_count" db:"queue_count"`
-	QueueActiveCount  int     `json:"queue_active_count" db:"queue_active_count"`
-	State             uint8   `json:"state" db:"state"`
-	MemberId          int64   `json:"member_id" db:"member_id"`
-	CreatedAt         int64   `json:"created_at" db:"created_at"`
-	HangupAt          int64   `json:"hangup_at" db:"hangup_at"`
-	BridgedAt         int64   `json:"bridged_at" db:"bridged_at"`
-	ResourceId        *int64  `json:"resource_id" db:"resource_id"`
-	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
-	RoutingId         *int    `json:"routing_id" db:"routing_id"`
-	RoutingPattern    *string `json:"routing_pattern" db:"routing_pattern"`
-	Result            *string `json:"result" db:"result"`
-	Destination       string  `json:"destination" db:"destination"`
-	Description       string  `json:"description" db:"description"`
-	AgentId           *int64  `json:"agent_id" db:"agent_id"`
-	AgentUpdatedAt    *int64  `json:"agent_updated_at" db:"agent_updated_at"`
-	TeamUpdatedAt     *int64  `json:"team_updated_at" db:"team_updated_at"`
-	Variables         []byte  `json:"variables" db:"variables"`
-	Name              string  `json:"name" db:"name"`
-	CallFromId        *string `json:"call_from_id" db:"leg_a_id"`
+	Id                int64     `json:"id" db:"id"`
+	CommunicationId   int64     `json:"communication_id" db:"communication_id"`
+	QueueId           int64     `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt    int64     `json:"queue_updated_at" db:"queue_updated_at"`
+	QueueCount        int       `json:"queue_count" db:"queue_count"`
+	QueueActiveCount  int       `json:"queue_active_count" db:"queue_active_count"`
+	State             uint8     `json:"state" db:"state"`
+	MemberId          int64     `json:"member_id" db:"member_id"`
+	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	HangupAt          int64     `json:"hangup_at" db:"hangup_at"`
+	BridgedAt         int64     `json:"bridged_at" db:"bridged_at"`
+	ResourceId        *int64    `json:"resource_id" db:"resource_id"`
+	ResourceUpdatedAt *int64    `json:"resource_updated_at" db:"resource_updated_at"`
+	GatewayUpdatedAt  *int64    `json:"gateway_updated_at" db:"gateway_updated_at"`
+	Result            *string   `json:"result" db:"result"`
+	Destination       string    `json:"destination" db:"destination"`
+	Description       string    `json:"description" db:"description"`
+	AgentId           *int64    `json:"agent_id" db:"agent_id"`
+	AgentUpdatedAt    *int64    `json:"agent_updated_at" db:"agent_updated_at"`
+	TeamUpdatedAt     *int64    `json:"team_updated_at" db:"team_updated_at"`
+	Variables         []byte    `json:"variables" db:"variables"`
+	Name              string    `json:"name" db:"name"`
+	CallFromId        *string   `json:"call_from_id" db:"leg_a_id"`
 }
 
 type InboundMember struct {

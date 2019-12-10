@@ -146,12 +146,12 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 
 	if err != nil {
 		return "", "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
-			http.StatusInternalServerError)
+			-1) //FIXME transport error
 	}
 
 	if response.Error != nil {
 		return "", response.Error.Message, model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
-			http.StatusInternalServerError)
+			int(response.ErrorCode))
 	}
 
 	return response.Uuid, "", nil

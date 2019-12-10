@@ -43,31 +43,16 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 	if config, err := r.app.GetOutboundResourceById(id); err != nil {
 		return nil, err
 	} else {
-		dialResource, _ = NewResource(config)
+		if gw, err := r.app.GetGateway(config.GatewayId); err != nil {
+			return nil, err
+		} else {
+			dialResource, _ = NewResource(config, gw)
+		}
 	}
 
 	r.resourcesCache.AddWithDefaultExpires(id, dialResource)
 	wlog.Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
 	return dialResource, nil
-}
-
-func (r *ResourceManager) GetEndpoint(pattern string) (*Endpoint, *model.AppError) {
-	var endpoint *Endpoint
-
-	if p, ok := r.patternsCache.Get(pattern); !ok {
-		var err *model.AppError
-
-		if endpoint, err = NewResourceEndpoint(pattern); err != nil {
-			return nil, err
-		}
-
-		wlog.Debug(fmt.Sprintf("add endpoint pattern %s to cache", pattern))
-		r.patternsCache.AddWithDefaultExpires(pattern, endpoint)
-	} else {
-		endpoint = p.(*Endpoint)
-	}
-
-	return endpoint, nil
 }
 
 func (r *ResourceManager) RemoveFromCacheById(id int64) {

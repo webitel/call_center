@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 600
+var DEFAULT_WATCHER_POLLING_INTERVAL = 800
 
 type EngineImp struct {
 	nodeId          string

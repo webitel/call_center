@@ -153,11 +153,11 @@ func (queueManager *QueueManager) GetResource(id, updatedAt int64) (ResourceObje
 	return queueManager.resourceManager.Get(id, updatedAt)
 }
 
-func (queueManager *QueueManager) SetResourceError(resource ResourceObject, routingId int, errorId string) {
+func (queueManager *QueueManager) SetResourceError(resource ResourceObject, errorId string) {
 	if resource.CheckCodeError(errorId) {
 		wlog.Warn(fmt.Sprintf("resource %s Id=%d error: %s", resource.Name(), resource.Id(), errorId))
 		if responseError, err := queueManager.store.OutboundResource().
-			SetError(int64(resource.Id()), int64(routingId), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
+			SetError(int64(resource.Id()), int64(1), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
 
 			wlog.Error(err.Error())
 		} else {

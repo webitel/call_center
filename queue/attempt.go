@@ -126,17 +126,6 @@ func (a *Attempt) CommunicationId() int64 {
 	return a.member.CommunicationId
 }
 
-func (a *Attempt) CommunicationRoutingId() int {
-	if a.member.RoutingId == nil {
-		return 0
-	}
-	return *a.member.RoutingId
-}
-
-func (a *Attempt) GetCommunicationPattern() *string {
-	return a.member.RoutingPattern
-}
-
 func (a *Attempt) IsBarred() bool {
 	if a.member.Result != nil && *a.member.Result == model.CALL_HANGUP_OUTGOING_CALL_BARRED {
 		return true

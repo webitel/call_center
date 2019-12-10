@@ -46,7 +46,7 @@ func (s SqlOutboundResourceStore) GetById(id int64) (*model.OutboundResource, *m
 	var resource *model.OutboundResource
 	if err := s.GetReplica().SelectOne(&resource, `
 			select r.id, r.name, r."limit", r.enabled, r.updated_at, r.rps, r.reserve, r.variables, r.number, r.max_successively_errors, 
-				r.dial_string, r.successively_errors, r.gateway_id
+				r.dial_string, r.successively_errors, r.gateway_id, error_ids
 			from cc_outbound_resource r
 				left join directory.sip_gateway g on r.gateway_id = g.id
 			where r.id = :Id		
@@ -80,12 +80,12 @@ func (s SqlOutboundResourceStore) Delete(id int64) *model.AppError {
 	return nil
 }
 
-func (s SqlOutboundResourceStore) SetError(id int64, routingId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError) {
+func (s SqlOutboundResourceStore) SetError(id int64, queueId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError) {
 	var resErr *model.OutboundResourceErrorResult
 	if err := s.GetMaster().SelectOne(&resErr, `
-			select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(:Id, :RoutingId, :ErrorId, :Strategy)
+			select count_successively_error, stopped, un_reserve_resource_id from cc_resource_set_error(:Id, :QueueId, :ErrorId, :Strategy)
   				as (count_successively_error smallint, stopped boolean, un_reserve_resource_id bigint)	
-		`, map[string]interface{}{"Id": id, "RoutingId": routingId, "ErrorId": errorId, "Strategy": strategy}); err != nil {
+		`, map[string]interface{}{"Id": id, "QueueId": queueId, "ErrorId": errorId, "Strategy": strategy}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlOutboundResourceStore.SetError", "store.sql_outbound_resource.set_error.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)

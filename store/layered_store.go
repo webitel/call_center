@@ -49,3 +49,7 @@ func (s *LayeredStore) Agent() AgentStore {
 func (s *LayeredStore) Team() TeamStore {
 	return s.DatabaseLayer.Team()
 }
+
+func (s *LayeredStore) Gateway() GatewayStore {
+	return s.DatabaseLayer.Gateway()
+}

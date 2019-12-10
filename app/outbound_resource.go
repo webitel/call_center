@@ -26,3 +26,7 @@ func (a *App) DeleteOutboundResource(id int64) *model.AppError {
 
 	return a.Store.OutboundResource().Delete(id)
 }
+
+func (a *App) GetGateway(id int64) (*model.SipGateway, *model.AppError) {
+	return a.Store.Gateway().Get(id)
+}

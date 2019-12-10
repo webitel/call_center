@@ -65,6 +65,7 @@ message OriginateRequest {
 message OriginateResponse {
     string uuid = 1;
     ErrorExecute error = 2;
+    int32 error_code = 3;
 }
 
 message BridgeRequest {

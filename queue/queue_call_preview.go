@@ -18,31 +18,31 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 }
 
 func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
-	if attempt.resource == nil {
-		return NewErrorResourceRequired(preview, attempt)
-	}
-
-	if attempt.agent == nil {
-		return NewErrorAgentRequired(preview, attempt)
-	}
-
-	if attempt.GetCommunicationPattern() == nil {
-		return NewErrorCommunicationPatternRequired(preview, attempt)
-	}
-
-	endpoint, err := preview.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
-	if err != nil {
-		return err
-	}
-
-	destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
-
-	team, err := preview.GetTeam(attempt)
-	if err != nil {
-		return err
-	}
-
-	go preview.run(team, attempt, attempt.Agent(), destination)
+	//if attempt.resource == nil {
+	//	return NewErrorResourceRequired(preview, attempt)
+	//}
+	//
+	//if attempt.agent == nil {
+	//	return NewErrorAgentRequired(preview, attempt)
+	//}
+	//
+	//if attempt.GetCommunicationPattern() == nil {
+	//	return NewErrorCommunicationPatternRequired(preview, attempt)
+	//}
+	//
+	//endpoint, err := preview.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
+	//
+	//team, err := preview.GetTeam(attempt)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//go preview.run(team, attempt, attempt.Agent(), destination)
 
 	return nil
 }
@@ -78,7 +78,6 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:  fmt.Sprintf("%d", attempt.CommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
@@ -91,7 +90,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args: "sofia/sip/member@10.10.10.200:5080",
 	})
 
-	call := queue.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
 	call.Invite()
 
 	var calling = true

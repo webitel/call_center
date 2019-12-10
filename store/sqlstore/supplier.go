@@ -38,6 +38,7 @@ type SqlSupplierOldStores struct {
 	agent            store.AgentStore
 	team             store.TeamStore
 	cluster          store.ClusterStore
+	gateway          store.GatewayStore
 }
 
 type SqlSupplier struct {
@@ -68,6 +69,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.outboundResource = NewSqlOutboundResourceStore(supplier)
 	supplier.oldStores.agent = NewSqlAgentStore(supplier)
 	supplier.oldStores.team = NewSqlTeamStore(supplier)
+	supplier.oldStores.gateway = NewSqlGatewayStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -204,6 +206,10 @@ func (ss *SqlSupplier) Team() store.TeamStore {
 	return ss.oldStores.team
 }
 
+func (ss *SqlSupplier) Gateway() store.GatewayStore {
+	return ss.oldStores.gateway
+}
+
 type typeConverter struct{}
 
 func (me typeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -262,8 +268,15 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 			if !ok {
 				return errors.New(utils.T("store.sql.convert_string_array"))
 			}
-			b := []byte(*s)
-			return json.Unmarshal(b, target)
+
+			var a pq.StringArray
+
+			if err := a.Scan(*s); err != nil {
+				return err
+			} else {
+				*(target).(*model.StringArray) = model.StringArray(a)
+				return nil
+			}
 		}
 		return gorp.CustomScanner{Holder: new(string), Target: target, Binder: binder}, true
 	case *model.StringInterface:

@@ -117,6 +117,10 @@ func testWaitForHangup(cm CallManager, t *testing.T) {
 	if call.HangupCause() != model.CALL_HANGUP_REJECTED {
 		t.Errorf("Call %s hangup assert error: %s", call.Id(), call.HangupCause())
 	}
+
+	//if call.HangupCode() != "21" {
+	//	t.Errorf("Call %s hangup assert error code: %s", call.Id(), call.HangupCode())
+	//}
 }
 
 func testCallCancel(cm CallManager, t *testing.T) {

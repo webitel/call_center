@@ -81,10 +81,6 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 	return queue.updatedAt != updatedAt
 }
 
-func (queue *BaseQueue) SipRouterAddr() string {
-	return "sip:192.168.177.12"
-}
-
 func (queue *BaseQueue) Name() string {
 	return queue.name
 }

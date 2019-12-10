@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"math/rand"
 )
 
 type IVRQueue struct {
@@ -24,37 +25,27 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 		return NewErrorResourceRequired(queue, attempt)
 	}
 
-	if attempt.GetCommunicationPattern() == nil {
-		return NewErrorCommunicationPatternRequired(queue, attempt)
-	}
-
-	endpoint, err := queue.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
-	if err != nil {
-		return err
-	}
-
-	destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
-
 	attempt.Info = &AttemptInfoCall{}
 
-	go queue.run(attempt, destination)
+	go queue.run(attempt)
 
 	return nil
 }
 
-func (queue *IVRQueue) run(attempt *Attempt, destination string) {
+func (queue *IVRQueue) run(attempt *Attempt) {
 
 	defer queue.queueManager.LeavingMember(attempt, queue)
 
 	legB := fmt.Sprintf("1@webitel.lo") //TODO
 
+	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
+
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"sofia/sip/member@10.10.10.200:5080"}, // []string{dst},
+		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      queue.Timeout(),
 		Variables: model.UnionStringMaps(
-			attempt.resource.Variables(),
 			queue.Variables(),
 			attempt.Variables(),
 			map[string]string{
@@ -72,7 +63,6 @@ func (queue *IVRQueue) run(attempt *Attempt, destination string) {
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.CommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
@@ -96,18 +86,34 @@ func (queue *IVRQueue) run(attempt *Attempt, destination string) {
 			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
 		)
 	} else {
+		slleps := []string{
+			"1000",
+			"10000",
+			"6000",
+			"10000",
+			"5000",
+			"7000",
+			"60000",
+			"120000",
+		}
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "sleep",
-			Args:    "5000",
+			Args:    slleps[rand.Intn(len(slleps))],
 		})
 	}
 
-	call := queue.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
 	call.Invite()
 	if call.Err() != nil {
 		queue.CallError(attempt, call.Err(), call.HangupCause())
 		return
 	}
+
+	defer func() {
+		if call.Err() != nil {
+			queue.queueManager.SetResourceError(attempt.resource, fmt.Sprintf("%d", call.HangupCauseCode()))
+		}
+	}()
 
 	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 

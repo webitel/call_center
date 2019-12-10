@@ -18,4 +18,5 @@ type SqlStore interface {
 	OutboundResource() store.OutboundResourceStore
 	Agent() store.AgentStore
 	Team() store.TeamStore
+	Gateway() store.GatewayStore
 }

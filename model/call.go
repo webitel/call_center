@@ -28,6 +28,7 @@ const (
 
 	CALL_ATTRIBUTE_FROM_NUMBER = "Caller-Caller-ID-Number"
 	CALL_ATTRIBUTE_FROM_NAME   = "Caller-Caller-ID-Name"
+	CALL_ATTRIBUTE_HANGUP_CODE = "variable_hangup_cause_q850"
 )
 
 const (

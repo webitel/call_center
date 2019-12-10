@@ -19,6 +19,7 @@ type Call interface {
 	State() <-chan CallState
 
 	HangupCause() string
+	HangupCauseCode() int
 	GetState() CallState
 	Err() *model.AppError
 	GetAttribute(name string) (string, bool)
@@ -45,17 +46,18 @@ type Call interface {
 }
 
 type CallImpl struct {
-	callRequest *model.CallRequest
-	api         model.CallCommands
-	direction   CallDirection
-	cm          *CallManagerImpl
-	id          string
-	hangupCause string
-	hangup      chan struct{}
-	lastEvent   *CallEvent
-	err         *model.AppError
-	state       CallState
-	cancel      string
+	callRequest     *model.CallRequest
+	api             model.CallCommands
+	direction       CallDirection
+	cm              *CallManagerImpl
+	id              string
+	hangupCause     string
+	hangupCauseCode int
+	hangup          chan struct{}
+	lastEvent       *CallEvent
+	err             *model.AppError
+	state           CallState
+	cancel          string
 
 	chState chan CallState
 
@@ -159,6 +161,12 @@ func (call *CallImpl) Invite() *model.AppError {
 	return nil
 }
 
+func (call *CallImpl) setHangupCode() {
+	if call.lastEvent != nil {
+		call.hangupCauseCode, _ = call.lastEvent.GetIntAttribute(model.CALL_ATTRIBUTE_HANGUP_CODE)
+	}
+}
+
 func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, c.cm, c.api)
 }
@@ -235,6 +243,11 @@ func (call *CallImpl) HangupCause() string {
 	defer call.RUnlock()
 	return call.hangupCause
 }
+func (call *CallImpl) HangupCauseCode() int {
+	call.RLock()
+	defer call.RUnlock()
+	return call.hangupCauseCode
+}
 
 func (call *CallImpl) WaitForHangup() {
 	if call.Err() == nil && call.HangupCause() == "" {
@@ -306,11 +319,14 @@ func (call *CallImpl) setHangupCause(err *model.AppError, cause string) {
 
 	if err != nil {
 		call.err = err
+		call.hangupCauseCode = err.StatusCode
+	} else {
+		call.setHangupCode()
 	}
 
 	if call.hangupCause == "" {
 		call.hangupCause = cause
-		wlog.Debug(fmt.Sprintf("[%s] call %s set hangup cause %s", call.NodeName(), call.Id(), cause))
+		wlog.Debug(fmt.Sprintf("[%s] call %s set hangup cause: %s code: %d", call.NodeName(), call.Id(), cause, call.hangupCauseCode))
 	}
 }
 
@@ -346,16 +362,17 @@ func (call *CallImpl) Cancel() string {
 
 func (call *CallImpl) Mute(on bool) *model.AppError {
 	/*
-		uuid_audio
-		Adjust the audio levels on a channel or mute (read/write) via a media bug.
+		uuid_audio 8e345bfc-47b9-46c1-bdf0-3b874a8539c8 start read mute -1
+			uuid_audio
+			Adjust the audio levels on a channel or mute (read/write) via a media bug.
 
-		Usage: uuid_audio <uuid> [start [read|write] [[mute|level] <level>]|stop]
-		<level> is in the range from -4 to 4, 0 being the default value.
+			Usage: uuid_audio <uuid> [start [read|write] [[mute|level] <level>]|stop]
+			<level> is in the range from -4 to 4, 0 being the default value.
 
-		Level is required for both mute|level params:
+			Level is required for both mute|level params:
 
-		freeswitch@internal> uuid_audio 0d7c3b93-a5ae-4964-9e4d-902bba50bd19 start write mute <level>
-		freeswitch@internal> uuid_audio 0d7c3b93-a5ae-4964-9e4d-902bba50bd19 start write level <level>
+			freeswitch@internal> uuid_audio 0d7c3b93-a5ae-4964-9e4d-902bba50bd19 start write mute <level>
+			freeswitch@internal> uuid_audio 0d7c3b93-a5ae-4964-9e4d-902bba50bd19 start write level <level>
 
 	*/
 

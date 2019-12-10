@@ -28,16 +28,7 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 		return NewErrorAgentRequired(queue, attempt)
 	}
 
-	if attempt.GetCommunicationPattern() == nil {
-		return NewErrorCommunicationPatternRequired(queue, attempt)
-	}
-
-	endpoint, err := queue.resourceManager.GetEndpoint(*attempt.GetCommunicationPattern())
-	if err != nil {
-		return err
-	}
-
-	destination := endpoint.Parse(attempt.resource.GetDialString(), attempt.Destination())
+	destination := "123"
 
 	team, err := queue.GetTeam(attempt)
 	if err != nil {
@@ -76,7 +67,6 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
-				model.QUEUE_ROUTING_ID_FIELD:           fmt.Sprintf("%d", attempt.CommunicationRoutingId()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 4),
@@ -87,7 +77,7 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 		Args:    "",
 	})
 
-	call := queue.NewCallUseResource(callRequest, attempt.CommunicationRoutingId(), attempt.resource)
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
 	call.Invite()
 
 	var calling = true
