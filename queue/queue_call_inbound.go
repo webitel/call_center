@@ -128,6 +128,10 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 						AppName: "valet_park",
 						Args:    fmt.Sprintf("queue_%d %s", queue.Id(), call.Id()),
 					},
+					{
+						AppName: "sleep",
+						Args:    "100000",
+					},
 				},
 			})
 

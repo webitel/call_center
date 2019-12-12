@@ -32,6 +32,7 @@ type OutboundResourceStore interface {
 
 type QueueStore interface {
 	GetById(id int64) (*model.Queue, *model.AppError)
+	RefreshStatisticsDay5Min() *model.AppError
 }
 
 type MemberStore interface {

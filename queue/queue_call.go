@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 )
@@ -131,4 +132,23 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 		attempt.Info = &AttemptInfoCall{}
 	}
 	return attempt.Info.(*AttemptInfoCall)
+}
+
+type ToCall interface {
+}
+
+func (queue *CallingQueue) CallToAgent(attempt *Attempt, agent agent_manager.AgentObject, to ToCall) *model.CallRequest {
+	cr := &model.CallRequest{
+		Endpoints:    nil,
+		Strategy:     0,
+		Destination:  "",
+		Variables:    nil,
+		Timeout:      0,
+		CallerName:   "",
+		CallerNumber: "",
+		Dialplan:     "",
+		Context:      "",
+		Applications: nil,
+	}
+	return cr
 }

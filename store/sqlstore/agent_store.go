@@ -23,14 +23,31 @@ func (s *SqlAgentStore) CreateTableIfNotExists() {
 func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update cc_member_attempt a
-set agent_id = r.agent_id
+set agent_id = t.agent_id
 from (
-  select r.agent_id, r.attempt_id, a2.updated_at
-  from cc_distribute_agent_to_attempt($1) r
-  inner join cc_agent a2 on a2.id = r.agent_id
-) r
-where a.id = r.attempt_id and a.hangup_at = 0
-returning a.id as attempt_id, a.agent_id as agent_id, r.updated_at agent_updated_at`, nodeId); err != nil {
+         with a as (
+             select t.*, a.id, rank() over (partition by team_id order by a.created_at asc, a.weight desc) pos1
+             from (
+                      select a.queue_id, cq.team_id, count(*) cnt
+                      from cc_member_attempt a
+                               inner join cc_queue cq on a.queue_id = cq.id
+                               inner join cc_team ct on cq.team_id = ct.id
+                      where a.agent_id isnull
+                        and a.state = 3
+                        and a.node_id = $1
+                      group by a.queue_id, cq.team_id
+                  ) t-- FIXME % agents
+                      inner join cc_member_attempt a on a.queue_id = t.queue_id
+         )
+         select ag.agent_id, a.id, agent.updated_at agent_updated_at, a.team_id, ag.pos, a.pos1
+         from a,
+              cc_waiting_agents(a.team_id::int, a.cnt::int, 'dasd') ag
+              inner join cc_agent agent on agent.id = ag.agent_id
+         where a.pos1 = ag.pos
+         order by ag.agent_id, a.pos1 asc, ag.pos
+     ) t
+where t.id = a.id
+returning a.id attempt_id, t.agent_id  agent_id, t.agent_updated_at`, nodeId); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)

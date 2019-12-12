@@ -14,13 +14,14 @@ import (
 var DEFAULT_WATCHER_POLLING_INTERVAL = 500
 
 type DialingImpl struct {
-	app             App
-	store           store.Store
-	watcher         *utils.Watcher
-	queueManager    *QueueManager
-	resourceManager *ResourceManager
-	agentManager    agent_manager.AgentManager
-	startOnce       sync.Once
+	app               App
+	store             store.Store
+	watcher           *utils.Watcher
+	queueManager      *QueueManager
+	resourceManager   *ResourceManager
+	statisticsManager *StatisticsManager
+	agentManager      agent_manager.AgentManager
+	startOnce         sync.Once
 }
 
 func NewDialing(app App, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store) Dialing {
@@ -29,6 +30,7 @@ func NewDialing(app App, callManager call_manager.CallManager, agentManager agen
 	dialing.store = s
 	dialing.agentManager = agentManager
 	dialing.resourceManager = NewResourceManager(app)
+	dialing.statisticsManager = NewStatisticsManager(s)
 	dialing.queueManager = NewQueueManager(app, s, callManager, dialing.resourceManager, agentManager)
 	return &dialing
 }
@@ -40,12 +42,14 @@ func (dialing *DialingImpl) Start() {
 	dialing.startOnce.Do(func() {
 		go dialing.watcher.Start()
 		go dialing.queueManager.Start()
+		go dialing.statisticsManager.Start()
 	})
 }
 
 func (d *DialingImpl) Stop() {
 	d.queueManager.Stop()
 	d.watcher.Stop()
+	d.statisticsManager.Stop()
 }
 
 func (d *DialingImpl) routeData() {

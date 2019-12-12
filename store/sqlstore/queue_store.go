@@ -38,3 +38,12 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 		return queue, nil
 	}
 }
+
+func (s SqlQueueStore) RefreshStatisticsDay5Min() *model.AppError {
+	_, err := s.GetMaster().Exec(`refresh materialized view cc_member_attempt_log_day_5min`)
+	if err != nil {
+		return model.NewAppError("SqlQueueStore.RefreshStatisticsDay5Min", "store.sql_queue.refresh_statistics.app_error",
+			nil, err.Error(), http.StatusInternalServerError)
+	}
+	return nil
+}
