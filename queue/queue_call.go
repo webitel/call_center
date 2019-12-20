@@ -137,18 +137,6 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 type ToCall interface {
 }
 
-func (queue *CallingQueue) CallToAgent(attempt *Attempt, agent agent_manager.AgentObject, to ToCall) *model.CallRequest {
-	cr := &model.CallRequest{
-		Endpoints:    nil,
-		Strategy:     0,
-		Destination:  "",
-		Variables:    nil,
-		Timeout:      0,
-		CallerName:   "",
-		CallerNumber: "",
-		Dialplan:     "",
-		Context:      "",
-		Applications: nil,
-	}
-	return cr
+func (queue *CallingQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
+	queue.queueManager.store.Agent().MissedAttempt(agent.Id(), attempt.Id(), call.HangupCause())
 }

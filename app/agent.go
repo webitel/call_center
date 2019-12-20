@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (app *App) GetAgentById(agentId int64) (*model.Agent, *model.AppError) {
+func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 	if a, err := app.Store.Agent().Get(agentId); err != nil {
 		return nil, err
 	} else {
@@ -13,7 +13,7 @@ func (app *App) GetAgentById(agentId int64) (*model.Agent, *model.AppError) {
 	}
 }
 
-func (app *App) SetAgentStateById(agentId int64, state string) *model.AppError {
+func (app *App) SetAgentStateById(agentId int, state string) *model.AppError {
 
 	agent, err := app.GetAgentById(agentId)
 	if err != nil {
@@ -27,7 +27,7 @@ func (app *App) SetAgentStateById(agentId int64, state string) *model.AppError {
 	}
 }
 
-func (app *App) SetAgentLogin(agentId int64) *model.AppError {
+func (app *App) SetAgentLogin(agentId int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
 
@@ -46,7 +46,7 @@ func (app *App) SetAgentLogin(agentId int64) *model.AppError {
 	}
 }
 
-func (app *App) SetAgentLogout(agentId int64) *model.AppError {
+func (app *App) SetAgentLogout(agentId int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
 

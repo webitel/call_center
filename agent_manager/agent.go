@@ -17,27 +17,35 @@ func NewAgent(info *model.Agent, am AgentManager) AgentObject {
 	}
 }
 
-func (agent *Agent) SetStateOffering(deadline int) *model.AppError {
-	return agent.manager.SetAgentState(agent, model.AGENT_STATE_OFFERING, deadline)
+func (agent *Agent) SetStateOffering() *model.AppError {
+	var err *model.AppError
+	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent.Id()); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (agent *Agent) SetStateTalking(deadline int) *model.AppError {
-	return agent.manager.SetAgentState(agent, model.AGENT_STATE_TALK, deadline)
+func (agent *Agent) SetStateTalking() *model.AppError {
+	return agent.manager.SetAgentTalking(agent.Id())
 }
 
 func (agent *Agent) SetStateReporting(deadline int) *model.AppError {
-	return agent.manager.SetAgentState(agent, model.AGENT_STATE_REPORTING, deadline)
+	return agent.manager.SetAgentReporting(agent.Id(), deadline)
 }
 
-func (agent *Agent) SetStateFine(deadline int) *model.AppError {
-	return agent.manager.SetAgentState(agent, model.AGENT_STATE_FINE, deadline)
+func (agent *Agent) SetStateFine(deadline int, noAnswer bool) *model.AppError {
+	return agent.manager.SetAgentFine(agent.Id(), deadline, noAnswer)
 }
 
 func (agent *Agent) Name() string {
-	return "FIXME from user reference"
+	return agent.info.Name
 }
 
-func (agent *Agent) Id() int64 {
+func (agent *Agent) SuccessivelyNoAnswers() uint16 {
+	return uint16(agent.info.SuccessivelyNoAnswers)
+}
+
+func (agent *Agent) Id() int {
 	return agent.info.Id
 }
 
@@ -50,7 +58,8 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 }
 
 func (agent *Agent) GetCallEndpoints() []string {
-	return []string{fmt.Sprintf("sofia/sip/400@webitel.lo")}
+	return []string{fmt.Sprintf("sofia/sip/user@webitel.lo")}
+	//return []string{fmt.Sprintf("null")}
 }
 
 func (agent *Agent) Online() *model.AppError {
@@ -59,4 +68,8 @@ func (agent *Agent) Online() *model.AppError {
 
 func (agent *Agent) Offline() *model.AppError {
 	return agent.manager.SetOffline(agent)
+}
+
+func (agent *Agent) SetOnBreak() *model.AppError {
+	return agent.manager.SetAgentOnBreak(agent.Id())
 }

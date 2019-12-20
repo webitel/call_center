@@ -17,7 +17,7 @@ func NewSqlTeamStore(sqlStore SqlStore) store.TeamStore {
 	return as
 }
 
-func (s SqlTeamStore) Get(id int64) (*model.Team, *model.AppError) {
+func (s SqlTeamStore) Get(id int) (*model.Team, *model.AppError) {
 	var team *model.Team
 	if err := s.GetReplica().SelectOne(&team, `
 			select id,

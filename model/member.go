@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 const (
 	MEMBER_CAUSE_SYSTEM_SHUTDOWN     = "SYSTEM_SHUTDOWN"
@@ -24,9 +27,14 @@ const (
 	MEMBER_STATE_CANCEL       = 7
 )
 
+type MemberDestination struct {
+	Number  string  `json:"number"`
+	Type    *int    `json:"type"`
+	Display *string `json:"display"`
+}
+
 type MemberAttempt struct {
 	Id                int64     `json:"id" db:"id"`
-	CommunicationId   int64     `json:"communication_id" db:"communication_id"`
 	QueueId           int64     `json:"queue_id" db:"queue_id"`
 	QueueUpdatedAt    int64     `json:"queue_updated_at" db:"queue_updated_at"`
 	QueueCount        int       `json:"queue_count" db:"queue_count"`
@@ -40,9 +48,8 @@ type MemberAttempt struct {
 	ResourceUpdatedAt *int64    `json:"resource_updated_at" db:"resource_updated_at"`
 	GatewayUpdatedAt  *int64    `json:"gateway_updated_at" db:"gateway_updated_at"`
 	Result            *string   `json:"result" db:"result"`
-	Destination       string    `json:"destination" db:"destination"`
-	Description       string    `json:"description" db:"description"`
-	AgentId           *int64    `json:"agent_id" db:"agent_id"`
+	Destination       []byte    `json:"destination" db:"destination"`
+	AgentId           *int      `json:"agent_id" db:"agent_id"`
 	AgentUpdatedAt    *int64    `json:"agent_updated_at" db:"agent_updated_at"`
 	TeamUpdatedAt     *int64    `json:"team_updated_at" db:"team_updated_at"`
 	Variables         []byte    `json:"variables" db:"variables"`
@@ -60,4 +67,10 @@ type InboundMember struct {
 
 func (ma *MemberAttempt) IsTimeout() bool {
 	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
+}
+
+func MemberDestinationFromBytes(data []byte) MemberDestination {
+	var dest MemberDestination
+	json.Unmarshal(data, &dest)
+	return dest
 }

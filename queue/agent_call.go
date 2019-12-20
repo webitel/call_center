@@ -1,17 +1,40 @@
 package queue
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
-func (queueManager *QueueManager) AgentCallRequest(agent agent_manager.Agent) (*model.CallRequest, *model.AppError) {
-	return nil, nil
+func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt) *model.CallRequest {
+	cr := &model.CallRequest{
+		Endpoints:   agent.GetCallEndpoints(),
+		Strategy:    model.CALL_STRATEGY_DEFAULT,
+		Destination: attempt.Destination(),
+		Variables: model.UnionStringMaps(
+			queue.Variables(),
+			attempt.Variables(),
+			map[string]string{
+				//"bridge_export_vars":                   "",
+				"sip_h_X-Webitel-Direction":  "internal",
+				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),
+				model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
+				model.QUEUE_NAME_FIELD:       queue.Name(),
+				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
+				model.QUEUE_SIDE_FIELD:       model.QUEUE_SIDE_AGENT,
+				model.QUEUE_MEMBER_ID_FIELD:  fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
+			},
+		),
+		Timeout:      at.CallTimeout(),
+		CallerName:   attempt.Name(),
+		CallerNumber: attempt.Destination(),
+	}
+	return cr
 }
 
-func (queueManager *QueueManager) AgentReportingCall(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
+func (queue *CallingQueue) AgentReportingCall(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
 	var noAnswer = false
 	var timeout = 0
 
@@ -27,30 +50,38 @@ func (queueManager *QueueManager) AgentReportingCall(team *agentTeam, agent agen
 			timeout = int(team.BusyDelayTime())
 		}
 
-		if cnt, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); err != nil {
-			//TODO
-			wlog.Error(err.Error())
-		} else {
-			if cnt == 1 {
-				queueManager.agentManager.SetAgentStatus(agent, &model.AgentStatus{
-					Status: model.AGENT_STATUS_PAUSE, // payload: max no answer
-				})
-			}
+		if noAnswer {
+		}
 
-			if timeout == 0 {
-				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0) // TODO
-			} else {
-				queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_FINE, timeout)
-			}
-		}
+		agent.SetStateFine(timeout, noAnswer)
 	} else {
-		if _, err := queueManager.store.Agent().SaveActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); err != nil {
-			wlog.Error(err.Error())
-		}
-		if team.WrapUpTime() == 0 {
-			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_WAITING, 0)
-		} else {
-			queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_REPORTING, int(team.WrapUpTime()))
-		}
+		agent.SetStateReporting(int(team.WrapUpTime()))
 	}
+
+	//	if cnt, err := queue.SaveAgentActivityCallStatistic(agent.Id(), call.OfferingAt(), 0, 0, 0, noAnswer); err != nil {
+	//		//TODO
+	//		wlog.Error(err.Error())
+	//	} else {
+	//		if cnt == 1 {
+	//			queue.AgentManager().SetAgentStatus(agent, &model.AgentStatus{
+	//				Status: model.AGENT_STATUS_PAUSE, // payload: max no answer
+	//			})
+	//		}
+	//
+	//		if timeout == 0 {
+	//			queue.AgentManager().SetAgentState(agent, model.AGENT_STATE_WAITING, 0) // TODO
+	//		} else {
+	//			queue.AgentManager().SetAgentState(agent, model.AGENT_STATE_FINE, timeout)
+	//		}
+	//	}
+	//} else {
+	//	if _, err := queue.SaveAgentActivityCallStatistic(agent.Id(), call.OfferingAt(), call.AcceptAt(), call.BridgeAt(), call.HangupAt(), false); err != nil {
+	//		wlog.Error(err.Error())
+	//	}
+	//	if team.WrapUpTime() == 0 {
+	//		queue.AgentManager().SetAgentState(agent, model.AGENT_STATE_WAITING, 0)
+	//	} else {
+	//		queue.AgentManager().SetAgentState(agent, model.AGENT_STATE_REPORTING, int(team.WrapUpTime()))
+	//	}
+	//}
 }

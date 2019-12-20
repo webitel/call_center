@@ -55,21 +55,32 @@ type MemberStore interface {
 }
 
 type AgentStore interface {
-	Get(id int64) (*model.Agent, *model.AppError)
+	Get(id int) (*model.Agent, *model.AppError)
 
-	SetStatus(agentId int64, status string, payload interface{}) *model.AppError
-	SetState(agentId int64, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
+	SetWaiting(agentId int, bridged bool) *model.AppError
+	SetOffering(agentId int) (int, *model.AppError)
+	SetTalking(agentId int) *model.AppError
+	SetReporting(agentId int, timeout int) *model.AppError
+	SetFine(agentId int, timeout int, noAnswer bool) *model.AppError
 
-	SaveActivityCallStatistic(agentId, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) (int, *model.AppError)
+	SetOnBreak(agentId int) *model.AppError
+
+	SetStatus(agentId int, status string, payload interface{}) *model.AppError
+	SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
+
+	SaveActivityCallStatistic(agentId int, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) (int, *model.AppError)
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
 	ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError)
 
-	ConfirmAttempt(agentId int64, attemptId int64) (int, *model.AppError)
+	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
+	ConfirmAttempt(agentId int, attemptId int64) (int, *model.AppError)
+
+	RefreshEndStateDay5Min() *model.AppError
 }
 
 type TeamStore interface {
-	Get(id int64) (*model.Team, *model.AppError)
+	Get(id int) (*model.Team, *model.AppError)
 }
 
 type GatewayStore interface {

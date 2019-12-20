@@ -18,6 +18,7 @@ type Result string
 
 type Attempt struct {
 	member          *model.MemberAttempt
+	destination     model.MemberDestination
 	resource        ResourceObject
 	agent           agent_manager.AgentObject
 	Info            AttemptInfo `json:"info"`
@@ -41,6 +42,7 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 		done:            make(chan struct{}),
 		distributeAgent: make(chan agent_manager.AgentObject, 1),
 		ctx:             context.Background(),
+		destination:     model.MemberDestinationFromBytes(member.Destination),
 	}
 }
 
@@ -54,6 +56,7 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.Lock()
 	a.agent = agent
 	a.Unlock()
+	fmt.Println("DISTRIBUTE ", agent.Id())
 
 	a.distributeAgent <- agent
 }
@@ -104,13 +107,20 @@ func (a *Attempt) Name() string {
 	return a.member.Name
 }
 
-func (a *Attempt) Destination() string {
-	return a.member.Destination
+func (a *Attempt) Display() string {
+	if a.destination.Display != nil {
+		return *a.destination.Display
+	}
+	return ""
 }
 
-func (a *Attempt) Description() string {
-	return a.member.Description
+func (a *Attempt) Destination() string {
+	return a.destination.Number
 }
+
+//func (a *Attempt) Description() string {
+//	return a.member.Description
+//}
 
 func (a *Attempt) Variables() map[string]string {
 	vars := make(map[string]interface{})
@@ -120,10 +130,6 @@ func (a *Attempt) Variables() map[string]string {
 
 func (a *Attempt) MemberId() int64 {
 	return a.member.MemberId
-}
-
-func (a *Attempt) CommunicationId() int64 {
-	return a.member.CommunicationId
 }
 
 func (a *Attempt) IsBarred() bool {

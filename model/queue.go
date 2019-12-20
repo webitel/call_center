@@ -22,6 +22,7 @@ const (
 const (
 	QUEUE_SIDE_FIELD       = "cc_side"
 	QUEUE_ID_FIELD         = "cc_queue_id"
+	QUEUE_TEAM_ID_FIELD    = "cc_team_id"
 	QUEUE_UPDATED_AT_FIELD = "cc_queue_updated_at"
 
 	QUEUE_MEMBER_PRIORITY = "cc_queue_member_priority"
@@ -31,7 +32,6 @@ const (
 	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"
 	QUEUE_ATTEMPT_ID_FIELD  = "cc_attempt_id"
 	QUEUE_RESOURCE_ID_FIELD = "cc_resource_id"
-	QUEUE_ROUTING_ID_FIELD  = "cc_routing_id"
 	QUEUE_NODE_ID_FIELD     = "cc_node_id"
 )
 
@@ -44,8 +44,9 @@ type Queue struct {
 	UpdatedAt int64             `json:"updated_at" db:"updated_at"`
 	MaxCalls  uint16            `json:"max_calls" db:"max_calls"`
 	Variables map[string]string `json:"variables" db:"variables"`
-	TeamId    *int64            `json:"team_id" db:"team_id"`
+	TeamId    *int              `json:"team_id" db:"team_id"`
 	Timeout   uint16            `json:"timeout" db:"timeout"`
+	SchemaId  *int              `json:"schema_id" db:"schema_id"`
 }
 
 type QueueDialingSettings struct {
@@ -79,6 +80,23 @@ type QueueCallbackSettings struct {
 }
 
 type QueueAgentsSettings struct {
+}
+
+/* TODO
+Max wait - not hangup
+Max wait time with no agent - offline + onbreak
+Agent stickli
+
+*/
+
+type QueueInboundSettings struct {
+	QueueDialingSettings
+	DiscardAbandonedAfter  int    `json:"discard_abandoned_after"`
+	AbandonedResumeAllowed bool   `json:"abandoned_resume_allowed"`
+	TimeBaseScore          string `json:"time_base_score"`
+	MaxWait                int    `json:"max_wait"`
+	MaxWaitWithNoAgent     int    `json:"max_wait_with_no_agent"`
+	HangupOnRingingAgent   bool   `json:"hangup_on_ringing_agent"`
 }
 
 type QueueIVRSettings struct {
@@ -144,6 +162,12 @@ func (queueSettings *QueueDialingSettings) InCauseError(id string) bool {
 
 func QueueIVRSettingsFromBytes(data []byte) QueueIVRSettings {
 	var settings QueueIVRSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func QueueInboundSettingsFromBytes(data []byte) QueueInboundSettings {
+	var settings QueueInboundSettings
 	json.Unmarshal(data, &settings)
 	return settings
 }

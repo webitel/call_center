@@ -35,18 +35,14 @@ const (
 	AGENT_STATE_FINE      = "fine"
 )
 
-const (
-	AGENT_CALL_RINGING = iota
-	AGENT_CALL_BRIDGE
-	AGENT_CALL_HANGUP
-)
-
 type Agent struct {
-	Id int64 `json:"id" db:"id"`
+	Id int `json:"id" db:"id"`
 
-	UserId      *int64 `json:"user_id" db:"user_id"`
-	UpdatedAt   int64  `json:"updated_at" db:"updated_at"`
-	Destination string `json:"destination" db:"destination"`
+	UserId                *int64 `json:"user_id" db:"user_id"`
+	Name                  string `json:"name" db:"name"`
+	UpdatedAt             int64  `json:"updated_at" db:"updated_at"`
+	Destination           string `json:"destination" db:"destination"`
+	SuccessivelyNoAnswers int    `json:"successively_no_answers" db:"successively_no_answers"`
 	AgentStatus
 }
 
@@ -57,7 +53,7 @@ type AgentStatus struct {
 
 type AgentsForAttempt struct {
 	AttemptId      int64 `json:"attempt_id" db:"attempt_id"`
-	AgentId        int64 `json:"agent_id" db:"agent_id"`
+	AgentId        int   `json:"agent_id" db:"agent_id"`
 	AgentUpdatedAt int64 `json:"agent_updated_at" db:"agent_updated_at"`
 }
 

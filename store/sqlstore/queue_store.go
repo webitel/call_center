@@ -24,7 +24,7 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 	var queue *model.Queue
 	if err := s.GetReplica().SelectOne(&queue, `
-			select id, type, name, strategy, payload, updated_at, max_calls, variables, timeout, team_id
+			select id, type, name, strategy, payload, updated_at, max_calls, variables, timeout, team_id, schema_id
 			from cc_queue where id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {

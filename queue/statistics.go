@@ -37,9 +37,16 @@ func (s *StatisticsManager) Stop() {
 }
 
 func (s *StatisticsManager) refresh() {
+	wlog.Debug("refresh statistics start")
 	if err := s.store.Queue().RefreshStatisticsDay5Min(); err != nil {
-		wlog.Error(fmt.Sprintf("refresh statistics error: %s", err.Error()))
+		wlog.Error(fmt.Sprintf("refresh member statistics error: %s", err.Error()))
 	} else {
-		wlog.Debug("refresh statistics")
+		wlog.Debug("refresh member statistics ")
+	}
+
+	if err := s.store.Agent().RefreshEndStateDay5Min(); err != nil {
+		wlog.Error(fmt.Sprintf("refresh agent statistics error: %s", err.Error()))
+	} else {
+		wlog.Debug("refresh agent statistics ")
 	}
 }

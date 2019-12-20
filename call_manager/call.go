@@ -99,6 +99,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	id := model.NewUuid()
 	callRequest.Variables[model.CALL_ORIGINATION_UUID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
+	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 
 	call := &CallImpl{
 		callRequest: callRequest,
@@ -116,6 +117,10 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	return call
 }
 
+func (cm *CallManagerImpl) Proxy() string {
+	return "sip:192.168.177.9"
+}
+
 func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *model.AppError {
 	api, err := cm.getApiConnectionById(fromNode)
 
@@ -124,14 +129,15 @@ func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *mo
 	}
 
 	call := &CallImpl{
-		id:        event.Id(),
-		api:       api,
-		cm:        cm,
-		direction: CALL_DIRECTION_INBOUND,
-		hangup:    make(chan struct{}),
-		lastEvent: event,
-		chState:   make(chan CallState, 5),
-		state:     CALL_STATE_ACCEPT,
+		id:         event.Id(),
+		api:        api,
+		cm:         cm,
+		direction:  CALL_DIRECTION_INBOUND,
+		hangup:     make(chan struct{}),
+		lastEvent:  event,
+		chState:    make(chan CallState, 5),
+		offeringAt: 10, //FIXME
+		state:      CALL_STATE_ACCEPT,
 	}
 
 	cm.saveToCacheCall(call)

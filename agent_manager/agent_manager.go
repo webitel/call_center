@@ -45,9 +45,13 @@ func (agentManager *AgentManagerImpl) Stop() {
 	agentManager.watcher.Stop()
 }
 
-func (agentManager *AgentManagerImpl) GetAgent(id int64, updatedAt int64) (AgentObject, *model.AppError) {
+func (agentManager *AgentManagerImpl) GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError) {
 	agentManager.Lock()
 	defer agentManager.Unlock()
+
+	/*
+
+	 */
 
 	var agent AgentObject
 	item, ok := agentManager.agentsCache.Get(id)
@@ -121,4 +125,8 @@ func (agentManager *AgentManagerImpl) changeDeadlineState() {
 			wlog.Debug(fmt.Sprintf("agent %d has been changed state to \"%s\" - timeout", v.Id, v.State))
 		}
 	}
+}
+
+func (agentManager *AgentManagerImpl) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
+	return agentManager.store.Agent().MissedAttempt(agentId, attemptId, cause)
 }

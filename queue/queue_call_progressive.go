@@ -95,7 +95,7 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 					agent.SetStateReporting(50)
 				}
 			case call_manager.CALL_STATE_BRIDGE:
-				agent.SetStateTalking(0)
+				agent.SetStateTalking()
 			}
 		case result := <-attempt.cancel:
 			switch result {

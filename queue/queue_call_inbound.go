@@ -7,13 +7,20 @@ import (
 	"github.com/webitel/wlog"
 )
 
+/*
+TODO: 1. можливо при _discard_abandoned_after брати максимально відалений ABANDONED
+
+*/
+
 type InboundQueue struct {
 	CallingQueue
+	props model.QueueInboundSettings
 }
 
-func NewInboundQueue(callQueue CallingQueue, settings *model.Queue) QueueObject {
+func NewInboundQueue(callQueue CallingQueue, settings model.QueueInboundSettings) QueueObject {
 	return &InboundQueue{
 		CallingQueue: callQueue,
+		props:        settings,
 	}
 }
 
@@ -35,6 +42,11 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 	call, ok := queue.CallManager().GetCall(*attempt.member.CallFromId)
 	info.fromCall = call
 
+	team, err := queue.GetTeam(attempt)
+	if err != nil {
+		//FIXME
+	}
+
 	if !ok {
 		attempt.Log("not found active call")
 		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
@@ -55,12 +67,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 	attempt.Log("wait agent")
 	queue.queueManager.SetFindAgentState(attempt.Id())
 
-	defer func() {
-		if info.agent != nil {
-			info.agent.SetStateReporting(10)
-		}
-	}()
-	//originate {sip_route_uri=sip:192.168.177.13,sip_h_X-Webitel-Direction=outbound}sofia/sip/agent@10.10.10.200:5080 &sleep(1
 	for {
 		select {
 		case <-call.HangupChan():
@@ -81,7 +87,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 			default:
 				panic(reason)
 			}
-
 			stopInboundAttempt(queue, attempt)
 			return
 
@@ -95,47 +100,23 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			info.agent = agent
-			agent.SetStateOffering(0)
 
-			agentCall := call.NewCall(&model.CallRequest{
-				Endpoints: agent.GetCallEndpoints(), //[]string{`sofia/sip/agent@10.10.10.200:5080`} []string{`loopback/answer\,park/default/inline`}, ///agent.GetCallEndpoints(),
-				Strategy:  model.CALL_STRATEGY_DEFAULT,
-				Variables: model.UnionStringMaps(
-					queue.Variables(),
-					attempt.Variables(),
-					map[string]string{
-						"sip_route_uri":                        queue.SipRouterAddr(),
-						"sip_h_X-Webitel-Direction":            "internal",
-						"other_loopback_leg_uuid":              model.NewUuid(),
-						"absolute_codec_string":                "PCMU",
-						"valet_hold_music":                     "silence",
-						model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
-						model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
-						model.CALL_DOMAIN_VARIABLE:             queue.Domain(),
-						model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", queue.id),
-						model.QUEUE_NAME_FIELD:                 queue.name,
-						model.QUEUE_TYPE_NAME_FIELD:            queue.TypeName(),
-						model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_AGENT,
-						model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
-						model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
-					},
-				),
-				Timeout:      60,
-				CallerName:   attempt.Name(),
-				CallerNumber: attempt.Destination(),
-				Applications: []*model.CallRequestApplication{
-					{
-						AppName: "valet_park",
-						Args:    fmt.Sprintf("queue_%d %s", queue.Id(), call.Id()),
-					},
-					{
-						AppName: "sleep",
-						Args:    "100000",
-					},
+			cr := queue.AgentCallRequest(agent, team, attempt)
+			cr.Applications = []*model.CallRequestApplication{
+				{
+					AppName: "answer",
 				},
-			})
+				{
+					AppName: "valet_park",
+					Args:    fmt.Sprintf("queue_%d %s", queue.Id(), call.Id()),
+				},
+			}
 
+			team.OfferingCall(queue, agent, attempt)
+			agentCall := call.NewCall(cr)
 			agentCall.Invite()
+
+			info.toCall = agentCall
 
 			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", call.Id(), agentCall.Id()))
 
@@ -145,23 +126,29 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 				case state := <-agentCall.State():
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
-						agent.SetStateTalking(0)
+						team.Talking(queue, agent, attempt)
+						call.Bridge(agentCall)
 
 					case call_manager.CALL_STATE_HANGUP:
 						break top
 					}
 				case <-call.HangupChan():
-					agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+					if call.BridgeAt() > 0 {
+						agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
+					} else {
+						agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+					}
+
 					agentCall.WaitForHangup()
 					wlog.Debug(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
 					break top
 				}
 			}
 
-			if call.BridgeAt() > 0 {
-				agent.SetStateReporting(5)
-			} else {
-				agent.SetStateFine(5)
+			team.ReportingCall(queue, agent, agentCall)
+
+			if call.HangupCause() == "" && call.BridgeAt() == 0 {
+				//FIXME store missed CC agent calls
 				queue.queueManager.SetFindAgentState(attempt.Id())
 			}
 

@@ -32,6 +32,7 @@ const (
 )
 
 const (
+	CALL_PROXY_URI_VARIABLE              = "sip_route_uri"
 	CALL_ORIGINATION_UUID                = "origination_uuid"
 	CALL_TIMEOUT_VARIABLE                = "call_timeout"
 	CALL_PROGRESS_TIMEOUT_VARIABLE       = "progress_timeout"

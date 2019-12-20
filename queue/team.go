@@ -58,12 +58,43 @@ func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
 }
 
-func (at *agentTeam) OfferingCall() {
-
+func (at *agentTeam) OfferingCall(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
+	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
+		agent.Name(), agent.Id(), model.AGENT_STATE_OFFERING, queue.Name()))
+	return agent.SetStateOffering()
 }
 
-func (at *agentTeam) Reporting(queue QueueObject, agent agent_manager.AgentObject, call call_manager.Call) {
+func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
+	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
+		agent.Name(), agent.Id(), model.AGENT_STATE_TALK, queue.Name()))
+	return agent.SetStateTalking()
+}
 
+func (at *agentTeam) ReportingCall(queue QueueObject, agent agent_manager.AgentObject, call call_manager.Call) *model.AppError {
+	var noAnswer = false
+	var timeout = 0
+
+	if call.Err() != nil {
+		switch call.HangupCause() {
+		case model.CALL_HANGUP_NO_ANSWER:
+			noAnswer = true
+			timeout = int(at.NoAnswerDelayTime())
+		case model.CALL_HANGUP_REJECTED:
+			timeout = int(at.RejectDelayTime())
+		default:
+			timeout = int(at.BusyDelayTime())
+		}
+
+		if noAnswer && at.MaxNoAnswer() > 0 && at.MaxNoAnswer() <= agent.SuccessivelyNoAnswers()+1 {
+			return agent.SetOnBreak()
+		}
+
+		wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" %d sec", agent.Name(), agent.Id(), model.AGENT_STATE_FINE, timeout))
+		return agent.SetStateFine(timeout, noAnswer)
+	} else {
+		wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" %d sec", agent.Name(), agent.Id(), model.AGENT_STATE_REPORTING, at.WrapUpTime()))
+		return agent.SetStateReporting(int(at.WrapUpTime()))
+	}
 }
 
 func NewTeamManager(s store.Store) *teamManager {
@@ -73,7 +104,7 @@ func NewTeamManager(s store.Store) *teamManager {
 	}
 }
 
-func (tm *teamManager) GetTeam(id int64, updatedAt int64) (*agentTeam, *model.AppError) {
+func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppError) {
 	tm.Lock() //TODO
 	defer tm.Unlock()
 
@@ -94,6 +125,6 @@ func (tm *teamManager) GetTeam(id int64, updatedAt int64) (*agentTeam, *model.Ap
 	team = &agentTeam{data: data}
 
 	tm.cache.AddWithDefaultExpires(id, team)
-	wlog.Debug(fmt.Sprintf("add team to cache [%d]%v", team.Id(), team.Name()))
+	wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
 	return team, err
 }

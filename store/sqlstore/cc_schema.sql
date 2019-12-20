@@ -236,7 +236,7 @@ ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource DROP CONSTRAINT IF E
 ALTER TABLE IF EXISTS ONLY call_center.cc_queue_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_pk;
 ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_pkey;
 ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_in_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_in_group_pk;
+ALTER TABLE IF EXISTS ONLY sys_destinationscall_center.cc_outbound_resource_in_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_in_group_pk;
 ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_pk;
 ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_pk;
 ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_display DROP CONSTRAINT IF EXISTS cc_outbound_resource_display_pk;

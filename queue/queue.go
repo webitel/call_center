@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"net/http"
@@ -28,7 +29,8 @@ type BaseQueue struct {
 	queueManager    *QueueManager
 	variables       map[string]string
 	timeout         uint16
-	teamId          *int64
+	teamId          *int
+	schemaId        *int
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -42,12 +44,14 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		variables:       settings.Variables,
 		timeout:         settings.Timeout,
 		teamId:          settings.TeamId,
+		schemaId:        settings.SchemaId,
 	}
 	switch settings.Type {
 	case model.QUEUE_TYPE_INBOUND:
+		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
-		}, settings), nil
+		}, inboundSettings), nil
 
 	case model.QUEUE_TYPE_IVR:
 		ivrSettings := model.QueueIVRSettingsFromBytes(settings.Payload)
@@ -136,4 +140,8 @@ func (queue *BaseQueue) Id() int {
 
 func (queue *BaseQueue) CallManager() call_manager.CallManager {
 	return queue.queueManager.callManager
+}
+
+func (queue *BaseQueue) AgentManager() agent_manager.AgentManager {
+	return queue.queueManager.agentManager
 }
