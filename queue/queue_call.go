@@ -127,6 +127,10 @@ func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause s
 	return err
 }
 
+func (queue *CallingQueue) SetAttemptResult(result *model.AttemptResult) *model.AppError {
+	return queue.queueManager.store.Member().SetAttemptResult(result)
+}
+
 func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
 	if attempt.Info == nil {
 		attempt.Info = &AttemptInfoCall{}

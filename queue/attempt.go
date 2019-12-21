@@ -56,7 +56,6 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.Lock()
 	a.agent = agent
 	a.Unlock()
-	fmt.Println("DISTRIBUTE ", agent.Id())
 
 	a.distributeAgent <- agent
 }
@@ -81,6 +80,13 @@ func (a *Attempt) SetMember(member *model.MemberAttempt) {
 
 func (a *Attempt) Id() int64 {
 	return a.member.Id
+}
+
+func (a *Attempt) Result() string {
+	if a.member.Result != nil {
+		return *a.member.Result
+	}
+	return ""
 }
 
 func (a *Attempt) QueueId() int64 {

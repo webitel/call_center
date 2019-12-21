@@ -154,3 +154,35 @@ func (s SqlMemberStore) DistributeCallToQueue(queueId int64, callId string, numb
 
 	return attemptId, nil
 }
+
+func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.AppError {
+	_, err := s.GetMaster().Exec(`update cc_member_attempt
+set state = :State,
+    offering_at = :OfferingAt,
+    answered_at = :AnsweredAt,
+    bridged_at = :BridgedAt,
+    hangup_at = :HangupAt,
+    agent_id = :AgentId,
+    result = :Result,
+    leg_a_id = :LegA,
+    leg_b_id = :LegB
+where id = :Id`, map[string]interface{}{
+		"Id":         result.Id,
+		"State":      result.State,
+		"OfferingAt": result.OfferingAt,
+		"AnsweredAt": result.AnsweredAt,
+		"BridgedAt":  result.BridgedAt,
+		"HangupAt":   result.HangupAt,
+		"AgentId":    result.AgentId,
+		"Result":     result.Result,
+		"LegA":       result.LegAId,
+		"LegB":       result.LegBId,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.SetAttemptResult", "store.sql_member.set_attempt_result.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", result.Id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}

@@ -23,6 +23,7 @@ const (
 	QUEUE_SIDE_FIELD       = "cc_side"
 	QUEUE_ID_FIELD         = "cc_queue_id"
 	QUEUE_TEAM_ID_FIELD    = "cc_team_id"
+	QUEUE_AGENT_ID_FIELD   = "cc_agent_id"
 	QUEUE_UPDATED_AT_FIELD = "cc_queue_updated_at"
 
 	QUEUE_MEMBER_PRIORITY = "cc_queue_member_priority"

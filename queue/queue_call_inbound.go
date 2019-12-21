@@ -24,20 +24,51 @@ func NewInboundQueue(callQueue CallingQueue, settings model.QueueInboundSettings
 	}
 }
 
-func stopInboundAttempt(queue *InboundQueue, attempt *Attempt) {
-	queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-	queue.queueManager.LeavingMember(attempt, queue)
-	return
-}
-
 func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	go queue.run(attempt)
 	return nil
 }
 
+func (queue *InboundQueue) reporting(attempt *Attempt) {
+	info := queue.GetCallInfoFromAttempt(attempt)
+	var result model.AttemptResult
+	result.Id = attempt.Id()
+	result.LegAId = model.NewString(info.fromCall.Id())
+
+	if info.agent != nil {
+		result.AgentId = model.NewInt(info.agent.Id())
+		result.LegBId = model.NewString(info.toCall.Id())
+
+		team, err := queue.GetTeam(attempt)
+		if err != nil {
+			//FIXME
+		}
+		team.ReportingCall(queue, info.agent, info.toCall)
+	}
+
+	result.OfferingAt = info.fromCall.OfferingAt()
+	result.AnsweredAt = info.fromCall.AcceptAt()
+
+	if info.fromCall.BillSeconds() > 0 {
+		result.Result = model.MEMBER_CAUSE_SUCCESSFUL
+		result.BridgedAt = info.fromCall.BridgeAt()
+	} else {
+		result.Result = model.MEMBER_CAUSE_ABANDONED
+	}
+	result.HangupAt = info.fromCall.HangupAt()
+	result.State = model.MEMBER_STATE_END
+
+	if err := queue.SetAttemptResult(&result); err != nil {
+		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
+	}
+
+	queue.queueManager.LeavingMember(attempt, queue)
+}
+
 func (queue *InboundQueue) run(attempt *Attempt) {
 
 	info := queue.GetCallInfoFromAttempt(attempt)
+	defer queue.reporting(attempt)
 
 	call, ok := queue.CallManager().GetCall(*attempt.member.CallFromId)
 	info.fromCall = call
@@ -49,8 +80,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 
 	if !ok {
 		attempt.Log("not found active call")
-		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-		queue.queueManager.LeavingMember(attempt, queue)
 		return
 	}
 
@@ -59,8 +88,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 
 	//TODO
 	if attempt.member.Result != nil {
-		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-		queue.queueManager.LeavingMember(attempt, queue)
 		return
 	}
 
@@ -70,7 +97,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 	for {
 		select {
 		case <-call.HangupChan():
-			stopInboundAttempt(queue, attempt)
 			return
 
 		case reason, ok := <-attempt.cancel:
@@ -87,7 +113,6 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 			default:
 				panic(reason)
 			}
-			stopInboundAttempt(queue, attempt)
 			return
 
 		case agent := <-attempt.distributeAgent:
@@ -104,7 +129,8 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 			cr := queue.AgentCallRequest(agent, team, attempt)
 			cr.Applications = []*model.CallRequestApplication{
 				{
-					AppName: "answer",
+					AppName: "set",
+					Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
 				},
 				{
 					AppName: "valet_park",
@@ -127,16 +153,18 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
 						team.Talking(queue, agent, attempt)
-						call.Bridge(agentCall)
 
 					case call_manager.CALL_STATE_HANGUP:
+
 						break top
 					}
 				case <-call.HangupChan():
-					if call.BridgeAt() > 0 {
-						agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
-					} else {
-						agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+					if agentCall.HangupAt() == 0 {
+						if call.BridgeAt() > 0 {
+							agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
+						} else {
+							agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+						}
 					}
 
 					agentCall.WaitForHangup()
@@ -145,17 +173,14 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 				}
 			}
 
-			team.ReportingCall(queue, agent, agentCall)
-
 			if call.HangupCause() == "" && call.BridgeAt() == 0 {
 				//FIXME store missed CC agent calls
+				team.ReportingCall(queue, agent, agentCall)
 				queue.queueManager.SetFindAgentState(attempt.Id())
+				info.toCall = nil
 			}
 
 		case <-attempt.done:
-
-			queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_ABANDONED, 0)
-			queue.queueManager.LeavingMember(attempt, queue)
 			return
 		}
 	}

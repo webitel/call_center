@@ -128,6 +128,16 @@ func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *mo
 		return err
 	}
 
+	createdAt, _ := event.GetIntAttribute(CallerCreatedTimeHeader)
+	if createdAt > 0 {
+		createdAt = createdAt / 1000
+	}
+
+	answeredTime, _ := event.GetIntAttribute(CallerAnsweredTimeHeader)
+	if answeredTime > 0 {
+		answeredTime = answeredTime / 1000
+	}
+
 	call := &CallImpl{
 		id:         event.Id(),
 		api:        api,
@@ -136,7 +146,8 @@ func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *mo
 		hangup:     make(chan struct{}),
 		lastEvent:  event,
 		chState:    make(chan CallState, 5),
-		offeringAt: 10, //FIXME
+		acceptAt:   int64(answeredTime),
+		offeringAt: int64(createdAt),
 		state:      CALL_STATE_ACCEPT,
 	}
 
@@ -249,6 +260,7 @@ func (call *CallImpl) HangupCause() string {
 	defer call.RUnlock()
 	return call.hangupCause
 }
+
 func (call *CallImpl) HangupCauseCode() int {
 	call.RLock()
 	defer call.RUnlock()
@@ -295,19 +307,38 @@ func (call *CallImpl) intVarIfLastEvent(name string) int {
 }
 
 func (call *CallImpl) DurationSeconds() int {
-	return call.intVarIfLastEvent("duration")
+	if call.hangupAt > 0 {
+		return int(call.hangupAt-call.offeringAt) / 1000
+	} else {
+		return int(model.GetMillis()-call.offeringAt) / 1000
+	}
 }
 
 func (call *CallImpl) BillSeconds() int {
-	return call.intVarIfLastEvent("variable_billsec")
+	if call.bridgeAt > 0 {
+		if call.hangupAt > 0 {
+			return int(call.hangupAt-call.bridgeAt) / 1000
+		} else {
+			return int(model.GetMillis()-call.bridgeAt) / 1000
+		}
+	}
+	return 0
 }
 
 func (call *CallImpl) AnswerSeconds() int {
-	return call.intVarIfLastEvent("answersec")
+	if call.acceptAt > 0 {
+		return int(call.acceptAt-call.offeringAt) / 1000
+	} else {
+		return 0
+	}
 }
 
 func (call *CallImpl) WaitSeconds() int {
-	return call.intVarIfLastEvent("waitsec")
+	if call.bridgeAt > 0 {
+		return int(call.bridgeAt-call.offeringAt) / 1000
+	} else {
+		return int(model.GetMillis()-call.offeringAt) / 1000
+	}
 }
 
 func (call *CallImpl) setHangupCall(err *model.AppError, event *CallEvent, cause string) {

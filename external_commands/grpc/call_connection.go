@@ -162,7 +162,6 @@ func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *
 }
 
 func (c *CallConnection) HangupCall(id, cause string) *model.AppError {
-	fmt.Println(cause)
 	res, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
 		Uuid:  id,
 		Cause: cause,

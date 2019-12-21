@@ -57,6 +57,19 @@ type MemberAttempt struct {
 	CallFromId        *string   `json:"call_from_id" db:"leg_a_id"`
 }
 
+type AttemptResult struct {
+	Id         int64   `json:"id" db:"id"`
+	State      int8    `json:"state" db:"state"`
+	OfferingAt int64   `json:"offering_at" db:"offering_at"`
+	AnsweredAt int64   `json:"answered_at" db:"answered_at"`
+	BridgedAt  int64   `json:"bridged_at" db:"bridged_at"`
+	HangupAt   int64   `json:"hangup_at" db:"hangup_at"`
+	AgentId    *int    `json:"agent_id" db:"agent_id"`
+	Result     string  `json:"result" db:"result"`
+	LegAId     *string `json:"leg_a_id" db:"leg_a_id"`
+	LegBId     *string `json:"leg_a_id" db:"leg_a_id"`
+}
+
 type InboundMember struct {
 	QueueId  int64  `json:"queue_id"`
 	CallId   string `json:"call_id"`
