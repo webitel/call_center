@@ -18,7 +18,7 @@ type AgentManager interface {
 	SetAgentOnBreak(agentId int) *model.AppError
 
 	SetAgentWaiting(agentId int, bridged bool) *model.AppError
-	SetAgentOffering(agentId int) (int, *model.AppError)
+	SetAgentOffering(agentId, queueId int) (int, *model.AppError)
 	SetAgentTalking(agentId int) *model.AppError
 	SetAgentReporting(agentId int, timeout int) *model.AppError
 	SetAgentFine(agentId int, timeout int, noAnswer bool) *model.AppError
@@ -39,7 +39,7 @@ type AgentObject interface {
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
 
-	SetStateOffering() *model.AppError
+	SetStateOffering(queueId int) *model.AppError
 	SetStateTalking() *model.AppError
 	SetStateReporting(deadline int) *model.AppError
 	SetStateFine(deadline int, noAnswer bool) *model.AppError

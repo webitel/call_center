@@ -119,10 +119,10 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 	}
 
 	if len(settings.Applications) > 0 {
-		request.Extensions = []*fs.OriginateRequest_Extension{}
+		request.Extensions = []*fs.Extension{}
 
 		for _, v := range settings.Applications {
-			request.Extensions = append(request.Extensions, &fs.OriginateRequest_Extension{
+			request.Extensions = append(request.Extensions, &fs.Extension{
 				AppName: v.AppName,
 				Args:    v.Args,
 			})
@@ -155,6 +155,34 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 	}
 
 	return response.Uuid, "", nil
+}
+
+func (c *CallConnection) ExecuteApplications(id string, apps []*model.CallRequestApplication) *model.AppError {
+	request := &fs.CallApplicationRequest{
+		Uuid:       id,
+		Extensions: make([]*fs.Extension, 0, len(apps)),
+	}
+
+	for _, v := range apps {
+		request.Extensions = append(request.Extensions, &fs.Extension{
+			AppName: v.AppName,
+			Args:    v.Args,
+		})
+	}
+
+	response, err := c.api.CallApplication(context.Background(), request)
+
+	if err != nil {
+		return model.NewAppError("ExecuteApplications", "external.new_call.app_error", nil, err.Error(),
+			-1) //FIXME transport error
+	}
+
+	if response.Error != nil {
+		return model.NewAppError("ExecuteApplications", "external.new_call.app_error", nil, response.Error.String(),
+			int(10)) //FIXME
+	}
+
+	return nil
 }
 
 func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {

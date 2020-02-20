@@ -19,6 +19,7 @@ type CallCommands interface {
 	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, *AppError)
 
 	HangupCall(id, cause string) *AppError
+	ExecuteApplications(id string, apps []*CallRequestApplication) *AppError
 	Hold(id string) *AppError
 	SetCallVariables(id string, variables map[string]string) *AppError
 	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)

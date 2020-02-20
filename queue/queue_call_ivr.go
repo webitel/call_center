@@ -5,7 +5,6 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"math/rand"
 )
 
 type IVRQueue struct {
@@ -18,6 +17,41 @@ func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObjec
 		CallingQueue: callQueue,
 		amd:          amd,
 	}
+}
+
+func (queue *IVRQueue) reporting(attempt *Attempt) {
+	attempt.SetState(model.MEMBER_STATE_POST_PROCESS)
+
+	info := queue.GetCallInfoFromAttempt(attempt)
+	wlog.Debug(fmt.Sprintf("attempt[%d] start reporting", attempt.Id()))
+	result := &model.AttemptResult{}
+	result.Id = attempt.Id()
+	if info.fromCall != nil {
+		result.LegAId = model.NewString(info.fromCall.Id())
+		result.OfferingAt = info.fromCall.OfferingAt()
+		result.AnsweredAt = info.fromCall.AcceptAt()
+
+		if info.fromCall.BillSeconds() > 0 {
+			result.Result = model.MEMBER_CAUSE_SUCCESSFUL
+			result.BridgedAt = info.fromCall.BridgeAt()
+		} else {
+			result.Result = model.MEMBER_CAUSE_ABANDONED
+		}
+		result.HangupAt = info.fromCall.HangupAt()
+	} else {
+		result.HangupAt = model.GetMillis()
+	}
+
+	result.State = model.MEMBER_STATE_END
+
+	attempt.SetResult(model.NewString(result.Result))
+
+	if err := queue.SetAttemptResult(result); err != nil {
+		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
+	}
+
+	wlog.Debug(fmt.Sprintf("attempt[%d] reporting: %v", attempt.Id(), result))
+	queue.queueManager.LeavingMember(attempt, queue)
 }
 
 func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
@@ -33,39 +67,35 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 }
 
 func (queue *IVRQueue) run(attempt *Attempt) {
+	defer queue.reporting(attempt)
+	info := queue.GetCallInfoFromAttempt(attempt)
 
-	defer queue.queueManager.LeavingMember(attempt, queue)
-
-	legB := fmt.Sprintf("1@webitel.lo") //TODO
-
-	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-
+	//dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{dst},
+		Endpoints:    []string{"null"},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
 		Timeout:      queue.Timeout(),
+		Destination:  attempt.Destination(),
+		Context:      "call_center",
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_route_uri":             queue.SipRouterAddr(), //"$${outbound_sip_proxy}",
-				"sip_h_X-Webitel-Direction": "outbound",
-				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
-				"absolute_codec_string":                "PCMU",
-				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
-				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE:             queue.Domain(),
-				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", queue.id),
-				model.QUEUE_NAME_FIELD:                 queue.name,
-				model.QUEUE_TYPE_NAME_FIELD:            queue.TypeName(),
-				model.QUEUE_SIDE_FIELD:                 model.QUEUE_SIDE_MEMBER,
-				model.QUEUE_MEMBER_ID_FIELD:            fmt.Sprintf("%d", attempt.MemberId()),
-				model.QUEUE_ATTEMPT_ID_FIELD:           fmt.Sprintf("%d", attempt.Id()),
-				model.QUEUE_RESOURCE_ID_FIELD:          fmt.Sprintf("%d", attempt.resource.Id()),
+				"sip_route_uri":               queue.SipRouterAddr(),
+				"cc_destination":              attempt.Destination(),
+				model.CALL_DIRECTION_VARIABLE: model.CALL_DIRECTION_DIALER,
+				model.CALL_DOMAIN_VARIABLE:    queue.Domain(),
+				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.id),
+				model.QUEUE_NAME_FIELD:        queue.name,
+				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
+				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_MEMBER,
+				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
+				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: make([]*model.CallRequestApplication, 0, 4),
+		//Applications: make([]*model.CallRequestApplication, 0, 4),
 	}
 
 	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ORIGINATE)
@@ -73,47 +103,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		panic(err.Error()) //TODO
 	}
 
-	if queue.RecordCallEnabled() {
-		queue.SetRecordCall(callRequest, model.CALL_RECORD_SESSION_TEMPLATE)
-	}
-
-	if queue.amd != nil && queue.amd.Enabled {
-		queue.SetAmdCall(
-			callRequest,
-			queue.amd,
-			fmt.Sprintf("%s::%s", model.CALL_TRANSFER_APPLICATION, legB),
-			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
-			fmt.Sprintf("%s::%s", model.CALL_HANGUP_APPLICATION, model.CALL_HANGUP_NORMAL_UNSPECIFIED),
-		)
-	} else {
-		slleps := []string{
-			"1000",
-			"10000",
-			"6000",
-			"10000",
-			"5000",
-			"7000",
-			"60000",
-			"120000",
-		}
-		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: "sleep",
-			Args:    slleps[rand.Intn(len(slleps))],
-		})
-	}
-
 	call := queue.NewCallUseResource(callRequest, attempt.resource)
+	info.fromCall = call
 	call.Invite()
 	if call.Err() != nil {
-		queue.CallError(attempt, call.Err(), call.HangupCause())
 		return
 	}
-
-	defer func() {
-		if call.Err() != nil {
-			queue.queueManager.SetResourceError(attempt.resource, fmt.Sprintf("%d", call.HangupCauseCode()))
-		}
-	}()
 
 	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
@@ -123,17 +118,15 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		select {
 		case state := <-call.State():
 			switch state {
+			case call_manager.CALL_STATE_PARK:
+
+				fmt.Println("PARK")
 			case call_manager.CALL_STATE_RINGING:
+				queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ACTIVE)
 				queue.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
 			}
 		case <-call.HangupChan():
 			calling = false
 		}
-	}
-
-	if call.HangupCause() == "" {
-		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
-	} else {
-		queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
 	}
 }

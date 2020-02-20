@@ -4,11 +4,21 @@ package fs;
 
 service Api {
     rpc Originate(OriginateRequest) returns (OriginateResponse) {}
+    rpc CallApplication(CallApplicationRequest) returns (CallApplicationResponse) {}
     rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
     rpc SetVariables(SetVariablesReqeust) returns (SetVariablesResponse) {}
     rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
+}
+
+message CallApplicationRequest {
+    string uuid = 1;
+    repeated Extension extensions = 2;
+}
+
+message CallApplicationResponse {
+    ErrorExecute error = 1;
 }
 
 message ErrorExecute {
@@ -39,15 +49,15 @@ message HangupResponse {
     ErrorExecute error = 1;
 }
 
+message Extension {
+    string appName = 1;
+    string args = 2;
+}
+
 message OriginateRequest {
     enum Strategy {
         FAILOVER = 0;
         MULTIPLE = 1;
-    }
-
-    message Extension {
-        string appName = 1;
-        string args = 2;
     }
 
     map<string, string> variables = 1;

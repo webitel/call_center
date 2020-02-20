@@ -61,7 +61,7 @@ func (at *agentTeam) NoAnswerDelayTime() uint16 {
 func (at *agentTeam) OfferingCall(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
 	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
 		agent.Name(), agent.Id(), model.AGENT_STATE_OFFERING, queue.Name()))
-	return agent.SetStateOffering()
+	return agent.SetStateOffering(queue.Id())
 }
 
 func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
@@ -70,7 +70,7 @@ func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject,
 	return agent.SetStateTalking()
 }
 
-func (at *agentTeam) ReportingCall(queue QueueObject, agent agent_manager.AgentObject, call call_manager.Call) *model.AppError {
+func (at *agentTeam) ReportingCall(queue *CallingQueue, agent agent_manager.AgentObject, call call_manager.Call, attempt *Attempt) *model.AppError {
 	var noAnswer = false
 	var timeout = 0
 
@@ -84,6 +84,8 @@ func (at *agentTeam) ReportingCall(queue QueueObject, agent agent_manager.AgentO
 		default:
 			timeout = int(at.BusyDelayTime())
 		}
+
+		queue.MissedAgentAttempt(attempt.Id(), agent.Id(), call)
 
 		if noAnswer && at.MaxNoAnswer() > 0 && at.MaxNoAnswer() <= agent.SuccessivelyNoAnswers()+1 {
 			return agent.SetOnBreak()

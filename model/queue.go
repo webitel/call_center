@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	QUEUE_TYPE_INBOUND = iota
-	QUEUE_TYPE_IVR
-	QUEUE_TYPE_PREVIEW
-	QUEUE_TYPE_PROGRESSIVE
-	QUEUE_TYPE_PREDICT
-	QUEUE_TYPE_MANUAL
+	QUEUE_TYPE_MANUAL      = iota
+	QUEUE_TYPE_INBOUND     // a
+	QUEUE_TYPE_IVR         // r
+	QUEUE_TYPE_PREVIEW     // a + r
+	QUEUE_TYPE_PROGRESSIVE // a + r
+	QUEUE_TYPE_PREDICT     // a +r
 )
 
 const (
@@ -98,6 +98,7 @@ type QueueInboundSettings struct {
 	MaxWait                int    `json:"max_wait"`
 	MaxWaitWithNoAgent     int    `json:"max_wait_with_no_agent"`
 	HangupOnRingingAgent   bool   `json:"hangup_on_ringing_agent"`
+	MaxCallPerAgent        int    `json:"max_call_per_agent"`
 }
 
 type QueueIVRSettings struct {

@@ -20,8 +20,7 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 }
 
 func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppError) {
-	if i, err := s.GetMaster().SelectInt(`select s as count
-			from cc_reserve_members_with_resources($1) s`, nodeId); err != nil {
+	if i, err := s.GetMaster().SelectInt(`call test_sp(null)`); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
@@ -131,42 +130,30 @@ func (s SqlMemberStore) SetAttemptBarred(attemptId, hangupAt int64, cause string
 	}
 }
 
-func (s SqlMemberStore) SetAttemptAgentId(attemptId int64, agentId *int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update cc_member_attempt
-			set agent_id = :AgentId
-			where id = :Id`, map[string]interface{}{"Id": attemptId, "AgentId": agentId}); err != nil {
-		return model.NewAppError("SqlMemberStore.SetAttemptAgentId", "store.sql_member.set_attempt_agent_id.app_error", nil,
-			fmt.Sprintf("Id=%v, AgentId=%v %s", attemptId, agentId, err.Error()), http.StatusInternalServerError)
-	}
-	return nil
-}
+func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError) {
+	var attempt *model.MemberAttempt
 
-func (s SqlMemberStore) DistributeCallToQueue(queueId int64, callId string, number string, name string, priority int) (int64, *model.AppError) {
-	var attemptId int64
-
-	if err := s.GetMaster().SelectOne(&attemptId, `select attempt_id
-		from cc_distribute_inbound_call_to_queue(:QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+	if err := s.GetMaster().SelectOne(&attempt, `select *
+		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
 		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
+		"Node": node,
 	}); err != nil {
-		return 0, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
+		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
 	}
 
-	return attemptId, nil
+	return attempt, nil
 }
 
 func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.AppError {
-	_, err := s.GetMaster().Exec(`update cc_member_attempt
-set state = :State,
-    offering_at = :OfferingAt,
-    answered_at = :AnsweredAt,
-    bridged_at = :BridgedAt,
-    hangup_at = :HangupAt,
-    agent_id = :AgentId,
-    result = :Result,
-    leg_a_id = :LegA,
-    leg_b_id = :LegB
-where id = :Id`, map[string]interface{}{
+	_, err := s.GetMaster().Exec(`with rem as (
+    delete from cc_member_attempt a
+      where a.id = :Id
+      returning *
+  )
+  insert into cc_member_attempt_log(id, queue_id, state, member_id, weight, resource_id, bucket_id, created_at, node_id, leg_a_id, leg_b_id, hangup_at, bridged_at, result, originate_at, answered_at, agent_id)
+  select rem.id, rem.queue_id, -1, rem.member_id, rem.weight, rem.resource_id, rem.bucket_id, rem.created_at, rem.node_id, :LegA, :LegB, :HangupAt, :BridgedAt, :Result, :OfferingAt, :AnsweredAt, :AgentId
+  from rem `, map[string]interface{}{
 		"Id":         result.Id,
 		"State":      result.State,
 		"OfferingAt": result.OfferingAt,

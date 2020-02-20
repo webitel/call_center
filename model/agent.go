@@ -51,6 +51,13 @@ type AgentStatus struct {
 	StatusPayload interface{} `json:"status_payload" db:"status_payload"`
 }
 
+type MissedAgentAttempt struct {
+	AttemptId int64  `json:"attempt_id" db:"attempt_id"`
+	AgentId   int    `json:"agent_id" db:"agent_id"`
+	Cause     string `json:"cause" db:"cause"`
+	MissedAt  int64  `json:"missed_at" db:"missed_at"`
+}
+
 type AgentsForAttempt struct {
 	AttemptId      int64 `json:"attempt_id" db:"attempt_id"`
 	AgentId        int   `json:"agent_id" db:"agent_id"`

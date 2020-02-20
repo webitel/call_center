@@ -20,7 +20,7 @@ func (queue *CallingQueue) RecordCallEnabled() bool {
 }
 
 func (queue *CallingQueue) SipRouterAddr() string {
-	return "sip:192.168.177.9"
+	return "sip:10.9.8.111:5060"
 }
 
 func (queue *CallingQueue) SetRecordCall(callRequest *model.CallRequest, template string) {

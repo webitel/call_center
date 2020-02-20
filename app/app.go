@@ -78,7 +78,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.newStore()
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	if cluster, err := cluster.NewCluster(*app.id, "192.168.177.199:8500", app.Store.Cluster()); err != nil {
+	if cluster, err := cluster.NewCluster(*app.id, "10.10.10.25:8500", app.Store.Cluster()); err != nil {
 		return nil, err
 	} else {
 		app.cluster = cluster

@@ -17,9 +17,9 @@ func NewAgent(info *model.Agent, am AgentManager) AgentObject {
 	}
 }
 
-func (agent *Agent) SetStateOffering() *model.AppError {
+func (agent *Agent) SetStateOffering(queueId int) *model.AppError {
 	var err *model.AppError
-	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent.Id()); err != nil {
+	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent.Id(), queueId); err != nil {
 		return err
 	}
 	return nil
@@ -58,8 +58,8 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 }
 
 func (agent *Agent) GetCallEndpoints() []string {
-	return []string{fmt.Sprintf("sofia/sip/user@webitel.lo")}
-	//return []string{fmt.Sprintf("null")}
+	//return []string{fmt.Sprintf("sofia/sip/user@webitel.lo")}
+	return []string{fmt.Sprintf("null")}
 }
 
 func (agent *Agent) Online() *model.AppError {

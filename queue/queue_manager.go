@@ -211,7 +211,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 	queueManager.notifyChangedQueueLength(queue)
 
-	wlog.Debug(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
+	wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 
@@ -227,14 +227,14 @@ func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {
 
 	priority, _ = call.GetIntAttribute(model.QUEUE_MEMBER_PRIORITY)
 
-	attemptId, err := queueManager.store.Member().DistributeCallToQueue(int64(queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
+	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s distributed, AttemptId=%d", call.NodeName(), call.Id(), attemptId))
+	queueManager.RouteMember(attempt)
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
@@ -242,7 +242,7 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
 
-	wlog.Debug(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d Result=%s from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
+	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d Result=%s from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), attempt.Result(), queue.Name(), queueManager.membersCache.Len()))
 }
 

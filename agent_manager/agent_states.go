@@ -7,9 +7,9 @@ func (cm *AgentManagerImpl) SetAgentWaiting(agentId int, bridged bool) *model.Ap
 	return cm.store.Agent().SetWaiting(agentId, bridged)
 }
 
-func (cm *AgentManagerImpl) SetAgentOffering(agentId int) (int, *model.AppError) {
+func (cm *AgentManagerImpl) SetAgentOffering(agentId, queueId int) (int, *model.AppError) {
 	//FIXME EVENT
-	return cm.store.Agent().SetOffering(agentId)
+	return cm.store.Agent().SetOffering(agentId, queueId)
 }
 
 func (cm *AgentManagerImpl) SetAgentTalking(agentId int) *model.AppError {

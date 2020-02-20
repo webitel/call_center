@@ -41,13 +41,13 @@ type MemberStore interface {
 
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)
 
-	DistributeCallToQueue(queueId int64, callId string, number string, name string, priority int) (int64, *model.AppError)
+	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
 	SetAttemptResult(result *model.AttemptResult) *model.AppError
 
 	SetAttemptState(id int64, state int) *model.AppError
 	SetBridged(id, bridgedAt int64, legAId, legBId *string) *model.AppError
 	ActiveCount(queue_id int64) (int64, *model.AppError)
-	SetAttemptAgentId(attemptId int64, agentId *int64) *model.AppError
+	//SetAttemptAgentId(attemptId int64, agentId *int64) *model.AppError
 	SetAttemptFindAgent(id int64) *model.AppError
 
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) *model.AppError
@@ -59,7 +59,7 @@ type AgentStore interface {
 	Get(id int) (*model.Agent, *model.AppError)
 
 	SetWaiting(agentId int, bridged bool) *model.AppError
-	SetOffering(agentId int) (int, *model.AppError)
+	SetOffering(agentId, queueId int) (int, *model.AppError)
 	SetTalking(agentId int) *model.AppError
 	SetReporting(agentId int, timeout int) *model.AppError
 	SetFine(agentId int, timeout int, noAnswer bool) *model.AppError
@@ -69,7 +69,7 @@ type AgentStore interface {
 	SetStatus(agentId int, status string, payload interface{}) *model.AppError
 	SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
 
-	SaveActivityCallStatistic(agentId int, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) (int, *model.AppError)
+	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
 	ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError)

@@ -28,7 +28,7 @@ const (
 )
 
 type MemberDestination struct {
-	Number  string  `json:"number"`
+	Number  string  `json:"destination"`
 	Type    *int    `json:"type"`
 	Display *string `json:"display"`
 }

@@ -25,6 +25,9 @@ type Call interface {
 	GetAttribute(name string) (string, bool)
 	GetIntAttribute(name string) (int, bool)
 
+	CallAction() <-chan CallAction
+	AddAction(action CallAction)
+
 	OfferingAt() int64
 	AcceptAt() int64
 	BridgeAt() int64
@@ -39,17 +42,31 @@ type Call interface {
 	HangupChan() <-chan struct{}
 
 	NewCall(callRequest *model.CallRequest) Call
+	ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
 	Hangup(cause string) *model.AppError
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
 }
 
+type CallAction struct {
+	Action string
+	Data   map[string]string
+}
+
+const (
+	CALL_ACTION_DIAL     = "dial"
+	CALL_ACTION_JOIN     = "join"
+	CALL_ACTION_CANCEL   = "cancel"
+	CALL_ACTION_TRANSFER = "transfer"
+)
+
 type CallImpl struct {
 	callRequest     *model.CallRequest
 	api             model.CallCommands
 	direction       CallDirection
 	cm              *CallManagerImpl
+	actions         chan CallAction
 	id              string
 	hangupCause     string
 	hangupCauseCode int
@@ -74,6 +91,7 @@ type CallState uint8
 
 const (
 	CALL_STATE_NEW CallState = iota
+	CALL_STATE_INVITE
 	CALL_STATE_RINGING
 	CALL_STATE_ACCEPT
 	CALL_STATE_BRIDGE
@@ -87,7 +105,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "ringing", "accept", "bridge", "park", "hangup"}[s]
+	return [...]string{"new", "invite", "ringing", "accept", "bridge", "park", "hangup"}[s]
 }
 
 var (
@@ -109,6 +127,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		cm:          cm,
 		hangup:      make(chan struct{}),
 		chState:     make(chan CallState, 5),
+		actions:     make(chan CallAction, 5), //FIXME
 		state:       CALL_STATE_NEW,
 	}
 
@@ -117,8 +136,16 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	return call
 }
 
+func (call *CallImpl) CallAction() <-chan CallAction {
+	return call.actions
+}
+
+func (call *CallImpl) AddAction(action CallAction) {
+	call.actions <- action
+}
+
 func (cm *CallManagerImpl) Proxy() string {
-	return "sip:192.168.177.9"
+	return "sip:10.9.8.111:5060"
 }
 
 func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *model.AppError {
@@ -163,6 +190,8 @@ func (call *CallImpl) Invite() *model.AppError {
 	if call.direction != CALL_DIRECTION_OUTBOUND {
 		return errInviteDirection
 	}
+
+	call.state = CALL_STATE_INVITE
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 
@@ -224,7 +253,7 @@ func (call *CallImpl) setState(event *CallEvent, state CallState) {
 	if event != nil {
 		call.lastEvent = event
 	}
-
+	//FIXME handle error
 	if call.cancel != "" && state < CALL_STATE_HANGUP {
 		if err := call.api.HangupCall(call.Id(), call.cancel); err != nil {
 			wlog.Error(fmt.Sprintf("[%s] call %s error: \"%s\"", call.NodeName(), call.Id(), err.Error()))
@@ -375,14 +404,21 @@ func (call *CallImpl) Err() *model.AppError {
 }
 
 func (call *CallImpl) Hangup(cause string) *model.AppError {
-
-	if call.GetState() == CALL_STATE_NEW {
+	if call.GetState() < CALL_STATE_RINGING {
 		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
+		if call.GetState() == CALL_STATE_NEW {
+			close(call.hangup)
+		}
 		return nil
 	}
+
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
 	return call.api.HangupCall(call.id, cause)
+}
+
+func (call *CallImpl) ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError {
+	return call.api.ExecuteApplications(call.id, apps)
 }
 
 func (call *CallImpl) setCancel(cause string) {

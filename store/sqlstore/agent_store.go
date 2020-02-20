@@ -23,31 +23,18 @@ func (s *SqlAgentStore) CreateTableIfNotExists() {
 func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update cc_member_attempt a
-set agent_id = t.agent_id
+set state = 4
 from (
-         with a as (
-             select t.*, a.id, rank() over (partition by team_id order by a.created_at asc, a.weight desc) pos1
-             from (
-                      select a.queue_id, cq.team_id, count(*) cnt
-                      from cc_member_attempt a
-                               inner join cc_queue cq on a.queue_id = cq.id
-                               inner join cc_team ct on cq.team_id = ct.id
-                      where a.agent_id isnull
-                        and a.state = 3
-                        and a.node_id = $1
-                      group by a.queue_id, cq.team_id
-                  ) t-- FIXME % agents
-                      inner join cc_member_attempt a on a.queue_id = t.queue_id
-         )
-         select ag.agent_id, a.id, agent.updated_at agent_updated_at, a.team_id, ag.pos, a.pos1
-         from a,
-              cc_waiting_agents(a.team_id::int, a.cnt::int, 'dasd') ag
-              inner join cc_agent agent on agent.id = ag.agent_id
-         where a.pos1 = ag.pos
-         order by ag.agent_id, a.pos1 asc, ag.pos
-     ) t
-where t.id = a.id
-returning a.id attempt_id, t.agent_id  agent_id, t.agent_updated_at`, nodeId); err != nil {
+    select a.id as attempt_id, a.agent_id, ca.updated_at as agent_updated_at
+    from cc_member_attempt a
+        inner join cc_agent ca on a.agent_id = ca.id
+    where a.state = 3 and a.agent_id notnull and a.node_id = :Node
+    for update skip locked
+) t
+where a.id = t.attempt_id
+returning t.*`, map[string]interface{}{
+		"Node": nodeId,
+	}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
@@ -106,7 +93,8 @@ func (s SqlAgentStore) ChangeDeadlineState(newState string) ([]*model.AgentChang
 	var times []*model.AgentChangedState //TODO
 	if _, err := s.GetMaster().Select(&times, `update cc_agent
 set state = :State,
-    state_timeout = null
+    state_timeout = null,
+	active_queue_id = null
 where state_timeout < now()
 returning id, state`, map[string]interface{}{"State": newState}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
@@ -182,7 +170,8 @@ func (s SqlAgentStore) SetWaiting(agentId int, bridged bool) *model.AppError {
 set state = :State,
     last_state_change = :Time,
     last_bridge_end_at = case when :Bridged is true then :Time else last_bridge_end_at end,
-	state_timeout = null
+	state_timeout = null,
+	active_queue_id = null
 where id = :Id`, map[string]interface{}{
 		"State":   model.AGENT_STATE_WAITING,
 		"Time":    model.GetMillis(),
@@ -196,16 +185,18 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) SetOffering(agentId int) (int, *model.AppError) {
+func (s SqlAgentStore) SetOffering(agentId, queueId int) (int, *model.AppError) {
 	successivelyNoAnswers, err := s.GetMaster().SelectInt(`update cc_agent
 			set state = :State,
 				last_offering_at = :Time,
-				last_state_change = :Time
+				last_state_change = :Time,
+				active_queue_id = :QueueId
 			where id = :Id
 			returning successively_no_answers`, map[string]interface{}{
-		"State": model.AGENT_STATE_OFFERING,
-		"Time":  model.GetMillis(),
-		"Id":    agentId,
+		"State":   model.AGENT_STATE_OFFERING,
+		"Time":    model.GetMillis(),
+		"Id":      agentId,
+		"QueueId": queueId,
 	})
 	if err != nil {
 		return 0, model.NewAppError("SqlAgentStore.SetOffering", "store.sql_agent.set_offering.app_error", nil,
@@ -276,7 +267,8 @@ func (s SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set state = :State,
     status = :Status,
-    successively_no_answers = 0
+    successively_no_answers = 0,
+	active_queue_id = null
 where id = :Id`, map[string]interface{}{
 		"Id":     agentId,
 		"State":  model.AGENT_STATE_WAITING,
@@ -286,6 +278,23 @@ where id = :Id`, map[string]interface{}{
 		return model.NewAppError("SqlAgentStore.SetOnBreak", "store.sql_agent.set_break.app_error", nil,
 			fmt.Sprintf("AgenetId=%v, Status=%v State=%v, %s", agentId, model.AGENT_STATUS_PAUSE, model.AGENT_STATE_WAITING,
 				err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s SqlAgentStore) CreateMissed(missed *model.MissedAgentAttempt) *model.AppError {
+	_, err := s.GetMaster().Exec(`insert into cc_agent_missed_attempt (attempt_id, agent_id, cause, missed_at)
+values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
+		"AttemptId": missed.AttemptId,
+		"AgentId":   missed.AgentId,
+		"Cause":     missed.Cause,
+		"MissedAt":  missed.MissedAt,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlAgentStore.CreateMissed", "store.sql_agent.create_missed.app_error", nil,
+			fmt.Sprintf("AttemptId=%v, AgentId=%v %s", missed.AttemptId, missed.AgentId, err.Error()), http.StatusInternalServerError)
 	}
 
 	return nil

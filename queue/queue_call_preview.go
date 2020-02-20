@@ -7,6 +7,7 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+// FIXME AgentQueue
 type PreviewCallQueue struct {
 	CallingQueue
 }

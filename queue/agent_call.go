@@ -35,7 +35,18 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 	return cr
 }
 
-func (queue *CallingQueue) AgentReportingCall(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
+func (queue *CallingQueue) MissedAgentAttempt(attemptId int64, agentId int, call call_manager.Call) *model.AppError {
+	missed := &model.MissedAgentAttempt{
+		AttemptId: attemptId,
+		AgentId:   agentId,
+		Cause:     call.HangupCause(),
+		MissedAt:  call.HangupAt(),
+	}
+
+	return queue.queueManager.store.Agent().CreateMissed(missed)
+}
+
+func (queue *CallingQueue) AgentReportingCall1(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
 	var noAnswer = false
 	var timeout = 0
 

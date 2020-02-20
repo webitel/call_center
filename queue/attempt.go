@@ -18,6 +18,7 @@ type Result string
 
 type Attempt struct {
 	member          *model.MemberAttempt
+	state           int
 	destination     model.MemberDestination
 	resource        ResourceObject
 	agent           agent_manager.AgentObject
@@ -52,10 +53,28 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 	a.agent = agent
 }
 
+func (a *Attempt) SetState(state int) {
+	a.Lock()
+	defer a.Unlock()
+	a.state = state
+}
+
+func (a *Attempt) GetState() int {
+	a.RLock()
+	defer a.RUnlock()
+	return a.state
+}
+
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
+	if a.GetState() != model.MEMBER_STATE_FIND_AGENT {
+		return
+	}
+
 	a.Lock()
 	a.agent = agent
 	a.Unlock()
+
+	wlog.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()))
 
 	a.distributeAgent <- agent
 }
@@ -83,6 +102,9 @@ func (a *Attempt) Id() int64 {
 }
 
 func (a *Attempt) Result() string {
+	a.RLock()
+	defer a.RUnlock()
+
 	if a.member.Result != nil {
 		return *a.member.Result
 	}
