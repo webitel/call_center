@@ -2,10 +2,10 @@ package call_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/engine/discovery"
 	"sync"
 	"testing"
 )
@@ -24,7 +24,7 @@ func TestCallManager(t *testing.T) {
 
 	mq := rabbit.NewRabbitMQ(cfg.MQSettings, TEST_NODE_ID)
 
-	service, _ := discovery.NewServiceDiscovery(TEST_NODE_ID, "192.168.177.199:8500", func() (bool, error) {
+	service, _ := discovery.NewServiceDiscovery(TEST_NODE_ID, "10.9.8.111:8500", func() (bool, error) {
 		return true, nil
 	})
 
@@ -38,14 +38,14 @@ func TestCallManager(t *testing.T) {
 		if i > 5 {
 			break
 		}
-		testCallCancel(cm, t)
-		testCallError(cm, t)
+		//testCallCancel(cm, t)
+		//testCallError(cm, t)
 		testWaitForHangup(cm, t)
 		testCallAnswer(cm, t)
 		testCallStates(cm, t)
 		testCallHangup(cm, t)
 		testCallHold(cm, t)
-		testParentCall(cm, t)
+		//testParentCall(cm, t)
 	}
 
 	if cm.ActiveCalls() != 0 {
@@ -289,7 +289,8 @@ func testCallStates(cm CallManager, t *testing.T) {
 				AppName: "answer",
 			},
 			{
-				AppName: "park",
+				AppName: "valet_park",
+				Args:    "test_t t",
 			},
 		},
 	}
@@ -309,7 +310,7 @@ func testCallStates(cm CallManager, t *testing.T) {
 				ring = true
 			case CALL_STATE_ACCEPT:
 				accept = true
-			case CALL_STATE_PARK:
+			case CALL_STATE_JOIN:
 				err := call.Hangup(model.CALL_HANGUP_NO_ANSWER)
 				if err != nil {
 					t.Errorf(err.Error())
@@ -390,7 +391,8 @@ func testParentCall(cm CallManager, t *testing.T) {
 			},
 
 			{
-				AppName: model.CALL_PARK_APPLICATION,
+				AppName: "valet_park",
+				Args:    "test_t 2",
 			},
 		},
 	}
@@ -410,7 +412,8 @@ func testParentCall(cm CallManager, t *testing.T) {
 				Args:    "100",
 			},
 			{
-				AppName: model.CALL_PARK_APPLICATION,
+				AppName: "valet_park",
+				Args:    "test_t 2",
 			},
 		},
 	}
@@ -464,7 +467,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 			}
 		case state2 := <-call2.State():
 			switch state2 {
-			case CALL_STATE_PARK:
+			case CALL_STATE_JOIN:
 				if err := call2.Bridge(call); err != nil {
 					t.Errorf("call %s error: %s", call2.Id(), err.Error())
 					fmt.Println(err.Error())

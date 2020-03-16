@@ -15,6 +15,9 @@ type Call interface {
 	FromNumber() string
 	FromName() string
 
+	QueueId() *int
+	QueueCallPriority() int
+
 	Invite() *model.AppError
 	State() <-chan CallState
 
@@ -22,8 +25,6 @@ type Call interface {
 	HangupCauseCode() int
 	GetState() CallState
 	Err() *model.AppError
-	GetAttribute(name string) (string, bool)
-	GetIntAttribute(name string) (int, bool)
 
 	CallAction() <-chan CallAction
 	AddAction(action CallAction)
@@ -54,13 +55,6 @@ type CallAction struct {
 	Data   map[string]string
 }
 
-const (
-	CALL_ACTION_DIAL     = "dial"
-	CALL_ACTION_JOIN     = "join"
-	CALL_ACTION_CANCEL   = "cancel"
-	CALL_ACTION_TRANSFER = "transfer"
-)
-
 type CallImpl struct {
 	callRequest     *model.CallRequest
 	api             model.CallCommands
@@ -70,18 +64,25 @@ type CallImpl struct {
 	id              string
 	hangupCause     string
 	hangupCauseCode int
-	hangup          chan struct{}
-	lastEvent       *CallEvent
+	hangupCh        chan struct{}
+	lastEvent       interface{}
 	err             *model.AppError
 	state           CallState
 	cancel          string
 
 	chState chan CallState
 
+	info   model.CallActionInfo
+	hangup *model.CallActionHangup
+	action model.CallAction
+
 	offeringAt int64
+	joinedAt   int64
+	leavingAt  int64
 	acceptAt   int64
 	bridgeAt   int64
 	hangupAt   int64
+	queueId    int
 
 	sync.RWMutex
 }
@@ -94,8 +95,10 @@ const (
 	CALL_STATE_INVITE
 	CALL_STATE_RINGING
 	CALL_STATE_ACCEPT
+	CALL_STATE_JOIN
+	CALL_STATE_LEAVING
 	CALL_STATE_BRIDGE
-	CALL_STATE_PARK
+	CALL_STATE_HOLD
 	CALL_STATE_HANGUP
 )
 
@@ -105,7 +108,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "invite", "ringing", "accept", "bridge", "park", "hangup"}[s]
+	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "park", "hangup"}[s]
 }
 
 var (
@@ -115,6 +118,9 @@ var (
 
 func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
 	id := model.NewUuid()
+	if callRequest.Variables == nil {
+		callRequest.Variables = make(map[string]string)
+	}
 	callRequest.Variables[model.CALL_ORIGINATION_UUID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
@@ -125,7 +131,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		id:          id,
 		api:         api,
 		cm:          cm,
-		hangup:      make(chan struct{}),
+		hangupCh:    make(chan struct{}),
 		chState:     make(chan CallState, 5),
 		actions:     make(chan CallAction, 5), //FIXME
 		state:       CALL_STATE_NEW,
@@ -134,6 +140,91 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
+}
+
+func (call *CallImpl) setRinging(e *model.CallActionRinging) {
+	call.Lock()
+	call.info = e.CallActionInfo
+	call.Unlock()
+
+	call.setState(CALL_STATE_RINGING)
+}
+
+func (call *CallImpl) setActive(e *model.CallActionActive) {
+	if call.acceptAt == 0 {
+		call.Lock()
+		call.acceptAt = e.ActivityAt
+		call.Unlock()
+
+		call.setState(CALL_STATE_ACCEPT)
+	} else {
+		//FIXME Unhold
+	}
+}
+
+func (call *CallImpl) setJoinQueue(e *model.CallActionJoinQueue) {
+	call.Lock()
+	call.info = e.CallActionInfo
+	call.joinedAt = e.ActivityAt
+	call.Unlock()
+
+	call.setState(CALL_STATE_JOIN)
+}
+
+func (call *CallImpl) setLeavingQueue(e *model.CallActionLeavingQueue) {
+	call.Lock()
+	call.leavingAt = e.ActivityAt
+	call.Unlock()
+
+	call.setState(CALL_STATE_LEAVING)
+}
+
+func (call *CallImpl) setBridge(e *model.CallActionBridge) {
+	call.Lock()
+	call.bridgeAt = e.ActivityAt
+	call.info = e.CallActionInfo
+	call.Unlock()
+
+	call.setState(CALL_STATE_BRIDGE)
+}
+
+func (call *CallImpl) setHold(e *model.CallActionHold) {
+	call.setState(CALL_STATE_HOLD)
+}
+
+func (call *CallImpl) setHangup(e *model.CallActionHangup) {
+
+	if call.hangup == nil {
+		call.Lock()
+		call.hangup = e
+		call.cm.removeFromCacheCall(call)
+		call.hangupAt = e.ActivityAt
+		close(call.hangupCh)
+		call.Unlock()
+
+		call.setState(CALL_STATE_HANGUP)
+	} else {
+		fmt.Println("FIXME setHangup", e)
+	}
+
+}
+
+func (call *CallImpl) QueueId() *int {
+	if call.info.QueueData == nil {
+		return nil
+	}
+
+	return call.info.QueueData.GetInt("queue_id")
+}
+
+func (call *CallImpl) QueueCallPriority() int {
+	if call.info.QueueData != nil {
+		if i := call.info.QueueData.GetInt("queue_member_priority"); i != nil {
+			return *i
+		}
+	}
+
+	return 0
 }
 
 func (call *CallImpl) CallAction() <-chan CallAction {
@@ -148,34 +239,25 @@ func (cm *CallManagerImpl) Proxy() string {
 	return "sip:10.9.8.111:5060"
 }
 
-func (cm *CallManagerImpl) newInboundCall(fromNode string, event *CallEvent) *model.AppError {
-	api, err := cm.getApiConnectionById(fromNode)
+func (cm *CallManagerImpl) joinInboundCall(event *model.CallActionJoinQueue) *model.AppError {
+	api, err := cm.getApiConnectionById(event.NodeName)
 
 	if err != nil {
 		return err
 	}
 
-	createdAt, _ := event.GetIntAttribute(CallerCreatedTimeHeader)
-	if createdAt > 0 {
-		createdAt = createdAt / 1000
-	}
-
-	answeredTime, _ := event.GetIntAttribute(CallerAnsweredTimeHeader)
-	if answeredTime > 0 {
-		answeredTime = answeredTime / 1000
-	}
-
 	call := &CallImpl{
-		id:         event.Id(),
-		api:        api,
-		cm:         cm,
-		direction:  CALL_DIRECTION_INBOUND,
-		hangup:     make(chan struct{}),
-		lastEvent:  event,
-		chState:    make(chan CallState, 5),
-		acceptAt:   int64(answeredTime),
-		offeringAt: int64(createdAt),
-		state:      CALL_STATE_ACCEPT,
+		id:        event.Id,
+		api:       api,
+		cm:        cm,
+		direction: CALL_DIRECTION_INBOUND,
+		hangupCh:  make(chan struct{}),
+		lastEvent: nil,
+		chState:   make(chan CallState, 5),
+		info:      event.CallActionInfo,
+		//acceptAt:   int64(answeredTime),
+		//offeringAt: int64(createdAt), //FIXME
+		state: CALL_STATE_ACCEPT,
 	}
 
 	cm.saveToCacheCall(call)
@@ -199,7 +281,11 @@ func (call *CallImpl) Invite() *model.AppError {
 		_, cause, err := call.api.NewCall(call.callRequest)
 		if err != nil {
 			wlog.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()))
-			call.setHangupCall(err, nil, cause)
+			call.setHangup(&model.CallActionHangup{
+				CallAction: call.action,
+				Cause:      cause,
+				SipCode:    nil,
+			})
 			return
 		}
 	}()
@@ -207,65 +293,24 @@ func (call *CallImpl) Invite() *model.AppError {
 	return nil
 }
 
-func (call *CallImpl) setHangupCode() {
-	if call.lastEvent != nil {
-		call.hangupCauseCode, _ = call.lastEvent.GetIntAttribute(model.CALL_ATTRIBUTE_HANGUP_CODE)
-	}
-}
-
 func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, c.cm, c.api)
 }
 
 func (call *CallImpl) FromNumber() string {
-	if call.lastEvent != nil {
-		v, _ := call.lastEvent.GetStrAttribute(model.CALL_ATTRIBUTE_FROM_NUMBER)
-		return v
-	}
-	return ""
+	return call.info.FromNumber
 }
 
 func (call *CallImpl) FromName() string {
-	if call.lastEvent != nil {
-		v, _ := call.lastEvent.GetStrAttribute(model.CALL_ATTRIBUTE_FROM_NAME)
-		return v
-	}
-	return ""
+	return call.info.FromName
 }
 
 func (call *CallImpl) NodeName() string {
 	return call.api.Name()
 }
 
-func (call *CallImpl) setState(event *CallEvent, state CallState) {
-	call.Lock()
-	switch state {
-	case CALL_STATE_RINGING:
-		call.offeringAt = model.GetMillis()
-	case CALL_STATE_ACCEPT:
-		call.acceptAt = model.GetMillis()
-	case CALL_STATE_BRIDGE:
-		call.bridgeAt = model.GetMillis()
-	case CALL_STATE_HANGUP:
-		call.hangupAt = model.GetMillis()
-	}
-
-	if event != nil {
-		call.lastEvent = event
-	}
-	//FIXME handle error
-	if call.cancel != "" && state < CALL_STATE_HANGUP {
-		if err := call.api.HangupCall(call.Id(), call.cancel); err != nil {
-			wlog.Error(fmt.Sprintf("[%s] call %s error: \"%s\"", call.NodeName(), call.Id(), err.Error()))
-		}
-		wlog.Debug(fmt.Sprintf("[%s] call %s send hangup \"%s\"", call.NodeName(), call.Id(), call.cancel))
-		call.cancel = ""
-	}
-
+func (call *CallImpl) setState(state CallState) {
 	call.state = state
-
-	call.Unlock()
-
 	call.chState <- state
 	wlog.Debug(fmt.Sprintf("[%s] call %s set state \"%s\"", call.NodeName(), call.Id(), state.String()))
 }
@@ -287,28 +332,31 @@ func (call *CallImpl) Id() string {
 func (call *CallImpl) HangupCause() string {
 	call.RLock()
 	defer call.RUnlock()
-	return call.hangupCause
+	if call.hangup != nil {
+		return call.hangup.Cause
+	}
+
+	return ""
 }
 
 func (call *CallImpl) HangupCauseCode() int {
 	call.RLock()
 	defer call.RUnlock()
-	return call.hangupCauseCode
+	if call.hangup != nil && call.hangup.SipCode != nil {
+		return *call.hangup.SipCode
+	}
+	//FIXME
+	return 0
 }
 
 func (call *CallImpl) WaitForHangup() {
 	if call.Err() == nil && call.HangupCause() == "" {
-		for {
-			select {
-			case <-call.HangupChan():
-				return
-			}
-		}
+		<-call.HangupChan()
 	}
 }
 
 func (call *CallImpl) HangupChan() <-chan struct{} {
-	return call.hangup
+	return call.hangupCh
 }
 
 func (call *CallImpl) OfferingAt() int64 {
@@ -325,14 +373,6 @@ func (call *CallImpl) BridgeAt() int64 {
 
 func (call *CallImpl) HangupAt() int64 {
 	return call.hangupAt
-}
-
-func (call *CallImpl) intVarIfLastEvent(name string) int {
-	if call.lastEvent == nil {
-		return 0
-	}
-	v, _ := call.lastEvent.GetIntAttribute(name)
-	return v
 }
 
 func (call *CallImpl) DurationSeconds() int {
@@ -370,15 +410,6 @@ func (call *CallImpl) WaitSeconds() int {
 	}
 }
 
-func (call *CallImpl) setHangupCall(err *model.AppError, event *CallEvent, cause string) {
-	if call.GetState() < CALL_STATE_HANGUP {
-		call.setHangupCause(err, cause)
-		call.cm.removeFromCacheCall(call)
-		call.setState(event, CALL_STATE_HANGUP)
-		close(call.hangup)
-	}
-}
-
 func (call *CallImpl) setHangupCause(err *model.AppError, cause string) {
 	call.Lock()
 	defer call.Unlock()
@@ -386,8 +417,6 @@ func (call *CallImpl) setHangupCause(err *model.AppError, cause string) {
 	if err != nil {
 		call.err = err
 		call.hangupCauseCode = err.StatusCode
-	} else {
-		call.setHangupCode()
 	}
 
 	if call.hangupCause == "" {
@@ -408,7 +437,7 @@ func (call *CallImpl) Hangup(cause string) *model.AppError {
 		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
 		if call.GetState() == CALL_STATE_NEW {
-			close(call.hangup)
+			close(call.hangupCh)
 		}
 		return nil
 	}
@@ -472,18 +501,4 @@ func (call *CallImpl) Bridge(other Call) *model.AppError {
 
 func (call *CallImpl) DTMF(val rune) *model.AppError {
 	return call.api.DTMF(call.id, val)
-}
-
-func (call *CallImpl) GetAttribute(name string) (string, bool) {
-	if call.lastEvent != nil {
-		return call.lastEvent.GetVariable(name)
-	}
-	return "", false
-}
-
-func (call *CallImpl) GetIntAttribute(name string) (int, bool) {
-	if call.lastEvent != nil {
-		return call.lastEvent.GetIntAttribute("variable_" + name)
-	}
-	return 0, false
 }

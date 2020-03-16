@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"math/rand"
 )
 
 type IVRQueue struct {
@@ -72,45 +73,50 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	//dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	callRequest := &model.CallRequest{
-		Endpoints:    []string{"null"},
+		Endpoints:    queue.FlowEndpoints(),
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		Timeout:      queue.Timeout(),
+		Timeout:      queue.Timeout(), //FIXME new parameter: do originate call timeout
 		Destination:  attempt.Destination(),
-		Context:      "call_center",
+		Context:      queue.CallContextName(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.Variables(),
+			attempt.resource.Variables(),
 			map[string]string{
-				"sip_route_uri":               queue.SipRouterAddr(),
 				"cc_destination":              attempt.Destination(),
-				model.CALL_DIRECTION_VARIABLE: model.CALL_DIRECTION_DIALER,
+				"execute_on_pre_originate":    "socket 10.10.10.25:10030 async full",
+				"cc_schema_id":                "123",
 				model.CALL_DOMAIN_VARIABLE:    queue.Domain(),
-				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.id),
-				model.QUEUE_NAME_FIELD:        queue.name,
+				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.Id()),
+				model.QUEUE_NAME_FIELD:        queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
-				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_MEMBER,
+				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_FLOW,
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		//Applications: make([]*model.CallRequestApplication, 0, 4),
+		Applications: []*model.CallRequestApplication{
+			{
+				AppName: "sleep",
+				Args:    fmt.Sprintf("%d", rand.Intn(10000)),
+			},
+			{
+				AppName: "hangup",
+				Args:    "USER_BUSY",
+			},
+		},
 	}
 
-	err := queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ORIGINATE)
-	if err != nil {
-		panic(err.Error()) //TODO
-	}
-
-	call := queue.NewCallUseResource(callRequest, attempt.resource)
+	call := queue.NewCall(callRequest)
 	info.fromCall = call
 	call.Invite()
 	if call.Err() != nil {
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("Create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
+	wlog.Debug(fmt.Sprintf("create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
 	var calling = true
 
@@ -118,12 +124,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		select {
 		case state := <-call.State():
 			switch state {
-			case call_manager.CALL_STATE_PARK:
+			case call_manager.CALL_STATE_JOIN:
+				call.Hangup("USER_BUSY")
+			//case call_manager.CALL_STATE_LEAVING:
 
-				fmt.Println("PARK")
-			case call_manager.CALL_STATE_RINGING:
-				queue.queueManager.SetAttemptState(attempt.Id(), model.MEMBER_STATE_ACTIVE)
-				queue.queueManager.SetBridged(attempt, model.NewString(call.Id()), nil)
+			default:
+				fmt.Println(state.String())
 			}
 		case <-call.HangupChan():
 			calling = false

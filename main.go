@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/webitel/call_center/app"
+	"github.com/webitel/call_center/grpc_api"
 	"math/rand"
 	"time"
 
@@ -21,6 +22,12 @@ func main() {
 		panic(err.Error())
 	}
 	defer a.Shutdown()
+
+	if err = a.StartGrpcServer(); err != nil {
+		panic(err.Error())
+	}
+
+	grpc_api.Init(a, a.GrpcServer.Server())
 
 	setDebug()
 	// wait for kill signal before attempting to gracefully shutdown

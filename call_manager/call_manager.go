@@ -2,11 +2,11 @@ package call_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/engine/discovery"
 	"github.com/webitel/wlog"
 	"net/http"
 	"sync"
@@ -27,6 +27,7 @@ type CallManager interface {
 	NewCall(callRequest *model.CallRequest) Call
 	GetCall(id string) (Call, bool)
 	InboundCall() <-chan Call
+	CountConnection() int
 }
 
 type CallManagerImpl struct {
@@ -86,8 +87,7 @@ func (cm *CallManagerImpl) Start() {
 					if !ok {
 						return
 					}
-
-					cm.handleCallEvent(e)
+					cm.handleCallAction(e)
 				}
 			}
 		}()
@@ -192,4 +192,8 @@ func (cm *CallManagerImpl) saveToCacheCall(call Call) {
 func (cm *CallManagerImpl) removeFromCacheCall(call Call) {
 	wlog.Debug(fmt.Sprintf("[%s] call %s remove from store", call.NodeName(), call.Id()))
 	cm.calls.Remove(call.Id())
+}
+
+func (cm *CallManagerImpl) CountConnection() int {
+	return len(cm.poolConnections.All())
 }

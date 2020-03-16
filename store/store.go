@@ -1,8 +1,8 @@
 package store
 
 import (
-	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/engine/discovery"
 )
 
 type Store interface {

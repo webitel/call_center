@@ -1,9 +1,9 @@
 package sqlstore
 
 import (
-	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
+	"github.com/webitel/engine/discovery"
 	"net/http"
 )
 

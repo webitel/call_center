@@ -8,6 +8,11 @@ import (
 )
 
 func (e *EngineImp) ReserveMembers() {
+	if !e.app.IsReady() {
+		wlog.Error("app not ready to reserve members")
+		time.Sleep(time.Second * 5)
+		return
+	}
 	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId)
 	if err != nil {
 		wlog.Error(err.Error())

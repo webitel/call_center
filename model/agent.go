@@ -25,7 +25,7 @@ const (
 )
 
 const (
-	AGENT_STATE_LOGOUT    = "logged_out"
+	AGENT_STATE_LOGOUT    = "logged_out" // offline
 	AGENT_STATE_WAITING   = "waiting"
 	AGENT_STATE_OFFERING  = "offering"
 	AGENT_STATE_RINGING   = "ringing"

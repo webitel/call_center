@@ -1,5 +1,12 @@
 package model
 
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/webitel/wlog"
+	"strconv"
+)
+
 const (
 	CALL_STRATEGY_DEFAULT = iota
 	CALL_STRATEGY_FAILOVER
@@ -73,6 +80,84 @@ const (
 	CALL_AMD_NOT_SURE_VARIABLE = "amd_on_notsure"
 )
 
+const (
+	CALL_ACTION_RINGING       = "ringing"
+	CALL_ACTION_ACTIVE        = "active"
+	CALL_ACTION_BRIDGE        = "bridge"
+	CALL_ACTION_HOLD          = "hold"
+	CALL_ACTION_DTMF          = "dtmf"
+	CALL_ACTION_UPDATE        = "update"
+	CALL_ACTION_HANGUP        = "hangup"
+	CALL_ACTION_JOIN_QUEUE    = "join_queue"
+	CALL_ACTION_LEAVING_QUEUE = "leaving_queue"
+)
+
+type CallAction struct {
+	Id            string `json:"id"`
+	NodeName      string `json:"node_name"`
+	QueueNodeName string `json:"queue_node"`
+	ActivityAt    int64  `json:"activity_at,string"`
+	Action        string `json:"action"`
+}
+
+type CallActionData struct {
+	CallAction
+	Data   *string     `json:"data,omitempty"`
+	parsed interface{} `json:"-"`
+}
+
+type CallActionRinging struct {
+	CallAction
+	CallActionInfo
+}
+
+type CallActionJoinQueue struct {
+	CallAction
+	CallActionInfo
+}
+
+type CallActionLeavingQueue struct {
+	CallAction
+}
+
+type CallActionActive struct {
+	CallAction
+}
+
+type CallActionHold struct {
+	CallAction
+}
+
+type CallActionBridge struct {
+	CallAction
+	CallActionInfo
+}
+
+type CallActionHangup struct {
+	CallAction
+	Cause         string `json:"cause"`
+	SipCode       *int   `json:"sip"`
+	OriginSuccess *bool  `json:"originate_success"`
+}
+
+type CallVariables map[string]interface{}
+
+type CallActionInfo struct {
+	ParentId    string `json:"parent_id"`
+	OwnerId     string `json:"owner_id"`
+	Direction   string `json:"direction"`
+	Destination string `json:"destination"`
+
+	FromNumber string `json:"from_number"`
+	FromName   string `json:"from_name"`
+
+	ToNumber string `json:"to_number"`
+	ToName   string `json:"to_name"`
+
+	Payload   *CallVariables `json:"payload"`
+	QueueData *CallVariables `json:"queue"`
+}
+
 type CallRequestApplication struct {
 	AppName string
 	Args    string
@@ -89,4 +174,68 @@ type CallRequest struct {
 	Dialplan     string
 	Context      string
 	Applications []*CallRequestApplication
+}
+
+func (c *CallActionData) GetEvent() interface{} {
+	if c.parsed != nil {
+		return c.parsed
+	}
+
+	switch c.Action {
+	case CALL_ACTION_RINGING:
+		c.parsed = &CallActionRinging{
+			CallAction: c.CallAction,
+		}
+	case CALL_ACTION_JOIN_QUEUE:
+		c.parsed = &CallActionJoinQueue{
+			CallAction: c.CallAction,
+		}
+
+	case CALL_ACTION_LEAVING_QUEUE:
+		c.parsed = &CallActionLeavingQueue{
+			CallAction: c.CallAction,
+		}
+
+	case CALL_ACTION_ACTIVE:
+		c.parsed = &CallActionActive{
+			CallAction: c.CallAction,
+		}
+
+	case CALL_ACTION_HOLD:
+		c.parsed = &CallActionHold{
+			CallAction: c.CallAction,
+		}
+
+	case CALL_ACTION_BRIDGE:
+		c.parsed = &CallActionBridge{
+			CallAction: c.CallAction,
+		}
+	case CALL_ACTION_HANGUP:
+		c.parsed = &CallActionHangup{
+			CallAction: c.CallAction,
+		}
+	}
+
+	if c.Data != nil {
+		if err := json.Unmarshal([]byte(*c.Data), &c.parsed); err != nil {
+			wlog.Error(fmt.Sprintf("parse call %s [%s] error: %s", c.Id, c.Action, err.Error()))
+		}
+	}
+	return c.parsed
+}
+
+func (vars CallVariables) GetString(header string) (string, bool) {
+	if v, ok := vars[header].(string); ok {
+		return v, true
+	}
+	return "", false
+}
+
+func (vars CallVariables) GetInt(header string) *int {
+	if v, ok := vars.GetString(header); ok {
+		if i, err := strconv.Atoi(v); err == nil {
+			return &i
+		}
+	}
+	return nil
 }

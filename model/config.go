@@ -50,6 +50,12 @@ type MQSettings struct {
 	Url *string
 }
 
+type ServerSettings struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	Network string `json:"network"`
+}
+
 type ExternalCommandsConnection struct {
 	Name string
 	Url  string
@@ -62,6 +68,7 @@ type ExternalCommandsSettings struct {
 type Config struct {
 	LocalizationSettings     LocalizationSettings
 	ServiceSettings          ServiceSettings
+	ServerSettings           ServerSettings
 	SqlSettings              SqlSettings
 	MQSettings               MQSettings
 	ExternalCommandsSettings ExternalCommandsSettings

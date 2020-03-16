@@ -15,6 +15,14 @@ type CallingQueue struct {
 	params model.QueueDialingSettings
 }
 
+func (queue *CallingQueue) CallContextName() string {
+	return "call_center"
+}
+
+func (queue *CallingQueue) FlowEndpoints() []string {
+	return []string{"null"}
+}
+
 func (queue *CallingQueue) RecordCallEnabled() bool {
 	return queue.params.Recordings
 }
@@ -70,6 +78,10 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 			Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime+100),
 		})
 	}
+}
+
+func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) call_manager.Call {
+	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
 func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, resource ResourceObject) call_manager.Call {

@@ -216,18 +216,18 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 }
 
 func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {
-	var queueId, priority int
-	var ok bool
+	var queueId *int
+	var priority int
 
-	queueId, ok = call.GetIntAttribute(model.QUEUE_ID_FIELD)
-	if !ok {
+	queueId = call.QueueId()
+	if queueId == nil {
 		wlog.Warn(fmt.Sprintf("[%s] call %s distribute to queue error: not found variable %s", call.NodeName(), call.Id(), model.QUEUE_ID_FIELD))
 		return
 	}
 
-	priority, _ = call.GetIntAttribute(model.QUEUE_MEMBER_PRIORITY)
+	priority = call.QueueCallPriority()
 
-	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
+	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(*queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))

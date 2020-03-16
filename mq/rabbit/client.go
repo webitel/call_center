@@ -31,14 +31,14 @@ type AMQP struct {
 	nodeName           string
 	connectionAttempts int
 	stopping           bool
-	callEvent          chan model.Event
+	callEvent          chan model.CallActionData
 	queueEvent         mq.QueueEvent
 }
 
 func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
-		callEvent: make(chan model.Event),
+		callEvent: make(chan model.CallActionData),
 		nodeName:  nodeName,
 	}
 	mq_.queueEvent = NewQueueMQ(mq_)
@@ -111,7 +111,8 @@ func (a *AMQP) initQueues() {
 }
 
 func (a *AMQP) subscribe() {
-	err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.MQ_CALL_EXCHANGE, false, nil)
+	//err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.MQ_CALL_EXCHANGE, false, nil)
+	err := a.channel.QueueBind(a.queueName, "#", model.MQ_CALL_EXCHANGE, false, nil)
 	if err != nil {
 		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.MQ_CALL_EXCHANGE, err.Error()))
 		time.Sleep(time.Second)
@@ -162,46 +163,14 @@ func (a *AMQP) subscribe() {
 	}()
 }
 
-type Call struct {
-	Action        string        `json:"action"`
-	Id            string        `json:"id"`
-	DomainId      string        `json:"domain_id"`
-	UserId        string        `json:"user_id,omitempty"`
-	Application   string        `json:"application,omitempty"`
-	ToNumber      string        `json:"to_number,omitempty"`
-	ToName        string        `json:"to_name,omitempty"`
-	FromNumber    string        `json:"from_number,omitempty"`
-	FromName      string        `json:"from_name,omitempty"`
-	Destination   string        `json:"destination,omitempty"`
-	Direction     string        `json:"direction,omitempty"`
-	ParentId      string        `json:"parent_id,omitempty"`
-	OwnerId       string        `json:"owner_id,omitempty"`
-	NodeName      string        `json:"node_name,omitempty"`
-	HangupCause   string        `json:"cause,omitempty"`
-	VideoFlow     string        `json:"video_flow,omitempty"`
-	VideoRequest  bool          `json:"video_request,string,omitempty"`
-	ScreenRequest bool          `json:"screen_request,string,omitempty"`
-	Digit         string        `json:"digit,omitempty"`
-	Payload       *CallPayload  `json:"payload,string,omitempty"`
-	QueuePayload  *QueuePayload `json:"queue,string,omitempty"`
-}
-
-type CallPayload map[string]interface{}
-type QueuePayload map[string]interface{}
-
 func (a *AMQP) handleCallMessage(data []byte) {
-	c := &Call{}
-	json.Unmarshal(data, &c)
-	fmt.Printf("%v\n", string(data))
-	fmt.Printf("%v\n", c)
-
-	e := make(model.Event)
-	if err := json.Unmarshal(data, &e); err != nil {
+	callAction := model.CallActionData{}
+	if err := json.Unmarshal(data, &callAction); err != nil {
 		wlog.Error(fmt.Sprintf("parse error: %s", err.Error()))
 		return
 	}
-
-	a.callEvent <- e
+	wlog.Debug(fmt.Sprintf("call %s [%s] ", callAction.Id, callAction.Action))
+	a.callEvent <- callAction
 }
 
 func (a *AMQP) Close() {
@@ -237,7 +206,7 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	return nil
 }
 
-func (a *AMQP) ConsumeCallEvent() <-chan model.Event {
+func (a *AMQP) ConsumeCallEvent() <-chan model.CallActionData {
 	return a.callEvent
 }
 

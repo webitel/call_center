@@ -13,23 +13,26 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/engine/auth_manager"
 	"github.com/webitel/wlog"
 	"sync/atomic"
 )
 
 type App struct {
-	id           *string
-	Store        store.Store
-	MQ           mq.MQ
-	Log          *wlog.Logger
-	configFile   string
-	config       atomic.Value
-	newStore     func() store.Store
-	cluster      cluster.Cluster
-	engine       engine.Engine
-	dialing      queue.Dialing
-	agentManager agent_manager.AgentManager
-	callManager  call_manager.CallManager
+	id             *string
+	Store          store.Store
+	MQ             mq.MQ
+	Log            *wlog.Logger
+	configFile     string
+	config         atomic.Value
+	newStore       func() store.Store
+	cluster        cluster.Cluster
+	engine         engine.Engine
+	dialing        queue.Dialing
+	GrpcServer     *GrpcServer
+	sessionManager auth_manager.AuthManager
+	agentManager   agent_manager.AgentManager
+	callManager    call_manager.CallManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -78,21 +81,28 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.Store = app.newStore()
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
 
-	if cluster, err := cluster.NewCluster(*app.id, "10.10.10.25:8500", app.Store.Cluster()); err != nil {
+	if cl, err := cluster.NewCluster(*app.id, "10.9.8.111:8500", app.Store.Cluster()); err != nil {
 		return nil, err
 	} else {
-		app.cluster = cluster
+		app.cluster = cl
 	}
+
+	app.GrpcServer = NewGrpcServer(model.ServerSettings{
+		Address: "",
+		Port:    0,
+		Network: "tcp",
+	})
 
 	if err := app.cluster.Setup(); err != nil {
 		return nil, errors.Wrapf(err, "unable to initialize cluster")
 	}
-	app.cluster.Start()
+
+	app.cluster.Start(app.GrpcServer.GetPublicInterface())
 
 	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ)
 	app.callManager.Start()
 
-	app.engine = engine.NewEngine(*app.id, app.Store)
+	app.engine = engine.NewEngine(app, *app.id, app.Store)
 	app.engine.Start()
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store)
@@ -106,7 +116,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 func (app *App) IsReady() bool {
 	//TODO check connect to db, rabbit, grpc
-	return true
+	return app.callManager.CountConnection() > 0
 }
 
 func (app *App) Master() bool {

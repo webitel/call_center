@@ -2,9 +2,9 @@ package cluster
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/discovery"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/engine/discovery"
 	"github.com/webitel/wlog"
 	"sync"
 )
@@ -23,7 +23,7 @@ type cluster struct {
 
 type Cluster interface {
 	Setup() error
-	Start()
+	Start(pubHost string, pubPort int) error
 	Stop()
 	Master() bool
 
@@ -44,11 +44,6 @@ func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, err
 		return nil, err
 	}
 
-	err = cons.RegisterService(model.APP_SERVICE_NAME, "", 0, model.APP_SERVICE_TTL, model.APP_DEREGESTER_CRITICAL_TTL)
-	if err != nil {
-		return nil, err
-	}
-
 	return &cluster{
 		discovery:       cons,
 		nodeId:          nodeId,
@@ -57,12 +52,17 @@ func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, err
 	}, nil
 }
 
-func (c *cluster) Start() {
+func (c *cluster) Start(pubHost string, pubPort int) error {
 	wlog.Info(fmt.Sprintf("starting cluster [%s] service", c.nodeId))
+	err := c.discovery.RegisterService(model.ServiceName, pubHost, pubPort, model.APP_SERVICE_TTL, model.APP_DEREGESTER_CRITICAL_TTL)
+	if err != nil {
+		return err
+	}
 	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 	c.startOnce.Do(func() {
 		go c.watcher.Start()
 	})
+	return nil
 }
 
 func (c *cluster) Stop() {

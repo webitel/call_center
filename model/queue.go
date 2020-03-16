@@ -15,6 +15,7 @@ const (
 )
 
 const (
+	QUEUE_SIDE_FLOW   = "flow"
 	QUEUE_SIDE_MEMBER = "member"
 	QUEUE_SIDE_AGENT  = "agent"
 )

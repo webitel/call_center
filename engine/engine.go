@@ -9,7 +9,12 @@ import (
 
 var DEFAULT_WATCHER_POLLING_INTERVAL = 800
 
+type App interface {
+	IsReady() bool
+}
+
 type EngineImp struct {
+	app             App
 	nodeId          string
 	store           store.Store
 	startOnce       sync.Once
@@ -17,8 +22,9 @@ type EngineImp struct {
 	watcher         *utils.Watcher
 }
 
-func NewEngine(id string, s store.Store) Engine {
+func NewEngine(app App, id string, s store.Store) Engine {
 	return &EngineImp{
+		app:             app,
 		nodeId:          id,
 		store:           s,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,

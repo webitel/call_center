@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package cc;
+
+service AgentService {
+    rpc SetStatus(SetStatusRequest) returns (SetStatusResponse) {}
+}
+
+message SetStatusRequest {
+
+}
+
+message SetStatusResponse {
+
+}
