@@ -96,13 +96,13 @@ func (am *agentManager) SetAgentState(agent AgentObject, state string, timeoutSe
 
 func (am *agentManager) SetOnline(agent AgentObject) *model.AppError {
 	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_ONLINE,
+		Status: model.AGENT_STATUS_WAITING,
 	})
 	if err != nil {
 		return err
 	}
 
-	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_ONLINE, nil, nil))
+	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_WAITING, nil, nil))
 }
 
 func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {

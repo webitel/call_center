@@ -66,14 +66,14 @@ where a.id = :Id
 func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_agent
 			set status = :Status
+			,state = case when state = 'waiting' or state = 'pause' or state = 'offline' then :Status else state end
   			,status_payload = :Payload
-			,last_state_change = :Now
+			,last_state_change =  (extract(EPOCH from now()) * 1000)::bigint
 			,successively_no_answers = 0
 			where id = :AgentId`, map[string]interface{}{
 		"AgentId": agentId,
 		"Status":  status,
 		"Payload": payload,
-		"Now":     model.GetMillis(),
 	}); err != nil {
 		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
 			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)

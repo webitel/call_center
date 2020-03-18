@@ -21,7 +21,7 @@ func (app *App) SetAgentLogin(agentId int) *model.AppError {
 		return err
 	}
 	//TODO
-	if agent.Status == model.AGENT_STATUS_ONLINE {
+	if agent.Status == model.AGENT_STATUS_WAITING {
 		return model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
 	}
 

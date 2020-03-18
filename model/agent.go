@@ -23,12 +23,12 @@ const (
 
 const (
 	AGENT_STATUS_OFFLINE = "offline"
-	AGENT_STATUS_ONLINE  = "online"
+	AGENT_STATUS_WAITING = "waiting"
 	AGENT_STATUS_PAUSE   = "pause"
 )
 
 const (
-	AGENT_STATE_LOGOUT    = "logged_out" // offline
+	AGENT_STATE_LOGOUT    = "offline" // offline
 	AGENT_STATE_WAITING   = "waiting"
 	AGENT_STATE_OFFERING  = "offering"
 	AGENT_STATE_RINGING   = "ringing"

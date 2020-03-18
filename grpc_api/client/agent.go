@@ -41,7 +41,7 @@ func (api *agentApi) Logout(domainId, agentId int64) error {
 	return err
 }
 
-func (api *agentApi) Pause(domainId, agentId int64, payload []byte, timeout int) error {
+func (api *agentApi) Pause(domainId, agentId int64, payload string, timeout int) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
