@@ -101,9 +101,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT:
-				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_RINGING, 0)
+				agent.SetStateOffering(queue.id)
 			case call_manager.CALL_STATE_BRIDGE:
-				queue.queueManager.agentManager.SetAgentState(agent, model.AGENT_STATE_TALK, 0)
+				agent.SetStateTalking()
 			}
 		case <-call.HangupChan():
 			calling = false

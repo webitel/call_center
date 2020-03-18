@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/discovery"
 	"github.com/webitel/wlog"
@@ -13,16 +12,17 @@ const (
 	WatcherInterval = 5 * 1000
 )
 
-type CCClient interface {
-	Name() string
-	Close() error
-	Ready() bool
+type AgentApi interface {
+	Login(domainId, agentId int64) error
+	Logout(domainId, agentId int64) error
+	Pause(domainId, agentId int64, payload []byte, timeout int) error
 }
 
 type CCManager interface {
 	Start() error
 	Stop()
-	Agent() (cc.AgentServiceClient, error)
+
+	Agent() AgentApi
 }
 
 type ccManager struct {
@@ -33,24 +33,25 @@ type ccManager struct {
 	startOnce sync.Once
 	stop      chan struct{}
 	stopped   chan struct{}
+
+	agent AgentApi
 }
 
 func NewCCManager(serviceDiscovery discovery.ServiceDiscovery) CCManager {
-	return &ccManager{
+	cc := &ccManager{
 		stop:             make(chan struct{}),
 		stopped:          make(chan struct{}),
 		poolConnections:  discovery.NewPoolConnections(),
 		serviceDiscovery: serviceDiscovery,
 	}
+
+	cc.agent = NewAgentApi(cc)
+
+	return cc
 }
 
-func (cc *ccManager) Agent() (cc.AgentServiceClient, error) {
-	con, err := cc.poolConnections.Get(discovery.StrategyRoundRobin)
-	if err != nil {
-		return nil, err
-	}
-
-	return con.(*ccConnection).Agent, nil
+func (cc *ccManager) Agent() AgentApi {
+	return cc.agent
 }
 
 func (cc *ccManager) Start() error {
@@ -122,4 +123,13 @@ func (cc *ccManager) wakeUp() {
 		}
 	}
 	cc.poolConnections.RecheckConnections()
+}
+
+func (cc *ccManager) getRandomClient() (*ccConnection, error) {
+	cli, err := cc.poolConnections.Get(discovery.StrategyRoundRobin)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.(*ccConnection), nil
 }

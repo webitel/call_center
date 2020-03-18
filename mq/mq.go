@@ -10,6 +10,8 @@ type MQ interface {
 
 	ConsumeCallEvent() <-chan model.CallActionData
 
+	AgentChangeStatus(e model.AgentEventStatus) *model.AppError
+
 	QueueEvent() QueueEvent
 }
 

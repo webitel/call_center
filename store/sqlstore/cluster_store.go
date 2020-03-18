@@ -43,6 +43,7 @@ func (s SqlClusterStore) CreateOrUpdate(nodeId string) (*discovery.ClusterData, 
 
 func (s SqlClusterStore) UpdateClusterInfo(nodeId string, started bool) (*discovery.ClusterData, error) {
 	var info *discovery.ClusterData
+	//FIXME
 	if err := s.GetMaster().SelectOne(&info, `with u as (
     update cc_cluster c
          set updated_at = case when :NodeId = c.node_name then :Time else c.updated_at end,

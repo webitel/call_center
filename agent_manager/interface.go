@@ -11,8 +11,8 @@ type AgentManager interface {
 	SetOffline(agent AgentObject) *model.AppError
 	SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError
 
-	SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
-	SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
+	//SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
+	//SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
 
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
@@ -28,6 +28,8 @@ type AgentManager interface {
 
 type AgentObject interface {
 	Id() int
+	DomainId() int64
+	UserId() int64
 	Name() string
 	GetCallEndpoints() []string
 	SuccessivelyNoAnswers() uint16

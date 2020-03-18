@@ -14,7 +14,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
-	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"sync/atomic"
 )
@@ -236,7 +235,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_map"))
+				return errors.New("store.sql.convert_string_map")
 			}
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
@@ -246,7 +245,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_map"))
+				return errors.New("store.sql.convert_string_map")
 			}
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
@@ -256,7 +255,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_map"))
+				return errors.New("store.sql.convert_string_map")
 			}
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
@@ -266,7 +265,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_array"))
+				return errors.New("store.sql.convert_string_array")
 			}
 
 			var a pq.StringArray
@@ -283,7 +282,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_interface"))
+				return errors.New("store.sql.convert_string_interface")
 			}
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
@@ -293,7 +292,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_string_interface"))
+				return errors.New("store.sql.convert_string_interface")
 			}
 			b := []byte(*s)
 			return json.Unmarshal(b, target)
@@ -304,7 +303,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*[]byte)
 			if !ok {
-				return errors.New(utils.T("store.sql.convert_int64_array"))
+				return errors.New("store.sql.convert_int64_array")
 			}
 			var a pq.Int64Array
 

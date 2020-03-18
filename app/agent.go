@@ -13,20 +13,6 @@ func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 	}
 }
 
-func (app *App) SetAgentStateById(agentId int, state string) *model.AppError {
-
-	agent, err := app.GetAgentById(agentId)
-	if err != nil {
-		return err
-	}
-
-	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
-		return err
-	} else {
-		return app.agentManager.SetAgentState(agentObj, state, 0)
-	}
-}
-
 func (app *App) SetAgentLogin(agentId int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
@@ -62,5 +48,20 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 		return err
 	} else {
 		return app.agentManager.SetOffline(agentObj)
+	}
+}
+
+func (app *App) SetAgentPause(agentId int, payload []byte, timeout int) *model.AppError {
+	var agent *model.Agent
+	var err *model.AppError
+
+	if agent, err = app.GetAgentById(agentId); err != nil {
+		return err
+	}
+
+	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
+		return err
+	} else {
+		return app.agentManager.SetPause(agentObj, payload, timeout)
 	}
 }

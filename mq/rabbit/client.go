@@ -24,7 +24,7 @@ const (
 )
 
 type AMQP struct {
-	settings           *model.MQSettings
+	settings           *model.MessageQueueSettings
 	connection         *amqp.Connection
 	channel            *amqp.Channel
 	queueName          string
@@ -35,7 +35,7 @@ type AMQP struct {
 	queueEvent         mq.QueueEvent
 }
 
-func NewRabbitMQ(settings model.MQSettings, nodeName string) mq.LayeredMQLayer {
+func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
 		callEvent: make(chan model.CallActionData),
@@ -60,7 +60,7 @@ func (a *AMQP) initConnection() {
 		os.Exit(1)
 	}
 	a.connectionAttempts++
-	a.connection, err = amqp.Dial(*a.settings.Url)
+	a.connection, err = amqp.Dial(a.settings.Url)
 	if err != nil {
 		wlog.Critical(fmt.Sprintf("Failed to open AMQP connection to err:%v", err.Error()))
 		time.Sleep(time.Second * RECONNECT_SEC)
@@ -73,8 +73,25 @@ func (a *AMQP) initConnection() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		} else {
-			a.initQueues()
+			a.initExchange()
 		}
+	}
+}
+
+func (a *AMQP) initExchange() {
+	err := a.channel.ExchangeDeclare(
+		model.CallCenterExchange,
+		"topic",
+		true,
+		false,
+		false,
+		true,
+		nil,
+	)
+	if err != nil {
+		wlog.Critical(fmt.Sprintf("Failed to declare AMQP exchange to err:%v", err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(EXIT_DECLARE_EXCHANGE)
 	}
 }
 
@@ -82,7 +99,7 @@ func (a *AMQP) initQueues() {
 	var err error
 	var queue amqp.Queue
 	err = a.channel.ExchangeDeclare(
-		model.MQ_CALL_EXCHANGE,
+		model.CallCenterExchange,
 		"direct",
 		true,
 		false,
@@ -112,9 +129,9 @@ func (a *AMQP) initQueues() {
 
 func (a *AMQP) subscribe() {
 	//err := a.channel.QueueBind(a.queueName, fmt.Sprintf("callcenter.%s", a.nodeName), model.MQ_CALL_EXCHANGE, false, nil)
-	err := a.channel.QueueBind(a.queueName, "#", model.MQ_CALL_EXCHANGE, false, nil)
+	err := a.channel.QueueBind(a.queueName, "#", model.CallCenterExchange, false, nil)
 	if err != nil {
-		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.MQ_CALL_EXCHANGE, err.Error()))
+		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", a.queueName, model.CallCenterExchange, err.Error()))
 		time.Sleep(time.Second)
 		os.Exit(EXIT_BIND)
 	}
@@ -149,7 +166,7 @@ func (a *AMQP) subscribe() {
 			}
 
 			switch m.Exchange {
-			case model.MQ_CALL_EXCHANGE:
+			case model.CallCenterExchange:
 				a.handleCallMessage(m.Body)
 			default:
 				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange", m.Exchange))
@@ -190,7 +207,7 @@ func (a *AMQP) Close() {
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	//todo, check connection
 	err := a.channel.Publish(
-		model.MQ_CALL_EXCHANGE,
+		model.CallCenterExchange,
 		key,
 		false,
 		false,

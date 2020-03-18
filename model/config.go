@@ -27,10 +27,9 @@ func (s *LocalizationSettings) SetDefaults() {
 }
 
 type ServiceSettings struct {
-	NodeId                *string
-	ListenAddress         *string
-	ListenInternalAddress *string
-	SessionCacheInMinutes *int
+	NodeId *string
+	//ListenAddress         *string
+	//ListenInternalAddress *string
 }
 
 type SqlSettings struct {
@@ -46,8 +45,8 @@ type SqlSettings struct {
 	QueryTimeout                *int
 }
 
-type MQSettings struct {
-	Url *string
+type MessageQueueSettings struct {
+	Url string
 }
 
 type ServerSettings struct {
@@ -61,15 +60,15 @@ type ExternalCommandsConnection struct {
 	Url  string
 }
 
-type ExternalCommandsSettings struct {
-	Connections []*ExternalCommandsConnection
+type DiscoverySettings struct {
+	Url string
 }
 
 type Config struct {
-	LocalizationSettings     LocalizationSettings
-	ServiceSettings          ServiceSettings
-	ServerSettings           ServerSettings
-	SqlSettings              SqlSettings
-	MQSettings               MQSettings
-	ExternalCommandsSettings ExternalCommandsSettings
+	DiscoverySettings    DiscoverySettings `json:"discovery_settings"`
+	LocalizationSettings LocalizationSettings
+	ServiceSettings      ServiceSettings
+	ServerSettings       ServerSettings
+	SqlSettings          SqlSettings
+	MessageQueueSettings MessageQueueSettings
 }

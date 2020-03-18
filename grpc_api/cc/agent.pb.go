@@ -24,85 +24,286 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type SetStatusRequest struct {
+type PauseRequest struct {
+	AgentId              int64    `protobuf:"varint,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Payload              []byte   `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	Timeout              int32    `protobuf:"varint,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	DomainId             int64    `protobuf:"varint,4,opt,name=domain_id,json=domainId,proto3" json:"domain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SetStatusRequest) Reset()         { *m = SetStatusRequest{} }
-func (m *SetStatusRequest) String() string { return proto.CompactTextString(m) }
-func (*SetStatusRequest) ProtoMessage()    {}
-func (*SetStatusRequest) Descriptor() ([]byte, []int) {
+func (m *PauseRequest) Reset()         { *m = PauseRequest{} }
+func (m *PauseRequest) String() string { return proto.CompactTextString(m) }
+func (*PauseRequest) ProtoMessage()    {}
+func (*PauseRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_105db670aa3a7dc9, []int{0}
 }
 
-func (m *SetStatusRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetStatusRequest.Unmarshal(m, b)
+func (m *PauseRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PauseRequest.Unmarshal(m, b)
 }
-func (m *SetStatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetStatusRequest.Marshal(b, m, deterministic)
+func (m *PauseRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PauseRequest.Marshal(b, m, deterministic)
 }
-func (m *SetStatusRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetStatusRequest.Merge(m, src)
+func (m *PauseRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseRequest.Merge(m, src)
 }
-func (m *SetStatusRequest) XXX_Size() int {
-	return xxx_messageInfo_SetStatusRequest.Size(m)
+func (m *PauseRequest) XXX_Size() int {
+	return xxx_messageInfo_PauseRequest.Size(m)
 }
-func (m *SetStatusRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetStatusRequest.DiscardUnknown(m)
+func (m *PauseRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SetStatusRequest proto.InternalMessageInfo
+var xxx_messageInfo_PauseRequest proto.InternalMessageInfo
 
-type SetStatusResponse struct {
+func (m *PauseRequest) GetAgentId() int64 {
+	if m != nil {
+		return m.AgentId
+	}
+	return 0
+}
+
+func (m *PauseRequest) GetPayload() []byte {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+func (m *PauseRequest) GetTimeout() int32 {
+	if m != nil {
+		return m.Timeout
+	}
+	return 0
+}
+
+func (m *PauseRequest) GetDomainId() int64 {
+	if m != nil {
+		return m.DomainId
+	}
+	return 0
+}
+
+type PauseResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SetStatusResponse) Reset()         { *m = SetStatusResponse{} }
-func (m *SetStatusResponse) String() string { return proto.CompactTextString(m) }
-func (*SetStatusResponse) ProtoMessage()    {}
-func (*SetStatusResponse) Descriptor() ([]byte, []int) {
+func (m *PauseResponse) Reset()         { *m = PauseResponse{} }
+func (m *PauseResponse) String() string { return proto.CompactTextString(m) }
+func (*PauseResponse) ProtoMessage()    {}
+func (*PauseResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_105db670aa3a7dc9, []int{1}
 }
 
-func (m *SetStatusResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetStatusResponse.Unmarshal(m, b)
+func (m *PauseResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PauseResponse.Unmarshal(m, b)
 }
-func (m *SetStatusResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetStatusResponse.Marshal(b, m, deterministic)
+func (m *PauseResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PauseResponse.Marshal(b, m, deterministic)
 }
-func (m *SetStatusResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetStatusResponse.Merge(m, src)
+func (m *PauseResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseResponse.Merge(m, src)
 }
-func (m *SetStatusResponse) XXX_Size() int {
-	return xxx_messageInfo_SetStatusResponse.Size(m)
+func (m *PauseResponse) XXX_Size() int {
+	return xxx_messageInfo_PauseResponse.Size(m)
 }
-func (m *SetStatusResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetStatusResponse.DiscardUnknown(m)
+func (m *PauseResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SetStatusResponse proto.InternalMessageInfo
+var xxx_messageInfo_PauseResponse proto.InternalMessageInfo
+
+type LogoutRequest struct {
+	AgentId              int64    `protobuf:"varint,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	DomainId             int64    `protobuf:"varint,2,opt,name=domain_id,json=domainId,proto3" json:"domain_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LogoutRequest) Reset()         { *m = LogoutRequest{} }
+func (m *LogoutRequest) String() string { return proto.CompactTextString(m) }
+func (*LogoutRequest) ProtoMessage()    {}
+func (*LogoutRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_105db670aa3a7dc9, []int{2}
+}
+
+func (m *LogoutRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LogoutRequest.Unmarshal(m, b)
+}
+func (m *LogoutRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LogoutRequest.Marshal(b, m, deterministic)
+}
+func (m *LogoutRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogoutRequest.Merge(m, src)
+}
+func (m *LogoutRequest) XXX_Size() int {
+	return xxx_messageInfo_LogoutRequest.Size(m)
+}
+func (m *LogoutRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogoutRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LogoutRequest proto.InternalMessageInfo
+
+func (m *LogoutRequest) GetAgentId() int64 {
+	if m != nil {
+		return m.AgentId
+	}
+	return 0
+}
+
+func (m *LogoutRequest) GetDomainId() int64 {
+	if m != nil {
+		return m.DomainId
+	}
+	return 0
+}
+
+type LogoutResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LogoutResponse) Reset()         { *m = LogoutResponse{} }
+func (m *LogoutResponse) String() string { return proto.CompactTextString(m) }
+func (*LogoutResponse) ProtoMessage()    {}
+func (*LogoutResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_105db670aa3a7dc9, []int{3}
+}
+
+func (m *LogoutResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LogoutResponse.Unmarshal(m, b)
+}
+func (m *LogoutResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LogoutResponse.Marshal(b, m, deterministic)
+}
+func (m *LogoutResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogoutResponse.Merge(m, src)
+}
+func (m *LogoutResponse) XXX_Size() int {
+	return xxx_messageInfo_LogoutResponse.Size(m)
+}
+func (m *LogoutResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogoutResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LogoutResponse proto.InternalMessageInfo
+
+type LoginRequest struct {
+	AgentId              int64    `protobuf:"varint,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	DomainId             int64    `protobuf:"varint,2,opt,name=domain_id,json=domainId,proto3" json:"domain_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LoginRequest) Reset()         { *m = LoginRequest{} }
+func (m *LoginRequest) String() string { return proto.CompactTextString(m) }
+func (*LoginRequest) ProtoMessage()    {}
+func (*LoginRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_105db670aa3a7dc9, []int{4}
+}
+
+func (m *LoginRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LoginRequest.Unmarshal(m, b)
+}
+func (m *LoginRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LoginRequest.Marshal(b, m, deterministic)
+}
+func (m *LoginRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoginRequest.Merge(m, src)
+}
+func (m *LoginRequest) XXX_Size() int {
+	return xxx_messageInfo_LoginRequest.Size(m)
+}
+func (m *LoginRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LoginRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LoginRequest proto.InternalMessageInfo
+
+func (m *LoginRequest) GetAgentId() int64 {
+	if m != nil {
+		return m.AgentId
+	}
+	return 0
+}
+
+func (m *LoginRequest) GetDomainId() int64 {
+	if m != nil {
+		return m.DomainId
+	}
+	return 0
+}
+
+type LoginResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LoginResponse) Reset()         { *m = LoginResponse{} }
+func (m *LoginResponse) String() string { return proto.CompactTextString(m) }
+func (*LoginResponse) ProtoMessage()    {}
+func (*LoginResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_105db670aa3a7dc9, []int{5}
+}
+
+func (m *LoginResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LoginResponse.Unmarshal(m, b)
+}
+func (m *LoginResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LoginResponse.Marshal(b, m, deterministic)
+}
+func (m *LoginResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoginResponse.Merge(m, src)
+}
+func (m *LoginResponse) XXX_Size() int {
+	return xxx_messageInfo_LoginResponse.Size(m)
+}
+func (m *LoginResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_LoginResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LoginResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*SetStatusRequest)(nil), "cc.SetStatusRequest")
-	proto.RegisterType((*SetStatusResponse)(nil), "cc.SetStatusResponse")
+	proto.RegisterType((*PauseRequest)(nil), "cc.PauseRequest")
+	proto.RegisterType((*PauseResponse)(nil), "cc.PauseResponse")
+	proto.RegisterType((*LogoutRequest)(nil), "cc.LogoutRequest")
+	proto.RegisterType((*LogoutResponse)(nil), "cc.LogoutResponse")
+	proto.RegisterType((*LoginRequest)(nil), "cc.LoginRequest")
+	proto.RegisterType((*LoginResponse)(nil), "cc.LoginResponse")
 }
 
 func init() { proto.RegisterFile("protos/cc/agent.proto", fileDescriptor_105db670aa3a7dc9) }
 
 var fileDescriptor_105db670aa3a7dc9 = []byte{
-	// 121 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2d, 0x28, 0xca, 0x2f,
-	0xc9, 0x2f, 0xd6, 0x4f, 0x4e, 0xd6, 0x4f, 0x4c, 0x4f, 0xcd, 0x2b, 0xd1, 0x03, 0xf3, 0x85, 0x98,
-	0x92, 0x93, 0x95, 0x84, 0xb8, 0x04, 0x82, 0x53, 0x4b, 0x82, 0x4b, 0x12, 0x4b, 0x4a, 0x8b, 0x83,
-	0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x94, 0x84, 0xb9, 0x04, 0x91, 0xc4, 0x8a, 0x0b, 0xf2, 0xf3,
-	0x8a, 0x53, 0x8d, 0xbc, 0xb8, 0x78, 0x1c, 0x41, 0x7a, 0x83, 0x53, 0x8b, 0xca, 0x32, 0x93, 0x53,
-	0x85, 0xac, 0xb8, 0x38, 0xe1, 0x8a, 0x84, 0x44, 0xf4, 0x92, 0x93, 0xf5, 0xd0, 0xcd, 0x91, 0x12,
-	0x45, 0x13, 0x85, 0x98, 0xa4, 0xc4, 0x90, 0xc4, 0x06, 0xb6, 0xdf, 0x18, 0x10, 0x00, 0x00, 0xff,
-	0xff, 0x4a, 0xa1, 0x86, 0x24, 0x98, 0x00, 0x00, 0x00,
+	// 269 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x91, 0xcf, 0x4a, 0xc3, 0x40,
+	0x10, 0xc6, 0x9b, 0xd4, 0xb4, 0x75, 0x48, 0x6d, 0x1d, 0x10, 0x62, 0xbd, 0x84, 0x9c, 0x72, 0xda,
+	0xa2, 0x3e, 0x81, 0x17, 0xa5, 0xd0, 0x83, 0xc4, 0x07, 0x90, 0x75, 0x77, 0x09, 0x0b, 0x36, 0x13,
+	0xbb, 0x1b, 0x41, 0xdf, 0xc6, 0x37, 0x95, 0xec, 0x26, 0x9a, 0x7a, 0x12, 0x7a, 0xfc, 0xe6, 0xcf,
+	0xef, 0xfb, 0x98, 0x81, 0x8b, 0x7a, 0x4f, 0x96, 0xcc, 0x5a, 0x88, 0x35, 0x2f, 0x55, 0x65, 0x99,
+	0xd3, 0x18, 0x0a, 0x91, 0x7d, 0x42, 0xfc, 0xc8, 0x1b, 0xa3, 0x0a, 0xf5, 0xd6, 0x28, 0x63, 0xf1,
+	0x12, 0x66, 0x6e, 0xe4, 0x59, 0xcb, 0x24, 0x48, 0x83, 0x7c, 0x5c, 0x4c, 0x9d, 0xde, 0x48, 0x4c,
+	0x60, 0x5a, 0xf3, 0x8f, 0x57, 0xe2, 0x32, 0x09, 0xd3, 0x20, 0x8f, 0x8b, 0x5e, 0xb6, 0x1d, 0xab,
+	0x77, 0x8a, 0x1a, 0x9b, 0x8c, 0xd3, 0x20, 0x8f, 0x8a, 0x5e, 0xe2, 0x15, 0x9c, 0x4a, 0xda, 0x71,
+	0x5d, 0xb5, 0xbc, 0x13, 0xc7, 0x9b, 0xf9, 0xc2, 0x46, 0x66, 0x0b, 0x98, 0x77, 0xde, 0xa6, 0xa6,
+	0xca, 0xa8, 0xec, 0x01, 0xe6, 0x5b, 0x2a, 0xa9, 0xb1, 0xff, 0x48, 0x73, 0x40, 0x0e, 0xff, 0x90,
+	0x97, 0x70, 0xd6, 0x83, 0x3a, 0xf4, 0x3d, 0xc4, 0x5b, 0x2a, 0x75, 0x75, 0x2c, 0x79, 0xe1, 0x22,
+	0xb6, 0x1c, 0x0f, 0xbe, 0xf9, 0x0a, 0x20, 0xbe, 0x6b, 0x37, 0x9f, 0xd4, 0xfe, 0x5d, 0x0b, 0x85,
+	0x0c, 0x22, 0x37, 0x81, 0x4b, 0x26, 0x04, 0x1b, 0x9a, 0xae, 0xce, 0x07, 0x95, 0x2e, 0xd7, 0x08,
+	0xaf, 0x61, 0xe2, 0xb3, 0x62, 0xdf, 0xfe, 0x3d, 0xc0, 0x0a, 0x87, 0xa5, 0x9f, 0x15, 0x06, 0x91,
+	0x3b, 0x9c, 0xb7, 0x18, 0xfe, 0xcf, 0x5b, 0x1c, 0x5e, 0x75, 0xf4, 0x32, 0x71, 0xff, 0xbe, 0xfd,
+	0x0e, 0x00, 0x00, 0xff, 0xff, 0x08, 0x83, 0x7a, 0xd3, 0x08, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -117,7 +318,9 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AgentServiceClient interface {
-	SetStatus(ctx context.Context, in *SetStatusRequest, opts ...grpc.CallOption) (*SetStatusResponse, error)
+	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
+	Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error)
 }
 
 type agentServiceClient struct {
@@ -128,9 +331,27 @@ func NewAgentServiceClient(cc *grpc.ClientConn) AgentServiceClient {
 	return &agentServiceClient{cc}
 }
 
-func (c *agentServiceClient) SetStatus(ctx context.Context, in *SetStatusRequest, opts ...grpc.CallOption) (*SetStatusResponse, error) {
-	out := new(SetStatusResponse)
-	err := c.cc.Invoke(ctx, "/cc.AgentService/SetStatus", in, out, opts...)
+func (c *agentServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	out := new(LoginResponse)
+	err := c.cc.Invoke(ctx, "/cc.AgentService/Login", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error) {
+	out := new(LogoutResponse)
+	err := c.cc.Invoke(ctx, "/cc.AgentService/Logout", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentServiceClient) Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error) {
+	out := new(PauseResponse)
+	err := c.cc.Invoke(ctx, "/cc.AgentService/Pause", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,35 +360,79 @@ func (c *agentServiceClient) SetStatus(ctx context.Context, in *SetStatusRequest
 
 // AgentServiceServer is the server API for AgentService service.
 type AgentServiceServer interface {
-	SetStatus(context.Context, *SetStatusRequest) (*SetStatusResponse, error)
+	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
+	Pause(context.Context, *PauseRequest) (*PauseResponse, error)
 }
 
 // UnimplementedAgentServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedAgentServiceServer struct {
 }
 
-func (*UnimplementedAgentServiceServer) SetStatus(ctx context.Context, req *SetStatusRequest) (*SetStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetStatus not implemented")
+func (*UnimplementedAgentServiceServer) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Login not implemented")
+}
+func (*UnimplementedAgentServiceServer) Logout(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Logout not implemented")
+}
+func (*UnimplementedAgentServiceServer) Pause(ctx context.Context, req *PauseRequest) (*PauseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pause not implemented")
 }
 
 func RegisterAgentServiceServer(s *grpc.Server, srv AgentServiceServer) {
 	s.RegisterService(&_AgentService_serviceDesc, srv)
 }
 
-func _AgentService_SetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetStatusRequest)
+func _AgentService_Login_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoginRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServiceServer).SetStatus(ctx, in)
+		return srv.(AgentServiceServer).Login(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cc.AgentService/SetStatus",
+		FullMethod: "/cc.AgentService/Login",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).SetStatus(ctx, req.(*SetStatusRequest))
+		return srv.(AgentServiceServer).Login(ctx, req.(*LoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentService_Logout_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LogoutRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServiceServer).Logout(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cc.AgentService/Logout",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServiceServer).Logout(ctx, req.(*LogoutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentService_Pause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServiceServer).Pause(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cc.AgentService/Pause",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServiceServer).Pause(ctx, req.(*PauseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -177,8 +442,16 @@ var _AgentService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*AgentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SetStatus",
-			Handler:    _AgentService_SetStatus_Handler,
+			MethodName: "Login",
+			Handler:    _AgentService_Login_Handler,
+		},
+		{
+			MethodName: "Logout",
+			Handler:    _AgentService_Logout_Handler,
+		},
+		{
+			MethodName: "Pause",
+			Handler:    _AgentService_Pause_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

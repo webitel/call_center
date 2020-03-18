@@ -36,3 +36,7 @@ func (l *LayeredMQ) ConsumeCallEvent() <-chan model.CallActionData {
 func (l *LayeredMQ) QueueEvent() QueueEvent {
 	return l.MQLayer.QueueEvent()
 }
+
+func (l *LayeredMQ) AgentChangeStatus(e model.AgentEventStatus) *model.AppError {
+	return l.MQLayer.AgentChangeStatus(e)
+}

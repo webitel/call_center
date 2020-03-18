@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"github.com/webitel/call_center/model"
 	"os"
 	"path/filepath"
 )
@@ -14,52 +13,6 @@ var (
 		"../../..",
 	}
 )
-
-func LoadConfig(fileName string) (*model.Config, string, map[string]interface{}, *model.AppError) {
-	var envConfig = make(map[string]interface{})
-	//dbDatasource := "postgres://opensips:webitel@192.168.177.194:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10"
-	dbDatasource := "postgres://webitel:webitel@localhost:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10&search_path=call_center"
-	dbDriverName := "postgres"
-	maxIdleConns := 5
-	maxOpenConns := 5
-	connMaxLifetimeMilliseconds := 3600000
-	sessionCacheInMinutes := 1
-
-	return &model.Config{
-		LocalizationSettings: model.LocalizationSettings{
-			DefaultClientLocale: model.NewString(model.DEFAULT_LOCALE),
-			DefaultServerLocale: model.NewString(model.DEFAULT_LOCALE),
-			AvailableLocales:    model.NewString(model.DEFAULT_LOCALE),
-		},
-		ServiceSettings: model.ServiceSettings{
-			NodeId:                model.NewString("call-center-1"),
-			ListenAddress:         model.NewString(":10023"),
-			SessionCacheInMinutes: &sessionCacheInMinutes,
-		},
-		SqlSettings: model.SqlSettings{
-			DriverName:                  &dbDriverName,
-			DataSource:                  &dbDatasource,
-			MaxIdleConns:                &maxIdleConns,
-			MaxOpenConns:                &maxOpenConns,
-			ConnMaxLifetimeMilliseconds: &connMaxLifetimeMilliseconds,
-			Trace:                       false,
-		},
-		MQSettings: model.MQSettings{
-			//Url: model.NewString("amqp://webitel:webitel@192.168.177.199:5672?heartbeat=0"), //http://192.168.177.189:15672/
-			Url: model.NewString("amqp://webitel:webitel@10.9.8.111:5672?heartbeat=10"), //http://192.168.177.189:15672/
-		},
-		ExternalCommandsSettings: model.ExternalCommandsSettings{
-			Connections: []*model.ExternalCommandsConnection{
-				{
-					Name: "fs1",
-					Url:  "192.168.177.10:50051",
-				},
-			},
-
-			//"192.168.177.184:50051", "192.168.177.185:50051"
-		},
-	}, "", envConfig, nil
-}
 
 func FindPath(path string, baseSearchPaths []string, filter func(os.FileInfo) bool) string {
 	if filepath.IsAbs(path) {

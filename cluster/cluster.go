@@ -3,6 +3,7 @@ package cluster
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/discovery"
 	"github.com/webitel/wlog"
@@ -12,7 +13,7 @@ import (
 var DEFAULT_WATCHER_POLLING_INTERVAL = 10 * 1000 //30s
 
 type cluster struct {
-	store           discovery.ClusterStore
+	store           store.ClusterStore
 	nodeId          string
 	startOnce       sync.Once
 	pollingInterval int
@@ -34,7 +35,7 @@ func NewServiceDiscovery(id, addr string, check func() (bool, error)) (discovery
 	return discovery.NewConsul(id, addr, check)
 }
 
-func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, error) {
+func NewCluster(nodeId, addr string, st store.ClusterStore) (Cluster, error) {
 
 	cons, err := NewServiceDiscovery(nodeId, addr, func() (bool, error) {
 		return true, nil //TODO
@@ -47,7 +48,7 @@ func NewCluster(nodeId, addr string, store discovery.ClusterStore) (Cluster, err
 	return &cluster{
 		discovery:       cons,
 		nodeId:          nodeId,
-		store:           store,
+		store:           st,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,
 	}, nil
 }
@@ -76,7 +77,7 @@ func (c *cluster) Stop() {
 }
 
 func (c *cluster) Setup() error {
-	if info, err := c.store.UpdateClusterInfo(c.nodeId, true); err != nil {
+	if info, err := c.store.CreateOrUpdate(c.nodeId); err != nil {
 		return err
 	} else {
 		c.info = info

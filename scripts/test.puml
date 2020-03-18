@@ -1,0 +1,51 @@
+@startuml
+
+interface Call {
+    Id() string
+    NodeName() string
+    FromNumber() string
+    FromName() string
+    Invite() *model.AppError
+    State() <-chan CallState
+    HangupCause() string
+    HangupCode() string
+    GetState() CallState
+    Err() *model.AppError
+    GetAttribute(name string) (string, bool)
+    GetIntAttribute(name string) (int, bool)
+    OfferingAt() int64
+    AcceptAt() int64
+    BridgeAt() int64
+    HangupAt() int64
+    DurationSeconds() int
+    BillSeconds() int
+    AnswerSeconds() int
+    WaitSeconds() int
+    WaitForHangup()
+    HangupChan() <-chan struct{}
+    NewCall(callRequest *model.CallRequest) Call
+    Hangup(cause string) *model.AppError
+    Hold() *model.AppError
+    DTMF(val rune) *model.AppError
+    Bridge(other Call) *model.AppError
+}
+
+
+class BaseQueue {
+
+}
+class CallQueue {
+}
+abstract class  Queue {
+	Name() string
+	IsExpire(int64) bool
+	TypeName() string
+	DistributeAttempt(attempt *Attempt) *model.AppError
+	Variables() map[string]string
+	Domain() string
+	Id() int
+}
+abstract class Member
+abstract class Agent
+
+@enduml

@@ -6,13 +6,11 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/queue"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
-	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/auth_manager"
 	"github.com/webitel/wlog"
 	"sync/atomic"
@@ -36,8 +34,6 @@ type App struct {
 }
 
 func New(options ...string) (outApp *App, outErr error) {
-	var err *model.AppError
-
 	app := &App{}
 
 	defer func() {
@@ -46,15 +42,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		}
 	}()
 
-	if utils.T == nil {
-		if err := utils.TranslationsPreInit(); err != nil {
-			return nil, errors.Wrapf(err, "unable to load translation files")
-		}
-	}
-
-	model.AppErrorInit(utils.T)
-
-	if err = app.LoadConfig(app.configFile); err != nil {
+	if err := app.LoadConfig(app.configFile); err != nil {
 		return nil, err
 	}
 	app.id = app.Config().ServiceSettings.NodeId
@@ -66,10 +54,6 @@ func New(options ...string) (outApp *App, outErr error) {
 	wlog.RedirectStdLog(app.Log)
 	wlog.InitGlobalLogger(app.Log)
 
-	if err := utils.InitTranslations(app.Config().LocalizationSettings); err != nil {
-		return nil, errors.Wrapf(err, "unable to load translation files")
-	}
-
 	wlog.Info("server is initializing...")
 
 	if app.newStore == nil {
@@ -79,25 +63,23 @@ func New(options ...string) (outApp *App, outErr error) {
 	}
 
 	app.Store = app.newStore()
-	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MQSettings, app.GetInstanceId()))
+	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MessageQueueSettings, app.GetInstanceId()))
 
-	if cl, err := cluster.NewCluster(*app.id, "10.9.8.111:8500", app.Store.Cluster()); err != nil {
+	if cl, err := cluster.NewCluster(*app.id, app.Config().DiscoverySettings.Url, app.Store.Cluster()); err != nil {
 		return nil, err
 	} else {
 		app.cluster = cl
 	}
 
-	app.GrpcServer = NewGrpcServer(model.ServerSettings{
-		Address: "",
-		Port:    0,
-		Network: "tcp",
-	})
+	app.GrpcServer = NewGrpcServer(app.Config().ServerSettings)
 
 	if err := app.cluster.Setup(); err != nil {
 		return nil, errors.Wrapf(err, "unable to initialize cluster")
 	}
 
-	app.cluster.Start(app.GrpcServer.GetPublicInterface())
+	if err := app.cluster.Start(app.GrpcServer.GetPublicInterface()); err != nil {
+		return nil, err
+	}
 
 	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ)
 	app.callManager.Start()
@@ -105,7 +87,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine = engine.NewEngine(app, *app.id, app.Store)
 	app.engine.Start()
 
-	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store)
+	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ)
 	app.agentManager.Start()
 
 	app.dialing = queue.NewDialing(app, app.callManager, app.agentManager, app.Store)

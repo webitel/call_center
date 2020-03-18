@@ -3,13 +3,35 @@ syntax = "proto3";
 package cc;
 
 service AgentService {
-    rpc SetStatus(SetStatusRequest) returns (SetStatusResponse) {}
+    rpc Login(LoginRequest) returns (LoginResponse) {}
+    rpc Logout(LogoutRequest) returns (LogoutResponse) {}
+    rpc Pause(PauseRequest) returns (PauseResponse) {}
 }
 
-message SetStatusRequest {
+message PauseRequest {
+    int64 agent_id = 1;
+    bytes payload = 2;
+    int32 timeout = 3;
 
+    int64 domain_id = 4;
 }
 
-message SetStatusResponse {
+message PauseResponse {
+}
+
+message LogoutRequest {
+    int64 agent_id = 1;
+    int64 domain_id = 2;
+}
+
+message LogoutResponse {
+}
+
+message LoginRequest {
+    int64 agent_id = 1;
+    int64 domain_id = 2;
+}
+
+message LoginResponse {
 
 }

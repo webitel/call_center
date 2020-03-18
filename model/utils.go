@@ -5,7 +5,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	goi18n "github.com/nicksnyder/go-i18n/i18n"
 	"github.com/pborman/uuid"
 	"io"
 	"time"
@@ -44,40 +43,12 @@ func NewAppError(where string, id string, params map[string]interface{}, details
 	ap.DetailedError = details
 	ap.StatusCode = status
 	ap.IsOAuth = false
-	ap.Translate(translateFunc)
 	return ap
-}
-
-func (er *AppError) SystemMessage(T goi18n.TranslateFunc) string {
-	if er.params == nil {
-		return T(er.Id)
-	} else {
-		return T(er.Id, er.params)
-	}
 }
 
 func (er *AppError) ToJson() string {
 	b, _ := json.Marshal(er)
 	return string(b)
-}
-
-func (er *AppError) Translate(T goi18n.TranslateFunc) {
-	if T == nil {
-		er.Message = er.Id
-		return
-	}
-
-	if er.params == nil {
-		er.Message = T(er.Id)
-	} else {
-		er.Message = T(er.Id, er.params)
-	}
-}
-
-var translateFunc goi18n.TranslateFunc = nil
-
-func AppErrorInit(t goi18n.TranslateFunc) {
-	translateFunc = t
 }
 
 var encoding = base32.NewEncoding("ybndrfg8ejkmcpqxot1uwisza345h769")

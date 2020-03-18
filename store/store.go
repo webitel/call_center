@@ -16,7 +16,7 @@ type Store interface {
 }
 
 type ClusterStore interface {
-	//CreateOrUpdate(nodeId string) (*discovery.ClusterData, error)
+	CreateOrUpdate(nodeId string) (*discovery.ClusterData, error)
 	//UpdateUpdatedTime(nodeId string) (*discovery.ClusterData, error)
 	UpdateClusterInfo(nodeId string, started bool) (*discovery.ClusterData, error)
 }
@@ -66,7 +66,7 @@ type AgentStore interface {
 
 	SetOnBreak(agentId int) *model.AppError
 
-	SetStatus(agentId int, status string, payload interface{}) *model.AppError
+	SetStatus(agentId int, status string, payload []byte) *model.AppError
 	SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
 
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError

@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	MQ_CALL_EXCHANGE = "callcenter"
-	QUEUE_MQ         = "call-center-fs-events"
+	CallCenterExchange = "callcenter"
+
+	QUEUE_MQ = "call-center-fs-events"
 
 	MQ_EVENT_PREFIX             = "callcenter.event"
 	MQ_QUEUE_COUNT_EVENT_PREFIX = "queue_count"

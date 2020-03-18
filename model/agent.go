@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 /*
 Most Idle Agent(MIA) - найбільш вільний
@@ -36,8 +39,8 @@ const (
 )
 
 type Agent struct {
-	Id int `json:"id" db:"id"`
-
+	Id                    int    `json:"id" db:"id"`
+	DomainId              int64  `json:"domain_id" db:"domain_id"`
 	UserId                *int64 `json:"user_id" db:"user_id"`
 	Name                  string `json:"name" db:"name"`
 	UpdatedAt             int64  `json:"updated_at" db:"updated_at"`
@@ -46,9 +49,28 @@ type Agent struct {
 	AgentStatus
 }
 
+type AgentEvent struct {
+	Event     string `json:"event"`
+	AgentId   int    `json:"agent_id"`
+	UserId    int64  `json:"user_id"`
+	DomainId  int64  `json:"domain_id"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type AgentEventStatus struct {
+	AgentEvent
+	AgentStatus
+	Timeout *int `json:"timeout"`
+}
+
+func (e *AgentEventStatus) ToJSON() string {
+	data, _ := json.Marshal(e)
+	return string(data)
+}
+
 type AgentStatus struct {
-	Status        string      `json:"status" db:"status"`
-	StatusPayload interface{} `json:"status_payload" db:"status_payload"`
+	Status        string `json:"status" db:"status"`
+	StatusPayload []byte `json:"status_payload" db:"status_payload"`
 }
 
 type MissedAgentAttempt struct {
@@ -71,14 +93,6 @@ type AgentState struct {
 	TimeoutAt *time.Time `json:"timeout_at" db:"state_timeout"`
 	State     string     `json:"state" db:"state" `
 }
-
-//type AgentStateHistoryTime struct {
-//	Id       int64     `json:"id" db:"id"`
-//	AgentId  int64     `json:"agent_id" db:"agent_id"`
-//	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
-//	State    string    `json:"state" db:"state"`
-//	Payload  []byte    `json:"payload" db:"payload"`
-//}
 
 type AgentChangedState struct {
 	Id    int64  `json:"id" db:"id"`

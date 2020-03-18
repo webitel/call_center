@@ -18,6 +18,6 @@ func Test(t *testing.T) {
 
 	cc := NewCCManager(sd)
 	cc.Start()
-
+	cc.Agent().Login(50, 100)
 	defer cc.Stop()
 }

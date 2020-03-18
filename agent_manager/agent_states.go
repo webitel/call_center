@@ -2,31 +2,31 @@ package agent_manager
 
 import "github.com/webitel/call_center/model"
 
-func (cm *AgentManagerImpl) SetAgentWaiting(agentId int, bridged bool) *model.AppError {
+func (am *agentManager) SetAgentWaiting(agentId int, bridged bool) *model.AppError {
 	//FIXME EVENT
-	return cm.store.Agent().SetWaiting(agentId, bridged)
+	return am.store.Agent().SetWaiting(agentId, bridged)
 }
 
-func (cm *AgentManagerImpl) SetAgentOffering(agentId, queueId int) (int, *model.AppError) {
+func (am *agentManager) SetAgentOffering(agentId, queueId int) (int, *model.AppError) {
 	//FIXME EVENT
-	return cm.store.Agent().SetOffering(agentId, queueId)
+	return am.store.Agent().SetOffering(agentId, queueId)
 }
 
-func (cm *AgentManagerImpl) SetAgentTalking(agentId int) *model.AppError {
+func (am *agentManager) SetAgentTalking(agentId int) *model.AppError {
 	//FIXME EVENT
-	return cm.store.Agent().SetTalking(agentId)
+	return am.store.Agent().SetTalking(agentId)
 }
 
-func (cm *AgentManagerImpl) SetAgentReporting(agentId int, timeout int) *model.AppError {
+func (am *agentManager) SetAgentReporting(agentId int, timeout int) *model.AppError {
 	//FIXME EVENT
-	return cm.store.Agent().SetReporting(agentId, timeout)
+	return am.store.Agent().SetReporting(agentId, timeout)
 }
 
-func (cm *AgentManagerImpl) SetAgentFine(agentId int, timeout int, noAnswer bool) *model.AppError {
+func (am *agentManager) SetAgentFine(agentId int, timeout int, noAnswer bool) *model.AppError {
 	//FIXME EVENT
-	return cm.store.Agent().SetFine(agentId, timeout, noAnswer)
+	return am.store.Agent().SetFine(agentId, timeout, noAnswer)
 }
 
-func (cm *AgentManagerImpl) SetAgentOnBreak(agentId int) *model.AppError {
-	return cm.store.Agent().SetOnBreak(agentId)
+func (am *agentManager) SetAgentOnBreak(agentId int) *model.AppError {
+	return am.store.Agent().SetOnBreak(agentId)
 }

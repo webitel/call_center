@@ -3,6 +3,7 @@ package agent_manager
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
@@ -16,8 +17,9 @@ const (
 	MAX_AGENTS_EXPIRE_CACHE = 60 * 60 * 24 //day
 )
 
-type AgentManagerImpl struct {
+type agentManager struct {
 	store       store.Store
+	mq          mq.MQ
 	watcher     *utils.Watcher
 	nodeId      string
 	startOnce   sync.Once
@@ -25,36 +27,33 @@ type AgentManagerImpl struct {
 	sync.Mutex
 }
 
-func NewAgentManager(nodeId string, s store.Store) AgentManager {
-	var agentManager AgentManagerImpl
-	agentManager.store = s
-	agentManager.nodeId = nodeId
-	agentManager.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
-	return &agentManager
+func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ) AgentManager {
+	var am agentManager
+	am.store = s
+	am.mq = mq_
+	am.nodeId = nodeId
+	am.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
+	return &am
 }
 
-func (agentManager *AgentManagerImpl) Start() {
+func (am *agentManager) Start() {
 	wlog.Debug("starting agent service")
-	agentManager.watcher = utils.MakeWatcher("AgentManager", DEFAULT_WATCHER_POLLING_INTERVAL, agentManager.changeDeadlineState)
-	agentManager.startOnce.Do(func() {
-		go agentManager.watcher.Start()
+	am.watcher = utils.MakeWatcher("AgentManager", DEFAULT_WATCHER_POLLING_INTERVAL, am.changeDeadlineState)
+	am.startOnce.Do(func() {
+		go am.watcher.Start()
 	})
 }
 
-func (agentManager *AgentManagerImpl) Stop() {
-	agentManager.watcher.Stop()
+func (am *agentManager) Stop() {
+	am.watcher.Stop()
 }
 
-func (agentManager *AgentManagerImpl) GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError) {
-	agentManager.Lock()
-	defer agentManager.Unlock()
-
-	/*
-
-	 */
+func (am *agentManager) GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError) {
+	am.Lock()
+	defer am.Unlock()
 
 	var agent AgentObject
-	item, ok := agentManager.agentsCache.Get(id)
+	item, ok := am.agentsCache.Get(id)
 	if ok {
 		agent, ok = item.(AgentObject)
 		if ok && !agent.IsExpire(updatedAt) {
@@ -62,19 +61,19 @@ func (agentManager *AgentManagerImpl) GetAgent(id int, updatedAt int64) (AgentOb
 		}
 	}
 
-	if a, err := agentManager.store.Agent().Get(id); err != nil {
+	if a, err := am.store.Agent().Get(id); err != nil {
 		return nil, err
 	} else {
-		agent = NewAgent(a, agentManager)
+		agent = NewAgent(a, am)
 	}
 
-	agentManager.agentsCache.AddWithDefaultExpires(id, agent)
+	am.agentsCache.AddWithDefaultExpires(id, agent)
 	wlog.Debug(fmt.Sprintf("add agent to cache %v", agent.Name()))
 	return agent, nil
 }
 
-func (agentManager *AgentManagerImpl) SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
-	if err := agentManager.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
+func (am *agentManager) SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
+	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
 		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
 		return err
 	}
@@ -84,40 +83,55 @@ func (agentManager *AgentManagerImpl) SetAgentStatus(agent AgentObject, status *
 	return nil
 }
 
-func (agentManager *AgentManagerImpl) SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError {
-
-	if _, err := agentManager.store.Agent().SetState(agent.Id(), state, timeoutSeconds); err != nil {
+func (am *agentManager) SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError {
+	if _, err := am.store.Agent().SetState(agent.Id(), state, timeoutSeconds); err != nil {
 		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), state, err.Error()))
 		return err
 	}
 
-	agentManager.notifyChangeAgentState(agent, state)
+	am.notifyChangeAgentState(agent, state)
 	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" (%d)", agent.Name(), agent.Id(), state, timeoutSeconds))
 	return nil
 }
 
-func (agentManager *AgentManagerImpl) SetOnline(agent AgentObject) *model.AppError {
-	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+func (am *agentManager) SetOnline(agent AgentObject) *model.AppError {
+	err := am.SetAgentStatus(agent, &model.AgentStatus{
 		Status: model.AGENT_STATUS_ONLINE,
 	})
+	if err != nil {
+		return err
+	}
+
+	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_ONLINE, nil, nil))
 }
 
-func (agentManager *AgentManagerImpl) SetOffline(agent AgentObject) *model.AppError {
-	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
+	err := am.SetAgentStatus(agent, &model.AgentStatus{
 		Status: model.AGENT_STATUS_OFFLINE,
 	})
+	if err != nil {
+		return err
+	}
+
+	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_OFFLINE, nil, nil))
 }
 
 //todo add timeout
-func (agentManager *AgentManagerImpl) SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError {
-	return agentManager.SetAgentStatus(agent, &model.AgentStatus{
+func (am *agentManager) SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError {
+	err := am.SetAgentStatus(agent, &model.AgentStatus{
 		Status:        model.AGENT_STATUS_PAUSE,
 		StatusPayload: payload,
 	})
+
+	if err != nil {
+		return err
+	}
+	//add channel queue
+	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_PAUSE, payload, nil))
 }
 
-func (agentManager *AgentManagerImpl) changeDeadlineState() {
-	if s, err := agentManager.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); err != nil {
+func (am *agentManager) changeDeadlineState() {
+	if s, err := am.store.Agent().ChangeDeadlineState(model.AGENT_STATE_WAITING); err != nil {
 		wlog.Error(err.Error())
 	} else {
 		for _, v := range s {
@@ -127,6 +141,6 @@ func (agentManager *AgentManagerImpl) changeDeadlineState() {
 	}
 }
 
-func (agentManager *AgentManagerImpl) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
-	return agentManager.store.Agent().MissedAttempt(agentId, attemptId, cause)
+func (am *agentManager) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
+	return am.store.Agent().MissedAttempt(agentId, attemptId, cause)
 }

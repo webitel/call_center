@@ -46,7 +46,7 @@ returning t.*`, map[string]interface{}{
 func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
 	if err := s.GetReplica().SelectOne(&agent, `
-			select a.id, a.user_id, a.updated_at, u.name, u.extension as destination, a.status, a.status_payload, a.successively_no_answers
+			select a.id, a.user_id, a.domain_id, a.updated_at, u.name, u.extension as destination, a.status, a.status_payload, a.successively_no_answers
 from cc_agent a
     inner join directory.wbt_user u on u.id = a.user_id
 where a.id = :Id		
@@ -63,12 +63,18 @@ where a.id = :Id
 	}
 }
 
-func (s SqlAgentStore) SetStatus(agentId int, status string, payload interface{}) *model.AppError {
+func (s SqlAgentStore) SetStatus(agentId int, status string, payload []byte) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_agent
 			set status = :Status
   			,status_payload = :Payload
+			,last_state_change = :Now
 			,successively_no_answers = 0
-			where id = :AgentId`, map[string]interface{}{"AgentId": agentId, "Status": status, "Payload": payload}); err != nil {
+			where id = :AgentId`, map[string]interface{}{
+		"AgentId": agentId,
+		"Status":  status,
+		"Payload": nil,
+		"Now":     model.GetMillis(),
+	}); err != nil {
 		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
 			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
 	}
