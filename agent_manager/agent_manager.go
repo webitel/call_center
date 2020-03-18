@@ -117,7 +117,7 @@ func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
 }
 
 //todo add timeout
-func (am *agentManager) SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError {
+func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError {
 	err := am.SetAgentStatus(agent, &model.AgentStatus{
 		Status:        model.AGENT_STATUS_PAUSE,
 		StatusPayload: payload,
@@ -127,7 +127,7 @@ func (am *agentManager) SetPause(agent AgentObject, payload []byte, timeout int)
 		return err
 	}
 	//add channel queue
-	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_PAUSE, payload, nil))
+	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_PAUSE, payload, timeout))
 }
 
 func (am *agentManager) changeDeadlineState() {

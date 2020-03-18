@@ -69,8 +69,9 @@ func (e *AgentEventStatus) ToJSON() string {
 }
 
 type AgentStatus struct {
-	Status        string `json:"status" db:"status"`
-	StatusPayload []byte `json:"status_payload" db:"status_payload"`
+	Status        string  `json:"status" db:"status"`
+	StatusPayload *string `json:"status_payload" db:"status_payload"`
+	Timeout       *int    `json:"timeout"`
 }
 
 type MissedAgentAttempt struct {

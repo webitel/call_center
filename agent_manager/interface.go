@@ -9,7 +9,7 @@ type AgentManager interface {
 
 	SetOnline(agent AgentObject) *model.AppError
 	SetOffline(agent AgentObject) *model.AppError
-	SetPause(agent AgentObject, payload []byte, timeout int) *model.AppError
+	SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError
 
 	//SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
 	//SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError

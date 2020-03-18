@@ -63,7 +63,7 @@ where a.id = :Id
 	}
 }
 
-func (s SqlAgentStore) SetStatus(agentId int, status string, payload []byte) *model.AppError {
+func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_agent
 			set status = :Status
   			,status_payload = :Payload
@@ -72,7 +72,7 @@ func (s SqlAgentStore) SetStatus(agentId int, status string, payload []byte) *mo
 			where id = :AgentId`, map[string]interface{}{
 		"AgentId": agentId,
 		"Status":  status,
-		"Payload": nil,
+		"Payload": payload,
 		"Now":     model.GetMillis(),
 	}); err != nil {
 		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,

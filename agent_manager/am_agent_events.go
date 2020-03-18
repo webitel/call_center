@@ -6,7 +6,7 @@ func (am *agentManager) notifyChangeAgentState(agent AgentObject, state string) 
 	//fmt.Println(agent)
 }
 
-func NewAgentEventStatus(agent AgentObject, status string, payload []byte, timeout *int) model.AgentEventStatus {
+func NewAgentEventStatus(agent AgentObject, status string, payload *string, timeout *int) model.AgentEventStatus {
 	return model.AgentEventStatus{
 		AgentEvent: model.AgentEvent{
 			Event:     "status",

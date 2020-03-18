@@ -66,7 +66,7 @@ type AgentStore interface {
 
 	SetOnBreak(agentId int) *model.AppError
 
-	SetStatus(agentId int, status string, payload []byte) *model.AppError
+	SetStatus(agentId int, status string, payload *string) *model.AppError
 	SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
 
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError

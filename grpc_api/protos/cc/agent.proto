@@ -10,7 +10,7 @@ service AgentService {
 
 message PauseRequest {
     int64 agent_id = 1;
-    bytes payload = 2;
+    string payload = 2;
     int32 timeout = 3;
 
     int64 domain_id = 4;

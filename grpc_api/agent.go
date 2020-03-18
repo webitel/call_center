@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/grpc_api/cc"
+	"github.com/webitel/call_center/model"
 )
 
 type agent struct {
@@ -33,7 +34,17 @@ func (api *agent) Logout(ctx context.Context, in *cc.LogoutRequest) (*cc.LogoutR
 }
 
 func (api *agent) Pause(ctx context.Context, in *cc.PauseRequest) (*cc.PauseResponse, error) {
-	err := api.app.SetAgentPause(int(in.AgentId), in.Payload, int(in.Timeout))
+	var payload *string
+	var timeout *int
+	if in.Payload != "" {
+		payload = &in.Payload
+	}
+
+	if in.Timeout != 0 {
+		timeout = model.NewInt(int(in.Timeout))
+	}
+
+	err := api.app.SetAgentPause(int(in.AgentId), payload, timeout)
 	if err != nil {
 		return nil, err
 	}

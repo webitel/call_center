@@ -51,7 +51,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 	}
 }
 
-func (app *App) SetAgentPause(agentId int, payload []byte, timeout int) *model.AppError {
+func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
 
