@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+import "google/api/annotations.proto";
+
+package cc;
+
+service MemberService {
+    rpc AttemptResult(AttemptResultRequest) returns (AttemptResultResponse) {
+        option (google.api.http) = {
+            path: "/call_center/queues/{queue_id}/members/{member_id}/attempts/{attempt_id}"
+        };
+    }
+}
+
+/*
+1. Завершити обдзвын, тобто на нього быльше не буде розприділятися
+2. Час від коли він знову попаде в розподіл
+3. Коментар
+4. Можливість задати варіблу (змінити поки хз:( )
+5. Перекинути у іншу чергу(теж хз чи потрібно)
+6. Привязати номер який показувати при наступному дзвінку(display number)
+*/
+
+message AttemptResultRequest {
+    int32 queue_id = 1;
+    int32 member_id = 2;
+    int32 attempt_id = 3;
+
+    bool stop = 4;
+    int64 min_offering_at = 5;
+    int64 expire_at = 6;
+    map<string, string> variables = 7;
+    bool display = 8;
+    string description = 9;
+    int64 transfer_queue_id = 10;
+}
+
+message AttemptResultResponse {
+
+}
