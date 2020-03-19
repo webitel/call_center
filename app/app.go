@@ -12,6 +12,7 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/engine/auth_manager"
+	"github.com/webitel/flow_manager/client"
 	"github.com/webitel/wlog"
 	"sync/atomic"
 )
@@ -31,6 +32,7 @@ type App struct {
 	sessionManager auth_manager.AuthManager
 	agentManager   agent_manager.AgentManager
 	callManager    call_manager.CallManager
+	flowManager    client.FlowManager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -89,6 +91,11 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ)
 	app.agentManager.Start()
+
+	app.flowManager = client.NewFlowManager(app.Cluster().ServiceDiscovery())
+	if err := app.flowManager.Start(); err != nil {
+		return nil, err
+	}
 
 	app.dialing = queue.NewDialing(app, app.callManager, app.agentManager, app.Store)
 	app.dialing.Start()
