@@ -14,5 +14,6 @@ func NewQueueMQ(amqp mq.MQ) mq.QueueEvent {
 }
 
 func (r RQueueEventMQ) SendChangedLength(e *model.QueueEventCount) *model.AppError {
-	return r.amqp.SendJSON(getId(model.MQ_QUEUE_COUNT_EVENT_PREFIX), []byte(e.ToJSON()))
+	//return r.amqp.SendJSON(getId(model.MQ_QUEUE_COUNT_EVENT_PREFIX), []byte(e.ToJSON()))
+	return nil
 }

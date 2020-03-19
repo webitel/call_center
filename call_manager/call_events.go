@@ -13,6 +13,8 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		call = v.(*CallImpl)
 	}
 
+	wlog.Debug(fmt.Sprintf("call %s receive event %s", data.Id, data.Event))
+
 	switch action.(type) {
 	case *model.CallActionRinging:
 		callRinging := action.(*model.CallActionRinging)
@@ -24,21 +26,21 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 			//FIXME ?
 		}
 
-	case *model.CallActionJoinQueue:
-		callJoin := action.(*model.CallActionJoinQueue)
-		if callJoin.Direction == model.CALL_DIRECTION_INBOUND {
-			cm.joinInboundCall(callJoin)
-		} else if callJoin.Direction == model.CALL_DIRECTION_OUTBOUND && call != nil {
-			call.setJoinQueue(callJoin)
-		} else {
-			//FIXME ?
-		}
-
-	case *model.CallActionLeavingQueue:
-		if call == nil {
-			return
-		}
-		call.setLeavingQueue(action.(*model.CallActionLeavingQueue))
+	//case *model.CallActionJoinQueue:
+	//	callJoin := action.(*model.CallActionJoinQueue)
+	//	if callJoin.Direction == model.CALL_DIRECTION_INBOUND {
+	//		cm.joinInboundCall(callJoin)
+	//	} else if callJoin.Direction == model.CALL_DIRECTION_OUTBOUND && call != nil {
+	//		call.setJoinQueue(callJoin)
+	//	} else {
+	//		//FIXME ?
+	//	}
+	//
+	//case *model.CallActionLeavingQueue:
+	//	if call == nil {
+	//		return
+	//	}
+	//	call.setLeavingQueue(action.(*model.CallActionLeavingQueue))
 
 	case *model.CallActionActive:
 		if call == nil {
@@ -65,6 +67,6 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		call.setHangup(action.(*model.CallActionHangup))
 
 	default:
-		wlog.Warn(fmt.Sprintf("call %s not have handler action %s", data.Id, data.Action))
+		wlog.Warn(fmt.Sprintf("call %s not have handler action %s", data.Id, data.Event))
 	}
 }

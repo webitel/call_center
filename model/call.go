@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/wlog"
-	"strconv"
 )
 
 const (
@@ -80,24 +79,27 @@ const (
 	CALL_AMD_NOT_SURE_VARIABLE = "amd_on_notsure"
 )
 
+type CallDirection string
+
 const (
-	CALL_ACTION_RINGING       = "ringing"
-	CALL_ACTION_ACTIVE        = "active"
-	CALL_ACTION_BRIDGE        = "bridge"
-	CALL_ACTION_HOLD          = "hold"
-	CALL_ACTION_DTMF          = "dtmf"
-	CALL_ACTION_UPDATE        = "update"
-	CALL_ACTION_HANGUP        = "hangup"
-	CALL_ACTION_JOIN_QUEUE    = "join_queue"
-	CALL_ACTION_LEAVING_QUEUE = "leaving_queue"
+	CallDirectionInbound  CallDirection = "inbound"
+	CallDirectionOutbound               = "outbound"
+)
+const (
+	CallActionRingingName = "ringing"
+	CallActionActiveName  = "active"
+	CallActionBridgeName  = "bridge"
+	CallActionHoldName    = "hold"
+	CallActionDtmfName    = "dtmf"
+	CallActionHangupName  = "hangup"
 )
 
 type CallAction struct {
-	Id            string `json:"id"`
-	NodeName      string `json:"node_name"`
-	QueueNodeName string `json:"queue_node"`
-	ActivityAt    int64  `json:"activity_at,string"`
-	Action        string `json:"action"`
+	Id        string `json:"id"`
+	AppId     string `json:"app_id"`
+	DomainId  int8   `json:"domain_id,string"`
+	Timestamp int64  `json:"timestamp,string"`
+	Event     string `json:"event"`
 }
 
 type CallActionData struct {
@@ -106,18 +108,73 @@ type CallActionData struct {
 	parsed interface{} `json:"-"`
 }
 
+type CallEndpoint struct {
+	Type   string
+	Id     string
+	Number string
+	Name   string
+}
+
+func (e *CallEndpoint) GetType() *string {
+	if e != nil {
+		return &e.Type
+	}
+
+	return nil
+}
+
+func (e *CallEndpoint) GetId() *string {
+	if e != nil {
+		return &e.Id
+	}
+
+	return nil
+}
+
+func (e *CallEndpoint) GetNumber() *string {
+	if e != nil {
+		return &e.Number
+	}
+
+	return nil
+}
+
+func (e *CallEndpoint) GetName() *string {
+	if e != nil {
+		return &e.Name
+	}
+
+	return nil
+}
+
+type CallActionInfo struct {
+	GatewayId   *int           `json:"gateway_id"`
+	UserId      *int           `json:"user_id"`
+	Direction   string         `json:"direction"`
+	Destination string         `json:"destination"`
+	From        *CallEndpoint  `json:"from"`
+	To          *CallEndpoint  `json:"to"`
+	ParentId    *string        `json:"parent_id"`
+	Payload     *CallVariables `json:"payload"`
+}
+
 type CallActionRinging struct {
 	CallAction
 	CallActionInfo
 }
 
-type CallActionJoinQueue struct {
-	CallAction
-	CallActionInfo
+func (c *CallActionRinging) GetFrom() *CallEndpoint {
+	if c != nil {
+		return c.From
+	}
+	return nil
 }
 
-type CallActionLeavingQueue struct {
-	CallAction
+func (c *CallActionRinging) GetTo() *CallEndpoint {
+	if c != nil {
+		return c.To
+	}
+	return nil
 }
 
 type CallActionActive struct {
@@ -130,7 +187,7 @@ type CallActionHold struct {
 
 type CallActionBridge struct {
 	CallAction
-	CallActionInfo
+	BridgedId string `json:"bridged_id"`
 }
 
 type CallActionHangup struct {
@@ -142,20 +199,42 @@ type CallActionHangup struct {
 
 type CallVariables map[string]interface{}
 
-type CallActionInfo struct {
-	ParentId    string `json:"parent_id"`
-	OwnerId     string `json:"owner_id"`
-	Direction   string `json:"direction"`
-	Destination string `json:"destination"`
+func (c *CallActionData) GetEvent() interface{} {
+	if c.parsed != nil {
+		return c.parsed
+	}
 
-	FromNumber string `json:"from_number"`
-	FromName   string `json:"from_name"`
+	switch c.Event {
+	case CallActionRingingName:
+		c.parsed = &CallActionRinging{
+			CallAction: c.CallAction,
+		}
+	case CallActionActiveName:
+		c.parsed = &CallActionActive{
+			CallAction: c.CallAction,
+		}
 
-	ToNumber string `json:"to_number"`
-	ToName   string `json:"to_name"`
+	case CallActionHoldName:
+		c.parsed = &CallActionHold{
+			CallAction: c.CallAction,
+		}
 
-	Payload   *CallVariables `json:"payload"`
-	QueueData *CallVariables `json:"queue"`
+	case CallActionBridgeName:
+		c.parsed = &CallActionBridge{
+			CallAction: c.CallAction,
+		}
+	case CallActionHangupName:
+		c.parsed = &CallActionHangup{
+			CallAction: c.CallAction,
+		}
+	}
+
+	if c.Data != nil {
+		if err := json.Unmarshal([]byte(*c.Data), &c.parsed); err != nil {
+			wlog.Error(fmt.Sprintf("parse call %s [%s] error: %s", c.Id, c.Event, err.Error()))
+		}
+	}
+	return c.parsed
 }
 
 type CallRequestApplication struct {
@@ -174,68 +253,4 @@ type CallRequest struct {
 	Dialplan     string
 	Context      string
 	Applications []*CallRequestApplication
-}
-
-func (c *CallActionData) GetEvent() interface{} {
-	if c.parsed != nil {
-		return c.parsed
-	}
-
-	switch c.Action {
-	case CALL_ACTION_RINGING:
-		c.parsed = &CallActionRinging{
-			CallAction: c.CallAction,
-		}
-	case CALL_ACTION_JOIN_QUEUE:
-		c.parsed = &CallActionJoinQueue{
-			CallAction: c.CallAction,
-		}
-
-	case CALL_ACTION_LEAVING_QUEUE:
-		c.parsed = &CallActionLeavingQueue{
-			CallAction: c.CallAction,
-		}
-
-	case CALL_ACTION_ACTIVE:
-		c.parsed = &CallActionActive{
-			CallAction: c.CallAction,
-		}
-
-	case CALL_ACTION_HOLD:
-		c.parsed = &CallActionHold{
-			CallAction: c.CallAction,
-		}
-
-	case CALL_ACTION_BRIDGE:
-		c.parsed = &CallActionBridge{
-			CallAction: c.CallAction,
-		}
-	case CALL_ACTION_HANGUP:
-		c.parsed = &CallActionHangup{
-			CallAction: c.CallAction,
-		}
-	}
-
-	if c.Data != nil {
-		if err := json.Unmarshal([]byte(*c.Data), &c.parsed); err != nil {
-			wlog.Error(fmt.Sprintf("parse call %s [%s] error: %s", c.Id, c.Action, err.Error()))
-		}
-	}
-	return c.parsed
-}
-
-func (vars CallVariables) GetString(header string) (string, bool) {
-	if v, ok := vars[header].(string); ok {
-		return v, true
-	}
-	return "", false
-}
-
-func (vars CallVariables) GetInt(header string) *int {
-	if v, ok := vars.GetString(header); ok {
-		if i, err := strconv.Atoi(v); err == nil {
-			return &i
-		}
-	}
-	return nil
 }

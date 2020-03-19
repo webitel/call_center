@@ -30,7 +30,8 @@ type AMQP struct {
 	errorChan          chan *amqp.Error
 	stop               chan struct{}
 	stopped            chan struct{}
-	queueName          string
+	delivery           <-chan amqp.Delivery
+	queue              amqp.Queue
 	nodeName           string
 	connectionAttempts int
 	callEvent          chan model.CallActionData
@@ -65,6 +66,9 @@ func (a *AMQP) listen() {
 
 	for {
 		select {
+		case m := <-a.delivery:
+			a.readMessage(&m)
+
 		case err, ok := <-a.errorChan:
 			if !ok {
 				break
@@ -75,6 +79,23 @@ func (a *AMQP) listen() {
 			wlog.Debug("listener call received stop signal")
 			return
 		}
+	}
+}
+
+func (a *AMQP) readMessage(msg *amqp.Delivery) {
+	switch msg.Exchange {
+	case model.CallExchange:
+		var ev model.CallActionData
+		err := json.Unmarshal(msg.Body, &ev)
+		if err != nil {
+			wlog.Error(err.Error())
+			return
+		}
+		a.callEvent <- ev
+
+	default:
+		wlog.Error(fmt.Sprintf("no handler for message %s", string(msg.Body)))
+
 	}
 }
 
@@ -102,10 +123,45 @@ func (a *AMQP) initConnection() {
 			os.Exit(1)
 		} else {
 			a.initExchange()
+			if err = a.connect(); err != nil {
+				panic(err.Error())
+			}
 			a.errorChan = make(chan *amqp.Error, 1)
 			a.channel.NotifyClose(a.errorChan)
 		}
 	}
+}
+
+func (a *AMQP) connect() error {
+	var err error
+	a.queue, err = a.channel.QueueDeclare(
+		fmt.Sprintf("callcenter.%s", a.nodeName),
+		false,
+		false,
+		true,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	a.delivery, err = a.channel.Consume(
+		a.queue.Name,
+		model.NewId(),
+		true,
+		true,
+		false,
+		true,
+		nil,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return a.channel.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
 }
 
 func (a *AMQP) initExchange() {
@@ -123,16 +179,6 @@ func (a *AMQP) initExchange() {
 		time.Sleep(time.Second)
 		os.Exit(EXIT_DECLARE_EXCHANGE)
 	}
-}
-
-func (a *AMQP) handleCallMessage(data []byte) {
-	callAction := model.CallActionData{}
-	if err := json.Unmarshal(data, &callAction); err != nil {
-		wlog.Error(fmt.Sprintf("parse error: %s", err.Error()))
-		return
-	}
-	wlog.Debug(fmt.Sprintf("call %s [%s] ", callAction.Id, callAction.Action))
-	a.callEvent <- callAction
 }
 
 func (a *AMQP) Close() {
@@ -172,8 +218,4 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 
 func (a *AMQP) ConsumeCallEvent() <-chan model.CallActionData {
 	return a.callEvent
-}
-
-func getId(name string) string {
-	return model.MQ_EVENT_PREFIX + "." + name
 }

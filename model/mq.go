@@ -6,11 +6,10 @@ import (
 )
 
 const (
-	CallCenterExchange = "callcenter"
+	CallCenterExchange  = "callcenter"
+	CallExchange        = "call"
+	CallRoutingTemplate = "events.*.%s.*.*"
 
-	QUEUE_MQ = "call-center-fs-events"
-
-	MQ_EVENT_PREFIX             = "callcenter.event"
 	MQ_QUEUE_COUNT_EVENT_PREFIX = "queue_count"
 )
 

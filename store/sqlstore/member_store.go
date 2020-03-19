@@ -20,12 +20,12 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 }
 
 func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppError) {
-	if i, err := s.GetMaster().SelectInt(`call test_sp(null)`); err != nil {
+	if i, err := s.GetMaster().SelectNullInt(`call test_sp(null)`); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
 	} else {
-		return i, nil
+		return i.Int64, nil
 	}
 }
 

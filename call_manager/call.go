@@ -153,7 +153,7 @@ func (call *CallImpl) setRinging(e *model.CallActionRinging) {
 func (call *CallImpl) setActive(e *model.CallActionActive) {
 	if call.acceptAt == 0 {
 		call.Lock()
-		call.acceptAt = e.ActivityAt
+		call.acceptAt = e.Timestamp
 		call.Unlock()
 
 		call.setState(CALL_STATE_ACCEPT)
@@ -162,27 +162,27 @@ func (call *CallImpl) setActive(e *model.CallActionActive) {
 	}
 }
 
-func (call *CallImpl) setJoinQueue(e *model.CallActionJoinQueue) {
-	call.Lock()
-	call.info = e.CallActionInfo
-	call.joinedAt = e.ActivityAt
-	call.Unlock()
-
-	call.setState(CALL_STATE_JOIN)
-}
-
-func (call *CallImpl) setLeavingQueue(e *model.CallActionLeavingQueue) {
-	call.Lock()
-	call.leavingAt = e.ActivityAt
-	call.Unlock()
-
-	call.setState(CALL_STATE_LEAVING)
-}
+//func (call *CallImpl) setJoinQueue(e *model.CallActionJoinQueue) {
+//	call.Lock()
+//	call.info = e.CallActionInfo
+//	call.joinedAt = e.ActivityAt
+//	call.Unlock()
+//
+//	call.setState(CALL_STATE_JOIN)
+//}
+//
+//func (call *CallImpl) setLeavingQueue(e *model.CallActionLeavingQueue) {
+//	call.Lock()
+//	call.leavingAt = e.ActivityAt
+//	call.Unlock()
+//
+//	call.setState(CALL_STATE_LEAVING)
+//}
 
 func (call *CallImpl) setBridge(e *model.CallActionBridge) {
 	call.Lock()
-	call.bridgeAt = e.ActivityAt
-	call.info = e.CallActionInfo
+	call.bridgeAt = e.Timestamp
+	//FIXME bridged id
 	call.Unlock()
 
 	call.setState(CALL_STATE_BRIDGE)
@@ -198,7 +198,7 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 		call.Lock()
 		call.hangup = e
 		call.cm.removeFromCacheCall(call)
-		call.hangupAt = e.ActivityAt
+		call.hangupAt = e.Timestamp
 		close(call.hangupCh)
 		call.Unlock()
 
@@ -210,20 +210,12 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 }
 
 func (call *CallImpl) QueueId() *int {
-	if call.info.QueueData == nil {
-		return nil
-	}
-
-	return call.info.QueueData.GetInt("queue_id")
+	//fixme
+	return nil
 }
 
 func (call *CallImpl) QueueCallPriority() int {
-	if call.info.QueueData != nil {
-		if i := call.info.QueueData.GetInt("queue_member_priority"); i != nil {
-			return *i
-		}
-	}
-
+	//fixme
 	return 0
 }
 
@@ -239,8 +231,8 @@ func (cm *CallManagerImpl) Proxy() string {
 	return "sip:10.9.8.111:5060"
 }
 
-func (cm *CallManagerImpl) joinInboundCall(event *model.CallActionJoinQueue) *model.AppError {
-	api, err := cm.getApiConnectionById(event.NodeName)
+func (cm *CallManagerImpl) joinInboundCall(event *model.CallActionRinging) *model.AppError {
+	api, err := cm.getApiConnectionById(event.AppId)
 
 	if err != nil {
 		return err
@@ -298,11 +290,17 @@ func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
 }
 
 func (call *CallImpl) FromNumber() string {
-	return call.info.FromNumber
+	if call.info.From != nil {
+		return call.info.From.Number
+	}
+	return ""
 }
 
 func (call *CallImpl) FromName() string {
-	return call.info.FromName
+	if call.info.From != nil {
+		return call.info.From.Name
+	}
+	return ""
 }
 
 func (call *CallImpl) NodeName() string {

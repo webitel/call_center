@@ -13,6 +13,7 @@ func (e *EngineImp) ReserveMembers() {
 		time.Sleep(time.Second * 5)
 		return
 	}
+	return //TODO
 	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId)
 	if err != nil {
 		wlog.Error(err.Error())
