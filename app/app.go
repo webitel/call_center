@@ -135,7 +135,13 @@ func (app *App) Shutdown() {
 		app.callManager.Stop()
 	}
 
-	app.MQ.Close()
+	if app.flowManager != nil {
+		app.flowManager.Stop()
+	}
+
+	if app.MQ != nil {
+		app.MQ.Close()
+	}
 }
 
 func (a *App) GetInstanceId() string {
