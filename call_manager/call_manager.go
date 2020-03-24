@@ -28,6 +28,7 @@ type CallManager interface {
 	NewCall(callRequest *model.CallRequest) Call
 	GetCall(id string) (Call, bool)
 	InboundCall() <-chan Call
+	SubscribeCall(call *model.Call) (Call, *model.AppError)
 	CountConnection() int
 }
 
@@ -119,6 +120,55 @@ func DUMP(i interface{}) string {
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 	api, _ := cm.getApiConnection() //FIXME!!! check error
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
+}
+
+func (cm *CallManagerImpl) SubscribeCall(call *model.Call) (Call, *model.AppError) {
+	cli, err := cm.getApiConnectionById(call.AppId)
+	if err != nil {
+		return nil, err
+	}
+	err = cli.SetCallVariables(call.Id, map[string]string{
+		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	res := &CallImpl{
+		callRequest: nil,
+		direction:   model.CALL_DIRECTION_INBOUND, //FIXME
+		id:          call.Id,
+		api:         cli,
+		cm:          cm,
+		hangupCh:    make(chan struct{}),
+		chState:     make(chan CallState, 5),
+		acceptAt:    call.AnsweredAt,
+		offeringAt:  call.CreatedAt,
+		state:       CALL_STATE_ACCEPT, //FIXME
+	}
+
+	res.info = model.CallActionInfo{
+		GatewayId:   nil,
+		UserId:      nil,
+		Direction:   "inbound",
+		Destination: call.Destination,
+		From: &model.CallEndpoint{
+			Type:   "dest",
+			Id:     call.FromNumber,
+			Number: call.FromNumber,
+			Name:   call.FromNumber,
+		},
+		To:       nil,
+		ParentId: nil,
+		Payload:  nil,
+	}
+
+	cm.saveToCacheCall(res)
+
+	wlog.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
+
+	return res, nil
 }
 
 func (cm *CallManagerImpl) ActiveCalls() int {

@@ -53,3 +53,7 @@ func (s *LayeredStore) Team() TeamStore {
 func (s *LayeredStore) Gateway() GatewayStore {
 	return s.DatabaseLayer.Gateway()
 }
+
+func (s *LayeredStore) Call() CallStore {
+	return s.DatabaseLayer.Call()
+}

@@ -66,8 +66,8 @@ func (queueManager *QueueManager) Start() {
 			return
 		case attempt := <-queueManager.input:
 			queueManager.DistributeAttempt(attempt)
-		case call := <-queueManager.callManager.InboundCall():
-			go queueManager.DistributeCall(call)
+			//case call := <-queueManager.callManager.InboundCall():
+			//	go queueManager.DistributeCall(call)
 		}
 	}
 }
@@ -215,19 +215,20 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 		attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 }
 
-func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {
-	var queueId *int
-	var priority int
-
-	queueId = call.QueueId()
-	if queueId == nil {
-		wlog.Warn(fmt.Sprintf("[%s] call %s distribute to queue error: not found variable %s", call.NodeName(), call.Id(), model.QUEUE_ID_FIELD))
+func (queueManager *QueueManager) DistributeCall(queueId int, id string) {
+	req, err := queueManager.app.GetCall(id)
+	if err != nil {
+		wlog.Error(fmt.Sprintf("distribute error: %s", err.Error()))
 		return
 	}
 
-	priority = call.QueueCallPriority()
+	call, err := queueManager.callManager.SubscribeCall(req)
+	if err != nil {
+		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", req.AppId, req.Id, err.Error()))
+		return
+	}
 
-	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(*queueId), call.Id(), call.FromNumber(), call.FromName(), priority)
+	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), 0)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))

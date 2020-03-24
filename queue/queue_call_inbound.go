@@ -70,6 +70,7 @@ func (queue *InboundQueue) reporting(attempt *Attempt) {
 	if err := queue.SetAttemptResult(result); err != nil {
 		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
 	}
+
 	close(attempt.distributeAgent)
 	wlog.Debug(fmt.Sprintf("attempt[%d] reporting: %v", attempt.Id(), result))
 	queue.queueManager.LeavingMember(attempt, queue)
@@ -147,10 +148,10 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 					Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
 				},
 				{
-					AppName: "valet_park",
-					Args:    fmt.Sprintf("queue_%d %s", queue.Id(), call.Id()),
+					AppName: "park",
 				},
 			}
+			cr.Variables["wbt_parent_id"] = call.Id()
 
 			team.OfferingCall(queue, agent, attempt)
 			agentCall := call.NewCall(cr)
@@ -167,6 +168,7 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
+						agentCall.Bridge(call)
 						team.Talking(queue, agent, attempt)
 
 					case call_manager.CALL_STATE_HANGUP:

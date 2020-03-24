@@ -19,4 +19,5 @@ type SqlStore interface {
 	Agent() store.AgentStore
 	Team() store.TeamStore
 	Gateway() store.GatewayStore
+	Call() store.CallStore
 }

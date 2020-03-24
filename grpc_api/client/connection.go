@@ -12,6 +12,7 @@ type ccConnection struct {
 	host   string
 	client *grpc.ClientConn
 	agent  proto.AgentServiceClient
+	member proto.MemberServiceClient
 }
 
 func NewCCConnection(name, url string) (*ccConnection, error) {
@@ -28,6 +29,7 @@ func NewCCConnection(name, url string) (*ccConnection, error) {
 	}
 
 	connection.agent = proto.NewAgentServiceClient(connection.client)
+	connection.member = proto.NewMemberServiceClient(connection.client)
 
 	return connection, nil
 }
@@ -54,4 +56,8 @@ func (conn *ccConnection) Close() error {
 
 func (conn *ccConnection) Agent() proto.AgentServiceClient {
 	return conn.agent
+}
+
+func (conn *ccConnection) Member() proto.MemberServiceClient {
+	return conn.member
 }

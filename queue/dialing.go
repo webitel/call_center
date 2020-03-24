@@ -21,6 +21,7 @@ type DialingImpl struct {
 	resourceManager   *ResourceManager
 	statisticsManager *StatisticsManager
 	agentManager      agent_manager.AgentManager
+	callManager       call_manager.CallManager
 	startOnce         sync.Once
 }
 
@@ -33,6 +34,10 @@ func NewDialing(app App, callManager call_manager.CallManager, agentManager agen
 	dialing.statisticsManager = NewStatisticsManager(s)
 	dialing.queueManager = NewQueueManager(app, s, callManager, dialing.resourceManager, agentManager)
 	return &dialing
+}
+
+func (dialing *DialingImpl) Manager() *QueueManager {
+	return dialing.queueManager
 }
 
 func (dialing *DialingImpl) Start() {

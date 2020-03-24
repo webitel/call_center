@@ -13,6 +13,11 @@ type Store interface {
 	Agent() AgentStore
 	Team() TeamStore
 	Gateway() GatewayStore
+	Call() CallStore
+}
+
+type CallStore interface {
+	Get(id string) (*model.Call, *model.AppError)
 }
 
 type ClusterStore interface {

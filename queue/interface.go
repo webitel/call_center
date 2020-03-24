@@ -3,6 +3,7 @@ package queue
 type Dialing interface {
 	Start()
 	Stop()
+	Manager() *QueueManager
 }
 
 type Event interface {

@@ -112,6 +112,10 @@ func (app *App) FlowManager() client.FlowManager {
 	return app.flowManager
 }
 
+func (app *App) Queue() queue.Dialing {
+	return app.dialing
+}
+
 func (app *App) Master() bool {
 	return app.cluster.Master()
 }

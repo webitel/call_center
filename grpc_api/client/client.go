@@ -18,11 +18,16 @@ type AgentApi interface {
 	Pause(domainId, agentId int64, payload string, timeout int) error
 }
 
+type MemberApi interface {
+	JoinCallToQueue(domainId int64, callId string, queueid int64, queueName string, priority int) error
+}
+
 type CCManager interface {
 	Start() error
 	Stop()
 
 	Agent() AgentApi
+	Member() MemberApi
 }
 
 type ccManager struct {
@@ -34,7 +39,8 @@ type ccManager struct {
 	stop      chan struct{}
 	stopped   chan struct{}
 
-	agent AgentApi
+	agent  AgentApi
+	member MemberApi
 }
 
 func NewCCManager(serviceDiscovery discovery.ServiceDiscovery) CCManager {
@@ -46,12 +52,17 @@ func NewCCManager(serviceDiscovery discovery.ServiceDiscovery) CCManager {
 	}
 
 	cc.agent = NewAgentApi(cc)
+	cc.member = NewMemberApi(cc)
 
 	return cc
 }
 
 func (cc *ccManager) Agent() AgentApi {
 	return cc.agent
+}
+
+func (cc *ccManager) Member() MemberApi {
+	return cc.member
 }
 
 func (cc *ccManager) Start() error {

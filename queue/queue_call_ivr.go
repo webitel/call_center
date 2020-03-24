@@ -71,7 +71,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	info := queue.GetCallInfoFromAttempt(attempt)
 
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	callerIdNumber := "display"
+	var callerIdNumber string
 
 	if attempt.destination.Display != nil && *attempt.destination.Display != "" {
 		callerIdNumber = *attempt.destination.Display
@@ -87,9 +87,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Destination:  attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
-			attempt.Variables(),
+			attempt.ExportVariables(),
 			map[string]string{
-				model.CALL_DOMAIN_VARIABLE:    queue.Domain(),
+				model.CallVariableDomainName:  queue.Domain(),
 				model.CallVariableDomainId:    fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableGatewayId:   fmt.Sprintf("%v", attempt.resource.Gateway().Id),
 				model.CallVariableGatewayName: fmt.Sprintf("%v", attempt.resource.Gateway().Name),

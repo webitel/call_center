@@ -14,10 +14,32 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		Destination: attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
-			attempt.Variables(),
+			attempt.ExportVariables(),
 			map[string]string{
 				//"bridge_export_vars":                   "",
-				"sip_h_X-Webitel-Direction":  "internal",
+				"sip_h_X-Webitel-Direction": "internal",
+				"wbt_destination":           attempt.Destination(),
+				"wbt_to_id":                 fmt.Sprintf("%v", agent.Id()),
+				"wbt_to_number":             agent.CallNumber(),
+				"wbt_to_name":               agent.Name(),
+				"wbt_to_type":               "user", //todo agent ?
+
+				"wbt_from_id":     fmt.Sprintf("%v", attempt.MemberId()),
+				"wbt_from_name":   attempt.Name(),
+				"wbt_from_type":   "member",
+				"wbt_from_number": attempt.Destination(),
+
+				"effective_callee_id_number": agent.CallNumber(),
+				"effective_callee_id_name":   agent.Name(),
+
+				"effective_caller_id_name":   attempt.Name(),
+				"effective_caller_id_number": attempt.Destination(),
+
+				"origination_callee_id_name":   attempt.Name(),
+				"origination_callee_id_number": attempt.Destination(),
+				"origination_caller_id_name":   agent.Name(),
+				"origination_caller_id_number": agent.CallNumber(),
+
 				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),
 				model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),

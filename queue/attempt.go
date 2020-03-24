@@ -143,6 +143,10 @@ func (a *Attempt) Display() string {
 }
 
 func (a *Attempt) Destination() string {
+	//FIXME
+	if a.destination.Number == "" {
+		return "FIXME"
+	}
 	return a.destination.Number
 }
 
@@ -150,10 +154,14 @@ func (a *Attempt) Destination() string {
 //	return a.member.Description
 //}
 
-func (a *Attempt) Variables() map[string]string {
+func (a *Attempt) ExportVariables() map[string]string {
+	res := make(map[string]string)
 	vars := make(map[string]interface{})
-	json.Unmarshal(a.member.Variables, vars)
-	return model.MapStringInterfaceToString(vars)
+	json.Unmarshal(a.member.Variables, &vars)
+	for k, v := range vars {
+		res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
+	}
+	return res
 }
 
 func (a *Attempt) MemberId() int64 {

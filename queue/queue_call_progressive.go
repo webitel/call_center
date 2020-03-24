@@ -51,14 +51,14 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 		Variables: model.UnionStringMaps(
 			attempt.resource.Variables(),
 			queue.Variables(),
-			attempt.Variables(),
+			attempt.ExportVariables(),
 			map[string]string{
 				"sip_h_X-Webitel-Direction": "internal",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",
 				model.CALL_IGNORE_EARLY_MEDIA_VARIABLE: "true",
 				model.CALL_DIRECTION_VARIABLE:          model.CALL_DIRECTION_DIALER,
-				model.CALL_DOMAIN_VARIABLE:             queue.Domain(),
+				model.CallVariableDomainName:           queue.Domain(),
 				model.QUEUE_ID_FIELD:                   fmt.Sprintf("%d", queue.id),
 				model.QUEUE_NAME_FIELD:                 queue.name,
 				model.QUEUE_TYPE_NAME_FIELD:            queue.TypeName(),

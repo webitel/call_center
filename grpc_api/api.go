@@ -9,7 +9,8 @@ import (
 type API struct {
 	app *app.App
 
-	agent *agent
+	agent  *agent
+	member *member
 }
 
 func Init(a *app.App, server *grpc.Server) {
@@ -17,6 +18,8 @@ func Init(a *app.App, server *grpc.Server) {
 		app: a,
 	}
 	api.agent = NewAgentApi(a)
+	api.member = NewMemberApi(a)
 
 	cc.RegisterAgentServiceServer(server, api.agent)
+	cc.RegisterMemberServiceServer(server, api.member)
 }

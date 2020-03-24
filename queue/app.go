@@ -13,4 +13,5 @@ type App interface {
 	GetQueueById(id int64) (*model.Queue, *model.AppError)
 	SendEventQueueChangedLength(event *model.QueueEventCount) *model.AppError
 	FlowManager() client.FlowManager
+	GetCall(id string) (*model.Call, *model.AppError)
 }

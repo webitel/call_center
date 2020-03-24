@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
 
 package cc;
@@ -11,6 +10,21 @@ service MemberService {
             patch: "/call_center/queues/{queue_id}/members/{member_id}/attempts/{attempt_id}"
         };
     }
+
+    rpc CallJoinToQueue(CallJoinToQueueRequest) returns (CallJoinToQueueResponse) {}
+}
+
+message CallJoinToQueueRequest {
+    string call_id = 1;
+    string queue_name = 2;
+    int64 queue_id = 3;
+    int32 priority = 4;
+
+    int64 domain_id = 100;
+}
+
+message CallJoinToQueueResponse {
+
 }
 
 /*

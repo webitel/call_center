@@ -96,12 +96,12 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Timeout:      team.CallTimeout(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
-			attempt.Variables(),
+			attempt.ExportVariables(),
 			map[string]string{
-				model.CALL_DOMAIN_VARIABLE:  queue.Domain(),
-				model.CallVariableDomainId:  fmt.Sprintf("%v", queue.DomainId()),
-				model.CallVariableUserId:    fmt.Sprintf("%v", agent.UserId()),
-				model.CallVariableDirection: "internal",
+				model.CallVariableDomainName: queue.Domain(),
+				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
+				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
+				model.CallVariableDirection:  "internal",
 
 				"hangup_after_bridge": "true",
 

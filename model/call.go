@@ -23,7 +23,6 @@ const (
 	CALL_ORIGINATION_UUID            = "origination_uuid"
 	CALL_TIMEOUT_VARIABLE            = "call_timeout"
 	CALL_PROGRESS_TIMEOUT_VARIABLE   = "progress_timeout"
-	CALL_DOMAIN_VARIABLE             = "domain_name"
 	CALL_IGNORE_EARLY_MEDIA_VARIABLE = "ignore_early_media"
 	CALL_DIRECTION_VARIABLE          = "webitel_direction"
 
@@ -39,6 +38,7 @@ const (
 	CallVariableDirection   = "sip_h_X-Webitel-Direction"
 	CallVariableGatewayId   = "sip_h_X-Webitel-Gateway-Id"
 	CallVariableGatewayName = "sip_h_X-Webitel-Gateway"
+	CallVariableDomainName  = "domain_name"
 )
 
 const (
@@ -74,6 +74,22 @@ const (
 	CallActionDtmfName    = "dtmf"
 	CallActionHangupName  = "hangup"
 )
+
+///id, direction, destination, parent_id, timestamp, app_id, from_number, domain_id, answered_at, bridged_at, created_at
+type Call struct {
+	Id          string  `json:"id" db:"id"`
+	State       string  `json:"state" db:"state"`
+	DomainId    int64   `json:"domain_id" db:"domain_id"`
+	Direction   string  `json:"direction" db:"direction"`
+	Destination string  `json:"destination" db:"destination"`
+	ParentId    *string `json:"parent_id" db:"parent_id"`
+	Timestamp   int64   `json:"timestamp" db:"timestamp"`
+	AppId       string  `json:"app_id" db:"app_id"`
+	FromNumber  string  `json:"from_number" db:"from_number"`
+	AnsweredAt  int64   `json:"answered_at" db:"answered_at"`
+	BridgedAt   int64   `json:"bridged_at" db:"bridged_at"`
+	CreatedAt   int64   `json:"created_at" db:"created_at"`
+}
 
 type CallAction struct {
 	Id        string `json:"id"`

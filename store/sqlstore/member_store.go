@@ -134,9 +134,8 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	var attempt *model.MemberAttempt
 
 	if err := s.GetMaster().SelectOne(&attempt, `select *
-		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		from cc_distribute_inbound_call_to_queue( :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
 		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
-		"Node": node,
 	}); err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)

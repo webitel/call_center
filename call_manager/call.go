@@ -81,7 +81,7 @@ type CallImpl struct {
 	bridgeAt   int64
 	hangupAt   int64
 
-	queueId int
+	queueId *int //FIXME
 
 	sync.RWMutex
 }
@@ -195,8 +195,7 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 }
 
 func (call *CallImpl) QueueId() *int {
-	//fixme
-	return nil
+	return call.queueId
 }
 
 func (call *CallImpl) QueueCallPriority() int {
