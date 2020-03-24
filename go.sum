@@ -141,6 +141,7 @@ github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhV
 github.com/webitel/acr v0.0.0-20200121101500-d6b09a2e8bc2/go.mod h1:n3gVB3l+KYDfNLnzcRT+dAxLwbVS73AweFZgbpJQkgo=
 github.com/webitel/call_center v0.0.0-20200128115525-8de3454665f3/go.mod h1:ktDeU8M7UM7xDinVK+IVsQwhmm6b3pcMBMb85i51hbo=
 github.com/webitel/call_center v0.0.0-20200318161213-e213acd2e157/go.mod h1:i/3qCjlVG6XUQjVH+zayNi0qcrsPRmpgukfWYzrJ5uA=
+github.com/webitel/call_center v0.0.0-20200324104702-c4b955c5a41e/go.mod h1:R2SLcCvFw8pBDP/FLQkKZRjbaW1JExgClSRyLyw/kFc=
 github.com/webitel/engine v0.0.0-20200222122912-e74b7965aa3e h1:lh3yY863W7gcCxW6GlkVqV95VFMBWB+VgSo01Gapd60=
 github.com/webitel/engine v0.0.0-20200222122912-e74b7965aa3e/go.mod h1:kiREqGV4mBmtQgo0qBVh4ztlYEDwT77vLp+fh/Zjc5U=
 github.com/webitel/engine v0.0.0-20200304170020-1c54c1667d8e h1:WLoNkop9UB1ZNTB1t0TgW0OFJHupK4K0nbY/eYp08Yk=

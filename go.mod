@@ -19,5 +19,3 @@ require (
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa
 	google.golang.org/grpc v1.26.0
 )
-
-replace github.com/webitel/flow_manager => ../../webitel/flow_manager
