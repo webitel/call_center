@@ -53,7 +53,6 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 			queue.Variables(),
 			attempt.Variables(),
 			map[string]string{
-				"sip_route_uri":             queue.SipRouterAddr(), //"$${outbound_sip_proxy}",
 				"sip_h_X-Webitel-Direction": "internal",
 				//"sip_h_X-Webitel-Domain":               "10.10.10.144",
 				"absolute_codec_string":                "PCMU",

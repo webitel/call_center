@@ -2,29 +2,34 @@ package agent_manager
 
 import "github.com/webitel/call_center/model"
 
-func (am *agentManager) SetAgentWaiting(agentId int, bridged bool) *model.AppError {
+func (am *agentManager) SetAgentWaiting(agent AgentObject, bridged bool) *model.AppError {
 	//FIXME EVENT
-	return am.store.Agent().SetWaiting(agentId, bridged)
+	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_WAITING, nil, nil))
+	return am.store.Agent().SetWaiting(agent.Id(), bridged)
 }
 
-func (am *agentManager) SetAgentOffering(agentId, queueId int) (int, *model.AppError) {
+func (am *agentManager) SetAgentOffering(agent AgentObject, queueId int) (int, *model.AppError) {
 	//FIXME EVENT
-	return am.store.Agent().SetOffering(agentId, queueId)
+	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_OFFERING, nil, nil))
+	return am.store.Agent().SetOffering(agent.Id(), queueId)
 }
 
-func (am *agentManager) SetAgentTalking(agentId int) *model.AppError {
+func (am *agentManager) SetAgentTalking(agent AgentObject) *model.AppError {
 	//FIXME EVENT
-	return am.store.Agent().SetTalking(agentId)
+	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_TALK, nil, nil))
+	return am.store.Agent().SetTalking(agent.Id())
 }
 
-func (am *agentManager) SetAgentReporting(agentId int, timeout int) *model.AppError {
+func (am *agentManager) SetAgentReporting(agent AgentObject, timeout int) *model.AppError {
 	//FIXME EVENT
-	return am.store.Agent().SetReporting(agentId, timeout)
+	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_REPORTING, nil, nil))
+	return am.store.Agent().SetReporting(agent.Id(), timeout)
 }
 
-func (am *agentManager) SetAgentFine(agentId int, timeout int, noAnswer bool) *model.AppError {
+func (am *agentManager) SetAgentFine(agent AgentObject, timeout int, noAnswer bool) *model.AppError {
 	//FIXME EVENT
-	return am.store.Agent().SetFine(agentId, timeout, noAnswer)
+	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_FINE, nil, &timeout))
+	return am.store.Agent().SetFine(agent.Id(), timeout, noAnswer)
 }
 
 func (am *agentManager) SetAgentOnBreak(agentId int) *model.AppError {

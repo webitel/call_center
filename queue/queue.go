@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/flow_manager/client"
 	"net/http"
 )
 
@@ -23,6 +24,8 @@ type QueueObject interface {
 type BaseQueue struct {
 	id              int
 	updatedAt       int64
+	domainId        int64
+	domainName      string
 	typeId          int8
 	name            string
 	resourceManager *ResourceManager
@@ -36,8 +39,10 @@ type BaseQueue struct {
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := BaseQueue{
 		id:              settings.Id,
-		typeId:          int8(settings.Type),
 		updatedAt:       settings.UpdatedAt,
+		typeId:          int8(settings.Type),
+		domainId:        settings.DomainId,
+		domainName:      settings.DomainName,
 		name:            settings.Name,
 		queueManager:    queueManager,
 		resourceManager: resourceManager,
@@ -85,6 +90,10 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 	return queue.updatedAt != updatedAt
 }
 
+func (queue *BaseQueue) FlowManager() client.FlowManager {
+	return queue.queueManager.app.FlowManager()
+}
+
 func (queue *BaseQueue) Name() string {
 	return queue.name
 }
@@ -126,12 +135,12 @@ func (queue *BaseQueue) Variables() map[string]string {
 	return queue.variables
 }
 
-func (qeueu *BaseQueue) Domain() string {
-	return "10.10.10.144" //todo add domain
+func (q *BaseQueue) Domain() string {
+	return q.domainName
 }
 
-func (queue *BaseQueue) DomainId() int {
-	return queue.id
+func (q *BaseQueue) DomainId() int64 {
+	return q.domainId
 }
 
 func (queue *BaseQueue) Id() int {

@@ -5,7 +5,6 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"math/rand"
 )
 
 type IVRQueue struct {
@@ -71,52 +70,76 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	defer queue.reporting(attempt)
 	info := queue.GetCallInfoFromAttempt(attempt)
 
-	//dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
+	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
+	callerIdNumber := "display"
+
+	if attempt.destination.Display != nil && *attempt.destination.Display != "" {
+		callerIdNumber = *attempt.destination.Display
+	} else {
+		callerIdNumber = attempt.resource.GetDisplay()
+	}
+
 	callRequest := &model.CallRequest{
-		Endpoints:    queue.FlowEndpoints(),
+		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		Timeout:      queue.Timeout(), //FIXME new parameter: do originate call timeout
+		Timeout:      queue.Timeout(),
 		Destination:  attempt.Destination(),
-		Context:      queue.CallContextName(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.Variables(),
-			attempt.resource.Variables(),
 			map[string]string{
-				"cc_destination":              attempt.Destination(),
-				"execute_on_pre_originate":    "socket 10.10.10.25:10030 async full",
-				"cc_schema_id":                "123",
 				model.CALL_DOMAIN_VARIABLE:    queue.Domain(),
-				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.Id()),
-				model.QUEUE_NAME_FIELD:        queue.Name(),
-				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
-				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_FLOW,
+				model.CallVariableDomainId:    fmt.Sprintf("%v", queue.DomainId()),
+				model.CallVariableGatewayId:   fmt.Sprintf("%v", attempt.resource.Gateway().Id),
+				model.CallVariableGatewayName: fmt.Sprintf("%v", attempt.resource.Gateway().Name),
+
+				"hangup_after_bridge": "true",
+
+				"sip_h_X-Webitel-Display-Direction": "outbound",
+				"sip_h_X-Webitel-Origin":            "request",
+				"wbt_destination":                   attempt.Destination(),
+				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), //FIXME gateway id ?
+				"wbt_from_number":                   callerIdNumber,                                   //display number
+				"wbt_from_name":                     attempt.resource.Gateway().Name,
+				"wbt_from_type":                     "gateway",
+
+				"wbt_to_id":     fmt.Sprintf("%v", attempt.MemberId()),
+				"wbt_to_name":   attempt.Name(),
+				"wbt_to_type":   "member",
+				"wbt_to_number": attempt.Destination(),
+
+				"effective_caller_id_number": callerIdNumber,
+				"effective_caller_id_name":   attempt.resource.Name(),
+
+				"effective_callee_id_name":   attempt.Name(),
+				"effective_callee_id_number": attempt.Destination(),
+
+				"origination_caller_id_name":   attempt.resource.Name(),
+				"origination_caller_id_number": callerIdNumber,
+				"origination_callee_id_name":   attempt.Name(),
+				"origination_callee_id_number": attempt.Destination(),
+
+				model.QUEUE_ID_FIELD:        fmt.Sprintf("%d", queue.Id()),
+				model.QUEUE_NAME_FIELD:      queue.Name(),
+				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
+
+				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_MEMBER,
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{
-			{
-				AppName: "sleep",
-				Args:    fmt.Sprintf("%d", rand.Intn(10000)),
-			},
-			{
-				AppName: "hangup",
-				Args:    "USER_BUSY",
-			},
-		},
 	}
 
-	call := queue.NewCall(callRequest)
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
 	info.fromCall = call
 	call.Invite()
 	if call.Err() != nil {
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("create call %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
+	wlog.Debug(fmt.Sprintf("calling %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
 
 	var calling = true
 

@@ -19,45 +19,26 @@ const (
 )
 
 const (
-	CALL_EVENT_CREATE   = "CHANNEL_CREATE"
-	CALL_EVENT_ANSWER   = "CHANNEL_ANSWER"
-	CALL_EVENT_PARK     = "CHANNEL_PARK"
-	CALL_EVENT_HANGUP   = "CHANNEL_HANGUP_COMPLETE"
-	CALL_EVENT_BRIDGE   = "CHANNEL_BRIDGE"
-	CALL_EVENT_UNBRIDGE = "CHANNEL_UNBRIDGE"
-
-	CALL_EVENT_CUSTOM = "CUSTOM"
-
-	CALL_ATTRIBUTE_EVENT_NAME        = "Event-Name"
-	CALL_ATTRIBUTE_DURATION_NAME     = "variable_duration"
-	CALL_ATTRIBUTE_HANGUP_CAUSE_NAME = "variable_hangup_cause"
-
-	CALL_ATTRIBUTE_FROM_NUMBER = "Caller-Caller-ID-Number"
-	CALL_ATTRIBUTE_FROM_NAME   = "Caller-Caller-ID-Name"
-	CALL_ATTRIBUTE_HANGUP_CODE = "variable_hangup_cause_q850"
-)
-
-const (
-	CALL_PROXY_URI_VARIABLE              = "sip_route_uri"
-	CALL_ORIGINATION_UUID                = "origination_uuid"
-	CALL_TIMEOUT_VARIABLE                = "call_timeout"
-	CALL_PROGRESS_TIMEOUT_VARIABLE       = "progress_timeout"
-	CALL_DOMAIN_VARIABLE                 = "domain_name"
-	CALL_IGNORE_EARLY_MEDIA_VARIABLE     = "ignore_early_media"
-	CALL_DIRECTION_VARIABLE              = "webitel_direction"
-	CALL_RECORD_MIN_SEC_VARIABLE         = "RECORD_MIN_SEC"
-	CALL_RECORD_STEREO_VARIABLE          = "RECORD_STEREO"
-	CALL_RECORD_BRIDGE_REQ_VARIABLE      = "RECORD_BRIDGE_REQ"
-	CALL_RECORD_FLLOW_TRANSFER_VARIABLE  = "recording_follow_transfer"
-	CALL_RECORD_SESSION_TEMPLATE         = `http_cache://$${cdr_url}/sys/formLoadFile?domain=${domain_name}&id=${uuid}&type=mp3&email=none&name=recordSession&.mp3`
-	CALL_RECORD_SESSION_APPLICATION_NAME = "record_session"
+	CALL_PROXY_URI_VARIABLE          = "sip_route_uri"
+	CALL_ORIGINATION_UUID            = "origination_uuid"
+	CALL_TIMEOUT_VARIABLE            = "call_timeout"
+	CALL_PROGRESS_TIMEOUT_VARIABLE   = "progress_timeout"
+	CALL_DOMAIN_VARIABLE             = "domain_name"
+	CALL_IGNORE_EARLY_MEDIA_VARIABLE = "ignore_early_media"
+	CALL_DIRECTION_VARIABLE          = "webitel_direction"
 
 	CALL_ANSWER_APPLICATION   = "answer"
 	CALL_SLEEP_APPLICATION    = "sleep"
 	CALL_PLAYBACK_APPLICATION = "playback"
-	CALL_TRANSFER_APPLICATION = "transfer"
 	CALL_HANGUP_APPLICATION   = "hangup"
-	CALL_PARK_APPLICATION     = "park"
+)
+
+const (
+	CallVariableDomainId    = "sip_h_X-Webitel-Domain-Id"
+	CallVariableUserId      = "sip_h_X-Webitel-User-Id"
+	CallVariableDirection   = "sip_h_X-Webitel-Direction"
+	CallVariableGatewayId   = "sip_h_X-Webitel-Gateway-Id"
+	CallVariableGatewayName = "sip_h_X-Webitel-Gateway"
 )
 
 const (

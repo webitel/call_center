@@ -107,7 +107,7 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 		}
 	}
 
-	queueManager.input <- a
+	queueManager.input <- a //FIXME
 }
 
 func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt {
@@ -117,7 +117,7 @@ func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt
 	queueManager.wg.Add(1)
 	queueManager.attemptCount++
 
-	wlog.Debug(fmt.Sprintf("new attempt %d", attempt.Id()))
+	//wlog.Debug(fmt.Sprintf("join member \"%s\" to %d", attempt.member.Name, attempt.member.QueueId))
 
 	return attempt
 }
@@ -211,8 +211,8 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	}
 	queueManager.notifyChangedQueueLength(queue)
 
-	wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
-		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
+	wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+		attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 }
 
 func (queueManager *QueueManager) DistributeCall(call call_manager.Call) {
@@ -251,6 +251,7 @@ func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceO
 		resource, err := queueManager.resourceManager.Get(*attempt.ResourceId(), *attempt.ResourceUpdatedAt())
 		if err != nil {
 			wlog.Error(fmt.Sprintf("attempt resource error: %s", err.Error()))
+			//FIXME
 		} else {
 			return resource
 		}

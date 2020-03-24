@@ -24,8 +24,21 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 	var queue *model.Queue
 	if err := s.GetReplica().SelectOne(&queue, `
-			select id, type, name, strategy, payload, updated_at, max_calls, variables, timeout, team_id, schema_id
-			from cc_queue where id = :Id		
+			select q.id,
+       q.type,
+       q.domain_id,
+       d.name as domain_name,
+       q.name,
+       q.strategy,
+       q.payload,
+       q.updated_at,
+       q.variables,
+       q.timeout,
+       q.team_id,
+       q.schema_id
+from cc_queue q
+    inner join directory.wbt_domain d on q.domain_id = d.dc
+where q.id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,

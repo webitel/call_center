@@ -3,6 +3,7 @@ package queue
 import (
 	"github.com/webitel/call_center/model"
 	"go.uber.org/ratelimit"
+	"math/rand"
 )
 
 const (
@@ -13,17 +14,20 @@ type ResourceObject interface {
 	Name() string
 	IsExpire(updatedAt int64) bool
 	CheckCodeError(errorId string) bool
+	GetDisplay() string
 	Id() int
 	SuccessivelyErrors() uint16
 	Variables() map[string]string
 	Take()
-	Gateway() Gateway
+	Gateway() *model.SipGateway
 }
 
-type Gateway interface {
-	Variables() map[string]string
-	Endpoint(destination string) string
-}
+//type Gateway interface {
+//	GetId() int64
+//	Name() string
+//	Variables() map[string]string
+//	Endpoint(destination string) string
+//}
 
 type Resource struct {
 	id                    int
@@ -32,26 +36,30 @@ type Resource struct {
 	rps                   uint16
 	rateLimiter           ratelimit.Limiter
 	variables             map[string]string
-	number                []string
-	errorIds              model.StringArray
+	displayNumbers        []string
+	errorIds              *model.StringArray
 	successivelyErrors    uint16
 	maxSuccessivelyErrors uint16
 	gatewayId             *int64
-	gateway               Gateway
+	gateway               model.SipGateway
 }
 
-func NewResource(config *model.OutboundResource, gw Gateway) (ResourceObject, *model.AppError) {
+func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceObject, *model.AppError) {
 	r := &Resource{
 		id:                    config.Id,
 		updatedAt:             config.UpdatedAt,
 		name:                  config.Name,
 		rps:                   config.Rps,
-		errorIds:              config.ErrorIds,
+		errorIds:              nil,
 		successivelyErrors:    config.SuccessivelyErrors,
 		maxSuccessivelyErrors: config.MaxSuccessivelyErrors,
 		variables:             model.MapStringInterfaceToString(config.Variables),
-		number:                []string{config.Number},
+		displayNumbers:        config.DisplayNumbers,
 		gateway:               gw,
+	}
+
+	if config.ErrorIds != nil {
+		r.errorIds = config.ErrorIds
 	}
 
 	if r.rps > 0 {
@@ -63,6 +71,15 @@ func NewResource(config *model.OutboundResource, gw Gateway) (ResourceObject, *m
 
 func (r *Resource) Name() string {
 	return r.name
+}
+
+func (r *Resource) GetDisplay() string {
+	var l = len(r.displayNumbers)
+	if l == 0 {
+		return ""
+	} else {
+		return r.displayNumbers[rand.Intn(l)]
+	}
 }
 
 func (r *Resource) IsExpire(updatedAt int64) bool {
@@ -78,17 +95,14 @@ func (r *Resource) SuccessivelyErrors() uint16 {
 }
 
 func (r *Resource) Variables() map[string]string {
-	if r.gateway != nil {
-		return model.UnionStringMaps(
-			r.variables,
-			r.gateway.Variables(),
-		)
-	}
-	return r.variables
+	return model.UnionStringMaps(
+		r.variables,
+		r.gateway.Variables(),
+	)
 }
 
-func (r *Resource) Gateway() Gateway {
-	return r.gateway
+func (r *Resource) Gateway() *model.SipGateway {
+	return &r.gateway
 }
 
 func (r *Resource) Take() {
@@ -98,12 +112,12 @@ func (r *Resource) Take() {
 }
 
 func (r *Resource) CheckCodeError(errorCode string) bool {
-	if r.maxSuccessivelyErrors < 1 {
+	if r.maxSuccessivelyErrors < 1 || r.errorIds == nil {
 		return false
 	}
 
 	e := []rune(errorCode)
-	for _, v := range r.errorIds {
+	for _, v := range *r.errorIds {
 		if checkCodeMask(v, e) {
 			return true
 		}

@@ -1,7 +1,6 @@
 package agent_manager
 
 import (
-	"fmt"
 	"github.com/webitel/call_center/model"
 )
 
@@ -31,22 +30,22 @@ func (agent *Agent) UserId() int64 {
 
 func (agent *Agent) SetStateOffering(queueId int) *model.AppError {
 	var err *model.AppError
-	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent.Id(), queueId); err != nil {
+	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent, queueId); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (agent *Agent) SetStateTalking() *model.AppError {
-	return agent.manager.SetAgentTalking(agent.Id())
+	return agent.manager.SetAgentTalking(agent)
 }
 
 func (agent *Agent) SetStateReporting(deadline int) *model.AppError {
-	return agent.manager.SetAgentReporting(agent.Id(), deadline)
+	return agent.manager.SetAgentReporting(agent, deadline)
 }
 
 func (agent *Agent) SetStateFine(deadline int, noAnswer bool) *model.AppError {
-	return agent.manager.SetAgentFine(agent.Id(), deadline, noAnswer)
+	return agent.manager.SetAgentFine(agent, deadline, noAnswer)
 }
 
 func (agent *Agent) Name() string {
@@ -70,7 +69,11 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 }
 
 func (agent *Agent) GetCallEndpoints() []string {
-	return []string{fmt.Sprintf("null")}
+	return []string{agent.info.Destination}
+}
+
+func (agent *Agent) CallNumber() string {
+	return agent.info.Extension
 }
 
 func (agent *Agent) Online() *model.AppError {

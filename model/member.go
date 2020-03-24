@@ -34,11 +34,14 @@ type MemberDestination struct {
 }
 
 type MemberAttempt struct {
-	Id                int64     `json:"id" db:"id"`
-	QueueId           int64     `json:"queue_id" db:"queue_id"`
-	QueueUpdatedAt    int64     `json:"queue_updated_at" db:"queue_updated_at"`
-	QueueCount        int       `json:"queue_count" db:"queue_count"`
-	QueueActiveCount  int       `json:"queue_active_count" db:"queue_active_count"`
+	Id             int64 `json:"id" db:"id"`
+	QueueId        int64 `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt int64 `json:"queue_updated_at" db:"queue_updated_at"`
+
+	QueueCount        int `json:"queue_count" db:"queue_count"`
+	QueueActiveCount  int `json:"queue_active_count" db:"queue_active_count"`
+	QueueWaitingCount int `json:"queue_waiting_count" db:"queue_waiting_count"`
+
 	State             uint8     `json:"state" db:"state"`
 	MemberId          int64     `json:"member_id" db:"member_id"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`

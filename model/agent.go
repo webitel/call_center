@@ -45,6 +45,7 @@ type Agent struct {
 	Name                  string `json:"name" db:"name"`
 	UpdatedAt             int64  `json:"updated_at" db:"updated_at"`
 	Destination           string `json:"destination" db:"destination"`
+	Extension             string `json:"extension" db:"extension"`
 	SuccessivelyNoAnswers int    `json:"successively_no_answers" db:"successively_no_answers"`
 	AgentStatus
 }

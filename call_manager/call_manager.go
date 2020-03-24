@@ -1,6 +1,7 @@
 package call_manager
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/external_commands"
 	"github.com/webitel/call_center/model"
@@ -107,6 +108,12 @@ func (cm *CallManagerImpl) Stop() {
 
 	close(cm.stop)
 	<-cm.stopped
+}
+
+func DUMP(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	wlog.Error(string(s))
+	return string(s)
 }
 
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {

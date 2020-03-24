@@ -65,7 +65,6 @@ type CallImpl struct {
 	hangupCause     string
 	hangupCauseCode int
 	hangupCh        chan struct{}
-	lastEvent       interface{}
 	err             *model.AppError
 	state           CallState
 	cancel          string
@@ -77,12 +76,12 @@ type CallImpl struct {
 	action model.CallAction
 
 	offeringAt int64
-	joinedAt   int64
-	leavingAt  int64
+	ringingAt  int64
 	acceptAt   int64
 	bridgeAt   int64
 	hangupAt   int64
-	queueId    int
+
+	queueId int
 
 	sync.RWMutex
 }
@@ -133,9 +132,11 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		cm:          cm,
 		hangupCh:    make(chan struct{}),
 		chState:     make(chan CallState, 5),
-		actions:     make(chan CallAction, 5), //FIXME
-		state:       CALL_STATE_NEW,
+		//actions:     make(chan CallAction, 5), //FIXME
+		state: CALL_STATE_NEW,
 	}
+
+	DUMP(callRequest)
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
@@ -145,6 +146,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 func (call *CallImpl) setRinging(e *model.CallActionRinging) {
 	call.Lock()
 	call.info = e.CallActionInfo
+	call.ringingAt = e.Timestamp
 	call.Unlock()
 
 	call.setState(CALL_STATE_RINGING)
@@ -161,23 +163,6 @@ func (call *CallImpl) setActive(e *model.CallActionActive) {
 		//FIXME Unhold
 	}
 }
-
-//func (call *CallImpl) setJoinQueue(e *model.CallActionJoinQueue) {
-//	call.Lock()
-//	call.info = e.CallActionInfo
-//	call.joinedAt = e.ActivityAt
-//	call.Unlock()
-//
-//	call.setState(CALL_STATE_JOIN)
-//}
-//
-//func (call *CallImpl) setLeavingQueue(e *model.CallActionLeavingQueue) {
-//	call.Lock()
-//	call.leavingAt = e.ActivityAt
-//	call.Unlock()
-//
-//	call.setState(CALL_STATE_LEAVING)
-//}
 
 func (call *CallImpl) setBridge(e *model.CallActionBridge) {
 	call.Lock()
@@ -228,34 +213,7 @@ func (call *CallImpl) AddAction(action CallAction) {
 }
 
 func (cm *CallManagerImpl) Proxy() string {
-	return "sip:10.9.8.111:5060"
-}
-
-func (cm *CallManagerImpl) joinInboundCall(event *model.CallActionRinging) *model.AppError {
-	api, err := cm.getApiConnectionById(event.AppId)
-
-	if err != nil {
-		return err
-	}
-
-	call := &CallImpl{
-		id:        event.Id,
-		api:       api,
-		cm:        cm,
-		direction: CALL_DIRECTION_INBOUND,
-		hangupCh:  make(chan struct{}),
-		lastEvent: nil,
-		chState:   make(chan CallState, 5),
-		info:      event.CallActionInfo,
-		//acceptAt:   int64(answeredTime),
-		//offeringAt: int64(createdAt), //FIXME
-		state: CALL_STATE_ACCEPT,
-	}
-
-	cm.saveToCacheCall(call)
-	cm.inboundCall <- call
-
-	return nil
+	return "sip:10.9.8.111"
 }
 
 func (call *CallImpl) Invite() *model.AppError {

@@ -46,7 +46,7 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 		if gw, err := r.app.GetGateway(config.GatewayId); err != nil {
 			return nil, err
 		} else {
-			dialResource, _ = NewResource(config, gw)
+			dialResource, _ = NewResource(config, *gw)
 		}
 	}
 

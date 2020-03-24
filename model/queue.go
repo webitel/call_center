@@ -34,21 +34,23 @@ const (
 	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"
 	QUEUE_ATTEMPT_ID_FIELD  = "cc_attempt_id"
 	QUEUE_RESOURCE_ID_FIELD = "cc_resource_id"
-	QUEUE_NODE_ID_FIELD     = "cc_node_id"
+	QUEUE_NODE_ID_FIELD     = "cc_app_id"
 )
 
 type Queue struct {
-	Id        int               `json:"id" db:"id"`
-	Type      uint8             `json:"type" db:"type"`
-	Name      string            `json:"name" db:"name"`
-	Strategy  string            `json:"strategy" db:"strategy"`
-	Payload   []byte            `json:"payload" db:"payload"`
-	UpdatedAt int64             `json:"updated_at" db:"updated_at"`
-	MaxCalls  uint16            `json:"max_calls" db:"max_calls"`
-	Variables map[string]string `json:"variables" db:"variables"`
-	TeamId    *int              `json:"team_id" db:"team_id"`
-	Timeout   uint16            `json:"timeout" db:"timeout"`
-	SchemaId  *int              `json:"schema_id" db:"schema_id"`
+	Id         int               `json:"id" db:"id"`
+	DomainId   int64             `json:"domain_id" db:"domain_id"`
+	DomainName string            `json:"domain_name" db:"domain_name"`
+	Type       uint8             `json:"type" db:"type"`
+	Name       string            `json:"name" db:"name"`
+	Strategy   string            `json:"strategy" db:"strategy"`
+	Payload    []byte            `json:"payload" db:"payload"`
+	UpdatedAt  int64             `json:"updated_at" db:"updated_at"`
+	MaxCalls   uint16            `json:"max_calls" db:"max_calls"`
+	Variables  map[string]string `json:"variables" db:"variables"`
+	TeamId     *int              `json:"team_id" db:"team_id"`
+	Timeout    uint16            `json:"timeout" db:"timeout"`
+	SchemaId   *int              `json:"schema_id" db:"schema_id"`
 }
 
 type QueueDialingSettings struct {

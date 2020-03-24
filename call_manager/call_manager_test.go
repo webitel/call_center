@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
-	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/discovery"
 	"sync"
 	"testing"
@@ -17,12 +16,9 @@ const (
 func TestCallManager(t *testing.T) {
 	t.Log("TestCallManager")
 
-	cfg, _, _, err := utils.LoadConfig("")
-	if err != nil {
-
-	}
-
-	mq := rabbit.NewRabbitMQ(cfg.MQSettings, TEST_NODE_ID)
+	mq := rabbit.NewRabbitMQ(model.MessageQueueSettings{
+		Url: "amqp://webitel:webitel@10.9.8.111:5672?heartbeat=10",
+	}, TEST_NODE_ID)
 
 	service, _ := discovery.NewServiceDiscovery(TEST_NODE_ID, "10.9.8.111:8500", func() (bool, error) {
 		return true, nil
@@ -42,10 +38,10 @@ func TestCallManager(t *testing.T) {
 		//testCallError(cm, t)
 		testWaitForHangup(cm, t)
 		testCallAnswer(cm, t)
-		testCallStates(cm, t)
+		//testCallStates(cm, t)
 		testCallHangup(cm, t)
 		testCallHold(cm, t)
-		//testParentCall(cm, t)
+		//	testParentCall(cm, t)
 	}
 
 	if cm.ActiveCalls() != 0 {

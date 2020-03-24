@@ -26,22 +26,6 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 			//FIXME ?
 		}
 
-	//case *model.CallActionJoinQueue:
-	//	callJoin := action.(*model.CallActionJoinQueue)
-	//	if callJoin.Direction == model.CALL_DIRECTION_INBOUND {
-	//		cm.joinInboundCall(callJoin)
-	//	} else if callJoin.Direction == model.CALL_DIRECTION_OUTBOUND && call != nil {
-	//		call.setJoinQueue(callJoin)
-	//	} else {
-	//		//FIXME ?
-	//	}
-	//
-	//case *model.CallActionLeavingQueue:
-	//	if call == nil {
-	//		return
-	//	}
-	//	call.setLeavingQueue(action.(*model.CallActionLeavingQueue))
-
 	case *model.CallActionActive:
 		if call == nil {
 			return

@@ -20,7 +20,7 @@ func NewSqlGatewayStore(sqlStore SqlStore) store.GatewayStore {
 func (s SqlGatewayStore) Get(id int64) (*model.SipGateway, *model.AppError) {
 	var gw *model.SipGateway
 	if err := s.GetReplica().SelectOne(&gw, `
-			select g.id, g.updated_at, g.register, g.proxy, g.username, g.account, g.password
+			select g.id, 0 updated_at, g.name, g.register, g.proxy, g.username, g.account, g.password --FIXME!!!
 			from directory.sip_gateway g
 			where g.id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {

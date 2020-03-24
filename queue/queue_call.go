@@ -27,22 +27,6 @@ func (queue *CallingQueue) RecordCallEnabled() bool {
 	return queue.params.Recordings
 }
 
-func (queue *CallingQueue) SipRouterAddr() string {
-	return "sip:10.9.8.111:5060"
-}
-
-func (queue *CallingQueue) SetRecordCall(callRequest *model.CallRequest, template string) {
-	callRequest.Variables[model.CALL_RECORD_MIN_SEC_VARIABLE] = "2"
-	callRequest.Variables[model.CALL_RECORD_STEREO_VARIABLE] = "false"
-	callRequest.Variables[model.CALL_RECORD_BRIDGE_REQ_VARIABLE] = "false"
-	callRequest.Variables[model.CALL_RECORD_FLLOW_TRANSFER_VARIABLE] = "true"
-
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: model.CALL_RECORD_SESSION_APPLICATION_NAME,
-		Args:    template,
-	})
-}
-
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman, onMachine, onNotSure string) {
 	callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
 	callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = onMachine
@@ -93,15 +77,12 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 		resource.Gateway().Variables(),
 	)
 
-	DUMP(callRequest)
-
 	call := queue.queueManager.callManager.NewCall(callRequest)
-	//if call.Err() != nil {
-	//	//FIXME ROUTING_ID
-	//	queue.queueManager.SetResourceError(resource, fmt.Sprintf("%d", call.HangupCauseCode()))
-	//} else {
-	//	queue.queueManager.SetResourceSuccessful(resource)
-	//}
+	if call.Err() != nil {
+		queue.queueManager.SetResourceError(resource, fmt.Sprintf("%d", call.HangupCauseCode()))
+	} else {
+		queue.queueManager.SetResourceSuccessful(resource)
+	}
 	return call
 }
 

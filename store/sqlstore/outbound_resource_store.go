@@ -45,10 +45,11 @@ func (s SqlOutboundResourceStore) GetAllPage(filter string, offset, limit int, s
 func (s SqlOutboundResourceStore) GetById(id int64) (*model.OutboundResource, *model.AppError) {
 	var resource *model.OutboundResource
 	if err := s.GetReplica().SelectOne(&resource, `
-			select r.id, r.name, r."limit", r.enabled, r.updated_at, r.rps, r.reserve, r.variables, r.number, r.max_successively_errors, 
-				r.dial_string, r.successively_errors, r.gateway_id, error_ids
-			from cc_outbound_resource r
-				left join directory.sip_gateway g on r.gateway_id = g.id
+			select r.id, r.name, r."limit", r.enabled, r.updated_at, r.rps, r.reserve, r.variables, r.max_successively_errors,
+    r.successively_errors, r.gateway_id, error_ids, array( select d.display
+        from cc_outbound_resource_display d where d.resource_id = r.id)::varchar[] display_numbers
+from cc_outbound_resource r
+    left join directory.sip_gateway g on r.gateway_id = g.id
 			where r.id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {

@@ -2,6 +2,7 @@ package queue
 
 import (
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/flow_manager/client"
 )
 
 type App interface {
@@ -11,4 +12,5 @@ type App interface {
 	GetGateway(id int64) (*model.SipGateway, *model.AppError)
 	GetQueueById(id int64) (*model.Queue, *model.AppError)
 	SendEventQueueChangedLength(event *model.QueueEventCount) *model.AppError
+	FlowManager() client.FlowManager
 }

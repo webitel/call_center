@@ -17,11 +17,11 @@ type AgentManager interface {
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
 
-	SetAgentWaiting(agentId int, bridged bool) *model.AppError
-	SetAgentOffering(agentId, queueId int) (int, *model.AppError)
-	SetAgentTalking(agentId int) *model.AppError
-	SetAgentReporting(agentId int, timeout int) *model.AppError
-	SetAgentFine(agentId int, timeout int, noAnswer bool) *model.AppError
+	SetAgentWaiting(agent AgentObject, bridged bool) *model.AppError
+	SetAgentOffering(agent AgentObject, queueId int) (int, *model.AppError)
+	SetAgentTalking(agent AgentObject) *model.AppError
+	SetAgentReporting(agent AgentObject, timeout int) *model.AppError
+	SetAgentFine(agent AgentObject, timeout int, noAnswer bool) *model.AppError
 
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 }
@@ -32,6 +32,7 @@ type AgentObject interface {
 	UserId() int64
 	Name() string
 	GetCallEndpoints() []string
+	CallNumber() string
 	SuccessivelyNoAnswers() uint16
 	UpdatedAt() int64
 

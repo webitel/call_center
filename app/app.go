@@ -108,6 +108,10 @@ func (app *App) IsReady() bool {
 	return app.callManager.CountConnection() > 0
 }
 
+func (app *App) FlowManager() client.FlowManager {
+	return app.flowManager
+}
+
 func (app *App) Master() bool {
 	return app.cluster.Master()
 }
