@@ -46,6 +46,7 @@ type MemberStore interface {
 
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)
 
+	Reporting(attemptId int64, result string) *model.AppError
 	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
 	SetAttemptResult(result *model.AttemptResult) *model.AppError
 

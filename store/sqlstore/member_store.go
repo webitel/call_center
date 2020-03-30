@@ -134,8 +134,9 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	var attempt *model.MemberAttempt
 
 	if err := s.GetMaster().SelectOne(&attempt, `select *
-		from cc_distribute_inbound_call_to_queue( :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
 		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
+		"Node": node,
 	}); err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
@@ -168,6 +169,20 @@ func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.App
 	if err != nil {
 		return model.NewAppError("SqlMemberStore.SetAttemptResult", "store.sql_member.set_attempt_result.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", result.Id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s SqlMemberStore) Reporting(attemptId int64, result string) *model.AppError {
+	_, err := s.GetMaster().Exec(`call cc_reporting_attempt(:AttemptId::int8, :Result::varchar)`, map[string]interface{}{
+		"AttemptId": attemptId,
+		"Result":    result,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.set_attempt_result.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
 	return nil

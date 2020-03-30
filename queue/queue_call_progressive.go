@@ -108,8 +108,8 @@ func (queue *ProgressiveCallQueue) run(team *agentTeam, attempt *Attempt, agent 
 	}
 
 	if call.HangupCause() == "" {
-		queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
+		//queue.StopAttemptWithCallDuration(attempt, model.MEMBER_CAUSE_SUCCESSFUL, 0) //TODO
 	} else {
-		queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
+		//queue.StopAttemptWithCallDuration(attempt, call.HangupCause(), 0) //TODO
 	}
 }

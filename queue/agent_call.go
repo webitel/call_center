@@ -16,6 +16,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 			queue.Variables(),
 			attempt.ExportVariables(),
 			map[string]string{
+				model.CallVariableDomainId: fmt.Sprintf("%v", queue.DomainId()),
+				model.CallVariableUserId:   fmt.Sprintf("%v", agent.UserId()),
 				//"bridge_export_vars":                   "",
 				"sip_h_X-Webitel-Direction": "internal",
 				"wbt_destination":           attempt.Destination(),

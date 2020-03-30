@@ -84,7 +84,7 @@ func (queueManager *QueueManager) GetNodeId() string {
 	return queueManager.app.GetInstanceId()
 }
 
-func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
+func (queueManager *QueueManager) CreateAttemptIfNotExists(attempt *model.MemberAttempt) (*Attempt, *model.AppError) {
 	var a *Attempt
 	var ok bool
 
@@ -95,9 +95,8 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 		} else {
 			a.SetMember(attempt)
 		}
-		return
 	} else {
-		a = queueManager.NewAttempt(attempt)
+		a = queueManager.createAttempt(attempt)
 		if attempt.AgentId != nil && attempt.AgentUpdatedAt != nil {
 			if agent, err := queueManager.agentManager.GetAgent(*attempt.AgentId, *attempt.AgentUpdatedAt); err != nil {
 				panic(err.Error())
@@ -107,18 +106,14 @@ func (queueManager *QueueManager) RouteMember(attempt *model.MemberAttempt) {
 		}
 	}
 
-	queueManager.input <- a //FIXME
+	return a, nil
 }
 
-func (queueManager *QueueManager) NewAttempt(conf *model.MemberAttempt) *Attempt {
-
+func (queueManager *QueueManager) createAttempt(conf *model.MemberAttempt) *Attempt {
 	attempt := NewAttempt(conf)
 	queueManager.membersCache.AddWithDefaultExpires(attempt.Id(), attempt)
 	queueManager.wg.Add(1)
 	queueManager.attemptCount++
-
-	//wlog.Debug(fmt.Sprintf("join member \"%s\" to %d", attempt.member.Name, attempt.member.QueueId))
-
 	return attempt
 }
 
@@ -215,27 +210,33 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 		attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 }
 
-func (queueManager *QueueManager) DistributeCall(queueId int, id string) {
+func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attempt, *model.AppError) {
+	var member *model.MemberAttempt
+
 	req, err := queueManager.app.GetCall(id)
 	if err != nil {
 		wlog.Error(fmt.Sprintf("distribute error: %s", err.Error()))
-		return
+		return nil, err
 	}
 
 	call, err := queueManager.callManager.SubscribeCall(req)
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", req.AppId, req.Id, err.Error()))
-		return
+		return nil, err
 	}
 
-	attempt, err := queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), 0)
+	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), 0)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
-		return
+		return nil, err
 	}
 
-	queueManager.RouteMember(attempt)
+	attempt, _ := queueManager.CreateAttemptIfNotExists(member)
+	queueManager.DistributeAttempt(attempt)
+
+	<-attempt.done
+	return attempt, nil
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
@@ -258,6 +259,21 @@ func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceO
 		}
 	}
 	return nil
+}
+
+func (queueManager *QueueManager) GetAttemptAgent(attempt *Attempt) (agent_manager.AgentObject, bool) {
+
+	if attempt.AgentId() != nil && attempt.AgentUpdatedAt() != nil {
+		agent, err := queueManager.agentManager.GetAgent(*attempt.AgentId(), *attempt.AgentUpdatedAt())
+		if err != nil {
+			wlog.Error(fmt.Sprintf("attempt agent error: %s", err.Error()))
+			//FIXME
+		} else {
+			return agent, true
+		}
+	}
+
+	return nil, false
 }
 
 func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {

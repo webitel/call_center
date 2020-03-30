@@ -19,7 +19,7 @@ type AgentApi interface {
 }
 
 type MemberApi interface {
-	JoinCallToQueue(domainId int64, callId string, queueid int64, queueName string, priority int) error
+	JoinCallToQueue(domainId int64, callId string, queueid int64, queueName string, priority int) (string, error)
 }
 
 type CCManager interface {

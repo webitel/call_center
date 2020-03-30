@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	proto "github.com/webitel/call_center/grpc_api/cc"
 )
 
@@ -16,10 +15,10 @@ func NewMemberApi(m *ccManager) MemberApi {
 	}
 }
 
-func (api *memberApi) JoinCallToQueue(domainId int64, callId string, queueId int64, queueName string, priority int) error {
+func (api *memberApi) JoinCallToQueue(domainId int64, callId string, queueId int64, queueName string, priority int) (string, error) {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 	res, err := cli.member.CallJoinToQueue(context.Background(), &proto.CallJoinToQueueRequest{
 		CallId:    callId,
@@ -29,6 +28,9 @@ func (api *memberApi) JoinCallToQueue(domainId int64, callId string, queueId int
 		DomainId:  domainId,
 	})
 
-	fmt.Println(res)
-	return err
+	if err != nil {
+		return "", err
+	}
+
+	return res.Status, nil
 }

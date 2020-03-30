@@ -86,42 +86,8 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 	return call
 }
 
-func (queue *CallingQueue) CallError(attempt *Attempt, callErr *model.AppError, cause string) *model.AppError {
-	attempt.Log("error: " + callErr.Error())
-	info := queue.GetCallInfoFromAttempt(attempt)
-	info.Error = model.NewString(callErr.Error())
-	return queue.StopAttemptWithCallDuration(attempt, cause, 0)
-}
-
-func (queue *CallingQueue) StopAttemptWithCallDuration(attempt *Attempt, cause string, talkDuration int) *model.AppError {
-	var err *model.AppError
-	var stopped bool
-
-	if queue.params.InCauseSuccess(cause) && queue.params.MinCallDuration <= talkDuration {
-		attempt.Log("call is success")
-		err = queue.queueManager.SetAttemptSuccess(attempt, cause)
-	} else if queue.params.InCauseError(cause) {
-		attempt.Log("call is error")
-		stopped, err = queue.queueManager.SetAttemptError(attempt, cause)
-	} else if queue.params.InCauseMinusAttempt(cause) {
-		attempt.Log("call is minus attempt")
-		stopped, err = queue.queueManager.SetAttemptMinus(attempt, cause)
-	} else {
-		attempt.Log("call is attempt")
-		stopped, err = queue.queueManager.SetAttemptStop(attempt, cause)
-	}
-
-	queue.queueManager.notifyStopAttempt(attempt, stopped)
-
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return err
-}
-
 func (queue *CallingQueue) SetAttemptResult(result *model.AttemptResult) *model.AppError {
-	return queue.queueManager.store.Member().SetAttemptResult(result)
+	return queue.queueManager.store.Member().Reporting(result.Id, result.Result)
 }
 
 func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {

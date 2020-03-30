@@ -136,6 +136,7 @@ func (am *agentManager) changeDeadlineState() {
 	} else {
 		for _, v := range s {
 			//todo event
+
 			wlog.Debug(fmt.Sprintf("agent %d has been changed state to \"%s\" - timeout", v.Id, v.State))
 		}
 	}

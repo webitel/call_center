@@ -151,6 +151,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	call.Invite()
 
 	var calling = true
+	//agent.SetStateOffering(queue.id) //TODO ringing
 	agent.SetStateOffering(queue.id)
 	for calling {
 		select {

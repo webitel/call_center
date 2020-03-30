@@ -24,7 +24,7 @@ message CallJoinToQueueRequest {
 }
 
 message CallJoinToQueueResponse {
-
+    string status = 1;
 }
 
 /*
@@ -48,8 +48,7 @@ message AttemptResultRequest {
     map<string, string> variables = 7; // змінити варібли
     bool display = 8; // якщо true тоді за цим номером прикріпляється ресурс + номер який відображається абоненту
     string description = 9; // опис...
-    int64 transfer_queue_id = 10; // перекинути в іншу чергу (крім вхідної)
-    int64 next_member_id = 11; // ід наступного абонента, підвязується до агента
+    int64 transfer_queue_id = 10; // перекинути в іншу чергу
 }
 
 message AttemptResultResponse {

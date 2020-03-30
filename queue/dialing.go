@@ -75,7 +75,8 @@ func (d *DialingImpl) routeIdleAttempts() {
 	}
 
 	for _, v := range members {
-		d.queueManager.RouteMember(v)
+		att, _ := d.queueManager.CreateAttemptIfNotExists(v) //todo check err
+		d.queueManager.input <- att
 	}
 }
 

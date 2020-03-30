@@ -127,6 +127,14 @@ func (a *Attempt) Agent() agent_manager.AgentObject {
 	return a.agent
 }
 
+func (a *Attempt) AgentId() *int {
+	return a.member.AgentId
+}
+
+func (a *Attempt) AgentUpdatedAt() *int64 {
+	return a.member.AgentUpdatedAt
+}
+
 func (a *Attempt) ResourceUpdatedAt() *int64 {
 	return a.member.ResourceUpdatedAt
 }

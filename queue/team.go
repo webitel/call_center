@@ -73,8 +73,8 @@ func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject,
 func (at *agentTeam) ReportingCall(queue *CallingQueue, agent agent_manager.AgentObject, call call_manager.Call, attempt *Attempt) *model.AppError {
 	var noAnswer = false
 	var timeout = 0
-
-	if call.Err() != nil {
+	// після кенцел а сторони вейтінг ?
+	if call != nil {
 		switch call.HangupCause() {
 		case model.CALL_HANGUP_NO_ANSWER:
 			noAnswer = true
@@ -85,7 +85,9 @@ func (at *agentTeam) ReportingCall(queue *CallingQueue, agent agent_manager.Agen
 			timeout = int(at.BusyDelayTime())
 		}
 
-		queue.MissedAgentAttempt(attempt.Id(), agent.Id(), call)
+		if err := queue.MissedAgentAttempt(attempt.Id(), agent.Id(), call); err != nil {
+			return err
+		}
 
 		if noAnswer && at.MaxNoAnswer() > 0 && at.MaxNoAnswer() <= agent.SuccessivelyNoAnswers()+1 {
 			return agent.SetOnBreak()

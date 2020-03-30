@@ -19,6 +19,11 @@ func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultReques
 }
 
 func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (*cc.CallJoinToQueueResponse, error) {
-	api.app.Queue().Manager().DistributeCall(int(in.QueueId), in.CallId)
-	return nil, nil
+	attempt, err := api.app.Queue().Manager().DistributeCall(int(in.QueueId), in.CallId)
+	if err != nil {
+		return nil, err
+	}
+	return &cc.CallJoinToQueueResponse{
+		Status: attempt.Result(),
+	}, nil
 }

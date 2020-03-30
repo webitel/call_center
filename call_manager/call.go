@@ -365,21 +365,6 @@ func (call *CallImpl) WaitSeconds() int {
 	}
 }
 
-func (call *CallImpl) setHangupCause(err *model.AppError, cause string) {
-	call.Lock()
-	defer call.Unlock()
-
-	if err != nil {
-		call.err = err
-		call.hangupCauseCode = err.StatusCode
-	}
-
-	if call.hangupCause == "" {
-		call.hangupCause = cause
-		wlog.Debug(fmt.Sprintf("[%s] call %s set hangup cause: %s code: %d", call.NodeName(), call.Id(), cause, call.hangupCauseCode))
-	}
-}
-
 func (call *CallImpl) Err() *model.AppError {
 	call.RLock()
 	defer call.RUnlock()
@@ -388,7 +373,7 @@ func (call *CallImpl) Err() *model.AppError {
 }
 
 func (call *CallImpl) Hangup(cause string) *model.AppError {
-	if call.GetState() < CALL_STATE_RINGING {
+	if call.GetState() < CALL_STATE_INVITE {
 		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
 		if call.GetState() == CALL_STATE_NEW {
