@@ -10,7 +10,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
 	github.com/webitel/engine v0.0.0-20200319094448-64bed4f54b55
-	github.com/webitel/flow_manager v0.0.0-20200324104853-fcaa26317018
+	github.com/webitel/flow_manager v0.0.0-20200330065855-2598a67c0760
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	go.uber.org/atomic v1.6.0
 	go.uber.org/ratelimit v0.1.0
