@@ -5,9 +5,7 @@ go 1.13
 require (
 	github.com/go-gorp/gorp v2.2.0+incompatible
 	github.com/golang/protobuf v1.3.2
-	github.com/hashicorp/consul/api v1.3.0
 	github.com/lib/pq v1.3.0
-	github.com/nicksnyder/go-i18n v1.10.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
@@ -20,5 +18,3 @@ require (
 	google.golang.org/genproto v0.0.0-20200122232147-0452cf42e150
 	google.golang.org/grpc v1.26.0
 )
-
-replace github.com/webitel/flow_manager => ../../webitel/flow_manager //fixme
