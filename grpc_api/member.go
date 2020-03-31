@@ -27,3 +27,14 @@ func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRe
 		Status: attempt.Result(),
 	}, nil
 }
+
+func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
+	res, err := api.app.Queue().Manager().DistributeDirectMember(in.GetMemberId(), int(in.GetAgentId()))
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.DirectAgentToMemberResponse{
+		AttemptId: res.Id(),
+	}, nil
+}

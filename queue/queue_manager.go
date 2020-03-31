@@ -239,6 +239,19 @@ func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attem
 	return attempt, nil
 }
 
+func (queueManager *QueueManager) DistributeDirectMember(memberId int64, agentId int) (*Attempt, *model.AppError) {
+	member, err := queueManager.store.Member().DistributeDirect(queueManager.app.GetInstanceId(), memberId, agentId)
+
+	if err != nil {
+		wlog.Error(fmt.Sprintf("member %v to agent %v distribute error: %s", memberId, agentId, err.Error()))
+		return nil, err
+	}
+
+	attempt, _ := queueManager.CreateAttemptIfNotExists(member)
+	queueManager.DistributeAttempt(attempt)
+	return attempt, nil
+}
+
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.notifyChangedQueueLength(queue) //TODO

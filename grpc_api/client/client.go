@@ -20,6 +20,7 @@ type AgentApi interface {
 
 type MemberApi interface {
 	JoinCallToQueue(domainId int64, callId string, queueid int64, queueName string, priority int) (string, error)
+	DirectAgentToMember(domainId int64, memberId int64, agentId int64) (int64, error)
 }
 
 type CCManager interface {

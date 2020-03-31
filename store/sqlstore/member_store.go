@@ -145,6 +145,23 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	return attempt, nil
 }
 
+func (s SqlMemberStore) DistributeDirect(node string, memberId int64, agentId int) (*model.MemberAttempt, *model.AppError) {
+	var res *model.MemberAttempt
+	err := s.GetMaster().SelectOne(&res, `select * from cc_distribute_direct_member_to_queue(:AppId, :MemberId, :AgentId)`,
+		map[string]interface{}{
+			"AppId":    node,
+			"MemberId": memberId,
+			"AgentId":  agentId,
+		})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeDirect", "store.sql_member.distribute_direct.app_error", nil,
+			fmt.Sprintf("MemberId=%v, AgentId=%v %s", memberId, agentId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return res, nil
+
+}
 func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.AppError {
 	_, err := s.GetMaster().Exec(`with rem as (
     delete from cc_member_attempt a

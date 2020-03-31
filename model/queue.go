@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	QUEUE_TYPE_MANUAL      = iota
+	QUEUE_TYPE_OFFLINE     = iota
 	QUEUE_TYPE_INBOUND     // a
 	QUEUE_TYPE_IVR         // r
 	QUEUE_TYPE_PREVIEW     // a + r

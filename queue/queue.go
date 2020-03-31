@@ -52,6 +52,10 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		schemaId:        settings.SchemaId,
 	}
 	switch settings.Type {
+	case model.QUEUE_TYPE_OFFLINE:
+		return NewOfflineCallQueue(CallingQueue{
+			BaseQueue: base,
+		}), nil
 	case model.QUEUE_TYPE_INBOUND:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{
@@ -116,6 +120,8 @@ func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) 
 
 func (queue *BaseQueue) TypeName() string {
 	switch queue.typeId {
+	case model.QUEUE_TYPE_OFFLINE:
+		return "offline"
 	case model.QUEUE_TYPE_INBOUND:
 		return "inbound"
 	case model.QUEUE_TYPE_IVR:

@@ -34,3 +34,21 @@ func (api *memberApi) JoinCallToQueue(domainId int64, callId string, queueId int
 
 	return res.Status, nil
 }
+
+func (api *memberApi) DirectAgentToMember(domainId int64, memberId int64, agentId int64) (int64, error) {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return 0, err
+	}
+	res, err := cli.member.DirectAgentToMember(context.Background(), &proto.DirectAgentToMemberRequest{
+		MemberId: memberId,
+		AgentId:  agentId,
+		DomainId: domainId,
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return res.AttemptId, nil
+}
