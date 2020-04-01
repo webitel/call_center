@@ -30,7 +30,7 @@ type OutboundResource struct {
 	DisplayNumbers        StringArray            `json:"display_numbers" db:"display_numbers" `
 	SuccessivelyErrors    uint16                 `json:"successively_errors" db:"successively_errors"`
 	MaxSuccessivelyErrors uint16                 `json:"max_successively_errors" db:"max_successively_errors"`
-	ErrorIds              *StringArray           `json:"error_ids" db:"error_ids"`
+	ErrorIds              StringArray            `json:"error_ids" db:"error_ids"`
 	GatewayId             int64                  `json:"gateway_id" db:"gateway_id"`
 }
 

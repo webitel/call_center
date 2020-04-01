@@ -37,7 +37,7 @@ type Resource struct {
 	rateLimiter           ratelimit.Limiter
 	variables             map[string]string
 	displayNumbers        []string
-	errorIds              *model.StringArray
+	errorIds              model.StringArray
 	successivelyErrors    uint16
 	maxSuccessivelyErrors uint16
 	gatewayId             *int64
@@ -117,7 +117,7 @@ func (r *Resource) CheckCodeError(errorCode string) bool {
 	}
 
 	e := []rune(errorCode)
-	for _, v := range *r.errorIds {
+	for _, v := range r.errorIds {
 		if checkCodeMask(v, e) {
 			return true
 		}
