@@ -48,7 +48,7 @@ type MemberStore interface {
 
 	Reporting(attemptId int64, result string) *model.AppError
 	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
-	DistributeDirect(node string, memberId int64, agentId int) (*model.MemberAttempt, *model.AppError)
+	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 
 	SetAttemptResult(result *model.AttemptResult) *model.AppError
 

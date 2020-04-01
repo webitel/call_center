@@ -19,7 +19,8 @@ message DirectAgentToMemberRequest {
     int64 member_id = 1;
     int64 agent_id = 2;
 
-    int64 domain_id = 3;
+    int32 communication_id = 3;
+    int64 domain_id = 4;
 }
 message DirectAgentToMemberResponse {
     int64 attempt_id = 1;
@@ -54,7 +55,7 @@ message AttemptResultRequest {
 
     string status = 4; // SUCCESS / CANCEL - абонент виключається з черги з цим статусом, якщо пусто то: якщо остання спроба то ABANDONED або буде очікувати наступний дзвінок
 
-    int64 min_offering_at = 5; // - змінити час від коли можна знову дзвонити абоненту, не обовязкове timestamp
+    int64 min_offering_at = 5; // - змінити час відколи можна знову дзвонити абоненту, не обовязкове timestamp
     int64 expire_at = 6; // встановити новий дедлайн
     map<string, string> variables = 7; // змінити варібли
     bool display = 8; // якщо true тоді за цим номером прикріпляється ресурс + номер який відображається абоненту

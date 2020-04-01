@@ -97,9 +97,6 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 	return attempt.Info.(*AttemptInfoCall)
 }
 
-type ToCall interface {
-}
-
 func (queue *CallingQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
 	queue.queueManager.store.Agent().MissedAttempt(agent.Id(), attempt.Id(), call.HangupCause())
 }

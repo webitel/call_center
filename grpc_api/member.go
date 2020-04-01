@@ -29,7 +29,7 @@ func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRe
 }
 
 func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
-	res, err := api.app.Queue().Manager().DistributeDirectMember(in.GetMemberId(), int(in.GetAgentId()))
+	res, err := api.app.Queue().Manager().DistributeDirectMember(in.GetMemberId(), int(in.GetCommunicationId()), int(in.GetAgentId()))
 	if err != nil {
 		return nil, err
 	}

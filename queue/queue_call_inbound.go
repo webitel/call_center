@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"time"
 )
 
 /*
@@ -118,10 +119,15 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 	attempts := 0
 	attempt.SetState(model.MEMBER_STATE_FIND_AGENT)
 
+	timeout := time.NewTimer(time.Second * 5)
+
 	for {
 		select {
 		case <-ctx.call.HangupChan():
 			return
+
+		case <-timeout.C:
+			fmt.Println("TIMEOUT")
 
 		case reason, ok := <-attempt.cancel:
 			if !ok {
@@ -174,6 +180,8 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 		top:
 			for ctx.agentCall.HangupCause() == "" && ctx.call.HangupCause() == "" {
 				select {
+				case <-timeout.C:
+					fmt.Println("TIMEOUT")
 				case state := <-ctx.agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {

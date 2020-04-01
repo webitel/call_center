@@ -145,13 +145,14 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	return attempt, nil
 }
 
-func (s SqlMemberStore) DistributeDirect(node string, memberId int64, agentId int) (*model.MemberAttempt, *model.AppError) {
+func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
-	err := s.GetMaster().SelectOne(&res, `select * from cc_distribute_direct_member_to_queue(:AppId, :MemberId, :AgentId)`,
+	err := s.GetMaster().SelectOne(&res, `select * from cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
 		map[string]interface{}{
-			"AppId":    node,
-			"MemberId": memberId,
-			"AgentId":  agentId,
+			"AppId":           node,
+			"MemberId":        memberId,
+			"AgentId":         agentId,
+			"CommunicationId": communicationId,
 		})
 
 	if err != nil {

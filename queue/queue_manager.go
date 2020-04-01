@@ -239,8 +239,8 @@ func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attem
 	return attempt, nil
 }
 
-func (queueManager *QueueManager) DistributeDirectMember(memberId int64, agentId int) (*Attempt, *model.AppError) {
-	member, err := queueManager.store.Member().DistributeDirect(queueManager.app.GetInstanceId(), memberId, agentId)
+func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
+	member, err := queueManager.store.Member().DistributeDirect(queueManager.app.GetInstanceId(), memberId, communicationId, agentId)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("member %v to agent %v distribute error: %s", memberId, agentId, err.Error()))
