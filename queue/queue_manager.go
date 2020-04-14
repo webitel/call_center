@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
@@ -21,6 +22,7 @@ type QueueManager struct {
 	wg              sync.WaitGroup
 	app             App
 	attemptCount    int64
+	mq              mq.MQ
 	stop            chan struct{}
 	stopped         chan struct{}
 	input           chan *Attempt
@@ -34,13 +36,14 @@ type QueueManager struct {
 	sync.Mutex
 }
 
-func NewQueueManager(app App, s store.Store, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
+func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
 	return &QueueManager{
 		store:           s,
 		app:             app,
 		callManager:     callManager,
 		resourceManager: resourceManager,
 		agentManager:    agentManager,
+		mq:              m,
 		teamManager:     NewTeamManager(s),
 		input:           make(chan *Attempt),
 		stop:            make(chan struct{}),
@@ -254,7 +257,6 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
 	queueManager.membersCache.Remove(attempt.Id())
-	queueManager.notifyChangedQueueLength(queue) //TODO
 	queueManager.wg.Done()
 
 	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d Result=%s from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),

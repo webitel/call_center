@@ -72,6 +72,7 @@ func (e *AgentEventStatus) ToJSON() string {
 type AgentStatus struct {
 	Status        string  `json:"status" db:"status"`
 	StatusPayload *string `json:"status_payload" db:"status_payload"`
+	AttemptId     *int64  `json:"attempt_id" db:"-"`
 	Timeout       *int    `json:"timeout"`
 }
 
@@ -97,8 +98,10 @@ type AgentState struct {
 }
 
 type AgentChangedState struct {
-	Id    int64  `json:"id" db:"id"`
-	State string `json:"state" db:"state"`
+	Timestamp      int64  `json:"timestamp" db:"cur_time"`
+	AgentId        int    `json:"agent_id" db:"agent_id"`
+	AgentUpdatedAt int64  `json:"agent_updated_at" db:"agent_updated_at"`
+	State          string `json:"state" db:"state"`
 }
 
 type AgentInQueueStatistic struct {

@@ -13,7 +13,7 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		call = v.(*CallImpl)
 	}
 
-	wlog.Debug(fmt.Sprintf("call %s receive event %s", data.Id, data.Event))
+	//wlog.Debug(fmt.Sprintf("call %s receive event %s", data.Id, data.Event))
 
 	switch action.(type) {
 	case *model.CallActionRinging:

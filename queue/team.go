@@ -58,10 +58,18 @@ func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
 }
 
+func (at *agentTeam) PostProcessing() bool {
+	return at.data.PostProcessing
+}
+
+func (at *agentTeam) PostProcessingTimeout() int {
+	return at.data.PostProcessingTimeout
+}
+
 func (at *agentTeam) OfferingCall(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
 	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
 		agent.Name(), agent.Id(), model.AGENT_STATE_OFFERING, queue.Name()))
-	return agent.SetStateOffering(queue.Id())
+	return agent.SetStateOffering(queue.Id(), attempt.Id())
 }
 
 func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {

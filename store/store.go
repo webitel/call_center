@@ -50,6 +50,12 @@ type MemberStore interface {
 	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 
+	AttemptOfferingAgent(attemptId int64, display string, agentCallId, memberCallId *string) (*model.AttemptOfferingAgent, *model.AppError)
+	BridgedAttempt(attemptId int64, agentCallId, memberCallId *string) (int64, *model.AppError)
+	ReportingAttempt(attemptId int64) (int64, *model.AppError)
+
+	LeavingAttempt(attemptId int64, holdSec int, result *string) *model.AppError
+
 	SetAttemptResult(result *model.AttemptResult) *model.AppError
 
 	SetAttemptState(id int64, state int) *model.AppError
@@ -66,7 +72,7 @@ type AgentStore interface {
 	Get(id int) (*model.Agent, *model.AppError)
 
 	SetWaiting(agentId int, bridged bool) *model.AppError
-	SetOffering(agentId, queueId int) (int, *model.AppError)
+	SetOffering(agentId, queueId int, attemptId int64) (int, *model.AppError)
 	SetTalking(agentId int) *model.AppError
 	SetReporting(agentId int, timeout int) *model.AppError
 	SetFine(agentId int, timeout int, noAnswer bool) *model.AppError
@@ -79,7 +85,7 @@ type AgentStore interface {
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
-	ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError)
+	ChangeDeadlineState() ([]*model.AgentChangedState, *model.AppError)
 
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 	ConfirmAttempt(agentId int, attemptId int64) (int, *model.AppError)

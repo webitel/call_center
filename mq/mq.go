@@ -12,6 +12,8 @@ type MQ interface {
 
 	AgentChangeStatus(e model.AgentEventStatus) *model.AppError
 
+	AttemptEvent(e model.EventAttempt) *model.AppError
+
 	QueueEvent() QueueEvent
 }
 

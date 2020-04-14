@@ -199,6 +199,7 @@ func (a *AMQP) Close() {
 
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	//todo, check connection
+	wlog.Debug(fmt.Sprintf("publish %s [%s]", key, string(data)))
 	err := a.channel.Publish(
 		model.CallCenterExchange,
 		key,

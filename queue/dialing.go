@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
+	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
@@ -25,14 +26,14 @@ type DialingImpl struct {
 	startOnce         sync.Once
 }
 
-func NewDialing(app App, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store) Dialing {
+func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store) Dialing {
 	var dialing DialingImpl
 	dialing.app = app
 	dialing.store = s
 	dialing.agentManager = agentManager
 	dialing.resourceManager = NewResourceManager(app)
 	dialing.statisticsManager = NewStatisticsManager(s)
-	dialing.queueManager = NewQueueManager(app, s, callManager, dialing.resourceManager, agentManager)
+	dialing.queueManager = NewQueueManager(app, s, m, callManager, dialing.resourceManager, agentManager)
 	return &dialing
 }
 

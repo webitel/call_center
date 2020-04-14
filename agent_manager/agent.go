@@ -28,9 +28,9 @@ func (agent *Agent) UserId() int64 {
 	return 0
 }
 
-func (agent *Agent) SetStateOffering(queueId int) *model.AppError {
+func (agent *Agent) SetStateOffering(queueId int, attemptId int64) *model.AppError {
 	var err *model.AppError
-	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent, queueId); err != nil {
+	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent, queueId, attemptId); err != nil {
 		return err
 	}
 	return nil

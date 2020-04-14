@@ -40,3 +40,7 @@ func (l *LayeredMQ) QueueEvent() QueueEvent {
 func (l *LayeredMQ) AgentChangeStatus(e model.AgentEventStatus) *model.AppError {
 	return l.MQLayer.AgentChangeStatus(e)
 }
+
+func (l *LayeredMQ) AttemptEvent(e model.EventAttempt) *model.AppError {
+	return l.MQLayer.AttemptEvent(e)
+}

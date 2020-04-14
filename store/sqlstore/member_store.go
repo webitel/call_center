@@ -163,6 +163,7 @@ func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicat
 	return res, nil
 
 }
+
 func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.AppError {
 	_, err := s.GetMaster().Exec(`with rem as (
     delete from cc_member_attempt a
@@ -193,13 +194,76 @@ func (s SqlMemberStore) SetAttemptResult(result *model.AttemptResult) *model.App
 }
 
 func (s SqlMemberStore) Reporting(attemptId int64, result string) *model.AppError {
-	_, err := s.GetMaster().Exec(`call cc_reporting_attempt(:AttemptId::int8, :Result::varchar)`, map[string]interface{}{
+	_, err := s.GetMaster().Exec(`select cc_reporting_attempt(:AttemptId::int8, :Result::varchar, null::int8)`, map[string]interface{}{
 		"AttemptId": attemptId,
 		"Result":    result,
 	})
 
 	if err != nil {
 		return model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.set_attempt_result.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s SqlMemberStore) AttemptOfferingAgent(attemptId int64, display string, agentCallId, memberCallId *string) (*model.AttemptOfferingAgent, *model.AppError) {
+	var res *model.AttemptOfferingAgent
+	err := s.GetMaster().SelectOne(&res, `select *
+    		from cc_attempt_offering(:AttemptId::int8, :Display::varchar, :AgentCall::varchar, :MemberCall::varchar)`, map[string]interface{}{
+		"AttemptId":  attemptId,
+		"Display":    display,
+		"AgentCall":  agentCallId,
+		"MemberCall": memberCallId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.OfferingAttempt", "store.sql_member.set_attempt_offering.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}
+
+//cc_attempt_bridged( attempt_id_ int8, agent_call_id_ varchar, member_call_id_ varchar)
+func (s SqlMemberStore) BridgedAttempt(attemptId int64, agentCallId, memberCallId *string) (int64, *model.AppError) {
+	i, err := s.GetMaster().SelectInt(`select cc_attempt_bridged(:AttemptId::int8, :AgentCall::varchar, :MemberCall::varchar)`, map[string]interface{}{
+		"AttemptId":  attemptId,
+		"AgentCall":  agentCallId,
+		"MemberCall": memberCallId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.BridgedAttempt", "store.sql_member.set_attempt_bridge.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return i, nil
+}
+
+//cc_attempt_reporting(attempt_id_ int8)
+func (s SqlMemberStore) ReportingAttempt(attemptId int64) (int64, *model.AppError) {
+	i, err := s.GetMaster().SelectInt(`select cc_attempt_reporting(:AttemptId::int8)`, map[string]interface{}{
+		"AttemptId": attemptId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.ReportingAttempt", "store.sql_member.set_attempt_reporting.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return i, nil
+}
+
+func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *string) *model.AppError {
+	_, err := s.GetMaster().Exec(`select cc_attempt_leaving(:AttemptId::int8, :HoldSec::int, :Result::varchar)`, map[string]interface{}{
+		"AttemptId": attemptId,
+		"HoldSec":   holdSec,
+		"Result":    result,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.LeavingAttempt", "store.sql_member.set_attempt_leaving.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 

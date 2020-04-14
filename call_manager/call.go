@@ -29,6 +29,8 @@ type Call interface {
 	CallAction() <-chan CallAction
 	AddAction(action CallAction)
 
+	BridgeId() *string
+
 	OfferingAt() int64
 	AcceptAt() int64
 	BridgeAt() int64
@@ -74,6 +76,8 @@ type CallImpl struct {
 	info   model.CallActionInfo
 	hangup *model.CallActionHangup
 	action model.CallAction
+
+	bridgedId *string
 
 	offeringAt int64
 	ringingAt  int64
@@ -136,8 +140,6 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		state: CALL_STATE_NEW,
 	}
 
-	DUMP(callRequest)
-
 	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
@@ -167,10 +169,16 @@ func (call *CallImpl) setActive(e *model.CallActionActive) {
 func (call *CallImpl) setBridge(e *model.CallActionBridge) {
 	call.Lock()
 	call.bridgeAt = e.Timestamp
-	//FIXME bridged id
+	call.bridgedId = model.NewString(e.BridgedId)
 	call.Unlock()
 
 	call.setState(CALL_STATE_BRIDGE)
+}
+
+func (call *CallImpl) BridgeId() *string {
+	call.RLock()
+	defer call.RUnlock()
+	return call.bridgedId
 }
 
 func (call *CallImpl) setHold(e *model.CallActionHold) {
@@ -217,6 +225,7 @@ func (cm *CallManagerImpl) Proxy() string {
 
 func (call *CallImpl) Invite() *model.AppError {
 	call.cm.saveToCacheCall(call)
+	DUMP(call.callRequest)
 
 	if call.direction != CALL_DIRECTION_OUTBOUND {
 		return errInviteDirection
@@ -243,6 +252,7 @@ func (call *CallImpl) Invite() *model.AppError {
 }
 
 func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
+	//TODO added parent
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, c.cm, c.api)
 }
 

@@ -144,9 +144,14 @@ func (a *Attempt) Name() string {
 }
 
 func (a *Attempt) Display() string {
-	if a.destination.Display != nil {
+	if a.destination.Display != nil && *a.destination.Display != "" { //TODO
 		return *a.destination.Display
 	}
+	if a.resource != nil {
+		a.destination.Display = model.NewString(a.resource.GetDisplay())
+		return *a.destination.Display
+	}
+
 	return ""
 }
 
@@ -157,10 +162,6 @@ func (a *Attempt) Destination() string {
 	}
 	return a.destination.Number
 }
-
-//func (a *Attempt) Description() string {
-//	return a.member.Description
-//}
 
 func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)

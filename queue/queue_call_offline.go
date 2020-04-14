@@ -147,7 +147,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	var calling = true
 	//agent.SetStateOffering(queue.id) //TODO ringing
-	agent.SetStateOffering(queue.id)
+	agent.SetStateOffering(queue.id, attempt.Id())
 	for calling {
 		select {
 		case state := <-call.State():

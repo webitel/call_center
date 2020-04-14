@@ -70,7 +70,7 @@ func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *m
 			set status = :Status
 			,state = case when state = 'waiting' or state = 'pause' or state = 'offline' then :Status else state end
   			,status_payload = :Payload
-			,last_state_change = (extract(EPOCH from now()) * 1000)::bigint
+			,last_state_change = now()
 			,successively_no_answers = 0
 			where id = :AgentId`, map[string]interface{}{
 		"AgentId": agentId,
@@ -97,16 +97,13 @@ returning id agent_id, state, state_timeout`, map[string]interface{}{"AgentId": 
 	}
 }
 
-func (s SqlAgentStore) ChangeDeadlineState(newState string) ([]*model.AgentChangedState, *model.AppError) {
-	var times []*model.AgentChangedState //TODO
-	if _, err := s.GetMaster().Select(&times, `update cc_agent
-set state = :State,
-    state_timeout = null,
-	active_queue_id = null
-where state_timeout < now()
-returning id, state`, map[string]interface{}{"State": newState}); err != nil {
+func (s SqlAgentStore) ChangeDeadlineState() ([]*model.AgentChangedState, *model.AppError) {
+	var times []*model.AgentChangedState
+	if _, err := s.GetMaster().Select(&times, `select *
+	from cc_agent_state_timeout()
+    as (cur_time  int8, agent_id int, agent_updated_at int8, state varchar)`, map[string]interface{}{}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ChangeDeadlineState", "store.sql_agent.set_deadline_state.app_error", nil,
-			fmt.Sprintf("State=%v, %s", newState, err.Error()), http.StatusInternalServerError)
+			fmt.Sprintf("%s", err.Error()), http.StatusInternalServerError)
 	} else {
 		return times, nil
 	}
@@ -176,10 +173,11 @@ func (s SqlAgentStore) RefreshEndStateDay5Min() *model.AppError {
 func (s SqlAgentStore) SetWaiting(agentId int, bridged bool) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set state = :State,
-    last_state_change = (extract(EPOCH from now()) * 1000)::bigint,
-    last_bridge_end_at = case when :Bridged is true then :Time else last_bridge_end_at end,
+    last_state_change = now(),
+    last_bridge_end_at = case when :Bridged is true then now() else last_bridge_end_at end,
 	state_timeout = null,
-	active_queue_id = null
+	active_queue_id = null,
+	attempt_id = null
 where id = :Id`, map[string]interface{}{
 		"State":   model.AGENT_STATE_WAITING,
 		"Id":      agentId,
@@ -192,18 +190,19 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) SetOffering(agentId, queueId int) (int, *model.AppError) {
+func (s SqlAgentStore) SetOffering(agentId, queueId int, attemptId int64) (int, *model.AppError) {
 	successivelyNoAnswers, err := s.GetMaster().SelectInt(`update cc_agent
 			set state = :State,
-				last_offering_at = :Time,
-				last_state_change = :Time,
-				active_queue_id = :QueueId
+				last_offering_at = now(),
+				last_state_change = now(),
+				active_queue_id = :QueueId,
+				attempt_id = :AttemptId
 			where id = :Id
 			returning successively_no_answers`, map[string]interface{}{
-		"State":   model.AGENT_STATE_OFFERING,
-		"Time":    model.GetMillis(),
-		"Id":      agentId,
-		"QueueId": queueId,
+		"State":     model.AGENT_STATE_OFFERING,
+		"AttemptId": attemptId,
+		"Id":        agentId,
+		"QueueId":   queueId,
 	})
 	if err != nil {
 		return 0, model.NewAppError("SqlAgentStore.SetOffering", "store.sql_agent.set_offering.app_error", nil,
@@ -215,12 +214,11 @@ func (s SqlAgentStore) SetOffering(agentId, queueId int) (int, *model.AppError) 
 func (s SqlAgentStore) SetTalking(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 		set state = :State,
-			last_state_change = :Time,
-			last_bridge_start_at = :Time,
+			last_state_change = now(),
+			last_bridge_start_at = now(),
 		    state_timeout = null
 		where id = :Id`, map[string]interface{}{
 		"State": model.AGENT_STATE_TALK,
-		"Time":  model.GetMillis(),
 		"Id":    agentId,
 	})
 	if err != nil {
@@ -233,13 +231,11 @@ func (s SqlAgentStore) SetTalking(agentId int) *model.AppError {
 func (s SqlAgentStore) SetReporting(agentId int, timeout int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set state = :State,
-    last_state_change = :Time,
-    last_bridge_end_at = :Time,
+    last_state_change = now(),
 	successively_no_answers = 0,
     state_timeout = case when :Timeout > 0 then now() + (:Timeout || ' sec')::interval else null end
 where id = :Id`, map[string]interface{}{
 		"State":   model.AGENT_STATE_REPORTING,
-		"Time":    model.GetMillis(),
 		"Timeout": timeout,
 		"Id":      agentId,
 	})
@@ -253,12 +249,11 @@ where id = :Id`, map[string]interface{}{
 func (s SqlAgentStore) SetFine(agentId int, timeout int, noAnswer bool) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set state = :State,
-    last_state_change = :Time,
+    last_state_change = now(),
 	successively_no_answers = case when :NoAnswer is true then successively_no_answers + 1 else 0 end,
     state_timeout = case when :Timeout > 0 then now() + (:Timeout || ' sec')::interval else null end  
 where id = :Id`, map[string]interface{}{
 		"State":    model.AGENT_STATE_FINE,
-		"Time":     model.GetMillis(),
 		"Timeout":  timeout,
 		"NoAnswer": noAnswer,
 		"Id":       agentId,
@@ -274,8 +269,10 @@ func (s SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set state = :State,
     status = :Status,
+	last_state_change = now(),
     successively_no_answers = 0,
-	active_queue_id = null
+	active_queue_id = null,
+	attempt_id = null
 where id = :Id`, map[string]interface{}{
 		"Id":     agentId,
 		"State":  model.AGENT_STATE_WAITING,

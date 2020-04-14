@@ -21,7 +21,7 @@ const (
 	MEMBER_STATE_RESERVED     = 1
 	MEMBER_STATE_ORIGINATE    = 2
 	MEMBER_STATE_FIND_AGENT   = 3
-	MEMBER_STATE_PROGRESS     = 4
+	MEMBER_STATE_PROGRESS     = 4 // offering TODO
 	MEMBER_STATE_ACTIVE       = 5
 	MEMBER_STATE_POST_PROCESS = 6
 	MEMBER_STATE_CANCEL       = 7
@@ -58,7 +58,36 @@ type MemberAttempt struct {
 	TeamUpdatedAt       *int64    `json:"team_updated_at" db:"team_updated_at"`
 	Variables           []byte    `json:"variables" db:"variables"`
 	Name                string    `json:"name" db:"name"`
-	CallFromId          *string   `json:"call_from_id" db:"leg_a_id"`
+	MemberCallId        *string   `json:"member_call_id" db:"member_call_id"`
+}
+
+type EventAttempt struct {
+	AttemptId int64  `json:"attempt_id"`
+	Status    string `json:"status"`
+	AgentId   *int   `json:"agent_id"`
+	UserId    *int64 `json:"user_id"`
+	Timestamp int64  `json:"timestamp"`
+	DomainId  int64  `json:"domain_id"`
+}
+
+func (e *EventAttempt) ToJSON() string {
+	data, _ := json.Marshal(e)
+	return string(data)
+}
+
+type AttemptOfferingAgent struct {
+	AgentId        *int  `json:"agent_id" db:"agent_id"`
+	AgentNoAnswers *int  `json:"agent_no_answers" db:"agent_no_answers"`
+	Timestamp      int64 `json:"timestamp" db:"cur_time"`
+}
+
+type AttemptCallback struct {
+	Status        string
+	MinOfferingAt *int64
+	ExpireAt      *int64
+	Variables     map[string]string
+	Display       bool
+	Description   string
 }
 
 type AttemptResult struct {

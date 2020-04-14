@@ -93,7 +93,7 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 		queue.reporting(c.attempt, c.call, c.agentCall, c.agent, c.team)
 	}(ctx)
 
-	ctx.call, ok = queue.CallManager().GetCall(*attempt.member.CallFromId)
+	ctx.call, ok = queue.CallManager().GetCall(*attempt.member.MemberCallId)
 	if !ok {
 		return
 	}

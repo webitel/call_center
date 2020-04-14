@@ -8,10 +8,10 @@ func (am *agentManager) SetAgentWaiting(agent AgentObject, bridged bool) *model.
 	return am.store.Agent().SetWaiting(agent.Id(), bridged)
 }
 
-func (am *agentManager) SetAgentOffering(agent AgentObject, queueId int) (int, *model.AppError) {
+func (am *agentManager) SetAgentOffering(agent AgentObject, queueId int, attemptId int64) (int, *model.AppError) {
 	//FIXME EVENT
 	am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATE_OFFERING, nil, nil))
-	return am.store.Agent().SetOffering(agent.Id(), queueId)
+	return am.store.Agent().SetOffering(agent.Id(), queueId, attemptId)
 }
 
 func (am *agentManager) SetAgentTalking(agent AgentObject) *model.AppError {

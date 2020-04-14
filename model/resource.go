@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -64,7 +65,24 @@ func (g *SipGateway) Variables() map[string]string {
 }
 
 func (g *SipGateway) Endpoint(destination string) string {
-	return fmt.Sprintf(SIP_ENDPOINT_TEMPLATE, destination, g.Proxy)
+	//TODO space replace ?
+	return fmt.Sprintf(SIP_ENDPOINT_TEMPLATE, strings.Replace(destination, " ", "", -1), g.Proxy)
+}
+
+func (g *SipGateway) Bridge(parentId string, destination string, display string) string {
+	res := []string{
+		fmt.Sprintf("wbt_parent_id=%s", parentId),
+		fmt.Sprintf("origination_caller_id_number=%s", display),
+		"sip_route_uri=sip:$${outbound_sip_proxy}",
+		"sip_h_X-Webitel-User-Id=", //FIXME disable export bridge sip headers FS
+	}
+
+	vars := g.Variables()
+	for k, v := range vars {
+		res = append(res, fmt.Sprintf("%s='%s'", k, v))
+	}
+
+	return fmt.Sprintf("{%s}%s", strings.Join(res, ","), g.Endpoint(destination))
 }
 
 type OutboundResourceGroup struct {
