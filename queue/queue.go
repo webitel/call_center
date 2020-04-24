@@ -191,11 +191,35 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 	}
 }
 
+//FIXME store
+func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject) {
+	agentId := model.NewInt(agent.Id())
+	timestamp := model.GetMillis()
+	e := NewAnsweredEvent(attempt, timestamp)
+	err := tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+}
+
+//FIXME store
+func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) {
+	agentId := model.NewInt(agent.Id())
+	timestamp := model.GetMillis()
+	e := NewBridgedEventEvent(attempt, timestamp)
+	err := tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+}
+
 func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject) {
 	agentId := model.NewInt(agent.Id())
 
 	if !tm.PostProcessing() {
-		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult2(attempt.Id(), "SUCCESS", 30,
+		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "SUCCESS", 30,
 			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
 			e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
 			err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)

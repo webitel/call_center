@@ -125,10 +125,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			case call_manager.CALL_STATE_RINGING:
 				team.Offering(attempt, agent, call, nil)
 			case call_manager.CALL_STATE_ACCEPT:
-				queue.Hook(model.NewInt(agent.Id()), NewAnsweredEvent(attempt))
-
+				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
-				queue.Hook(model.NewInt(agent.Id()), NewBridgedEventEvent(attempt))
+				team.Bridged(attempt, agent)
 			}
 		case <-call.HangupChan():
 			calling = false

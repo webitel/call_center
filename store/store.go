@@ -43,31 +43,18 @@ type MemberStore interface {
 
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)
 
-	Reporting(attemptId int64, result string) *model.AppError
+	//Reporting(attemptId int64, result string) *model.AppError
 	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 
-	AttemptOfferingAgent(attemptId int64, display string, agentCallId, memberCallId *string) (*model.AttemptOfferingAgent, *model.AppError)
-	BridgedAttempt(attemptId int64, agentCallId, memberCallId *string) (int64, *model.AppError)
 	ReportingAttempt(attemptId int64) (int64, *model.AppError)
 
-	LeavingAttempt(attemptId int64, holdSec int, result *string) *model.AppError
-
-	SetAttemptResult(result *model.AttemptResult) *model.AppError
-
-	SetAttemptState(id int64, state int) *model.AppError
-	SetBridged(id, bridgedAt int64, legAId, legBId *string) *model.AppError
-	//SetAttemptAgentId(attemptId int64, agentId *int64) *model.AppError
 	SetAttemptFindAgent(id int64) *model.AppError
-
-	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) *model.AppError
-	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) (bool, *model.AppError)
-	SetAttemptBarred(attemptId, hangupAt int64, cause string, data []byte) (bool, *model.AppError)
 
 	SetAttemptOffering(attemptId int64, agentId *int) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec int) (int64, *model.AppError)
 	SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError)
-	SetAttemptResult2(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
+	SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
 
 	GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError)
 }

@@ -197,7 +197,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	if err != nil {
 		wlog.Error(err.Error())
 		//TODO added to model "dialing.queue.new_queue.app_error"
-		queueManager.SetAttemptMinus(attempt, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
+		panic(err.Error())
 		return
 	}
 
@@ -205,7 +205,8 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 	attempt.channel = queue.Channel()
 
 	if attempt.IsBarred() {
-		queueManager.attemptBarred(attempt, queue)
+		//TODO fixme
+		//queueManager.attemptBarred(attempt, queue)
 		return
 	}
 
@@ -309,14 +310,4 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 	}
 
 	return nil, false
-}
-
-func (queueManager *QueueManager) attemptBarred(attempt *Attempt, queue QueueObject) {
-	if stopped, err := queueManager.SetAttemptBarred(attempt); err != nil {
-		wlog.Error(err.Error())
-	} else {
-		wlog.Warn(fmt.Sprintf("barred member %s[%d] Destination=\"%v\" AttemptId=%d in queue \"%s\"", attempt.Name(), attempt.MemberId(),
-			attempt.Destination(), attempt.Id(), queue.Name()))
-		queueManager.notifyStopAttempt(attempt, stopped)
-	}
 }

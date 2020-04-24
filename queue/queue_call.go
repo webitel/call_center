@@ -5,7 +5,6 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type CallingQueueObject interface {
@@ -87,10 +86,6 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 	return call
 }
 
-func (queue *CallingQueue) SetAttemptResult(result *model.AttemptResult) *model.AppError {
-	return queue.queueManager.store.Member().Reporting(result.Id, result.Result)
-}
-
 func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
 	if attempt.Info == nil {
 		attempt.Info = &AttemptInfoCall{}
@@ -100,81 +95,4 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 
 func (queue *BaseQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
 	queue.queueManager.store.Agent().MissedAttempt(agent.Id(), attempt.Id(), call.HangupCause())
-}
-
-func (queue *BaseQueue) DistributeAttemptToAgent() {
-
-}
-
-func (queue *BaseQueue) OfferingAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, display string, agentCallId, memberCallId *string) {
-	if agentInfo, err := queue.queueManager.store.Member().AttemptOfferingAgent(a.Id(), display, agentCallId, memberCallId); err != nil {
-		wlog.Error(fmt.Sprintf("attempt %d set offering error: %s", a.Id(), err.Error()))
-	} else {
-		if agentInfo.AgentId != nil {
-			ag := &model.EventAttemptOffering{
-				MemberId: a.MemberId(),
-				EventAttempt: model.EventAttempt{
-					AttemptId: a.Id(),
-					Timestamp: agentInfo.Timestamp,
-					Channel:   queue.channel,
-					Status:    model.ChannelStateOffering,
-					AgentId:   agentInfo.AgentId,
-					UserId:    model.NewInt64(agent.UserId()),
-					DomainId:  queue.DomainId(),
-				},
-			}
-
-			if err = queue.queueManager.mq.AttemptEvent(queue.channel, queue.domainId, queue.id, model.NewInt(agent.Id()), ag); err != nil {
-				wlog.Error(fmt.Sprintf("attempt %d notify offering error: %s", a.Id(), err.Error()))
-			}
-		}
-	}
-}
-
-func (queue *BaseQueue) BridgeAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, agentCallId, memberCallId *string) {
-	if timestamp, err := queue.queueManager.store.Member().BridgedAttempt(a.Id(), agentCallId, memberCallId); err != nil {
-		wlog.Error(fmt.Sprintf("attempt %d set bridge error: %s", a.Id(), err.Error()))
-	} else {
-		fmt.Println("fixme", timestamp)
-		//ag := model.EventAttempt{
-		//	AttemptId: a.Id(),
-		//	Status:    "talking", //TODO
-		//	AgentId:   model.NewInt(agent.Id()),
-		//	UserId:    model.NewInt64(agent.UserId()),
-		//	Timestamp: timestamp,
-		//	DomainId:  queue.DomainId(),
-		//}
-		//
-		//if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
-		//	wlog.Error(fmt.Sprintf("attempt %d notify bridge error: %s", a.Id(), err.Error()))
-		//}
-	}
-}
-
-func (queue *BaseQueue) ReportingAttempt(a *Attempt, agent agent_manager.AgentObject) {
-	if timestamp, err := queue.queueManager.store.Member().ReportingAttempt(a.Id()); err != nil {
-		wlog.Error(fmt.Sprintf("attempt %d set reporting error: %s", a.Id(), err.Error()))
-	} else {
-		fmt.Println("fixme", timestamp)
-		//ag := model.EventAttempt{
-		//	AttemptId: a.Id(),
-		//	Status:    "reporting", //TODO
-		//	AgentId:   model.NewInt(agent.Id()),
-		//	UserId:    model.NewInt64(agent.UserId()),
-		//	Timestamp: timestamp,
-		//	DomainId:  queue.DomainId(),
-		//}
-		//
-		//if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
-		//	wlog.Error(fmt.Sprintf("attempt %d notify reporting error: %s", a.Id(), err.Error()))
-		//}
-	}
-}
-
-func (queue *BaseQueue) LeavingAttempt(a *Attempt, holdSec int, result *string) {
-	//TODO fire event
-
-	if err := queue.queueManager.store.Member().LeavingAttempt(a.Id(), holdSec, result); err != nil {
-		wlog.Error(fmt.Sprintf("attempt %d set reporting error: %s", a.Id(), err.Error()))
-	}
 }

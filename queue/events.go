@@ -134,9 +134,10 @@ func NewOfferingEvent(a *Attempt, timestamp int64, aChannel, mChannel Channel) m
 	return model.NewEvent("channel", e)
 }
 
-func NewAnsweredEvent(a *Attempt) model.Event {
+func NewAnsweredEvent(a *Attempt, timestamp int64) model.Event {
 	e := AnsweredEvent{
 		ChannelEvent: ChannelEvent{
+			Timestamp: timestamp,
 			Channel:   a.channel,
 			AttemptId: model.NewInt64(a.Id()),
 			Status:    model.ChannelStateAnswered,
@@ -146,7 +147,7 @@ func NewAnsweredEvent(a *Attempt) model.Event {
 	return model.NewEvent("channel", e)
 }
 
-func NewBridgedEventEvent(a *Attempt) model.Event {
+func NewBridgedEventEvent(a *Attempt, timestamp int64) model.Event {
 	e := BridgedEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,

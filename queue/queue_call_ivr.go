@@ -46,9 +46,9 @@ func (queue *IVRQueue) reporting(attempt *Attempt) {
 
 	attempt.SetResult(model.NewString(result.Result))
 
-	if err := queue.SetAttemptResult(result); err != nil {
-		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
-	}
+	//if err := queue.SetAttemptResult(result); err != nil {
+	//	wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
+	//}
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] reporting: %v", attempt.Id(), result))
 	queue.queueManager.LeavingMember(attempt, queue)

@@ -73,9 +73,9 @@ func (queue *ProgressiveCallQueue) reporting(attempt *Attempt, call, agentCall c
 
 	attempt.SetResult(model.NewString(result.Result))
 
-	if err := queue.SetAttemptResult(result); err != nil {
-		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
-	}
+	//if err := queue.SetAttemptResult(result); err != nil {
+	//	wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
+	//}
 
 	close(attempt.distributeAgent)
 	close(attempt.done)

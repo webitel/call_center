@@ -73,9 +73,9 @@ func (queue *OfflineCallQueue) reporting(attempt *Attempt) {
 	}
 	result.State = model.MEMBER_STATE_END
 
-	if err := queue.SetAttemptResult(result); err != nil {
-		wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
-	}
+	//if err := queue.SetAttemptResult(result); err != nil {
+	//	wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
+	//}
 	close(attempt.distributeAgent)
 	wlog.Debug(fmt.Sprintf("attempt[%d] reporting: %v", attempt.Id(), result))
 	queue.queueManager.LeavingMember(attempt, queue)
@@ -145,7 +145,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	call := queue.NewCall(callRequest)
 	call.Invite()
 
-	defer queue.LeavingAttempt(attempt, 20, model.NewString("ABANDONED"))
+	defer team.Missed(attempt, 20, agent)
 
 	var calling = true
 	//agent.SetStateOffering(queue.id) //TODO ringing
