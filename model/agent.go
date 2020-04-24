@@ -22,9 +22,13 @@ const (
 )
 
 const (
-	AGENT_STATUS_OFFLINE = "offline"
-	AGENT_STATUS_WAITING = "waiting"
-	AGENT_STATUS_PAUSE   = "pause"
+	AgentChangedStatusEvent = "agent_status"
+)
+
+const (
+	AgentStatusOnline  = "online"
+	AgentStatusOffline = "offline"
+	AgentStatusPause   = "pause"
 )
 
 const (
@@ -50,30 +54,67 @@ type Agent struct {
 	AgentStatus
 }
 
+type AgentChannel struct {
+	Channel  string `json:"channel"`
+	State    string `json:"state"`
+	JoinedAt int64  `json:"joined_at"`
+	Online   bool   `json:"online"`
+}
+
+type AgentOnlineData struct {
+	Timestamp int64          `json:"timestamp" db:"timestamp"`
+	Channels  []AgentChannel `json:"channels" db:"channels"`
+}
+
 type AgentEvent struct {
-	Event     string `json:"event"`
-	AgentId   int    `json:"agent_id"`
-	UserId    int64  `json:"user_id"`
-	DomainId  int64  `json:"domain_id"`
-	Timestamp int64  `json:"timestamp"`
+	AgentId   int   `json:"agent_id"`
+	UserId    int64 `json:"user_id"`
+	DomainId  int64 `json:"domain_id"`
+	Timestamp int64 `json:"timestamp"`
+}
+
+type Event struct {
+	Name string      `json:"event"`
+	Data interface{} `json:"data"`
+}
+
+func NewEvent(name string, data interface{}) Event {
+	return Event{
+		Name: name,
+		Data: data,
+	}
 }
 
 type AgentEventStatus struct {
 	AgentEvent
 	AgentStatus
-	Timeout *int `json:"timeout"`
 }
 
-func (e *AgentEventStatus) ToJSON() string {
+type AgentEventOnlineStatus struct {
+	Channels []AgentChannel `json:"channels"`
+	OnDemand bool           `json:"on_demand"`
+	AgentEvent
+	AgentStatus
+}
+
+func (e Event) ToJSON() string {
+	data, _ := json.Marshal(e)
+	return string(data)
+}
+
+func (e AgentEventStatus) ToJSON() string {
+	data, _ := json.Marshal(e)
+	return string(data)
+}
+
+func (e AgentEventOnlineStatus) ToJSON() string {
 	data, _ := json.Marshal(e)
 	return string(data)
 }
 
 type AgentStatus struct {
 	Status        string  `json:"status" db:"status"`
-	StatusPayload *string `json:"status_payload" db:"status_payload"`
-	AttemptId     *int64  `json:"attempt_id" db:"-"`
-	Timeout       *int    `json:"timeout"`
+	StatusPayload *string `json:"status_payload,omitempty" db:"status_payload"`
 }
 
 type MissedAgentAttempt struct {

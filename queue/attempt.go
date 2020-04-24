@@ -17,15 +17,19 @@ type AttemptInfo interface {
 type Result string
 
 type Attempt struct {
-	member          *model.MemberAttempt
-	state           int
-	destination     model.MemberDestination
-	resource        ResourceObject
-	agent           agent_manager.AgentObject
-	Info            AttemptInfo `json:"info"`
-	Logs            []LogItem   `json:"logs"`
-	cancel          chan Result
-	done            chan struct{}
+	member      *model.MemberAttempt
+	state       int
+	destination model.MemberDestination
+	resource    ResourceObject
+	agent       agent_manager.AgentObject
+	domainId    int64
+	channel     string
+	Info        AttemptInfo `json:"info"`
+	Logs        []LogItem   `json:"logs"`
+	cancel      chan Result
+	done        chan struct{}
+
+	timeout         chan *model.AttemptTimeout
 	distributeAgent chan agent_manager.AgentObject
 	ctx             context.Context
 	sync.RWMutex
@@ -41,6 +45,7 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 		member:          member,
 		cancel:          make(chan Result, 1),
 		done:            make(chan struct{}),
+		timeout:         make(chan *model.AttemptTimeout),
 		distributeAgent: make(chan agent_manager.AgentObject, 1),
 		ctx:             context.Background(),
 		destination:     model.MemberDestinationFromBytes(member.Destination),
@@ -111,7 +116,7 @@ func (a *Attempt) Result() string {
 	return ""
 }
 
-func (a *Attempt) QueueId() int64 {
+func (a *Attempt) QueueId() int {
 	return a.member.QueueId
 }
 
@@ -186,6 +191,10 @@ func (a *Attempt) IsBarred() bool {
 
 func (a *Attempt) IsTimeout() bool {
 	return a.member.IsTimeout()
+}
+
+func (a *Attempt) WaitTimeout() *model.AttemptTimeout {
+	return <-a.timeout
 }
 
 func (a *Attempt) SetResult(result *string) {

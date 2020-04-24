@@ -145,6 +145,8 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	call := queue.NewCall(callRequest)
 	call.Invite()
 
+	defer queue.LeavingAttempt(attempt, 20, model.NewString("ABANDONED"))
+
 	var calling = true
 	//agent.SetStateOffering(queue.id) //TODO ringing
 	agent.SetStateOffering(queue.id, attempt.Id())

@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
@@ -20,10 +21,12 @@ type teamManager struct {
 	store store.Store
 	cache utils.ObjectCache
 	sync.RWMutex
+	mq mq.MQ
 }
 
 type agentTeam struct {
-	data *model.Team
+	data        *model.Team
+	teamManager *teamManager
 }
 
 func (at *agentTeam) Name() string {
@@ -109,9 +112,10 @@ func (at *agentTeam) ReportingCall(queue *CallingQueue, agent agent_manager.Agen
 	}
 }
 
-func NewTeamManager(s store.Store) *teamManager {
+func NewTeamManager(s store.Store, m mq.MQ) *teamManager {
 	return &teamManager{
 		store: s,
+		mq:    m,
 		cache: utils.NewLruWithParams(MAX_TEAM_CACHE, "team", MAX_TEAM_EXPIRE_CACHE, ""),
 	}
 }
@@ -134,7 +138,10 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	if err != nil {
 		return nil, err
 	}
-	team = &agentTeam{data: data}
+	team = &agentTeam{
+		data:        data,
+		teamManager: tm,
+	}
 
 	tm.cache.AddWithDefaultExpires(id, team)
 	wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))

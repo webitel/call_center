@@ -44,7 +44,7 @@ func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.C
 		resourceManager: resourceManager,
 		agentManager:    agentManager,
 		mq:              m,
-		teamManager:     NewTeamManager(s),
+		teamManager:     NewTeamManager(s, m),
 		input:           make(chan *Attempt),
 		stop:            make(chan struct{}),
 		stopped:         make(chan struct{}),
@@ -181,6 +181,16 @@ func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject)
 	}
 }
 
+func (queueManager *QueueManager) SetAgentWaitingChannel(agent agent_manager.AgentObject, channel string) (int64, *model.AppError) {
+	timestamp, err := queueManager.store.Agent().WaitingChannel(agent.Id(), channel)
+	if err != nil {
+		return 0, err
+	}
+
+	e := NewWaitingChannelEvent(nil, timestamp)
+	return 0, queueManager.mq.ChannelEvent(channel, agent.DomainId(), agent.Id(), e)
+}
+
 func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 
 	queue, err := queueManager.GetQueue(int(attempt.QueueId()), attempt.QueueUpdatedAt())
@@ -190,6 +200,9 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 		queueManager.SetAttemptMinus(attempt, model.MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT)
 		return
 	}
+
+	attempt.domainId = queue.DomainId()
+	attempt.channel = queue.Channel()
 
 	if attempt.IsBarred() {
 		queueManager.attemptBarred(attempt, queue)
@@ -207,7 +220,6 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 		wlog.Error(err.Error()) //TODO fixme - close attempt
 		panic(err.Error())
 	}
-	queueManager.notifyChangedQueueLength(queue)
 
 	wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))

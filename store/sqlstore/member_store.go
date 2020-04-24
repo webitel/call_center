@@ -269,3 +269,115 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 
 	return nil
 }
+
+func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`with offering as (
+    update cc_member_attempt
+    set state_str = :State,
+        offering_at = coalesce(offering_at, now()),
+        agent_id = case when agent_id isnull  and :AgentId::int notnull then :AgentId else agent_id end
+    where id = :Id
+    returning state_str, offering_at, agent_id, channel
+), ch as (
+    update cc_agent_channel ch
+    set state = offering.state_str,
+        joined_at = now()
+    from offering
+    where (offering.agent_id, offering.channel) = (ch.agent_id, ch.channel)
+)
+select cc_view_timestamp(now()) as timestamp
+from offering`, map[string]interface{}{
+		"Id":      attemptId,
+		"State":   model.ChannelStateOffering,
+		"AgentId": agentId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptOffering", "store.sql_member.set_attempt_offering.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`with att as (
+    update cc_member_attempt
+    set timeout  = now() + (:DeadlineSec::varchar || ' sec')::interval,
+        reporting_at = now(),
+        state_str = :State
+    where id = :Id
+    returning agent_id, channel, state_str, reporting_at
+)
+update cc_agent_channel c
+set state = att.state_str,
+    joined_at = att.reporting_at
+from att
+where (att.agent_id, att.channel) = (c.agent_id, c.channel)
+returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
+		"State":       model.ChannelStateReporting,
+		"Id":          attemptId,
+		"DeadlineSec": deadlineSec,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptReporting", "store.sql_member.set_attempt_reporting.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, 'MISSED', :State, :AgentHoldTime)) as timestamp`,
+		map[string]interface{}{
+			"State":         model.ChannelStateMissed,
+			"Id":            id,
+			"HoldSec":       holdSec,
+			"AgentHoldTime": agentHoldTime,
+		})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptMissed", "store.sql_member.set_attempt_missed.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptResult2(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, :Result::varchar, :State::varchar, :AgentHoldTime)) as timestamp`,
+		map[string]interface{}{
+			"Result":        result,
+			"State":         channelState,
+			"Id":            id,
+			"HoldSec":       holdSec,
+			"AgentHoldTime": agentHoldTime,
+		})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptMissed", "store.sql_member.set_attempt_missed.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError) {
+	var attempts []*model.AttemptTimeout
+	_, err := s.GetMaster().Select(&attempts, `select a.id, cc_view_timestamp(cc_attempt_leaving(a.id, cq.sec_between_retries, 'MISSED', 'waiting',0)) as timestamp,
+       'waiting' as result
+from cc_member_attempt a
+    left join cc_queue cq on a.queue_id = cq.id
+    left join cc_team ct on cq.team_id = ct.id
+where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
+		"NodeId": nodeId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.GetTimeouts", "store.sql_member.get_timeouts.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return attempts, nil
+}

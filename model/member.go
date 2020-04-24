@@ -35,7 +35,7 @@ type MemberDestination struct {
 
 type MemberAttempt struct {
 	Id             int64 `json:"id" db:"id"`
-	QueueId        int64 `json:"queue_id" db:"queue_id"`
+	QueueId        int   `json:"queue_id" db:"queue_id"`
 	QueueUpdatedAt int64 `json:"queue_updated_at" db:"queue_updated_at"`
 
 	QueueCount        int `json:"queue_count" db:"queue_count"`
@@ -61,13 +61,30 @@ type MemberAttempt struct {
 	MemberCallId        *string   `json:"member_call_id" db:"member_call_id"`
 }
 
+type AttemptTimeout struct {
+	Id        int64  `json:"id" db:"id"`
+	Timestamp int64  `json:"timestamp" db:"timestamp"`
+	Result    string `json:"result" db:"result"`
+}
+
 type EventAttempt struct {
 	AttemptId int64  `json:"attempt_id"`
+	Timestamp int64  `json:"timestamp"`
+	Channel   string `json:"channel"`
 	Status    string `json:"status"`
 	AgentId   *int   `json:"agent_id"`
 	UserId    *int64 `json:"user_id"`
-	Timestamp int64  `json:"timestamp"`
 	DomainId  int64  `json:"domain_id"`
+}
+
+type EventAttemptOffering struct {
+	MemberId int64 `json:"member_id"`
+	EventAttempt
+}
+
+func (e *EventAttemptOffering) ToJSON() string {
+	data, _ := json.Marshal(e)
+	return string(data)
 }
 
 func (e *EventAttempt) ToJSON() string {

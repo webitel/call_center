@@ -3,6 +3,7 @@ package sqlstore
 import (
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"net/http"
@@ -65,38 +66,7 @@ where a.id = :Id and u.extension notnull
 	}
 }
 
-func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update cc_agent
-			set status = :Status
-			,state = case when state = 'waiting' or state = 'pause' or state = 'offline' then :Status else state end
-  			,status_payload = :Payload
-			,last_state_change = now()
-			,successively_no_answers = 0
-			where id = :AgentId`, map[string]interface{}{
-		"AgentId": agentId,
-		"Status":  status,
-		"Payload": payload,
-	}); err != nil {
-		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
-			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
-	}
-	return nil
-}
-
-func (s SqlAgentStore) SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError) {
-	var agentState *model.AgentState
-	if err := s.GetMaster().SelectOne(&agentState, `update cc_agent
-set state = :State
-  ,state_timeout = case when :Timeout > 0 then now() + (:Timeout || ' sec')::INTERVAL else null end
-where id = :AgentId
-returning id agent_id, state, state_timeout`, map[string]interface{}{"AgentId": agentId, "State": state, "Timeout": timeoutSeconds}); err != nil {
-		return nil, model.NewAppError("SqlAgentStore.SetState", "store.sql_agent.set_state.app_error", nil,
-			fmt.Sprintf("AgenetId=%v, State=%v, %s", agentId, state, err.Error()), http.StatusInternalServerError)
-	} else {
-		return agentState, nil
-	}
-}
-
+//TODO deprecated
 func (s SqlAgentStore) ChangeDeadlineState() ([]*model.AgentChangedState, *model.AppError) {
 	var times []*model.AgentChangedState
 	if _, err := s.GetMaster().Select(&times, `select *
@@ -265,22 +235,79 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
+func (s SqlAgentStore) SetOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+	var data *model.AgentOnlineData
+
+	err := s.GetMaster().SelectOne(&data, `select timestamp, channels
+		from cc_agent_set_login(:AgentId, :Channels::varchar[], :OnDemand) channels  (channels jsonb, timestamp int8)`,
+		map[string]interface{}{
+			"AgentId":  agentId,
+			"Channels": pq.Array(channels),
+			"OnDemand": onDemand,
+		})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.SetOnline", "store.sql_agent.set_online.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, Status=%v, %s", agentId, model.AgentStatusOnline, err.Error()), http.StatusInternalServerError)
+	}
+
+	return data, nil
+}
+
+func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
+	if _, err := s.GetMaster().Exec(`update cc_agent
+			set status = :Status,
+  			status_payload = :Payload,
+			last_state_change = now(),
+			successively_no_answers = 0
+		where id = :AgentId`, map[string]interface{}{
+		"AgentId": agentId,
+		"Status":  status,
+		"Payload": payload,
+	}); err != nil {
+		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+	}
+	return nil
+}
+
+func (s SqlAgentStore) WaitingChannel(agentId int, channel string) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`update cc_agent_channel c
+set state = :State,
+    joined_at = now(),
+    timeout = null
+where (c.agent_id, c.channel) = (:AgentId::int, :Channel::varchar) and c.state in ('wrap_time', 'missed')
+returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
+		"State":   model.ChannelStateWaiting,
+		"AgentId": agentId,
+		"Channel": channel,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlAgentStore.WaitingChannel", "store.sql_agent.waiting_channel.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, Channel=%v %s", agentId, channel, err.Error()), http.StatusInternalServerError)
+	}
+
+	if timestamp == 0 {
+		return 0, model.NewAppError("SqlAgentStore.WaitingChannel", "store.sql_agent.waiting_channel.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, Channel=%v not allowed", agentId, channel), http.StatusBadRequest)
+	}
+
+	return timestamp, nil
+}
+
 func (s SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
-set state = :State,
-    status = :Status,
-	last_state_change = now(),
-    successively_no_answers = 0,
-	active_queue_id = null,
-	attempt_id = null
+set status = :Status,
+	last_status_change = now(),
+    successively_no_answers = 0
 where id = :Id`, map[string]interface{}{
 		"Id":     agentId,
-		"State":  model.AGENT_STATE_WAITING,
-		"Status": model.AGENT_STATUS_PAUSE,
+		"Status": model.AgentStatusPause,
 	})
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.SetOnBreak", "store.sql_agent.set_break.app_error", nil,
-			fmt.Sprintf("AgenetId=%v, Status=%v State=%v, %s", agentId, model.AGENT_STATUS_PAUSE, model.AGENT_STATE_WAITING,
+			fmt.Sprintf("AgenetId=%v, Status=%v State=%v, %s", agentId, model.AgentStatusPause, model.AGENT_STATE_WAITING,
 				err.Error()), http.StatusInternalServerError)
 	}
 
@@ -302,4 +329,21 @@ values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 	}
 
 	return nil
+}
+
+func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
+	var channels []*model.ChannelTimeout
+	_, err := s.GetMaster().Select(&channels, `update cc_agent_channel
+	set state = 'waiting',
+		timeout = null,
+		joined_at = now()
+	where timeout < now()
+	returning agent_id, channel, cc_view_timestamp(joined_at) as timestamp`)
+
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.GetChannelTimeout", "store.sql_agent.channel_timeout.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return channels, nil
 }

@@ -72,54 +72,73 @@ func (am *agentManager) GetAgent(id int, updatedAt int64) (AgentObject, *model.A
 	return agent, nil
 }
 
-func (am *agentManager) SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
+func (am *agentManager) SetOnline(agent AgentObject, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+	data, err := am.store.Agent().SetOnline(agent.Id(), channels, onDemand)
+	if err != nil {
+		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" error: %s", agent.Name(), agent.Id(), model.AgentStatusOnline, err.Error()))
+		return nil, err
+	}
+	//FIXME add pool send event
+	return data, am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventOnlineStatus(agent, data, onDemand))
+}
+
+func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
 	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
 		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
 		return err
 	}
 
-	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), status.Status))
-
 	return nil
 }
 
-func (am *agentManager) SetOnline(agent AgentObject) *model.AppError {
-	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_WAITING,
-	})
-	if err != nil {
-		return err
-	}
-
-	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_WAITING, nil, nil))
-}
-
 func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
-	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status: model.AGENT_STATUS_OFFLINE,
-	})
-	if err != nil {
-		return err
+	event := model.AgentEventStatus{
+		AgentEvent: model.AgentEvent{
+			AgentId:   agent.Id(),
+			UserId:    agent.UserId(),
+			DomainId:  agent.DomainId(),
+			Timestamp: model.GetMillis(), //FIXME DB time
+		},
+		AgentStatus: model.AgentStatus{
+			Status: model.AgentStatusOffline,
+		},
 	}
 
-	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_OFFLINE, nil, nil))
-}
-
-//todo add timeout
-func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError {
-	err := am.SetAgentStatus(agent, &model.AgentStatus{
-		Status:        model.AGENT_STATUS_PAUSE,
-		StatusPayload: payload,
-	})
+	err := am.setAgentStatus(agent, &event.AgentStatus)
 
 	if err != nil {
 		return err
 	}
 	//add channel queue
-	return am.mq.AgentChangeStatus(NewAgentEventStatus(agent, model.AGENT_STATUS_PAUSE, payload, timeout))
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventStatus(agent, event))
 }
 
+func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError {
+	event := model.AgentEventStatus{
+		AgentEvent: model.AgentEvent{
+			AgentId:   agent.Id(),
+			UserId:    agent.UserId(),
+			DomainId:  agent.DomainId(),
+			Timestamp: model.GetMillis(), //FIXME DB time
+		},
+		AgentStatus: model.AgentStatus{
+			Status:        model.AgentStatusPause,
+			StatusPayload: payload,
+		},
+	}
+
+	err := am.setAgentStatus(agent, &event.AgentStatus)
+
+	if err != nil {
+		return err
+	}
+	//add channel queue
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventStatus(agent, event))
+}
+
+// TODO deprecated
 func (am *agentManager) changeDeadlineState() {
+	return
 	var agent AgentObject
 	if s, err := am.store.Agent().ChangeDeadlineState(); err != nil {
 		wlog.Error(err.Error())
@@ -128,21 +147,22 @@ func (am *agentManager) changeDeadlineState() {
 			if agent, err = am.GetAgent(v.AgentId, v.AgentUpdatedAt); err != nil {
 				wlog.Error(fmt.Sprintf("agent %d has been changed state to \"%s\" error: %s", v.AgentId, v.State, err.Error()))
 			} else {
-				//fixme to queue
+				//TODO not link attempt
+				fmt.Println("FIXME", agent)
 
-				ag := model.EventAttempt{
-					Status:    v.State,
-					AgentId:   model.NewInt(agent.Id()),
-					UserId:    model.NewInt64(agent.UserId()),
-					Timestamp: v.AgentUpdatedAt,
-					DomainId:  agent.DomainId(),
-				}
-
-				if err = am.mq.AttemptEvent(ag); err != nil {
-					wlog.Error(fmt.Sprintf("agent \"%s\" notify %s error: %s", agent.Name(), v.State, err.Error()))
-				} else {
-					wlog.Debug(fmt.Sprintf("agent \"%s\" has been changed state to \"%s\" - timeout", agent.Name(), v.State))
-				}
+				//ag := model.EventAttempt{
+				//	Status:    v.State,
+				//	AgentId:   model.NewInt(agent.Id()),
+				//	UserId:    model.NewInt64(agent.UserId()),
+				//	Timestamp: v.AgentUpdatedAt,
+				//	DomainId:  agent.DomainId(),
+				//}
+				//
+				//if err = am.mq.AttemptEvent(ag); err != nil {
+				//	wlog.Error(fmt.Sprintf("agent \"%s\" notify %s error: %s", agent.Name(), v.State, err.Error()))
+				//} else {
+				//	wlog.Debug(fmt.Sprintf("agent \"%s\" has been changed state to \"%s\" - timeout", agent.Name(), v.State))
+				//}
 			}
 		}
 	}

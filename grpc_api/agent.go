@@ -15,22 +15,36 @@ func NewAgentApi(app *app.App) *agent {
 	return &agent{app}
 }
 
-func (api *agent) Login(ctx context.Context, in *cc.LoginRequest) (*cc.LoginResponse, error) {
-	err := api.app.SetAgentLogin(int(in.AgentId))
+func (api *agent) Online(ctx context.Context, in *cc.OnlineRequest) (*cc.OnlineResponse, error) {
+	info, err := api.app.SetAgentOnline(int(in.AgentId), in.GetChannels(), in.GetOnDemand())
 	if err != nil {
 		return nil, err
 	}
 
-	return &cc.LoginResponse{}, nil
+	channels := make([]*cc.Channel, 0, len(info.Channels))
+
+	for _, v := range info.Channels {
+		channels = append(channels, &cc.Channel{
+			Channel:  v.Channel,
+			State:    v.State,
+			JoinedAt: v.JoinedAt,
+			Enabled:  v.Online,
+		})
+	}
+
+	return &cc.OnlineResponse{
+		Timestamp: info.Timestamp,
+		Channels:  channels,
+	}, nil
 }
 
-func (api *agent) Logout(ctx context.Context, in *cc.LogoutRequest) (*cc.LogoutResponse, error) {
+func (api *agent) Offline(ctx context.Context, in *cc.OfflineRequest) (*cc.OfflineResponse, error) {
 	err := api.app.SetAgentLogout(int(in.AgentId))
 	if err != nil {
 		return nil, err
 	}
 
-	return &cc.LogoutResponse{}, nil
+	return &cc.OfflineResponse{}, nil
 }
 
 func (api *agent) Pause(ctx context.Context, in *cc.PauseRequest) (*cc.PauseResponse, error) {
@@ -50,4 +64,15 @@ func (api *agent) Pause(ctx context.Context, in *cc.PauseRequest) (*cc.PauseResp
 	}
 
 	return &cc.PauseResponse{}, nil
+}
+
+func (api *agent) WaitingChannel(ctx context.Context, in *cc.WaitingChannelRequest) (*cc.WaitingChannelResponse, error) {
+	timestamp, err := api.app.WaitingAgentChannel(int(in.AgentId), in.Channel)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.WaitingChannelResponse{
+		Timestamp: timestamp,
+	}, nil
 }

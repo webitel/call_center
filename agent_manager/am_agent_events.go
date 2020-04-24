@@ -10,20 +10,24 @@ func (am *agentManager) notifyChangeAgentState(agent AgentObject, state string) 
 	//fmt.Println(agent)
 }
 
-func NewAgentEventStatus(agent AgentObject, status string, payload *string, timeout *int) model.AgentEventStatus {
-	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\"", agent.Name(), agent.Id(), status))
-	return model.AgentEventStatus{
+func NewAgentEventStatus(agent AgentObject, event model.AgentEventStatus) model.Event {
+	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), event.Status))
+	return model.NewEvent(model.AgentChangedStatusEvent, event)
+}
+
+func NewAgentEventOnlineStatus(agent AgentObject, info *model.AgentOnlineData, onDemand bool) model.Event {
+	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), model.AgentStatusOnline))
+	return model.NewEvent(model.AgentChangedStatusEvent, model.AgentEventOnlineStatus{
+		Channels: info.Channels,
+		OnDemand: onDemand,
 		AgentEvent: model.AgentEvent{
-			Event:     "status",
 			AgentId:   agent.Id(),
 			UserId:    agent.UserId(),
 			DomainId:  agent.DomainId(),
-			Timestamp: model.GetMillis(),
+			Timestamp: info.Timestamp,
 		},
 		AgentStatus: model.AgentStatus{
-			Status:        status,
-			StatusPayload: payload,
+			Status: model.AgentStatusOnline,
 		},
-		Timeout: timeout,
-	}
+	})
 }

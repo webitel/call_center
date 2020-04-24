@@ -68,6 +68,15 @@ func (d *DialingImpl) routeIdleAttempts() {
 		return
 	}
 
+	if channels, err := d.store.Agent().GetChannelTimeout(); err == nil {
+		for _, v := range channels {
+			waiting := NewWaitingChannelEvent(nil, v.Timestamp)
+			err = d.queueManager.mq.AttemptEvent(v.Channel, 1, 0, &v.AgentId, waiting)
+		}
+	} else {
+		wlog.Error(err.Error()) ///TODO return ?
+	}
+
 	members, err := d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
 	if err != nil {
 		wlog.Error(err.Error())
@@ -84,6 +93,23 @@ func (d *DialingImpl) routeIdleAttempts() {
 func (d *DialingImpl) routeIdleAgents() {
 	if !d.app.IsReady() {
 		return
+	}
+
+	if attempts, err := d.store.Member().GetTimeouts(d.app.GetInstanceId()); err == nil {
+		for _, v := range attempts {
+			if attempt, ok := d.queueManager.membersCache.Get(v.Id); ok {
+
+				if _, err := d.queueManager.GetQueue(attempt.(*Attempt).QueueId(), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
+					attempt.(*Attempt).timeout <- v
+				} else {
+					wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d", v.Id))
+				}
+			} else {
+				wlog.Error(fmt.Sprintf("Not found active attempt Id=%d", v.Id))
+			}
+		}
+	} else {
+		wlog.Error(err.Error()) ///TODO return ?
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())

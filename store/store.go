@@ -28,9 +28,6 @@ type ClusterStore interface {
 
 type OutboundResourceStore interface {
 	GetById(id int64) (*model.OutboundResource, *model.AppError)
-	GetAllPage(filter string, offset, limit int, sortField string, desc bool) ([]*model.OutboundResource, *model.AppError)
-	Create(resource *model.OutboundResource) (*model.OutboundResource, *model.AppError)
-	Delete(id int64) *model.AppError
 	SetError(id int64, queueId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError)
 	SetSuccessivelyErrorsById(id int64, successivelyErrors uint16) *model.AppError
 }
@@ -66,10 +63,21 @@ type MemberStore interface {
 	SetAttemptSuccess(attemptId, hangupAt int64, cause string, data []byte) *model.AppError
 	SetAttemptStop(attemptId, hangupAt int64, delta int, isErr bool, cause string, data []byte) (bool, *model.AppError)
 	SetAttemptBarred(attemptId, hangupAt int64, cause string, data []byte) (bool, *model.AppError)
+
+	SetAttemptOffering(attemptId int64, agentId *int) (int64, *model.AppError)
+	SetAttemptReporting(attemptId int64, deadlineSec int) (int64, *model.AppError)
+	SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError)
+	SetAttemptResult2(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
+
+	GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError)
 }
 
 type AgentStore interface {
 	Get(id int) (*model.Agent, *model.AppError)
+	GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError)
+
+	SetOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
+	WaitingChannel(agentId int, channel string) (int64, *model.AppError)
 
 	SetWaiting(agentId int, bridged bool) *model.AppError
 	SetOffering(agentId, queueId int, attemptId int64) (int, *model.AppError)
@@ -80,7 +88,6 @@ type AgentStore interface {
 	SetOnBreak(agentId int) *model.AppError
 
 	SetStatus(agentId int, status string, payload *string) *model.AppError
-	SetState(agentId int, state string, timeoutSeconds int) (*model.AgentState, *model.AppError)
 
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 

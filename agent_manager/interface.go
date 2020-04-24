@@ -7,23 +7,20 @@ type AgentManager interface {
 	Stop()
 	GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError)
 
-	SetOnline(agent AgentObject) *model.AppError
+	SetOnline(agent AgentObject, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	SetOffline(agent AgentObject) *model.AppError
 	SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError
 
-	//SetAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError
-	//SetAgentState(agent AgentObject, state string, timeoutSeconds int) *model.AppError
-
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
+	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 
+	//FIXME deprecated
 	SetAgentWaiting(agent AgentObject, bridged bool) *model.AppError
 	SetAgentOffering(agent AgentObject, queueId int, attemptId int64) (int, *model.AppError)
 	SetAgentTalking(agent AgentObject) *model.AppError
 	SetAgentReporting(agent AgentObject, timeout int) *model.AppError
 	SetAgentFine(agent AgentObject, timeout int, noAnswer bool) *model.AppError
-
-	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 }
 
 type AgentObject interface {
@@ -38,10 +35,11 @@ type AgentObject interface {
 
 	IsExpire(updatedAt int64) bool
 
-	Online() *model.AppError
+	Online(channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
 
+	//FIXME deprecated
 	SetStateOffering(queueId int, attemptId int64) *model.AppError
 	SetStateTalking() *model.AppError
 	SetStateReporting(deadline int) *model.AppError

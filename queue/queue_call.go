@@ -98,70 +98,80 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 	return attempt.Info.(*AttemptInfoCall)
 }
 
-func (queue *CallingQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
+func (queue *BaseQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
 	queue.queueManager.store.Agent().MissedAttempt(agent.Id(), attempt.Id(), call.HangupCause())
 }
 
-func (queue *CallingQueue) OfferingAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, display string, agentCallId, memberCallId *string) {
+func (queue *BaseQueue) DistributeAttemptToAgent() {
+
+}
+
+func (queue *BaseQueue) OfferingAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, display string, agentCallId, memberCallId *string) {
 	if agentInfo, err := queue.queueManager.store.Member().AttemptOfferingAgent(a.Id(), display, agentCallId, memberCallId); err != nil {
 		wlog.Error(fmt.Sprintf("attempt %d set offering error: %s", a.Id(), err.Error()))
 	} else {
 		if agentInfo.AgentId != nil {
-			ag := model.EventAttempt{
-				AttemptId: a.Id(),
-				Status:    "offering", //TODO
-				AgentId:   agentInfo.AgentId,
-				UserId:    model.NewInt64(agent.UserId()),
-				Timestamp: agentInfo.Timestamp,
-				DomainId:  queue.DomainId(),
+			ag := &model.EventAttemptOffering{
+				MemberId: a.MemberId(),
+				EventAttempt: model.EventAttempt{
+					AttemptId: a.Id(),
+					Timestamp: agentInfo.Timestamp,
+					Channel:   queue.channel,
+					Status:    model.ChannelStateOffering,
+					AgentId:   agentInfo.AgentId,
+					UserId:    model.NewInt64(agent.UserId()),
+					DomainId:  queue.DomainId(),
+				},
 			}
 
-			if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
+			if err = queue.queueManager.mq.AttemptEvent(queue.channel, queue.domainId, queue.id, model.NewInt(agent.Id()), ag); err != nil {
 				wlog.Error(fmt.Sprintf("attempt %d notify offering error: %s", a.Id(), err.Error()))
 			}
 		}
 	}
 }
 
-func (queue *CallingQueue) BridgeAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, agentCallId, memberCallId *string) {
+func (queue *BaseQueue) BridgeAttemptToAgent(a *Attempt, agent agent_manager.AgentObject, agentCallId, memberCallId *string) {
 	if timestamp, err := queue.queueManager.store.Member().BridgedAttempt(a.Id(), agentCallId, memberCallId); err != nil {
 		wlog.Error(fmt.Sprintf("attempt %d set bridge error: %s", a.Id(), err.Error()))
 	} else {
-		ag := model.EventAttempt{
-			AttemptId: a.Id(),
-			Status:    "talking", //TODO
-			AgentId:   model.NewInt(agent.Id()),
-			UserId:    model.NewInt64(agent.UserId()),
-			Timestamp: timestamp,
-			DomainId:  queue.DomainId(),
-		}
-
-		if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
-			wlog.Error(fmt.Sprintf("attempt %d notify bridge error: %s", a.Id(), err.Error()))
-		}
+		fmt.Println("fixme", timestamp)
+		//ag := model.EventAttempt{
+		//	AttemptId: a.Id(),
+		//	Status:    "talking", //TODO
+		//	AgentId:   model.NewInt(agent.Id()),
+		//	UserId:    model.NewInt64(agent.UserId()),
+		//	Timestamp: timestamp,
+		//	DomainId:  queue.DomainId(),
+		//}
+		//
+		//if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
+		//	wlog.Error(fmt.Sprintf("attempt %d notify bridge error: %s", a.Id(), err.Error()))
+		//}
 	}
 }
 
-func (queue *CallingQueue) ReportingAttempt(a *Attempt, agent agent_manager.AgentObject) {
+func (queue *BaseQueue) ReportingAttempt(a *Attempt, agent agent_manager.AgentObject) {
 	if timestamp, err := queue.queueManager.store.Member().ReportingAttempt(a.Id()); err != nil {
 		wlog.Error(fmt.Sprintf("attempt %d set reporting error: %s", a.Id(), err.Error()))
 	} else {
-		ag := model.EventAttempt{
-			AttemptId: a.Id(),
-			Status:    "reporting", //TODO
-			AgentId:   model.NewInt(agent.Id()),
-			UserId:    model.NewInt64(agent.UserId()),
-			Timestamp: timestamp,
-			DomainId:  queue.DomainId(),
-		}
-
-		if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
-			wlog.Error(fmt.Sprintf("attempt %d notify reporting error: %s", a.Id(), err.Error()))
-		}
+		fmt.Println("fixme", timestamp)
+		//ag := model.EventAttempt{
+		//	AttemptId: a.Id(),
+		//	Status:    "reporting", //TODO
+		//	AgentId:   model.NewInt(agent.Id()),
+		//	UserId:    model.NewInt64(agent.UserId()),
+		//	Timestamp: timestamp,
+		//	DomainId:  queue.DomainId(),
+		//}
+		//
+		//if err = queue.queueManager.mq.AttemptEvent(ag); err != nil {
+		//	wlog.Error(fmt.Sprintf("attempt %d notify reporting error: %s", a.Id(), err.Error()))
+		//}
 	}
 }
 
-func (queue *CallingQueue) LeavingAttempt(a *Attempt, holdSec int, result *string) {
+func (queue *BaseQueue) LeavingAttempt(a *Attempt, holdSec int, result *string) {
 	//TODO fire event
 
 	if err := queue.queueManager.store.Member().LeavingAttempt(a.Id(), holdSec, result); err != nil {

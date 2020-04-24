@@ -4,15 +4,20 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+type E interface {
+	ToJSON() string
+}
+
 type MQ interface {
 	SendJSON(name string, data []byte) *model.AppError
 	Close()
 
 	ConsumeCallEvent() <-chan model.CallActionData
 
-	AgentChangeStatus(e model.AgentEventStatus) *model.AppError
+	AgentChangeStatus(domainId int64, agentId int, e E) *model.AppError
 
-	AttemptEvent(e model.EventAttempt) *model.AppError
+	ChannelEvent(channel string, domainId int64, agentId int, e E) *model.AppError
+	AttemptEvent(channel string, domainId int64, queueId int, agentId *int, e E) *model.AppError
 
 	QueueEvent() QueueEvent
 }

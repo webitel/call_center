@@ -76,8 +76,8 @@ func (agent *Agent) CallNumber() string {
 	return agent.info.Extension
 }
 
-func (agent *Agent) Online() *model.AppError {
-	return agent.manager.SetOnline(agent)
+func (agent *Agent) Online(channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+	return agent.manager.SetOnline(agent, channels, onDemand)
 }
 
 func (agent *Agent) Offline() *model.AppError {

@@ -13,9 +13,11 @@ const (
 )
 
 type AgentApi interface {
-	Login(domainId, agentId int64) error
-	Logout(domainId, agentId int64) error
+	Online(domainId, agentId int64) error
+	Offline(domainId, agentId int64) error
 	Pause(domainId, agentId int64, payload string, timeout int) error
+
+	WaitingChannel(agentId int, channel string) (int64, error)
 }
 
 type MemberApi interface {

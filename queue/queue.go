@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/flow_manager/client"
+	"github.com/webitel/wlog"
 	"net/http"
 )
 
@@ -18,10 +19,13 @@ type QueueObject interface {
 
 	Variables() map[string]string
 	Domain() string
+	DomainId() int64
+	Channel() string
 	Id() int
 }
 
 type BaseQueue struct {
+	channel         string
 	id              int
 	updatedAt       int64
 	domainId        int64
@@ -38,6 +42,7 @@ type BaseQueue struct {
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := BaseQueue{
+		channel:         settings.Channel(),
 		id:              settings.Id,
 		updatedAt:       settings.UpdatedAt,
 		typeId:          int8(settings.Type),
@@ -159,4 +164,82 @@ func (queue *BaseQueue) CallManager() call_manager.CallManager {
 
 func (queue *BaseQueue) AgentManager() agent_manager.AgentManager {
 	return queue.queueManager.agentManager
+}
+
+func (queue *BaseQueue) Channel() string {
+	return queue.channel
+}
+
+func (queue *BaseQueue) Hook(agentId *int, e model.Event) {
+	if err := queue.queueManager.mq.AttemptEvent(queue.Channel(), queue.domainId, queue.id, agentId, e); err != nil {
+		wlog.Error(err.Error())
+	}
+}
+
+func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject, aChannel, mChannel Channel) {
+	agentId := model.NewInt(agent.Id())
+	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+	e := NewOfferingEvent(attempt, timestamp, aChannel, mChannel)
+	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+}
+
+func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject) {
+	agentId := model.NewInt(agent.Id())
+
+	if !tm.PostProcessing() {
+		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult2(attempt.Id(), "SUCCESS", 30,
+			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
+			e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+			err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+			if err != nil {
+				wlog.Error(err.Error())
+			}
+		} else {
+			wlog.Error(err.Error())
+		}
+		return
+	}
+
+	timestamp, err := tm.teamManager.store.Member().SetAttemptReporting(attempt.Id(), tm.PostProcessingTimeout())
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+	e := NewReportingEventEvent(attempt, timestamp, tm.PostProcessingTimeout())
+	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+
+	result := attempt.WaitTimeout()
+	waiting := NewWaitingChannelEvent(model.NewInt64(attempt.Id()), result.Timestamp)
+	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, waiting)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+}
+
+func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.AgentObject) {
+	agentId := model.NewInt(agent.Id())
+	timestamp, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), holdSec, int(tm.BusyDelayTime()))
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+	e := NewMissedEventEvent(attempt, timestamp, timestamp+(int64(tm.BusyDelayTime()*1000)))
+	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
 }

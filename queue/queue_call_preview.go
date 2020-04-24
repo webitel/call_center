@@ -26,21 +26,21 @@ func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
 	}
 }
 
-func (preview *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
+func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	if attempt.resource == nil {
-		return NewErrorResourceRequired(preview, attempt)
+		return NewErrorResourceRequired(queue, attempt)
 	}
 
 	if attempt.agent == nil {
-		return NewErrorAgentRequired(preview, attempt)
+		return NewErrorAgentRequired(queue, attempt)
 	}
 
-	team, err := preview.GetTeam(attempt)
+	team, err := queue.GetTeam(attempt)
 	if err != nil {
 		return err
 	}
 
-	go preview.run(team, attempt, attempt.Agent(), attempt.Destination())
+	go queue.run(team, attempt, attempt.Agent(), attempt.Destination())
 
 	return nil
 }
@@ -112,8 +112,10 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		AppName: "bridge",
 		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Destination(), display),
 	})
-	printfIfErr(call.Invite())
 
+	queue.Hook(model.NewInt(agent.Id()), NewDistributeEvent(attempt, queue, agent, nil, call))
+
+	printfIfErr(call.Invite())
 	var calling = true
 
 	for calling {
@@ -121,11 +123,12 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
-				queue.OfferingAttemptToAgent(attempt, agent, display, model.NewString(call.Id()), nil)
+				team.Offering(attempt, agent, call, nil)
 			case call_manager.CALL_STATE_ACCEPT:
+				queue.Hook(model.NewInt(agent.Id()), NewAnsweredEvent(attempt))
 
 			case call_manager.CALL_STATE_BRIDGE:
-				queue.BridgeAttemptToAgent(attempt, agent, model.NewString(call.Id()), call.BridgeId())
+				queue.Hook(model.NewInt(agent.Id()), NewBridgedEventEvent(attempt))
 			}
 		case <-call.HangupChan():
 			calling = false
@@ -134,10 +137,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	if call.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
 		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-
-		queue.ReportingAttempt(attempt, agent)
+		team.Reporting(attempt, agent)
 	} else {
-		queue.LeavingAttempt(attempt, queue.WaitBetweenRetries, model.NewString("ABANDONED"))
+		team.Missed(attempt, queue.WaitBetweenRetries, agent)
 	}
 
 	close(attempt.distributeAgent)

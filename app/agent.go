@@ -13,22 +13,22 @@ func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 	}
 }
 
-func (app *App) SetAgentLogin(agentId int) *model.AppError {
+func (app *App) SetAgentOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	var agent *model.Agent
 	var err *model.AppError
 
 	if agent, err = app.GetAgentById(agentId); err != nil {
-		return err
+		return nil, err
 	}
-	//TODO
-	if agent.Status == model.AGENT_STATUS_WAITING {
-		return model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
+
+	if agent.Status == model.AgentStatusOnline {
+		return nil, model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
 	}
 
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
-		return err
+		return nil, err
 	} else {
-		return app.agentManager.SetOnline(agentObj)
+		return app.agentManager.SetOnline(agentObj, channels, onDemand)
 	}
 }
 
@@ -40,7 +40,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 		return err
 	}
 
-	if agent.Status == model.AGENT_STATUS_OFFLINE {
+	if agent.Status == model.AgentStatusOffline {
 		return model.NewAppError("SetAgentLogout", "app.agent.set_logout.agent_logged_out", nil, "", http.StatusBadRequest)
 	}
 
@@ -63,5 +63,20 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		return err
 	} else {
 		return app.agentManager.SetPause(agentObj, payload, timeout)
+	}
+}
+
+func (app *App) WaitingAgentChannel(agentId int, channel string) (int64, *model.AppError) {
+	var agent *model.Agent
+	var err *model.AppError
+
+	if agent, err = app.GetAgentById(agentId); err != nil {
+		return 0, err
+	}
+
+	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
+		return 0, err
+	} else {
+		return app.dialing.Manager().SetAgentWaitingChannel(agentObj, channel)
 	}
 }

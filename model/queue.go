@@ -53,6 +53,10 @@ type Queue struct {
 	SchemaId   *int              `json:"schema_id" db:"schema_id"`
 }
 
+func (q *Queue) Channel() string {
+	return "call" //FIXME  enum & queue_type
+}
+
 type QueueDialingSettings struct {
 	MinCallDuration      int      `json:"min_call_duration"`
 	Recordings           bool     `json:"recordings"`
