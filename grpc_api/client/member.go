@@ -53,3 +53,26 @@ func (api *memberApi) DirectAgentToMember(domainId int64, memberId int64, commun
 
 	return res.AttemptId, nil
 }
+
+func (api *memberApi) AttemptResult(attemptId int64, status string) error {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.member.AttemptResult(context.Background(), &proto.AttemptResultRequest{
+		AttemptId:     attemptId,
+		Status:        status,
+		MinOfferingAt: 0,
+		ExpireAt:      0,
+		Variables:     nil,
+		Display:       false,
+		Description:   "",
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

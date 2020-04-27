@@ -43,6 +43,7 @@ message ExecuteResponse {
 message HangupRequest {
     string uuid = 1;
     string cause = 2;
+    bool reporting = 3;
 }
 
 message HangupResponse {

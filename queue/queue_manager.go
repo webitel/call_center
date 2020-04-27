@@ -311,3 +311,23 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 
 	return nil, false
 }
+
+func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
+	res, err := queueManager.store.Member().Reporting(attemptId, result.Status)
+	if err != nil {
+		return err
+	}
+
+	if res.AgentCallId != nil {
+		if call, ok := queueManager.callManager.GetCall(*res.AgentCallId); ok {
+			err = call.Hangup("", true)
+		}
+	}
+
+	// TODO
+	if res.AgentCallId != nil {
+
+	}
+
+	return err
+}

@@ -136,12 +136,13 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int) (int64, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId *string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`with offering as (
     update cc_member_attempt
     set state_str = :State,
         offering_at = coalesce(offering_at, now()),
-        agent_id = case when agent_id isnull  and :AgentId::int notnull then :AgentId else agent_id end
+        agent_id = case when agent_id isnull  and :AgentId::int notnull then :AgentId else agent_id end,
+        agent_call_id = case when agent_call_id isnull  and :AgentCallId::varchar notnull then :AgentCallId else agent_call_id end
     where id = :Id
     returning state_str, offering_at, agent_id, channel
 ), ch as (
@@ -153,9 +154,10 @@ func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int) (int6
 )
 select cc_view_timestamp(now()) as timestamp
 from offering`, map[string]interface{}{
-		"Id":      attemptId,
-		"State":   model.ChannelStateOffering,
-		"AgentId": agentId,
+		"Id":          attemptId,
+		"State":       model.ChannelStateOffering,
+		"AgentId":     agentId,
+		"AgentCallId": agentCallId,
 	})
 
 	if err != nil {
@@ -246,4 +248,20 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 	}
 
 	return attempts, nil
+}
+
+func (s *SqlMemberStore) Reporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError) {
+	var result *model.AttemptReportingResult
+	err := s.GetMaster().SelectOne(&result, `select *
+from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, channel varchar, agent_call_id varchar)`, map[string]interface{}{
+		"AttemptId": attemptId,
+		"Status":    status,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return result, nil
 }

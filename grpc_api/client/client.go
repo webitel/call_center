@@ -21,7 +21,8 @@ type AgentApi interface {
 }
 
 type MemberApi interface {
-	JoinCallToQueue(domainId int64, callId string, queueid int64, queueName string, priority int) (string, error)
+	AttemptResult(attemptId int64, status string) error
+	JoinCallToQueue(domainId int64, callId string, queueId int64, queueName string, priority int) (string, error)
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 }
 

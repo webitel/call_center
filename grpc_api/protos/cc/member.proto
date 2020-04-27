@@ -49,18 +49,16 @@ message CallJoinToQueueResponse {
 */
 
 message AttemptResultRequest {
-    int32 queue_id = 1; // ід черги
-    int32 member_id = 2; // ід мембера
-    int32 attempt_id = 3; // ід спроби
+    int64 attempt_id = 1; // ід спроби
 
-    string status = 4; // SUCCESS / CANCEL - абонент виключається з черги з цим статусом, якщо пусто то: якщо остання спроба то ABANDONED або буде очікувати наступний дзвінок
+    string status = 2; // SUCCESS / CANCEL - абонент виключається з черги з цим статусом, якщо пусто то: якщо остання спроба то ABANDONED або буде очікувати наступний дзвінок
 
-    int64 min_offering_at = 5; // - змінити час відколи можна знову дзвонити абоненту, не обовязкове timestamp
-    int64 expire_at = 6; // встановити новий дедлайн
-    map<string, string> variables = 7; // змінити варібли
-    bool display = 8; // якщо true тоді за цим номером прикріпляється ресурс + номер який відображається абоненту
-    string description = 9; // опис...
-    int64 transfer_queue_id = 10; // перекинути в іншу чергу
+    int64 min_offering_at = 3; // - змінити час відколи можна знову дзвонити абоненту, не обовязкове timestamp
+    int64 expire_at = 4; // встановити новий дедлайн
+    map<string, string> variables = 5; // змінити варібли
+    bool display = 6; // якщо true тоді за цим номером прикріпляється ресурс + номер який відображається абоненту
+    string description = 7; // опис...
+    int64 transfer_queue_id = 8; // перекинути в іншу чергу
 }
 
 message AttemptResultResponse {

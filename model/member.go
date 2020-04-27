@@ -64,6 +64,7 @@ type MemberAttempt struct {
 type AttemptTimeout struct {
 	Id        int64  `json:"id" db:"id"`
 	Timestamp int64  `json:"timestamp" db:"timestamp"`
+	AttemptId *int64 `json:"attempt_id" db:"attempt_id"`
 	Result    string `json:"result" db:"result"`
 }
 
@@ -105,6 +106,23 @@ type AttemptCallback struct {
 	Variables     map[string]string
 	Display       bool
 	Description   string
+}
+
+type AttemptResult2 struct {
+	Success bool `json:"success"`
+
+	Status      string `json:"status"`
+	Description string `json:"description"`
+	Display     bool   `json:"display"`
+	ExpireAt    *int64 `json:"expire_at"`
+	NextCall    *int64 `json:"next_call"`
+}
+
+type AttemptReportingResult struct {
+	Timestamp   int64   `json:"timestamp" db:"timestamp"`
+	Channel     string  `json:"channel" db:"channel"`
+	AgentCallId *string `json:"agent_call_id" db:"agent_call_id"`
+	//AgentCallAppId *string `json:"agent_call_app_id"`
 }
 
 type AttemptResult struct {

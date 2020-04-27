@@ -148,7 +148,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_JOIN:
-				call.Hangup("USER_BUSY")
+				call.Hangup("USER_BUSY", false)
 			//case call_manager.CALL_STATE_LEAVING:
 
 			default:

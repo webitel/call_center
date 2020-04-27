@@ -64,7 +64,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
 
-				"cc_reporting_time": fmt.Sprintf("%d", team.PostProcessingTimeout()),
+				"cc_reporting": fmt.Sprintf("%v", team.PostProcessing()),
 
 				"hangup_after_bridge": "true",
 
@@ -135,8 +135,14 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	if call.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
-		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-		team.Reporting(attempt, agent)
+
+		// FIXME
+		if team.PostProcessing() && call.ReportingAt() > 0 {
+			team.WrapTime(attempt, agent, call.ReportingAt())
+		} else {
+			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+			team.Reporting(attempt, agent)
+		}
 	} else {
 		team.Missed(attempt, queue.WaitBetweenRetries, agent)
 	}

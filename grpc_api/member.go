@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/grpc_api/cc"
+	"github.com/webitel/call_center/model"
 )
 
 type member struct {
@@ -15,7 +16,28 @@ func NewMemberApi(app *app.App) *member {
 }
 
 func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
-	return nil, nil
+	result := model.AttemptResult2{
+		Success:     false,
+		Status:      in.GetStatus(),
+		Description: in.GetDescription(),
+		Display:     in.GetDisplay(),
+	}
+
+	if in.ExpireAt > 0 {
+		result.ExpireAt = model.NewInt64(in.GetExpireAt())
+	}
+
+	if in.MinOfferingAt > 0 {
+		result.NextCall = model.NewInt64(in.MinOfferingAt)
+	}
+
+	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result)
+	if err != nil {
+		return nil, err
+	}
+	return &cc.AttemptResultResponse{
+		Status: "success", //TODO
+	}, nil
 }
 
 func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (*cc.CallJoinToQueueResponse, error) {

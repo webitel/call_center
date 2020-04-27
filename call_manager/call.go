@@ -35,6 +35,7 @@ type Call interface {
 	AcceptAt() int64
 	BridgeAt() int64
 	HangupAt() int64
+	ReportingAt() int64
 
 	DurationSeconds() int
 	BillSeconds() int
@@ -46,7 +47,7 @@ type Call interface {
 
 	NewCall(callRequest *model.CallRequest) Call
 	ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
-	Hangup(cause string) *model.AppError
+	Hangup(cause string, reporting bool) *model.AppError
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
@@ -79,11 +80,12 @@ type CallImpl struct {
 
 	bridgedId *string
 
-	offeringAt int64
-	ringingAt  int64
-	acceptAt   int64
-	bridgeAt   int64
-	hangupAt   int64
+	offeringAt  int64
+	ringingAt   int64
+	acceptAt    int64
+	bridgeAt    int64
+	hangupAt    int64
+	reportingAt int64
 
 	queueId *int //FIXME
 
@@ -186,17 +188,26 @@ func (call *CallImpl) setHold(e *model.CallActionHold) {
 }
 
 func (call *CallImpl) setHangup(e *model.CallActionHangup) {
-
-	if call.hangup == nil {
-		call.Lock()
+	call.Lock()
+	if call.hangupAt == 0 {
 		call.hangup = e
 		call.cm.removeFromCacheCall(call)
 		call.hangupAt = e.Timestamp
+		if call.hangupAt == 0 {
+			wlog.Error(fmt.Sprintf("call %s set server hangup time", call.Id()))
+			call.hangupAt = model.GetMillis()
+		}
+
+		if e.ReportingAt != nil {
+			call.reportingAt = *e.ReportingAt
+		}
+
 		close(call.hangupCh)
 		call.Unlock()
 
 		call.setState(CALL_STATE_HANGUP)
 	} else {
+		call.Unlock()
 		fmt.Println("FIXME setHangup", e)
 	}
 
@@ -328,6 +339,10 @@ func (call *CallImpl) OfferingAt() int64 {
 	return call.offeringAt
 }
 
+func (call *CallImpl) ReportingAt() int64 {
+	return call.reportingAt
+}
+
 func (call *CallImpl) AcceptAt() int64 {
 	return call.acceptAt
 }
@@ -382,7 +397,7 @@ func (call *CallImpl) Err() *model.AppError {
 	return call.err
 }
 
-func (call *CallImpl) Hangup(cause string) *model.AppError {
+func (call *CallImpl) Hangup(cause string, reporting bool) *model.AppError {
 	if call.GetState() < CALL_STATE_INVITE {
 		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
@@ -393,7 +408,7 @@ func (call *CallImpl) Hangup(cause string) *model.AppError {
 	}
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
-	return call.api.HangupCall(call.id, cause)
+	return call.api.HangupCall(call.id, cause, reporting)
 }
 
 func (call *CallImpl) ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError {

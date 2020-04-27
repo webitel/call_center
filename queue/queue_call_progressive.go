@@ -184,7 +184,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, agent agent_manager.Age
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT:
 				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil {
-					ctx.call.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED) // TODO
+					ctx.call.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED, false) // TODO
 				} else if cnt > 0 {
 					cr := queue.AgentCallRequest(ctx.agent, ctx.team, attempt)
 					cr.Applications = []*model.CallRequestApplication{
@@ -218,7 +218,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, agent agent_manager.Age
 
 							case call_manager.CALL_STATE_HANGUP:
 								if ctx.call.HangupAt() == 0 {
-									ctx.call.Hangup("")
+									ctx.call.Hangup("", false)
 									ctx.call.WaitForHangup()
 								}
 								break top
@@ -227,9 +227,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, agent agent_manager.Age
 							attempt.Log(fmt.Sprintf("call hangup %s", ctx.call.Id()))
 							if ctx.agentCall.HangupAt() == 0 {
 								if ctx.call.BridgeAt() > 0 {
-									ctx.agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
+									ctx.agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
 								} else {
-									ctx.agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+									ctx.agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
 								}
 							}
 
@@ -243,7 +243,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, agent agent_manager.Age
 		case result := <-attempt.cancel:
 			switch result {
 			case model.MEMBER_CAUSE_CANCEL:
-				ctx.call.Hangup(model.CALL_HANGUP_LOSE_RACE)
+				ctx.call.Hangup(model.CALL_HANGUP_LOSE_RACE, false)
 			}
 		case <-ctx.call.HangupChan():
 			calling = false

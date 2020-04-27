@@ -73,8 +73,11 @@ func (g *SipGateway) Bridge(parentId string, destination string, display string)
 	res := []string{
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
 		fmt.Sprintf("origination_caller_id_number=%s", display),
+		//fmt.Sprintf("%s=%v", CallVariableDomainId, 1), //FIXME DOMAIN ID
+		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
+		fmt.Sprintf("%s='%v'", CallVariableGatewayName, g.Name),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",
-		"sip_h_X-Webitel-User-Id=", //FIXME disable export bridge sip headers FS
+		"sip_h_X-Webitel-User-Id=0", //FIXME disable export bridge sip headers FS
 	}
 
 	vars := g.Variables()
@@ -82,7 +85,7 @@ func (g *SipGateway) Bridge(parentId string, destination string, display string)
 		res = append(res, fmt.Sprintf("%s='%s'", k, v))
 	}
 
-	return fmt.Sprintf("{%s}%s", strings.Join(res, ","), g.Endpoint(destination))
+	return fmt.Sprintf("[%s]%s", strings.Join(res, ","), g.Endpoint(destination))
 }
 
 type OutboundResourceGroup struct {

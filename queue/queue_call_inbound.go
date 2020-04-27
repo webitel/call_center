@@ -85,19 +85,14 @@ type inboundQueueContext struct {
 func (queue *InboundQueue) run(attempt *Attempt) {
 	var err *model.AppError
 	var ok bool
-	var ctx = &inboundQueueContext{
-		attempt: attempt,
-	}
+	var call call_manager.Call
+	var team *agentTeam
 
-	defer func(c *inboundQueueContext) {
-		queue.reporting(c.attempt, c.call, c.agentCall, c.agent, c.team)
-	}(ctx)
-
-	ctx.call, ok = queue.CallManager().GetCall(*attempt.member.MemberCallId)
+	call, ok = queue.CallManager().GetCall(*attempt.member.MemberCallId)
 	if !ok {
 		return
 	}
-	ctx.team, err = queue.GetTeam(attempt)
+	team, err = queue.GetTeam(attempt)
 	if err != nil {
 		//FIXME
 		panic(err.Error())
@@ -121,9 +116,12 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 
 	timeout := time.NewTimer(time.Second * 5)
 
+	var agent agent_manager.AgentObject
+	var agentCall call_manager.Call
+
 	for {
 		select {
-		case <-ctx.call.HangupChan():
+		case <-call.HangupChan():
 			return
 
 		case <-timeout.C:
@@ -147,17 +145,17 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 			}
 			return
 
-		case ctx.agent = <-attempt.distributeAgent:
+		case agent = <-attempt.distributeAgent:
 			attempts++
-			if ctx.call.HangupCause() != "" {
-				attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", ctx.agent.Name()))
+			if call.HangupCause() != "" {
+				attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))
 				continue
 			}
 
-			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", ctx.agent.Name(), ctx.agent.Id()))
+			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 			attempt.SetState(model.MEMBER_STATE_PROGRESS)
 
-			cr := queue.AgentCallRequest(ctx.agent, ctx.team, attempt)
+			cr := queue.AgentCallRequest(agent, team, attempt)
 			cr.Applications = []*model.CallRequestApplication{
 				{
 					AppName: "set",
@@ -167,52 +165,52 @@ func (queue *InboundQueue) run(attempt *Attempt) {
 					AppName: "park",
 				},
 			}
-			cr.Variables["wbt_parent_id"] = ctx.call.Id()
+			cr.Variables["wbt_parent_id"] = call.Id()
 
-			if err = ctx.team.OfferingCall(queue, ctx.agent, attempt); err != nil {
+			if err = team.OfferingCall(queue, agent, attempt); err != nil {
 				wlog.Error(err.Error())
 			}
-			ctx.agentCall = ctx.call.NewCall(cr)
-			ctx.agentCall.Invite()
+			agentCall = call.NewCall(cr)
+			agentCall.Invite()
 
-			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", ctx.call.Id(), ctx.agentCall.Id()))
+			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", call.Id(), agentCall.Id()))
 
 		top:
-			for ctx.agentCall.HangupCause() == "" && ctx.call.HangupCause() == "" {
+			for agentCall.HangupCause() == "" && call.HangupCause() == "" {
 				select {
 				case <-timeout.C:
 					fmt.Println("TIMEOUT")
-				case state := <-ctx.agentCall.State():
+				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
-						ctx.agentCall.Bridge(ctx.call)
-						ctx.team.Talking(queue, ctx.agent, attempt)
+						agentCall.Bridge(call)
+						team.Talking(queue, agent, attempt)
 
 					case call_manager.CALL_STATE_HANGUP:
 
 						break top
 					}
-				case <-ctx.call.HangupChan():
-					attempt.Log(fmt.Sprintf("call hangup %s", ctx.call.Id()))
-					if ctx.agentCall.HangupAt() == 0 {
-						if ctx.call.BridgeAt() > 0 {
-							ctx.agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
+				case <-call.HangupChan():
+					attempt.Log(fmt.Sprintf("call hangup %s", call.Id()))
+					if agentCall.HangupAt() == 0 {
+						if call.BridgeAt() > 0 {
+							agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
 						} else {
-							ctx.agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL)
+							agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
 						}
 					}
 
-					ctx.agentCall.WaitForHangup()
-					attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", ctx.agentCall.NodeName(), ctx.agentCall.Id()))
+					agentCall.WaitForHangup()
+					attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
 					break top
 				}
 			}
 
-			if ctx.call.HangupCause() == "" && ctx.call.BridgeAt() == 0 {
-				ctx.team.ReportingCall(&queue.CallingQueue, ctx.agent, ctx.agentCall, attempt)
-				ctx.agentCall = nil
-				ctx.agent = nil
+			if call.HangupCause() == "" && call.BridgeAt() == 0 {
+				team.ReportingCall(&queue.CallingQueue, agent, agentCall, attempt)
+				agentCall = nil
+				agent = nil
 
 				if queue.props.MaxCallPerAgent > 0 && attempts > queue.props.MaxCallPerAgent {
 					attempt.cancel <- model.MEMBER_CAUSE_CANCEL

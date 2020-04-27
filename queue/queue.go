@@ -178,7 +178,9 @@ func (queue *BaseQueue) Hook(agentId *int, e model.Event) {
 
 func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject, aChannel, mChannel Channel) {
 	agentId := model.NewInt(agent.Id())
-	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId)
+	agentCallId := model.NewString(aChannel.Id())
+
+	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId, agentCallId)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -212,6 +214,15 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 	if err != nil {
 		wlog.Error(err.Error())
 		return
+	}
+}
+
+func (tm *agentTeam) WrapTime(attempt *Attempt, agent agent_manager.AgentObject, timestamp int64) {
+	agentId := model.NewInt(agent.Id())
+	e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+	err := tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	if err != nil {
+		wlog.Error(err.Error())
 	}
 }
 
@@ -260,7 +271,7 @@ func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.A
 		wlog.Error(err.Error())
 		return
 	}
-	e := NewMissedEventEvent(attempt, timestamp, timestamp+(int64(tm.BusyDelayTime()*1000)))
+	e := NewMissedEventEvent(attempt, timestamp, timestamp+(int64(tm.BusyDelayTime())*1000))
 	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
 	if err != nil {
 		wlog.Error(err.Error())

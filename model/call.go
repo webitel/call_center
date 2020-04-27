@@ -192,6 +192,7 @@ type CallActionHangup struct {
 	Cause         string `json:"cause"`
 	SipCode       *int   `json:"sip"`
 	OriginSuccess *bool  `json:"originate_success"`
+	ReportingAt   *int64 `json:"reporting_at,string"`
 }
 
 type CallVariables map[string]interface{}
