@@ -187,7 +187,7 @@ func (queueManager *QueueManager) SetAgentWaitingChannel(agent agent_manager.Age
 		return 0, err
 	}
 
-	e := NewWaitingChannelEvent(nil, timestamp)
+	e := NewWaitingChannelEvent(channel, nil, timestamp)
 	return 0, queueManager.mq.ChannelEvent(channel, agent.DomainId(), agent.Id(), e)
 }
 
@@ -272,8 +272,8 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
 
-	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d Result=%s from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
-		attempt.MemberId(), attempt.Id(), attempt.Result(), queue.Name(), queueManager.membersCache.Len()))
+	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d  from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
+		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 
 func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {
@@ -312,22 +312,44 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 	return nil, false
 }
 
+func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
+	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
+	if err != nil {
+		wlog.Error(err.Error())
+
+		return
+	}
+}
+
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
 	res, err := queueManager.store.Member().Reporting(attemptId, result.Status)
 	if err != nil {
 		return err
 	}
 
-	if res.AgentCallId != nil {
+	if res.AgentCallId != nil && res.Channel != nil {
 		if call, ok := queueManager.callManager.GetCall(*res.AgentCallId); ok {
 			err = call.Hangup("", true)
 		}
-	}
-
-	// TODO
-	if res.AgentCallId != nil {
+	} else {
+		// FIXME
 
 	}
+
+	e := WrapTimeEvent{
+		WrapTime: WrapTime{
+			Timeout: *res.AgentTimeout,
+		},
+		ChannelEvent: ChannelEvent{
+			Timestamp: res.Timestamp,
+			Channel:   *res.Channel,
+			AttemptId: model.NewInt64(attemptId),
+			Status:    model.ChannelStateWrapTime,
+		},
+	}
+
+	ev := model.NewEvent("channel", e)
+	err = queueManager.mq.AttemptEvent(*res.Channel, 1, 2134, res.AgentId, ev)
 
 	return err
 }

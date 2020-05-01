@@ -15,6 +15,16 @@ func NewErrorResourceRequired(queue QueueObject, attempt *Attempt) *model.AppErr
 	)
 }
 
+func NewErrorCallRequired(queue QueueObject, attempt *Attempt) *model.AppError {
+	return model.NewAppError(
+		"Queue",
+		"queue.distribute.invalid_call.error",
+		map[string]interface{}{"QueueId": queue.Id(), "AttemptId": attempt.Id()},
+		"",
+		http.StatusUnauthorized,
+	)
+}
+
 func NewErrorAgentRequired(queue QueueObject, attempt *Attempt) *model.AppError {
 	return model.NewAppError(
 		"Queue",

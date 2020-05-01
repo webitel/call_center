@@ -7,10 +7,9 @@ import (
 
 const (
 	MEMBER_CAUSE_SYSTEM_SHUTDOWN     = "SYSTEM_SHUTDOWN"
-	MEMBER_CAUSE_DATABASE_ERROR      = "DATABASE_ERROR"
-	MEMBER_CAUSE_ABANDONED           = "ABANDONED"
-	MEMBER_CAUSE_TIMEOUT             = "TIMEOUT"
-	MEMBER_CAUSE_CANCEL              = "CANCEL"
+	MEMBER_CAUSE_ABANDONED           = "abandoned"
+	MEMBER_CAUSE_TIMEOUT             = "timeout"
+	MEMBER_CAUSE_CANCEL              = "cancel"
 	MEMBER_CAUSE_SUCCESSFUL          = "SUCCESSFUL"
 	MEMBER_CAUSE_QUEUE_NOT_IMPLEMENT = "QUEUE_NOT_IMPLEMENT"
 )
@@ -27,10 +26,21 @@ const (
 	MEMBER_STATE_CANCEL       = 7
 )
 
-type MemberDestination struct {
-	Number  string  `json:"destination"`
-	Type    *int    `json:"type"`
-	Display *string `json:"display"`
+/*
+
+{"id": 0, "type": {"id": 1, "name": ""}, "state": 0, "display": "", "attempts": 0, "priority": 0, "resource": null, "last_cause": "", "description": "912908.9643714452", "destination": "696232.3886641971", "last_activity_at": 0}
+*/
+
+type Communication struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"` // TODO
+}
+
+type MemberCommunication struct {
+	Destination string        `json:"destination"`
+	Type        Communication `json:"type"`
+	Priority    int           `json:"priority"`
+	Display     *string       `json:"display"`
 }
 
 type MemberAttempt struct {
@@ -119,10 +129,17 @@ type AttemptResult2 struct {
 }
 
 type AttemptReportingResult struct {
-	Timestamp   int64   `json:"timestamp" db:"timestamp"`
-	Channel     string  `json:"channel" db:"channel"`
-	AgentCallId *string `json:"agent_call_id" db:"agent_call_id"`
+	Timestamp    int64   `json:"timestamp" db:"timestamp"`
+	Channel      *string `json:"channel" db:"channel"`
+	AgentCallId  *string `json:"agent_call_id" db:"agent_call_id"`
+	AgentId      *int    `json:"agent_id" db:"agent_id"`
+	AgentTimeout *int64  `json:"agent_timeout" db:"agent_timeout"`
 	//AgentCallAppId *string `json:"agent_call_app_id"`
+}
+
+type HistoryAttempt struct {
+	Id     int64  `json:"id" db:"id"`
+	Result string `json:"result" db:"result"`
 }
 
 type AttemptResult struct {
@@ -150,8 +167,8 @@ func (ma *MemberAttempt) IsTimeout() bool {
 	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
 }
 
-func MemberDestinationFromBytes(data []byte) MemberDestination {
-	var dest MemberDestination
+func MemberDestinationFromBytes(data []byte) MemberCommunication {
+	var dest MemberCommunication
 	json.Unmarshal(data, &dest)
 	return dest
 }

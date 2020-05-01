@@ -58,7 +58,6 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			queue.Variables(),
 			attempt.ExportVariables(),
 			map[string]string{
-				//TODO add attribute call use cb
 				model.CallVariableDomainName: queue.Domain(),
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
@@ -97,7 +96,6 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.Id()),
 				model.QUEUE_NAME_FIELD:        queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
-				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_AGENT,
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),

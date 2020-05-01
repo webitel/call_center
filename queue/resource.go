@@ -41,6 +41,7 @@ type Resource struct {
 	successivelyErrors    uint16
 	maxSuccessivelyErrors uint16
 	gatewayId             *int64
+	emailProfileId        *int
 	gateway               model.SipGateway
 }
 

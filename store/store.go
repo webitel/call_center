@@ -51,12 +51,16 @@ type MemberStore interface {
 
 	SetAttemptFindAgent(id int64) *model.AppError
 
-	SetAttemptOffering(attemptId int64, agentId *int, agentCallId *string) (int64, *model.AppError)
+	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string) (int64, *model.AppError)
+	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec int) (int64, *model.AppError)
+	SetAttemptAbandoned(attemptId int64) (int64, *model.AppError)
+	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (int64, *model.AppError)
 	SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError)
 	SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
 	Reporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError)
 
+	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError)
 }
 

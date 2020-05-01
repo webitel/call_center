@@ -17,17 +17,17 @@ type AttemptInfo interface {
 type Result string
 
 type Attempt struct {
-	member      *model.MemberAttempt
-	state       int
-	destination model.MemberDestination
-	resource    ResourceObject
-	agent       agent_manager.AgentObject
-	domainId    int64
-	channel     string
-	Info        AttemptInfo `json:"info"`
-	Logs        []LogItem   `json:"logs"`
-	cancel      chan Result
-	done        chan struct{}
+	member        *model.MemberAttempt
+	state         int
+	communication model.MemberCommunication
+	resource      ResourceObject
+	agent         agent_manager.AgentObject
+	domainId      int64
+	channel       string
+	Info          AttemptInfo `json:"info"`
+	Logs          []LogItem   `json:"logs"`
+	cancel        chan Result
+	done          chan struct{}
 
 	timeout         chan *model.AttemptTimeout
 	distributeAgent chan agent_manager.AgentObject
@@ -48,7 +48,7 @@ func NewAttempt(member *model.MemberAttempt) *Attempt {
 		timeout:         make(chan *model.AttemptTimeout),
 		distributeAgent: make(chan agent_manager.AgentObject, 1),
 		ctx:             context.Background(),
-		destination:     model.MemberDestinationFromBytes(member.Destination),
+		communication:   model.MemberDestinationFromBytes(member.Destination),
 	}
 }
 
@@ -149,12 +149,12 @@ func (a *Attempt) Name() string {
 }
 
 func (a *Attempt) Display() string {
-	if a.destination.Display != nil && *a.destination.Display != "" { //TODO
-		return *a.destination.Display
+	if a.communication.Display != nil && *a.communication.Display != "" { //TODO
+		return *a.communication.Display
 	}
 	if a.resource != nil {
-		a.destination.Display = model.NewString(a.resource.GetDisplay())
-		return *a.destination.Display
+		a.communication.Display = model.NewString(a.resource.GetDisplay())
+		return *a.communication.Display
 	}
 
 	return ""
@@ -162,10 +162,11 @@ func (a *Attempt) Display() string {
 
 func (a *Attempt) Destination() string {
 	//FIXME
-	if a.destination.Number == "" {
+
+	if a.communication.Destination == "" {
 		return "FIXME"
 	}
-	return a.destination.Number
+	return a.communication.Destination
 }
 
 func (a *Attempt) ExportVariables() map[string]string {

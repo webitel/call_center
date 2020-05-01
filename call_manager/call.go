@@ -236,7 +236,7 @@ func (cm *CallManagerImpl) Proxy() string {
 
 func (call *CallImpl) Invite() *model.AppError {
 	call.cm.saveToCacheCall(call)
-	DUMP(call.callRequest)
+	//DUMP(call.callRequest)
 
 	if call.direction != CALL_DIRECTION_OUTBOUND {
 		return errInviteDirection
@@ -352,6 +352,8 @@ func (call *CallImpl) BridgeAt() int64 {
 }
 
 func (call *CallImpl) HangupAt() int64 {
+	call.RLock()
+	defer call.RUnlock()
 	return call.hangupAt
 }
 

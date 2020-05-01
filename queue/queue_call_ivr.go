@@ -73,8 +73,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	var callerIdNumber string
 
-	if attempt.destination.Display != nil && *attempt.destination.Display != "" {
-		callerIdNumber = *attempt.destination.Display
+	// FIXME display
+	if attempt.communication.Display != nil && *attempt.communication.Display != "" {
+		callerIdNumber = *attempt.communication.Display
 	} else {
 		callerIdNumber = attempt.resource.GetDisplay()
 	}

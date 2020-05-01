@@ -145,7 +145,7 @@ func (e *CallEndpoint) GetName() *string {
 }
 
 type CallActionInfo struct {
-	GatewayId   *int           `json:"gateway_id"`
+	GatewayId   *int           `json:"gateway_id,string"` // FIXME
 	UserId      *int           `json:"user_id"`
 	Direction   string         `json:"direction"`
 	Destination string         `json:"destination"`

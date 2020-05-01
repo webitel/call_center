@@ -12,7 +12,19 @@ service MemberService {
     }
 
     rpc CallJoinToQueue(CallJoinToQueueRequest) returns (CallJoinToQueueResponse) {}
+    rpc EmailJoinToQueue(EmailJoinToQueueRequest) returns (EmailJoinToQueueResponse) {}
     rpc DirectAgentToMember(DirectAgentToMemberRequest) returns (DirectAgentToMemberResponse) {}
+}
+
+message EmailJoinToQueueRequest {
+    string email_id  = 1;
+    int32 queue_id = 2;
+
+    int64 domain_id = 100; // todo
+}
+
+message EmailJoinToQueueResponse {
+    string status = 1;
 }
 
 message DirectAgentToMemberRequest {
@@ -50,8 +62,9 @@ message CallJoinToQueueResponse {
 
 message AttemptResultRequest {
     int64 attempt_id = 1; // ід спроби
-
     string status = 2; // SUCCESS / CANCEL - абонент виключається з черги з цим статусом, якщо пусто то: якщо остання спроба то ABANDONED або буде очікувати наступний дзвінок
+
+
 
     int64 min_offering_at = 3; // - змінити час відколи можна знову дзвонити абоненту, не обовязкове timestamp
     int64 expire_at = 4; // встановити новий дедлайн

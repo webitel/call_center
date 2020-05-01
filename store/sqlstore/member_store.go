@@ -136,32 +136,72 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId *string) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`with offering as (
-    update cc_member_attempt
-    set state_str = :State,
-        offering_at = coalesce(offering_at, now()),
-        agent_id = case when agent_id isnull  and :AgentId::int notnull then :AgentId else agent_id end,
-        agent_call_id = case when agent_call_id isnull  and :AgentCallId::varchar notnull then :AgentCallId else agent_call_id end
-    where id = :Id
-    returning state_str, offering_at, agent_id, channel
-), ch as (
-    update cc_agent_channel ch
-    set state = offering.state_str,
-        joined_at = now()
-    from offering
-    where (offering.agent_id, offering.channel) = (ch.agent_id, ch.channel)
-)
-select cc_view_timestamp(now()) as timestamp
-from offering`, map[string]interface{}{
-		"Id":          attemptId,
-		"State":       model.ChannelStateOffering,
-		"AgentId":     agentId,
-		"AgentCallId": agentCallId,
+type test struct {
+	Timestamp int64 `json:"timestamp" db:"timestamp"`
+}
+
+func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from cc_attempt_offering(:AttemptId, :AgentId, :AgentCallId, :MemberCallId)
+    as x (last_state_change timestamptz)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId":    attemptId,
+		"AgentId":      agentId,
+		"AgentCallId":  agentCallId,
+		"MemberCallId": memberCallId,
 	})
 
 	if err != nil {
 		return 0, model.NewAppError("SqlMemberStore.SetAttemptOffering", "store.sql_member.set_attempt_offering.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptBridged(attemptId int64) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from cc_attempt_bridged(:AttemptId)
+    as x (last_state_change timestamptz)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId": attemptId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptBridged", "store.sql_member.set_attempt_bridged.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptAbandoned(attemptId int64) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from cc_attempt_abandoned(:AttemptId)
+    as x (last_state_change timestamptz)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId": attemptId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptBridged", "store.sql_member.set_attempt_bridged.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
+func (s *SqlMemberStore) SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from cc_attempt_missed_agent(:AttemptId, :AgentHoldSec)
+    as x (last_state_change timestamptz)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId":    attemptId,
+		"AgentHoldSec": agentHoldSec,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptBridged", "store.sql_member.set_attempt_bridged.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
@@ -173,7 +213,8 @@ func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec int) (
     update cc_member_attempt
     set timeout  = now() + (:DeadlineSec::varchar || ' sec')::interval,
         reporting_at = now(),
-        state_str = :State
+        state_str = :State,
+		result = 'FIXME'
     where id = :Id
     returning agent_id, channel, state_str, reporting_at
 )
@@ -253,7 +294,7 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 func (s *SqlMemberStore) Reporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, channel varchar, agent_call_id varchar)`, map[string]interface{}{
+from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, channel varchar, agent_call_id varchar, agent_id int, agent_timeout int8)`, map[string]interface{}{
 		"AttemptId": attemptId,
 		"Status":    status,
 	})
@@ -264,4 +305,31 @@ from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, c
 	}
 
 	return result, nil
+}
+
+func (s SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppError) {
+	var res []*model.HistoryAttempt
+
+	_, err := s.GetMaster().Select(&res, `with del as (
+    delete
+        from cc_member_attempt a
+    where a.leaving_at notnull
+    returning *
+)
+insert
+into cc_member_attempt_history (id, queue_id, member_id, weight, resource_id, result,
+                                agent_id, bucket_id, destination, display, description, list_communication_id,
+                                joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
+                                bridged_at, created_at, channel)
+select a.id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
+       a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
+       a.offering_at, a.reporting_at, a.bridged_at, a.created_at, a.channel
+from del a
+returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.SaveToHistory", "store.sql_member.save_history.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+	return res, nil
 }
