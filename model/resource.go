@@ -77,7 +77,7 @@ func (g *SipGateway) Bridge(parentId string, destination string, display string)
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
 		fmt.Sprintf("%s='%v'", CallVariableGatewayName, g.Name),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",
-		"sip_h_X-Webitel-User-Id=0", //FIXME disable export bridge sip headers FS
+		"sip_copy_custom_headers=false",
 	}
 
 	vars := g.Variables()

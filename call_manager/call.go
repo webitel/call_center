@@ -129,6 +129,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_ORIGINATION_UUID] = id
 	callRequest.Variables[model.QUEUE_NODE_ID_FIELD] = cm.nodeId
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
+	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
 	call := &CallImpl{
 		callRequest: callRequest,

@@ -274,7 +274,7 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, holdSec int, 
 
 func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError) {
 	var attempts []*model.AttemptTimeout
-	_, err := s.GetMaster().Select(&attempts, `select a.id, cc_view_timestamp(cc_attempt_leaving(a.id, cq.sec_between_retries, 'MISSED', 'waiting',0)) as timestamp,
+	_, err := s.GetMaster().Select(&attempts, `select a.id, cc_view_timestamp(cc_attempt_leaving(a.id, cq.sec_between_retries, 'abandoned', 'waiting',0)) as timestamp,
        'waiting' as result
 from cc_member_attempt a
     left join cc_queue cq on a.queue_id = cq.id
@@ -296,7 +296,7 @@ func (s *SqlMemberStore) Reporting(attemptId int64, status string) (*model.Attem
 	err := s.GetMaster().SelectOne(&result, `select *
 from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, channel varchar, agent_call_id varchar, agent_id int, agent_timeout int8)`, map[string]interface{}{
 		"AttemptId": attemptId,
-		"Status":    status,
+		"Status":    "success", //FIXME
 	})
 
 	if err != nil {

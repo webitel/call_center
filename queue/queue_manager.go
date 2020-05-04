@@ -251,6 +251,7 @@ func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attem
 	attempt, _ := queueManager.CreateAttemptIfNotExists(member)
 	queueManager.DistributeAttempt(attempt)
 
+	//FIXME
 	<-attempt.done
 	return attempt, nil
 }

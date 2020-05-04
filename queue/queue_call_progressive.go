@@ -151,7 +151,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							attempt.Log(fmt.Sprintf("agent call state %d", state))
 							switch state {
 							case call_manager.CALL_STATE_ACCEPT:
-								printfIfErr(agentCall.Bridge(mCall)) // TODO
+								printfIfErr(mCall.Bridge(agentCall)) // TODO
 								team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_BRIDGE:
 								team.Bridged(attempt, agent)
