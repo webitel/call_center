@@ -191,14 +191,14 @@ func (queueManager *QueueManager) SetAgentWaitingChannel(agent agent_manager.Age
 	return 0, queueManager.mq.ChannelEvent(channel, agent.DomainId(), agent.Id(), e)
 }
 
-func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
+func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppError) {
 
 	queue, err := queueManager.GetQueue(int(attempt.QueueId()), attempt.QueueUpdatedAt())
 	if err != nil {
 		wlog.Error(err.Error())
 		//TODO added to model "dialing.queue.new_queue.app_error"
 		panic(err.Error())
-		return
+		return nil, err
 	}
 
 	attempt.domainId = queue.DomainId()
@@ -206,24 +206,30 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) {
 
 	if attempt.IsBarred() {
 		//TODO fixme
+		panic("AAAA")
 		//queueManager.attemptBarred(attempt, queue)
-		return
+		return nil, nil
 	}
 
 	if attempt.IsTimeout() {
 		panic("CHANGE TO SET MEMBER FUNCTION")
-		return
+		return nil, nil
 	}
 
 	attempt.resource = queueManager.GetAttemptResource(attempt)
 
 	if err = queue.DistributeAttempt(attempt); err != nil {
-		wlog.Error(err.Error()) //TODO fixme - close attempt
-		panic(err.Error())
+		wlog.Error(err.Error())
+		queueManager.Abandoned(attempt)
+		queueManager.LeavingMember(attempt, queue)
+
+		return nil, err
+	} else {
+		wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+			attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 	}
 
-	wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
-		attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
+	return queue, nil
 }
 
 func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attempt, *model.AppError) {
@@ -241,7 +247,8 @@ func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attem
 		return nil, err
 	}
 
-	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId), call.Id(), call.FromNumber(), call.FromName(), 0)
+	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId),
+		call.Id(), call.FromNumber(), call.FromName(), 0)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
@@ -254,6 +261,23 @@ func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attem
 	//FIXME
 	<-attempt.done
 	return attempt, nil
+}
+
+func (queueManager *QueueManager) DistributeChatToQueue(queueId int, channelId string, number, name string, priority int) (QueueObject, *model.AppError) {
+	member, err := queueManager.store.Member().DistributeChatToQueue(queueManager.app.GetInstanceId(), int64(queueId),
+		channelId, number, name, priority)
+
+	if err != nil {
+		wlog.Error(fmt.Sprintf("chat %s distribute error: %s", channelId, err.Error()))
+		return nil, err
+	}
+
+	attempt, err := queueManager.CreateAttemptIfNotExists(member)
+	if err != nil {
+		return nil, err
+	}
+
+	return queueManager.DistributeAttempt(attempt)
 }
 
 func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {

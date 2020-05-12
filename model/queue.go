@@ -12,6 +12,7 @@ const (
 	QUEUE_TYPE_PREVIEW     // a + r
 	QUEUE_TYPE_PROGRESSIVE // a + r
 	QUEUE_TYPE_PREDICT     // a +r
+	QueueTypeChat
 )
 
 const (
@@ -53,8 +54,13 @@ type Queue struct {
 	SchemaId   *int              `json:"schema_id" db:"schema_id"`
 }
 
+//FIXME  enum & queue_type
 func (q *Queue) Channel() string {
-	return "call" //FIXME  enum & queue_type
+	if q.Type == 6 {
+		return "chat"
+	} else {
+		return "call"
+	}
 }
 
 type QueueDialingSettings struct {

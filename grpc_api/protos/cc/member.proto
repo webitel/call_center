@@ -12,8 +12,27 @@ service MemberService {
     }
 
     rpc CallJoinToQueue(CallJoinToQueueRequest) returns (CallJoinToQueueResponse) {}
+    rpc ChatJoinToQueue(ChatJoinToQueueRequest) returns (ChatJoinToQueueResponse) {}
     rpc EmailJoinToQueue(EmailJoinToQueueRequest) returns (EmailJoinToQueueResponse) {}
     rpc DirectAgentToMember(DirectAgentToMemberRequest) returns (DirectAgentToMemberResponse) {}
+}
+
+message ChatJoinToQueueRequest {
+    string channel_id = 1;
+    string queue_name = 2;
+    int64 queue_id = 3;
+    int32 priority = 4;
+    string name = 5;
+    string  number = 6;
+
+    int64 domain_id = 100;
+}
+
+message ChatJoinToQueueResponse {
+    string status = 1;
+    string queue_name = 2;
+    string welcome_text = 3;
+    int64 attempt_id = 4;
 }
 
 message EmailJoinToQueueRequest {

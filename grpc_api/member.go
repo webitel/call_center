@@ -2,6 +2,7 @@ package grpc_api
 
 import (
 	"context"
+	"fmt"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
@@ -50,6 +51,18 @@ func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRe
 	}, nil
 }
 
+func (api *member) ChatJoinToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*cc.ChatJoinToQueueResponse, error) {
+	queue, err := api.app.Queue().Manager().DistributeChatToQueue(int(in.QueueId), in.ChannelId, in.Name, in.Number, int(in.Priority))
+	if err != nil {
+		return nil, err
+	}
+	return &cc.ChatJoinToQueueResponse{
+		Status:      "joined", // TODO
+		QueueName:   queue.Name(),
+		WelcomeText: fmt.Sprintf("Welcome to queue \"%s\"", queue.Name()),
+	}, nil
+}
+
 func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
 	res, err := api.app.Queue().Manager().DistributeDirectMember(in.GetMemberId(), int(in.GetCommunicationId()), int(in.GetAgentId()))
 	if err != nil {
@@ -59,4 +72,8 @@ func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentTo
 	return &cc.DirectAgentToMemberResponse{
 		AttemptId: res.Id(),
 	}, nil
+}
+
+func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
+	return nil, nil
 }

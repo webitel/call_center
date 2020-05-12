@@ -89,6 +89,9 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			BaseQueue: base,
 		}), nil
 
+	case model.QueueTypeChat:
+		return NewInboundChatQueue(base), nil
+
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
@@ -254,6 +257,7 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 	agentId := model.NewInt(agent.Id())
 
 	if !tm.PostProcessing() {
+		// FIXME
 		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "SUCCESS", 30,
 			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
 			e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))

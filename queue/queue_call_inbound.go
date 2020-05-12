@@ -45,6 +45,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *agentTeam) {
 	var err *model.AppError
 	defer attempt.Log("stopped queue")
+	defer close(attempt.done)
 
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
@@ -132,9 +133,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						} else {
 							agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
 						}
-					}
 
-					agentCall.WaitForHangup()
+						agentCall.WaitForHangup()
+					}
 
 					attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
 					break top // FIXME
@@ -143,12 +144,19 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			if agentCall.BridgeAt() == 0 {
 				team.MissedAndWaitingAttempt(attempt, agent)
+				if agentCall != nil && agentCall.HangupAt() == 0 {
+					panic(agentCall.Id())
+				}
 				agent = nil
 				agentCall = nil
 			}
 
 			calling = mCall.HangupAt() == 0
 		}
+	}
+
+	if agentCall != nil && agentCall.HangupAt() == 0 {
+		panic(agentCall.Id())
 	}
 
 	if mCall.BridgeAt() > 0 && agentCall != nil { //FIXME Accept or Bridge ?
@@ -166,5 +174,4 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 	close(attempt.distributeAgent)
 	queue.queueManager.LeavingMember(attempt, queue)
-
 }

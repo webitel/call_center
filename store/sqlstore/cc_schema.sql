@@ -3725,7 +3725,6 @@ CREATE TABLE call_center.cc_outbound_resource (
     number character varying(20) NOT NULL,
     max_successively_errors integer DEFAULT 0,
     name character varying(50) NOT NULL,
-    dial_string character varying(50) NOT NULL,
     last_error_id character varying(50),
     successively_errors smallint DEFAULT 0 NOT NULL,
     last_error_at bigint DEFAULT 0,

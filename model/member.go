@@ -109,13 +109,25 @@ type AttemptOfferingAgent struct {
 	Timestamp      int64 `json:"timestamp" db:"cur_time"`
 }
 
+/*
+  success?: boolean
+  next_distribute_at?: number
+  categories?: Categories
+
+  communication?: MemberCommunication
+  new_communication?: MemberCommunication[]
+  description?: string
+
+  // integration fields
+  display?: boolean
+  expire?: number
+  variables?: CallVariables
+  agent_id?: number
+  name?: string
+  timezone?: object
+*/
 type AttemptCallback struct {
-	Status        string
-	MinOfferingAt *int64
-	ExpireAt      *int64
-	Variables     map[string]string
-	Display       bool
-	Description   string
+	Success bool
 }
 
 type AttemptResult2 struct {

@@ -89,6 +89,21 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	return attempt, nil
 }
 
+func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError) {
+	var attempt *model.MemberAttempt
+
+	if err := s.GetMaster().SelectOne(&attempt, `select *
+		from cc_distribute_inbound_chat_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
+		"Node": node,
+	}); err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeChatToQueue", "store.sql_member.distribute_chat.app_error", nil,
+			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
+	}
+
+	return attempt, nil
+}
+
 func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
 	err := s.GetMaster().SelectOne(&res, `select * from cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
@@ -237,8 +252,9 @@ returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
 	return timestamp, nil
 }
 
+//TODO
 func (s *SqlMemberStore) SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, 'MISSED', :State, :AgentHoldTime)) as timestamp`,
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, 'missed', :State, :AgentHoldTime)) as timestamp`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
 			"Id":            id,
@@ -274,7 +290,7 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, holdSec int, 
 
 func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError) {
 	var attempts []*model.AttemptTimeout
-	_, err := s.GetMaster().Select(&attempts, `select a.id, cc_view_timestamp(cc_attempt_leaving(a.id, cq.sec_between_retries, 'abandoned', 'waiting',0)) as timestamp,
+	_, err := s.GetMaster().Select(&attempts, `select a.id, cc_view_timestamp(cc_attempt_leaving(a.id, cq.sec_between_retries, 'abandoned', 'waiting', 0)) as timestamp,
        'waiting' as result
 from cc_member_attempt a
     left join cc_queue cq on a.queue_id = cq.id
