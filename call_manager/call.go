@@ -232,7 +232,7 @@ func (call *CallImpl) AddAction(action CallAction) {
 }
 
 func (cm *CallManagerImpl) Proxy() string {
-	return "sip:10.9.8.111"
+	return "sip:" + cm.proxy
 }
 
 func (call *CallImpl) Invite() *model.AppError {

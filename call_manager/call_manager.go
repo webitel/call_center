@@ -44,6 +44,7 @@ type CallManagerImpl struct {
 	stopped     chan struct{}
 	inboundCall chan Call
 	watcher     *utils.Watcher
+	proxy       string
 	startOnce   sync.Once
 }
 
@@ -205,6 +206,13 @@ func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 		return
 	}
 	client.SetConnectionSps(sps)
+
+	//FIXME add connection proxy value
+	cm.proxy, err = client.GetParameter("outbound_sip_proxy")
+	if err != nil {
+		wlog.Error(fmt.Sprintf("connection %s get proxy error: %s", v.Id, err.Error()))
+		return
+	}
 
 	cm.poolConnections.Append(client)
 	wlog.Debug(fmt.Sprintf("register connection %s [%s] [sps=%d]", client.Name(), version, sps))

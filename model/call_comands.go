@@ -14,6 +14,7 @@ type CallCommands interface {
 	GetServerVersion() (string, *AppError)
 	SetConnectionSps(sps int) (int, *AppError)
 	GetRemoteSps() (int, *AppError)
+	GetParameter(name string) (string, *AppError)
 
 	NewCall(settings *CallRequest) (string, string, *AppError)
 	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, *AppError)

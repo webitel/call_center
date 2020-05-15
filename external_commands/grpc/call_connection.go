@@ -106,6 +106,25 @@ func (c *CallConnection) GetRemoteSps() (int, *model.AppError) {
 	return parseSps(res.String()), nil
 }
 
+func (c *CallConnection) GetParameter(name string) (string, *model.AppError) {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "global_getvar",
+		Args:    name,
+	})
+
+	if err != nil {
+		return "", model.NewAppError("GetParameter", "external.get_param.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return "", model.NewAppError("GetParameter", "external.get_param.app_error", nil, res.Error.Message,
+			http.StatusInternalServerError)
+	}
+
+	return res.Data, nil
+}
+
 func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.CallRequest) (string, string, *model.AppError) {
 	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,

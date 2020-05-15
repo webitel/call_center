@@ -24,7 +24,7 @@ where c.hangup_at = 0 and c.Id = :Id`, map[string]interface{}{
 		"Id": id,
 	})
 	if err != nil {
-		return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
+		return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_call.get.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 	}
 
