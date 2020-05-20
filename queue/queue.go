@@ -38,6 +38,7 @@ type BaseQueue struct {
 	timeout         uint16
 	teamId          *int
 	schemaId        *int
+	ringtone        *model.RingtoneFile
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -56,6 +57,14 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		teamId:          settings.TeamId,
 		schemaId:        settings.SchemaId,
 	}
+
+	if settings.RingtoneId != nil && settings.RingtoneType != nil {
+		base.ringtone = &model.RingtoneFile{
+			Id:   *settings.RingtoneId,
+			Type: *settings.RingtoneType,
+		}
+	}
+
 	switch settings.Type {
 	case model.QUEUE_TYPE_OFFLINE:
 		return NewOfflineCallQueue(CallingQueue{

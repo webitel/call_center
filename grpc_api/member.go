@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/queue"
 )
 
 type member struct {
@@ -41,14 +42,48 @@ func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultReques
 	}, nil
 }
 
-func (api *member) CallJoinToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (*cc.CallJoinToQueueResponse, error) {
-	attempt, err := api.app.Queue().Manager().DistributeCall(int(in.QueueId), in.CallId)
+func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberService_CallJoinToQueueServer) error {
+
+	ctx := context.Background()
+	attempt, err := api.app.Queue().Manager().DistributeCall(ctx, in)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &cc.CallJoinToQueueResponse{
-		Status: attempt.Result(),
-	}, nil
+
+	bridged := attempt.On(queue.AttemptHookBridgedAgent)
+
+	for {
+		select {
+		case e, ok := <-bridged:
+			if !ok {
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Leaving{
+						Leaving: &cc.QueueEvent_LeavingData{
+							Result: "abandoned",
+						},
+					},
+				})
+				goto stop
+			}
+
+			err2 := out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Bridged{
+					Bridged: &cc.QueueEvent_BridgedData{
+						AgentId:     1,
+						AgentCallId: e.String(0),
+					},
+				},
+			})
+
+			if err2 != nil {
+				break
+			}
+		}
+	}
+
+stop:
+
+	return nil
 }
 
 func (api *member) ChatJoinToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*cc.ChatJoinToQueueResponse, error) {

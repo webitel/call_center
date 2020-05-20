@@ -15,24 +15,13 @@ func NewMemberApi(m *ccManager) MemberApi {
 	}
 }
 
-func (api *memberApi) JoinCallToQueue(domainId int64, callId string, queueId int64, queueName string, priority int) (string, error) {
+func (api *memberApi) JoinCallToQueue(ctx context.Context, in *proto.CallJoinToQueueRequest) (proto.MemberService_CallJoinToQueueClient, error) {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
-		return "", err
-	}
-	res, err := cli.member.CallJoinToQueue(context.Background(), &proto.CallJoinToQueueRequest{
-		CallId:    callId,
-		QueueName: queueName,
-		QueueId:   queueId,
-		Priority:  int32(priority),
-		DomainId:  domainId,
-	})
-
-	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return res.Status, nil
+	return cli.member.CallJoinToQueue(ctx, in)
 }
 
 func (api *memberApi) JoinChatToQueue(domainId int64, channelId string, queueId int64, name, number string) (string, error) {

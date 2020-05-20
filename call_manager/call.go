@@ -1,6 +1,7 @@
 package call_manager
 
 import (
+	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
@@ -46,7 +47,7 @@ type Call interface {
 	HangupChan() <-chan struct{}
 
 	NewCall(callRequest *model.CallRequest) Call
-	ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
+	//ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
 	Hangup(cause string, reporting bool) *model.AppError
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
@@ -414,9 +415,9 @@ func (call *CallImpl) Hangup(cause string, reporting bool) *model.AppError {
 	return call.api.HangupCall(call.id, cause, reporting)
 }
 
-func (call *CallImpl) ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError {
-	return call.api.ExecuteApplications(call.id, apps)
-}
+//func (call *CallImpl) ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError {
+//	return call.api.ExecuteApplications(call.id, apps)
+//}
 
 func (call *CallImpl) setCancel(cause string) {
 	call.Lock()
@@ -469,4 +470,9 @@ func (call *CallImpl) Bridge(other Call) *model.AppError {
 
 func (call *CallImpl) DTMF(val rune) *model.AppError {
 	return call.api.DTMF(call.id, val)
+}
+
+// FIXME
+func (call *CallImpl) JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *model.AppError {
+	return call.api.JoinQueue(ctx, id, filePath, vars)
 }

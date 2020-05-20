@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/olebedev/emitter"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
@@ -16,6 +17,12 @@ type AttemptInfo interface {
 
 type Result string
 
+const (
+	AttemptHookDistributeAgent  = "agent"
+	AttemptHookBridgedAgent     = "bridged"
+	AttemptHookReportingTimeout = "timeout_reporting"
+)
+
 type Attempt struct {
 	member        *model.MemberAttempt
 	state         int
@@ -24,14 +31,13 @@ type Attempt struct {
 	agent         agent_manager.AgentObject
 	domainId      int64
 	channel       string
-	Info          AttemptInfo `json:"info"`
-	Logs          []LogItem   `json:"logs"`
-	cancel        chan Result
-	done          chan struct{}
 
-	timeout         chan *model.AttemptTimeout
+	emitter.Emitter
+
+	Info            AttemptInfo `json:"info"`
+	Logs            []LogItem   `json:"logs"`
 	distributeAgent chan agent_manager.AgentObject
-	ctx             context.Context
+	Context         context.Context
 	sync.RWMutex
 }
 
@@ -40,14 +46,11 @@ type LogItem struct {
 	Info string `json:"info"`
 }
 
-func NewAttempt(member *model.MemberAttempt) *Attempt {
+func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 	return &Attempt{
 		member:          member,
-		cancel:          make(chan Result, 1),
-		done:            make(chan struct{}),
-		timeout:         make(chan *model.AttemptTimeout),
 		distributeAgent: make(chan agent_manager.AgentObject, 1),
-		ctx:             context.Background(),
+		Context:         ctx,
 		communication:   model.MemberDestinationFromBytes(member.Destination),
 	}
 }
@@ -79,27 +82,13 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	a.agent = agent
 	a.Unlock()
 
-	wlog.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()))
+	a.Emit(AttemptHookDistributeAgent, agent)
 
-	a.distributeAgent <- agent
+	wlog.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()))
 }
 
 func (a *Attempt) TeamUpdatedAt() *int64 {
 	return a.member.TeamUpdatedAt
-}
-
-func (a *Attempt) Done() {
-	close(a.done)
-}
-
-func (a *Attempt) SetMember(member *model.MemberAttempt) {
-	if a.Id() == member.Id {
-		a.member = member
-		if a.member.Result != nil {
-			a.Log(fmt.Sprintf("set result %s", *member.Result))
-			a.cancel <- Result(*a.member.Result)
-		}
-	}
 }
 
 func (a *Attempt) Id() int64 {
@@ -169,6 +158,7 @@ func (a *Attempt) Destination() string {
 	return a.communication.Destination
 }
 
+//FIXME
 func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)
 	vars := make(map[string]interface{})
@@ -195,7 +185,12 @@ func (a *Attempt) IsTimeout() bool {
 }
 
 func (a *Attempt) WaitTimeout() *model.AttemptTimeout {
-	return <-a.timeout
+	e := <-a.On(AttemptHookReportingTimeout)
+	return e.Args[0].(*model.AttemptTimeout)
+}
+
+func (a *Attempt) SetTimeout(v *model.AttemptTimeout) {
+	a.Emit(AttemptHookReportingTimeout, v)
 }
 
 func (a *Attempt) SetResult(result *string) {

@@ -20,11 +20,12 @@ type CallCommands interface {
 	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, *AppError)
 
 	HangupCall(id, cause string, reporting bool) *AppError
-	ExecuteApplications(id string, apps []*CallRequestApplication) *AppError
+	//ExecuteApplications(id string, apps []*CallRequestApplication) *AppError
 	Hold(id string) *AppError
 	SetCallVariables(id string, variables map[string]string) *AppError
 	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)
 	DTMF(id string, ch rune) *AppError
+	JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *AppError
 
 	Close() error
 }

@@ -86,6 +86,7 @@ type Call struct {
 	Timestamp   int64   `json:"timestamp" db:"timestamp"`
 	AppId       string  `json:"app_id" db:"app_id"`
 	FromNumber  string  `json:"from_number" db:"from_number"`
+	FromName    string  `json:"from_name" db:"from_name"`
 	AnsweredAt  int64   `json:"answered_at" db:"answered_at"`
 	BridgedAt   int64   `json:"bridged_at" db:"bridged_at"`
 	CreatedAt   int64   `json:"created_at" db:"created_at"`

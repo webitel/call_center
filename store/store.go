@@ -45,7 +45,8 @@ type MemberStore interface {
 
 	//Reporting(attemptId int64, result string) *model.AppError
 	DistributeChatToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
-	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
+	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string,
+		vars map[string]string, priority int) (*model.MemberAttempt, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 
 	ReportingAttempt(attemptId int64) (int64, *model.AppError)
@@ -63,6 +64,9 @@ type MemberStore interface {
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptTimeout, *model.AppError)
+
+	// CHAT TODO
+	CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError)
 }
 
 type AgentStore interface {

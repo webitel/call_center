@@ -71,89 +71,105 @@ func (x OriginateRequest_Strategy) String() string {
 }
 
 func (OriginateRequest_Strategy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{8, 0}
+	return fileDescriptor_7894a1a02fa2a211, []int{7, 0}
 }
 
-type CallApplicationRequest struct {
-	Uuid                 string       `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	Extensions           []*Extension `protobuf:"bytes,2,rep,name=extensions,proto3" json:"extensions,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+type QueueRequest struct {
+	Id                   string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Variables            map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	PlaybackFile         string            `protobuf:"bytes,3,opt,name=playback_file,json=playbackFile,proto3" json:"playback_file,omitempty"`
+	PlaybackArgs         int32             `protobuf:"varint,4,opt,name=playback_args,json=playbackArgs,proto3" json:"playback_args,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *CallApplicationRequest) Reset()         { *m = CallApplicationRequest{} }
-func (m *CallApplicationRequest) String() string { return proto.CompactTextString(m) }
-func (*CallApplicationRequest) ProtoMessage()    {}
-func (*CallApplicationRequest) Descriptor() ([]byte, []int) {
+func (m *QueueRequest) Reset()         { *m = QueueRequest{} }
+func (m *QueueRequest) String() string { return proto.CompactTextString(m) }
+func (*QueueRequest) ProtoMessage()    {}
+func (*QueueRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_7894a1a02fa2a211, []int{0}
 }
 
-func (m *CallApplicationRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CallApplicationRequest.Unmarshal(m, b)
+func (m *QueueRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueueRequest.Unmarshal(m, b)
 }
-func (m *CallApplicationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CallApplicationRequest.Marshal(b, m, deterministic)
+func (m *QueueRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueueRequest.Marshal(b, m, deterministic)
 }
-func (m *CallApplicationRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CallApplicationRequest.Merge(m, src)
+func (m *QueueRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueueRequest.Merge(m, src)
 }
-func (m *CallApplicationRequest) XXX_Size() int {
-	return xxx_messageInfo_CallApplicationRequest.Size(m)
+func (m *QueueRequest) XXX_Size() int {
+	return xxx_messageInfo_QueueRequest.Size(m)
 }
-func (m *CallApplicationRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CallApplicationRequest.DiscardUnknown(m)
+func (m *QueueRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueueRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CallApplicationRequest proto.InternalMessageInfo
+var xxx_messageInfo_QueueRequest proto.InternalMessageInfo
 
-func (m *CallApplicationRequest) GetUuid() string {
+func (m *QueueRequest) GetId() string {
 	if m != nil {
-		return m.Uuid
+		return m.Id
 	}
 	return ""
 }
 
-func (m *CallApplicationRequest) GetExtensions() []*Extension {
+func (m *QueueRequest) GetVariables() map[string]string {
 	if m != nil {
-		return m.Extensions
+		return m.Variables
 	}
 	return nil
 }
 
-type CallApplicationResponse struct {
+func (m *QueueRequest) GetPlaybackFile() string {
+	if m != nil {
+		return m.PlaybackFile
+	}
+	return ""
+}
+
+func (m *QueueRequest) GetPlaybackArgs() int32 {
+	if m != nil {
+		return m.PlaybackArgs
+	}
+	return 0
+}
+
+type QueueResponse struct {
 	Error                *ErrorExecute `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *CallApplicationResponse) Reset()         { *m = CallApplicationResponse{} }
-func (m *CallApplicationResponse) String() string { return proto.CompactTextString(m) }
-func (*CallApplicationResponse) ProtoMessage()    {}
-func (*CallApplicationResponse) Descriptor() ([]byte, []int) {
+func (m *QueueResponse) Reset()         { *m = QueueResponse{} }
+func (m *QueueResponse) String() string { return proto.CompactTextString(m) }
+func (*QueueResponse) ProtoMessage()    {}
+func (*QueueResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_7894a1a02fa2a211, []int{1}
 }
 
-func (m *CallApplicationResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CallApplicationResponse.Unmarshal(m, b)
+func (m *QueueResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueueResponse.Unmarshal(m, b)
 }
-func (m *CallApplicationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CallApplicationResponse.Marshal(b, m, deterministic)
+func (m *QueueResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueueResponse.Marshal(b, m, deterministic)
 }
-func (m *CallApplicationResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CallApplicationResponse.Merge(m, src)
+func (m *QueueResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueueResponse.Merge(m, src)
 }
-func (m *CallApplicationResponse) XXX_Size() int {
-	return xxx_messageInfo_CallApplicationResponse.Size(m)
+func (m *QueueResponse) XXX_Size() int {
+	return xxx_messageInfo_QueueResponse.Size(m)
 }
-func (m *CallApplicationResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CallApplicationResponse.DiscardUnknown(m)
+func (m *QueueResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueueResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_CallApplicationResponse proto.InternalMessageInfo
+var xxx_messageInfo_QueueResponse proto.InternalMessageInfo
 
-func (m *CallApplicationResponse) GetError() *ErrorExecute {
+func (m *QueueResponse) GetError() *ErrorExecute {
 	if m != nil {
 		return m.Error
 	}
@@ -395,74 +411,27 @@ func (m *HangupResponse) GetError() *ErrorExecute {
 	return nil
 }
 
-type Extension struct {
-	AppName              string   `protobuf:"bytes,1,opt,name=appName,proto3" json:"appName,omitempty"`
-	Args                 string   `protobuf:"bytes,2,opt,name=args,proto3" json:"args,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Extension) Reset()         { *m = Extension{} }
-func (m *Extension) String() string { return proto.CompactTextString(m) }
-func (*Extension) ProtoMessage()    {}
-func (*Extension) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{7}
-}
-
-func (m *Extension) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Extension.Unmarshal(m, b)
-}
-func (m *Extension) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Extension.Marshal(b, m, deterministic)
-}
-func (m *Extension) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Extension.Merge(m, src)
-}
-func (m *Extension) XXX_Size() int {
-	return xxx_messageInfo_Extension.Size(m)
-}
-func (m *Extension) XXX_DiscardUnknown() {
-	xxx_messageInfo_Extension.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Extension proto.InternalMessageInfo
-
-func (m *Extension) GetAppName() string {
-	if m != nil {
-		return m.AppName
-	}
-	return ""
-}
-
-func (m *Extension) GetArgs() string {
-	if m != nil {
-		return m.Args
-	}
-	return ""
-}
-
 type OriginateRequest struct {
-	Variables            map[string]string         `protobuf:"bytes,1,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Endpoints            []string                  `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
-	Strategy             OriginateRequest_Strategy `protobuf:"varint,3,opt,name=strategy,proto3,enum=fs.OriginateRequest_Strategy" json:"strategy,omitempty"`
-	Destination          string                    `protobuf:"bytes,4,opt,name=destination,proto3" json:"destination,omitempty"`
-	Timeout              int32                     `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	CallerNumber         string                    `protobuf:"bytes,6,opt,name=callerNumber,proto3" json:"callerNumber,omitempty"`
-	CallerName           string                    `protobuf:"bytes,7,opt,name=callerName,proto3" json:"callerName,omitempty"`
-	Context              string                    `protobuf:"bytes,8,opt,name=context,proto3" json:"context,omitempty"`
-	Dialplan             string                    `protobuf:"bytes,9,opt,name=dialplan,proto3" json:"dialplan,omitempty"`
-	Extensions           []*Extension              `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
-	XXX_unrecognized     []byte                    `json:"-"`
-	XXX_sizecache        int32                     `json:"-"`
+	Variables            map[string]string             `protobuf:"bytes,1,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Endpoints            []string                      `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
+	Strategy             OriginateRequest_Strategy     `protobuf:"varint,3,opt,name=strategy,proto3,enum=fs.OriginateRequest_Strategy" json:"strategy,omitempty"`
+	Destination          string                        `protobuf:"bytes,4,opt,name=destination,proto3" json:"destination,omitempty"`
+	Timeout              int32                         `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	CallerNumber         string                        `protobuf:"bytes,6,opt,name=callerNumber,proto3" json:"callerNumber,omitempty"`
+	CallerName           string                        `protobuf:"bytes,7,opt,name=callerName,proto3" json:"callerName,omitempty"`
+	Context              string                        `protobuf:"bytes,8,opt,name=context,proto3" json:"context,omitempty"`
+	Dialplan             string                        `protobuf:"bytes,9,opt,name=dialplan,proto3" json:"dialplan,omitempty"`
+	Extensions           []*OriginateRequest_Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
+	XXX_unrecognized     []byte                        `json:"-"`
+	XXX_sizecache        int32                         `json:"-"`
 }
 
 func (m *OriginateRequest) Reset()         { *m = OriginateRequest{} }
 func (m *OriginateRequest) String() string { return proto.CompactTextString(m) }
 func (*OriginateRequest) ProtoMessage()    {}
 func (*OriginateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{8}
+	return fileDescriptor_7894a1a02fa2a211, []int{7}
 }
 
 func (m *OriginateRequest) XXX_Unmarshal(b []byte) error {
@@ -546,11 +515,58 @@ func (m *OriginateRequest) GetDialplan() string {
 	return ""
 }
 
-func (m *OriginateRequest) GetExtensions() []*Extension {
+func (m *OriginateRequest) GetExtensions() []*OriginateRequest_Extension {
 	if m != nil {
 		return m.Extensions
 	}
 	return nil
+}
+
+type OriginateRequest_Extension struct {
+	AppName              string   `protobuf:"bytes,1,opt,name=appName,proto3" json:"appName,omitempty"`
+	Args                 string   `protobuf:"bytes,2,opt,name=args,proto3" json:"args,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *OriginateRequest_Extension) Reset()         { *m = OriginateRequest_Extension{} }
+func (m *OriginateRequest_Extension) String() string { return proto.CompactTextString(m) }
+func (*OriginateRequest_Extension) ProtoMessage()    {}
+func (*OriginateRequest_Extension) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{7, 0}
+}
+
+func (m *OriginateRequest_Extension) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OriginateRequest_Extension.Unmarshal(m, b)
+}
+func (m *OriginateRequest_Extension) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OriginateRequest_Extension.Marshal(b, m, deterministic)
+}
+func (m *OriginateRequest_Extension) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OriginateRequest_Extension.Merge(m, src)
+}
+func (m *OriginateRequest_Extension) XXX_Size() int {
+	return xxx_messageInfo_OriginateRequest_Extension.Size(m)
+}
+func (m *OriginateRequest_Extension) XXX_DiscardUnknown() {
+	xxx_messageInfo_OriginateRequest_Extension.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OriginateRequest_Extension proto.InternalMessageInfo
+
+func (m *OriginateRequest_Extension) GetAppName() string {
+	if m != nil {
+		return m.AppName
+	}
+	return ""
+}
+
+func (m *OriginateRequest_Extension) GetArgs() string {
+	if m != nil {
+		return m.Args
+	}
+	return ""
 }
 
 type OriginateResponse struct {
@@ -566,7 +582,7 @@ func (m *OriginateResponse) Reset()         { *m = OriginateResponse{} }
 func (m *OriginateResponse) String() string { return proto.CompactTextString(m) }
 func (*OriginateResponse) ProtoMessage()    {}
 func (*OriginateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{9}
+	return fileDescriptor_7894a1a02fa2a211, []int{8}
 }
 
 func (m *OriginateResponse) XXX_Unmarshal(b []byte) error {
@@ -621,7 +637,7 @@ func (m *BridgeRequest) Reset()         { *m = BridgeRequest{} }
 func (m *BridgeRequest) String() string { return proto.CompactTextString(m) }
 func (*BridgeRequest) ProtoMessage()    {}
 func (*BridgeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{10}
+	return fileDescriptor_7894a1a02fa2a211, []int{9}
 }
 
 func (m *BridgeRequest) XXX_Unmarshal(b []byte) error {
@@ -675,7 +691,7 @@ func (m *BridgeResponse) Reset()         { *m = BridgeResponse{} }
 func (m *BridgeResponse) String() string { return proto.CompactTextString(m) }
 func (*BridgeResponse) ProtoMessage()    {}
 func (*BridgeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{11}
+	return fileDescriptor_7894a1a02fa2a211, []int{10}
 }
 
 func (m *BridgeResponse) XXX_Unmarshal(b []byte) error {
@@ -710,7 +726,7 @@ func (m *BridgeResponse) GetError() *ErrorExecute {
 	return nil
 }
 
-type SetVariablesReqeust struct {
+type SetVariablesRequest struct {
 	Uuid                 string            `protobuf:"bytes,1,opt,name=uuid,proto3" json:"uuid,omitempty"`
 	Variables            map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
@@ -718,39 +734,39 @@ type SetVariablesReqeust struct {
 	XXX_sizecache        int32             `json:"-"`
 }
 
-func (m *SetVariablesReqeust) Reset()         { *m = SetVariablesReqeust{} }
-func (m *SetVariablesReqeust) String() string { return proto.CompactTextString(m) }
-func (*SetVariablesReqeust) ProtoMessage()    {}
-func (*SetVariablesReqeust) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{12}
+func (m *SetVariablesRequest) Reset()         { *m = SetVariablesRequest{} }
+func (m *SetVariablesRequest) String() string { return proto.CompactTextString(m) }
+func (*SetVariablesRequest) ProtoMessage()    {}
+func (*SetVariablesRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{11}
 }
 
-func (m *SetVariablesReqeust) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetVariablesReqeust.Unmarshal(m, b)
+func (m *SetVariablesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetVariablesRequest.Unmarshal(m, b)
 }
-func (m *SetVariablesReqeust) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetVariablesReqeust.Marshal(b, m, deterministic)
+func (m *SetVariablesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetVariablesRequest.Marshal(b, m, deterministic)
 }
-func (m *SetVariablesReqeust) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetVariablesReqeust.Merge(m, src)
+func (m *SetVariablesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetVariablesRequest.Merge(m, src)
 }
-func (m *SetVariablesReqeust) XXX_Size() int {
-	return xxx_messageInfo_SetVariablesReqeust.Size(m)
+func (m *SetVariablesRequest) XXX_Size() int {
+	return xxx_messageInfo_SetVariablesRequest.Size(m)
 }
-func (m *SetVariablesReqeust) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetVariablesReqeust.DiscardUnknown(m)
+func (m *SetVariablesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetVariablesRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SetVariablesReqeust proto.InternalMessageInfo
+var xxx_messageInfo_SetVariablesRequest proto.InternalMessageInfo
 
-func (m *SetVariablesReqeust) GetUuid() string {
+func (m *SetVariablesRequest) GetUuid() string {
 	if m != nil {
 		return m.Uuid
 	}
 	return ""
 }
 
-func (m *SetVariablesReqeust) GetVariables() map[string]string {
+func (m *SetVariablesRequest) GetVariables() map[string]string {
 	if m != nil {
 		return m.Variables
 	}
@@ -768,7 +784,7 @@ func (m *SetVariablesResponse) Reset()         { *m = SetVariablesResponse{} }
 func (m *SetVariablesResponse) String() string { return proto.CompactTextString(m) }
 func (*SetVariablesResponse) ProtoMessage()    {}
 func (*SetVariablesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{13}
+	return fileDescriptor_7894a1a02fa2a211, []int{12}
 }
 
 func (m *SetVariablesResponse) XXX_Unmarshal(b []byte) error {
@@ -808,7 +824,7 @@ func (m *HangupMatchingVarsReqeust) Reset()         { *m = HangupMatchingVarsReq
 func (m *HangupMatchingVarsReqeust) String() string { return proto.CompactTextString(m) }
 func (*HangupMatchingVarsReqeust) ProtoMessage()    {}
 func (*HangupMatchingVarsReqeust) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{14}
+	return fileDescriptor_7894a1a02fa2a211, []int{13}
 }
 
 func (m *HangupMatchingVarsReqeust) XXX_Unmarshal(b []byte) error {
@@ -854,7 +870,7 @@ func (m *HangupMatchingVarsResponse) Reset()         { *m = HangupMatchingVarsRe
 func (m *HangupMatchingVarsResponse) String() string { return proto.CompactTextString(m) }
 func (*HangupMatchingVarsResponse) ProtoMessage()    {}
 func (*HangupMatchingVarsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{15}
+	return fileDescriptor_7894a1a02fa2a211, []int{14}
 }
 
 func (m *HangupMatchingVarsResponse) XXX_Unmarshal(b []byte) error {
@@ -885,21 +901,22 @@ func (m *HangupMatchingVarsResponse) GetCount() int32 {
 func init() {
 	proto.RegisterEnum("fs.ErrorExecute_Type", ErrorExecute_Type_name, ErrorExecute_Type_value)
 	proto.RegisterEnum("fs.OriginateRequest_Strategy", OriginateRequest_Strategy_name, OriginateRequest_Strategy_value)
-	proto.RegisterType((*CallApplicationRequest)(nil), "fs.CallApplicationRequest")
-	proto.RegisterType((*CallApplicationResponse)(nil), "fs.CallApplicationResponse")
+	proto.RegisterType((*QueueRequest)(nil), "fs.QueueRequest")
+	proto.RegisterMapType((map[string]string)(nil), "fs.QueueRequest.VariablesEntry")
+	proto.RegisterType((*QueueResponse)(nil), "fs.QueueResponse")
 	proto.RegisterType((*ErrorExecute)(nil), "fs.ErrorExecute")
 	proto.RegisterType((*ExecuteRequest)(nil), "fs.ExecuteRequest")
 	proto.RegisterType((*ExecuteResponse)(nil), "fs.ExecuteResponse")
 	proto.RegisterType((*HangupRequest)(nil), "fs.HangupRequest")
 	proto.RegisterType((*HangupResponse)(nil), "fs.HangupResponse")
-	proto.RegisterType((*Extension)(nil), "fs.Extension")
 	proto.RegisterType((*OriginateRequest)(nil), "fs.OriginateRequest")
 	proto.RegisterMapType((map[string]string)(nil), "fs.OriginateRequest.VariablesEntry")
+	proto.RegisterType((*OriginateRequest_Extension)(nil), "fs.OriginateRequest.Extension")
 	proto.RegisterType((*OriginateResponse)(nil), "fs.OriginateResponse")
 	proto.RegisterType((*BridgeRequest)(nil), "fs.BridgeRequest")
 	proto.RegisterType((*BridgeResponse)(nil), "fs.BridgeResponse")
-	proto.RegisterType((*SetVariablesReqeust)(nil), "fs.SetVariablesReqeust")
-	proto.RegisterMapType((map[string]string)(nil), "fs.SetVariablesReqeust.VariablesEntry")
+	proto.RegisterType((*SetVariablesRequest)(nil), "fs.SetVariablesRequest")
+	proto.RegisterMapType((map[string]string)(nil), "fs.SetVariablesRequest.VariablesEntry")
 	proto.RegisterType((*SetVariablesResponse)(nil), "fs.SetVariablesResponse")
 	proto.RegisterType((*HangupMatchingVarsReqeust)(nil), "fs.HangupMatchingVarsReqeust")
 	proto.RegisterMapType((map[string]string)(nil), "fs.HangupMatchingVarsReqeust.VariablesEntry")
@@ -909,63 +926,65 @@ func init() {
 func init() { proto.RegisterFile("protos/fs.proto", fileDescriptor_7894a1a02fa2a211) }
 
 var fileDescriptor_7894a1a02fa2a211 = []byte{
-	// 882 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x5b, 0x6f, 0xe3, 0x44,
-	0x14, 0xae, 0x73, 0x69, 0xe3, 0xd3, 0x34, 0xcd, 0xce, 0x76, 0x59, 0x63, 0xb6, 0xab, 0xc8, 0x48,
-	0x25, 0x48, 0x10, 0x44, 0xe0, 0x61, 0x77, 0x85, 0x56, 0xca, 0x96, 0x00, 0x41, 0xe9, 0x16, 0x4d,
-	0xb7, 0xe5, 0x81, 0x87, 0x6a, 0x1a, 0x9f, 0x1a, 0x0b, 0xc7, 0x76, 0x67, 0xc6, 0x55, 0xf3, 0xa3,
-	0xf8, 0x05, 0xfc, 0x00, 0x7e, 0x13, 0x6f, 0x68, 0xc6, 0x97, 0x38, 0xb7, 0xc2, 0xaa, 0xda, 0xb7,
-	0x39, 0xb7, 0x6f, 0x7c, 0xbe, 0x73, 0x19, 0xc3, 0x7e, 0xcc, 0x23, 0x19, 0x89, 0xaf, 0xae, 0x45,
-	0x4f, 0x9f, 0x48, 0xe5, 0x5a, 0x38, 0xbf, 0xc1, 0x47, 0xc7, 0x2c, 0x08, 0x06, 0x71, 0x1c, 0xf8,
-	0x13, 0x26, 0xfd, 0x28, 0xa4, 0x78, 0x93, 0xa0, 0x90, 0x84, 0x40, 0x2d, 0x49, 0x7c, 0xd7, 0x32,
-	0x3a, 0x46, 0xd7, 0xa4, 0xfa, 0x4c, 0xbe, 0x04, 0xc0, 0x3b, 0x89, 0xa1, 0xf0, 0xa3, 0x50, 0x58,
-	0x95, 0x4e, 0xb5, 0xbb, 0xdb, 0xdf, 0xeb, 0x5d, 0x8b, 0xde, 0x30, 0xd7, 0xd2, 0x92, 0x83, 0x33,
-	0x80, 0xa7, 0x2b, 0xe0, 0x22, 0x8e, 0x42, 0x81, 0xe4, 0x08, 0xea, 0xc8, 0x79, 0xc4, 0x35, 0xfc,
-	0x6e, 0xbf, 0xad, 0x41, 0x94, 0x62, 0x78, 0x87, 0x93, 0x44, 0x22, 0x4d, 0xcd, 0xce, 0x0d, 0x34,
-	0xcb, 0x6a, 0x62, 0xc1, 0xce, 0x14, 0x85, 0x60, 0x1e, 0x66, 0x1f, 0x96, 0x8b, 0xe4, 0x73, 0xa8,
-	0xc9, 0x59, 0x8c, 0x56, 0xa5, 0x63, 0x74, 0x5b, 0xfd, 0x27, 0xcb, 0x80, 0xbd, 0x77, 0xb3, 0x18,
-	0xa9, 0x76, 0x71, 0x9e, 0x41, 0x4d, 0x49, 0xc4, 0x84, 0xfa, 0x90, 0xd2, 0x53, 0xda, 0xde, 0x52,
-	0xc7, 0xf3, 0xb3, 0xc1, 0x8f, 0xc3, 0xb6, 0xe1, 0xbc, 0x86, 0x56, 0xfe, 0x11, 0x19, 0x15, 0x16,
-	0xec, 0x4c, 0xa2, 0xe9, 0x94, 0x85, 0x39, 0x1b, 0xb9, 0xa8, 0x48, 0x62, 0xdc, 0x13, 0xfa, 0x52,
-	0x93, 0xea, 0xb3, 0x73, 0x02, 0xfb, 0x45, 0x7c, 0x96, 0x2d, 0x81, 0x9a, 0xcb, 0x24, 0xcb, 0xb9,
-	0x54, 0xe7, 0x39, 0x03, 0x95, 0xfb, 0x19, 0xf8, 0x15, 0xf6, 0x7e, 0x62, 0xa1, 0x97, 0xc4, 0xf7,
-	0x15, 0xe6, 0x00, 0xea, 0x13, 0x96, 0x08, 0xcc, 0x3e, 0x24, 0x15, 0xc8, 0x33, 0x30, 0x39, 0xc6,
-	0x11, 0x97, 0x7e, 0xe8, 0x59, 0xd5, 0x8e, 0xd1, 0x6d, 0xd0, 0xb9, 0xc2, 0x79, 0x01, 0xad, 0x1c,
-	0xf8, 0x3d, 0x8b, 0xf2, 0x12, 0xcc, 0xa2, 0xe0, 0x8a, 0x1c, 0x16, 0xc7, 0x6f, 0xd9, 0xb4, 0xa8,
-	0x48, 0x26, 0xae, 0x25, 0xe7, 0x9f, 0x2a, 0xb4, 0x4f, 0xb9, 0xef, 0xf9, 0x21, 0x9b, 0xf3, 0x3b,
-	0x00, 0xf3, 0x96, 0x71, 0x9f, 0x5d, 0x05, 0x28, 0x2c, 0x43, 0x77, 0xd5, 0xa7, 0xea, 0xee, 0x65,
-	0xc7, 0xde, 0x45, 0xee, 0x35, 0x0c, 0x25, 0x9f, 0xd1, 0x79, 0x94, 0x4a, 0x15, 0x43, 0x37, 0x8e,
-	0xfc, 0x50, 0xa6, 0x8d, 0x69, 0xd2, 0xb9, 0x82, 0xbc, 0x84, 0x86, 0x90, 0x9c, 0x49, 0xf4, 0x66,
-	0x9a, 0x87, 0x56, 0xff, 0x70, 0x2d, 0xfe, 0x59, 0xe6, 0x44, 0x0b, 0x77, 0xd2, 0x81, 0x5d, 0x17,
-	0x85, 0x54, 0x6e, 0x7e, 0x14, 0x5a, 0x35, 0x9d, 0x4b, 0x59, 0xa5, 0x08, 0x90, 0xfe, 0x14, 0xa3,
-	0x44, 0x5a, 0xf5, 0x8e, 0xd1, 0xad, 0xd3, 0x5c, 0x24, 0x0e, 0x34, 0x27, 0x2c, 0x08, 0x90, 0xbf,
-	0x4d, 0xa6, 0x57, 0xc8, 0xad, 0x6d, 0x1d, 0xbc, 0xa0, 0x23, 0xcf, 0x01, 0x32, 0x59, 0x31, 0xb8,
-	0xa3, 0x3d, 0x4a, 0x9a, 0xb4, 0xf7, 0x42, 0x89, 0x77, 0xd2, 0x6a, 0xe4, 0xbd, 0xa7, 0x45, 0x62,
-	0x43, 0xc3, 0xf5, 0x59, 0x10, 0x07, 0x2c, 0xb4, 0x4c, 0x6d, 0x2a, 0xe4, 0xa5, 0x41, 0x85, 0xff,
-	0x18, 0x54, 0xfb, 0x3b, 0x68, 0x2d, 0x52, 0x4b, 0xda, 0x50, 0xfd, 0x03, 0x67, 0x59, 0x45, 0xd5,
-	0x51, 0xb5, 0xd8, 0x2d, 0x0b, 0x92, 0xa2, 0xc5, 0xb4, 0xf0, 0xaa, 0xf2, 0xc2, 0x70, 0x8e, 0xa0,
-	0x91, 0x13, 0x47, 0x9a, 0xd0, 0xf8, 0x61, 0x30, 0x1a, 0x9f, 0x5e, 0x0c, 0xd5, 0x54, 0x35, 0xa1,
-	0x71, 0x72, 0x3e, 0x7e, 0x37, 0xfa, 0x65, 0xac, 0x06, 0x2b, 0x84, 0x47, 0x25, 0xc6, 0xe7, 0xa3,
-	0xb1, 0xd2, 0xcd, 0xff, 0x73, 0x34, 0xc8, 0x21, 0x80, 0x3e, 0x5c, 0x4e, 0x22, 0x17, 0x75, 0x61,
-	0xeb, 0xd4, 0xd4, 0x9a, 0xe3, 0xc8, 0x45, 0x27, 0x80, 0xbd, 0x37, 0xdc, 0x77, 0xbd, 0xd2, 0x1c,
-	0x37, 0x02, 0xf4, 0x2e, 0xd9, 0x65, 0x71, 0xdf, 0x76, 0x80, 0xde, 0x60, 0xe4, 0xe6, 0x96, 0x2b,
-	0x65, 0xa9, 0x14, 0x96, 0x37, 0x23, 0x97, 0x7c, 0x06, 0xed, 0xd4, 0xc2, 0x51, 0x20, 0xbf, 0x45,
-	0xe5, 0x51, 0xd5, 0x1e, 0x7b, 0xca, 0x83, 0xa6, 0xda, 0x91, 0xeb, 0x8c, 0xa1, 0x95, 0xdf, 0xf6,
-	0xf0, 0xd4, 0x9c, 0x3f, 0x0d, 0x78, 0x7c, 0x86, 0xb2, 0xa8, 0x0a, 0xc5, 0x1b, 0x4c, 0x36, 0x0c,
-	0xff, 0xf7, 0xe5, 0xf1, 0x49, 0x97, 0xf2, 0x91, 0xc2, 0x5d, 0x13, 0xbf, 0x79, 0x82, 0x1e, 0xd8,
-	0x03, 0xaf, 0xe1, 0x60, 0xf1, 0xba, 0xf7, 0x5c, 0x29, 0x7f, 0x19, 0xf0, 0x71, 0xba, 0x8d, 0x4e,
-	0x98, 0x9c, 0xfc, 0xee, 0x87, 0xde, 0x05, 0xe3, 0x45, 0xd6, 0xc5, 0x7a, 0x33, 0xca, 0xeb, 0xed,
-	0xe7, 0xd5, 0xbc, 0xbf, 0x50, 0xf8, 0x1b, 0x71, 0x3e, 0x58, 0xf6, 0x7d, 0xb0, 0xd7, 0x5d, 0x9a,
-	0x71, 0xa0, 0xbe, 0x3e, 0x4a, 0x42, 0xa9, 0xb1, 0xea, 0x34, 0x15, 0xfa, 0x7f, 0x57, 0xa1, 0x3a,
-	0x88, 0x7d, 0xf2, 0x0a, 0xcc, 0x62, 0x2a, 0xc8, 0xc1, 0xba, 0xb5, 0x64, 0x3f, 0x59, 0xd2, 0xa6,
-	0xb8, 0xce, 0x16, 0x19, 0xc3, 0xfe, 0xd2, 0x03, 0x4b, 0x6c, 0xe5, 0xbb, 0xfe, 0x49, 0xb7, 0x3f,
-	0x59, 0x6b, 0x2b, 0xd0, 0xbe, 0x85, 0x9d, 0xfc, 0x99, 0x25, 0xe9, 0xae, 0x28, 0xbf, 0x82, 0xf6,
-	0xe3, 0x05, 0x5d, 0x11, 0x75, 0x0c, 0xcd, 0x72, 0xe5, 0xc9, 0xd3, 0x0d, 0xad, 0x67, 0x5b, 0xab,
-	0x86, 0x02, 0xe4, 0x6b, 0xd8, 0x4e, 0x87, 0x87, 0x3c, 0x52, 0x5e, 0x0b, 0x63, 0x6b, 0x93, 0xb2,
-	0xaa, 0x1c, 0x92, 0x72, 0x9e, 0x86, 0x2c, 0xbc, 0x91, 0x69, 0xc8, 0xe2, 0xeb, 0xe6, 0x6c, 0x91,
-	0x73, 0x20, 0xab, 0x65, 0x22, 0x87, 0xf7, 0xf6, 0x8c, 0xfd, 0x7c, 0x93, 0x39, 0x87, 0xbd, 0xda,
-	0xd6, 0xbf, 0x53, 0xdf, 0xfc, 0x1b, 0x00, 0x00, 0xff, 0xff, 0xa5, 0xd0, 0x0e, 0x83, 0x61, 0x09,
-	0x00, 0x00,
+	// 920 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xdd, 0x6e, 0xe3, 0x44,
+	0x14, 0xae, 0xf3, 0xd3, 0xc6, 0xa7, 0x49, 0x36, 0x9d, 0xed, 0x0a, 0x63, 0xb5, 0xa5, 0xf2, 0x4a,
+	0xa5, 0x48, 0x28, 0x88, 0x80, 0xc4, 0xee, 0x0a, 0x2a, 0x65, 0x97, 0x2c, 0x04, 0xb5, 0x14, 0xdc,
+	0x6d, 0xb9, 0xac, 0x26, 0xf1, 0xa9, 0xb1, 0xd6, 0xb1, 0xbd, 0x33, 0xe3, 0xaa, 0x79, 0x24, 0x2e,
+	0x78, 0x02, 0xae, 0x79, 0x14, 0xde, 0x03, 0xcd, 0x8c, 0xed, 0xd8, 0x4d, 0x5a, 0x51, 0x55, 0xdc,
+	0xcd, 0xf9, 0xce, 0xcf, 0x9c, 0x9f, 0xef, 0x8c, 0x0d, 0x4f, 0x12, 0x16, 0x8b, 0x98, 0x7f, 0x71,
+	0xc5, 0xfb, 0xea, 0x44, 0x6a, 0x57, 0xdc, 0xf9, 0xc7, 0x80, 0xf6, 0xaf, 0x29, 0xa6, 0xe8, 0xe2,
+	0x87, 0x14, 0xb9, 0x20, 0x5d, 0xa8, 0x05, 0x9e, 0x65, 0xec, 0x1b, 0x87, 0xa6, 0x5b, 0x0b, 0x3c,
+	0xf2, 0x1d, 0x98, 0xd7, 0x94, 0x05, 0x74, 0x12, 0x22, 0xb7, 0x6a, 0xfb, 0xf5, 0xc3, 0xcd, 0xc1,
+	0x27, 0xfd, 0x2b, 0xde, 0x2f, 0x3b, 0xf5, 0x2f, 0x72, 0x8b, 0x51, 0x24, 0xd8, 0xdc, 0x5d, 0x78,
+	0x90, 0xe7, 0xd0, 0x49, 0x42, 0x3a, 0x9f, 0xd0, 0xe9, 0xfb, 0xcb, 0xab, 0x20, 0x44, 0xab, 0xae,
+	0x22, 0xb7, 0x73, 0xf0, 0x6d, 0x10, 0x62, 0xc5, 0x88, 0x32, 0x9f, 0x5b, 0x8d, 0x7d, 0xe3, 0xb0,
+	0xb9, 0x30, 0x1a, 0x32, 0x9f, 0xdb, 0xdf, 0x42, 0xb7, 0x7a, 0x0d, 0xe9, 0x41, 0xfd, 0x3d, 0xce,
+	0xb3, 0x5c, 0xe5, 0x91, 0x6c, 0x43, 0xf3, 0x9a, 0x86, 0x29, 0x5a, 0x35, 0x85, 0x69, 0xe1, 0x55,
+	0xed, 0x85, 0xe1, 0x7c, 0x03, 0x9d, 0x2c, 0x63, 0x9e, 0xc4, 0x11, 0x47, 0x72, 0x00, 0x4d, 0x64,
+	0x2c, 0x66, 0xca, 0x7d, 0x73, 0xd0, 0x93, 0x35, 0x8d, 0x24, 0x30, 0xba, 0xc1, 0x69, 0x2a, 0xd0,
+	0xd5, 0x6a, 0xe7, 0x03, 0xb4, 0xcb, 0x30, 0xb1, 0x60, 0x63, 0x86, 0x9c, 0x53, 0x1f, 0xb3, 0x8b,
+	0x73, 0x91, 0x7c, 0x06, 0x0d, 0x31, 0x4f, 0xf4, 0xdd, 0xdd, 0xc1, 0xb3, 0xdb, 0x01, 0xfb, 0xef,
+	0xe6, 0x09, 0xba, 0xca, 0xc4, 0xd9, 0x81, 0x86, 0x94, 0x88, 0x09, 0xcd, 0x91, 0xeb, 0x9e, 0xba,
+	0xbd, 0x35, 0x79, 0x3c, 0x3f, 0x1b, 0xfe, 0x30, 0xea, 0x19, 0xce, 0x11, 0x74, 0xf3, 0x24, 0xb2,
+	0xa1, 0x58, 0xb0, 0x31, 0x8d, 0x67, 0x33, 0x1a, 0xe5, 0x93, 0xc9, 0x45, 0x42, 0xa0, 0xa1, 0x3a,
+	0xa6, 0x0b, 0x56, 0x67, 0xe7, 0x04, 0x9e, 0x14, 0xfe, 0x59, 0xb5, 0x04, 0x1a, 0x1e, 0x15, 0x34,
+	0xf3, 0x56, 0xe7, 0x45, 0x07, 0x6a, 0xf7, 0x77, 0xe0, 0x37, 0xe8, 0xfc, 0x48, 0x23, 0x3f, 0x4d,
+	0xf2, 0x6c, 0x08, 0x34, 0xd2, 0xb4, 0x20, 0x89, 0x3a, 0xcb, 0xce, 0x4f, 0x69, 0xca, 0x8b, 0xce,
+	0x2b, 0x81, 0xec, 0x80, 0xc9, 0x30, 0x89, 0x99, 0x08, 0x22, 0x5f, 0x4d, 0xbe, 0xe5, 0x2e, 0x00,
+	0xe7, 0x05, 0x74, 0xf3, 0xc0, 0x0f, 0x1c, 0xca, 0xdf, 0x0d, 0xe8, 0x9d, 0xb2, 0xc0, 0x0f, 0x22,
+	0xba, 0x68, 0xd2, 0xb0, 0xcc, 0x54, 0x43, 0x31, 0xf5, 0xb9, 0x0c, 0x70, 0xdb, 0xf0, 0x1e, 0xb6,
+	0xee, 0x80, 0x89, 0x91, 0x97, 0xc4, 0x41, 0x24, 0x34, 0xd9, 0x4d, 0x77, 0x01, 0x90, 0x97, 0xd0,
+	0xe2, 0x82, 0x51, 0x81, 0xfe, 0x5c, 0x15, 0xd3, 0x1d, 0xec, 0xae, 0x8c, 0x7f, 0x96, 0x19, 0xb9,
+	0x85, 0x39, 0xd9, 0x87, 0x4d, 0x0f, 0xb9, 0x90, 0x66, 0x41, 0x1c, 0x29, 0x7e, 0x9b, 0x6e, 0x19,
+	0x92, 0x23, 0x16, 0xc1, 0x0c, 0xe3, 0x54, 0x58, 0x4d, 0xc5, 0xfe, 0x5c, 0x24, 0x0e, 0xb4, 0xa7,
+	0x34, 0x0c, 0x91, 0xfd, 0x9c, 0xce, 0x26, 0xc8, 0xac, 0x75, 0xbd, 0x41, 0x65, 0x8c, 0xec, 0x01,
+	0x64, 0x32, 0x9d, 0xa1, 0xb5, 0xa1, 0x2c, 0x4a, 0x88, 0x26, 0x50, 0x24, 0xf0, 0x46, 0x58, 0xad,
+	0x9c, 0x40, 0x4a, 0x24, 0x36, 0xb4, 0xbc, 0x80, 0x86, 0x49, 0x48, 0x23, 0xcb, 0x54, 0xaa, 0x42,
+	0x26, 0x47, 0x00, 0x78, 0x23, 0x30, 0xe2, 0x41, 0x1c, 0x71, 0x0b, 0x54, 0x4b, 0xf7, 0x56, 0x96,
+	0x3c, 0xca, 0xcd, 0xdc, 0x92, 0x87, 0xfd, 0x12, 0xcc, 0x42, 0x21, 0x53, 0xa0, 0x49, 0xa2, 0xf2,
+	0xcb, 0x38, 0x9c, 0x89, 0xab, 0x38, 0xfc, 0xc8, 0x6d, 0x3f, 0x80, 0x56, 0x3e, 0x04, 0xd2, 0x86,
+	0xd6, 0xdb, 0xe1, 0xf8, 0xf8, 0xf4, 0x62, 0x24, 0xd7, 0xac, 0x0d, 0xad, 0x93, 0xf3, 0xe3, 0x77,
+	0xe3, 0x5f, 0x8e, 0xe5, 0xa6, 0x45, 0xb0, 0x55, 0x2a, 0x65, 0xb1, 0x2b, 0x4b, 0xf4, 0xfe, 0x8f,
+	0xbb, 0x42, 0x76, 0x01, 0xd4, 0xe1, 0x72, 0x1a, 0x7b, 0xfa, 0xad, 0x6b, 0xba, 0xa6, 0x42, 0xde,
+	0xc4, 0x1e, 0x3a, 0x21, 0x74, 0x5e, 0xb3, 0xc0, 0xf3, 0x4b, 0x8b, 0xdd, 0x0a, 0xd1, 0xbf, 0xa4,
+	0x97, 0xc5, 0x7d, 0xeb, 0x21, 0xfa, 0xc3, 0xb1, 0x97, 0x6b, 0x26, 0x52, 0x53, 0x2b, 0x34, 0xaf,
+	0xc7, 0x1e, 0xf9, 0x14, 0x7a, 0x5a, 0xc3, 0x90, 0x23, 0xbb, 0x46, 0x69, 0xa1, 0x5f, 0xd5, 0x8e,
+	0xb4, 0x70, 0x35, 0x3a, 0xf6, 0x9c, 0x63, 0xe8, 0xe6, 0xb7, 0x3d, 0xbe, 0x34, 0xe7, 0x4f, 0x03,
+	0x9e, 0x9e, 0xa1, 0x28, 0xa6, 0x72, 0xdf, 0x6b, 0xf0, 0xfd, 0xf2, 0x47, 0xe3, 0x40, 0xc6, 0x5d,
+	0xe1, 0x7f, 0xf7, 0x36, 0x3e, 0x92, 0x03, 0x47, 0xb0, 0x5d, 0xbd, 0xee, 0x81, 0x6f, 0xcc, 0x5f,
+	0x06, 0x7c, 0xac, 0x9f, 0xa7, 0x13, 0x2a, 0xa6, 0xbf, 0x07, 0x91, 0x7f, 0x41, 0x99, 0xcc, 0x1a,
+	0x53, 0x2e, 0x16, 0xef, 0x9d, 0x51, 0x7e, 0xef, 0x7e, 0x5a, 0xae, 0xfb, 0x73, 0x19, 0xff, 0xce,
+	0x38, 0xff, 0x5b, 0xf5, 0x03, 0xb0, 0x57, 0x5d, 0x9a, 0xf5, 0x40, 0x66, 0x1f, 0xa7, 0x91, 0x50,
+	0xb1, 0x9a, 0xae, 0x16, 0x06, 0x7f, 0xd4, 0xa1, 0x3e, 0x4c, 0x02, 0xf2, 0x0a, 0xcc, 0x62, 0x2b,
+	0xc8, 0xf6, 0xaa, 0x7d, 0xb7, 0x9f, 0xdd, 0x42, 0x75, 0x5c, 0x67, 0x8d, 0x7c, 0x0d, 0x1b, 0xf9,
+	0x97, 0x92, 0xa8, 0xce, 0x56, 0x3e, 0x64, 0xf6, 0xd3, 0x0a, 0x56, 0x78, 0xbd, 0x81, 0x76, 0x79,
+	0x56, 0xe4, 0xa3, 0x3b, 0xc8, 0x62, 0x5b, 0xcb, 0x8a, 0x22, 0xc8, 0x97, 0xb0, 0xae, 0xe9, 0x4e,
+	0xb6, 0xa4, 0x55, 0x65, 0xd1, 0x6c, 0x52, 0x86, 0xca, 0x2e, 0xba, 0x4b, 0xda, 0xa5, 0xf2, 0x99,
+	0xd3, 0x2e, 0xd5, 0x0f, 0x94, 0xb3, 0x46, 0xce, 0x81, 0x2c, 0x37, 0x96, 0xec, 0xde, 0x3b, 0x65,
+	0x7b, 0xef, 0x2e, 0x75, 0x11, 0xb6, 0x0f, 0x4d, 0xf5, 0x7f, 0x42, 0x7a, 0xb7, 0x7f, 0xae, 0xec,
+	0xad, 0x12, 0x92, 0xdb, 0x4f, 0xd6, 0xd5, 0x2f, 0xdc, 0x57, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff,
+	0xee, 0xdb, 0x9e, 0xb3, 0xd5, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -981,12 +1000,12 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ApiClient interface {
 	Originate(ctx context.Context, in *OriginateRequest, opts ...grpc.CallOption) (*OriginateResponse, error)
-	CallApplication(ctx context.Context, in *CallApplicationRequest, opts ...grpc.CallOption) (*CallApplicationResponse, error)
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error)
-	SetVariables(ctx context.Context, in *SetVariablesReqeust, opts ...grpc.CallOption) (*SetVariablesResponse, error)
+	SetVariables(ctx context.Context, in *SetVariablesRequest, opts ...grpc.CallOption) (*SetVariablesResponse, error)
 	Bridge(ctx context.Context, in *BridgeRequest, opts ...grpc.CallOption) (*BridgeResponse, error)
 	Hangup(ctx context.Context, in *HangupRequest, opts ...grpc.CallOption) (*HangupResponse, error)
 	HangupMatchingVars(ctx context.Context, in *HangupMatchingVarsReqeust, opts ...grpc.CallOption) (*HangupMatchingVarsResponse, error)
+	Queue(ctx context.Context, in *QueueRequest, opts ...grpc.CallOption) (*QueueResponse, error)
 }
 
 type apiClient struct {
@@ -1006,15 +1025,6 @@ func (c *apiClient) Originate(ctx context.Context, in *OriginateRequest, opts ..
 	return out, nil
 }
 
-func (c *apiClient) CallApplication(ctx context.Context, in *CallApplicationRequest, opts ...grpc.CallOption) (*CallApplicationResponse, error) {
-	out := new(CallApplicationResponse)
-	err := c.cc.Invoke(ctx, "/fs.Api/CallApplication", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *apiClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error) {
 	out := new(ExecuteResponse)
 	err := c.cc.Invoke(ctx, "/fs.Api/Execute", in, out, opts...)
@@ -1024,7 +1034,7 @@ func (c *apiClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grp
 	return out, nil
 }
 
-func (c *apiClient) SetVariables(ctx context.Context, in *SetVariablesReqeust, opts ...grpc.CallOption) (*SetVariablesResponse, error) {
+func (c *apiClient) SetVariables(ctx context.Context, in *SetVariablesRequest, opts ...grpc.CallOption) (*SetVariablesResponse, error) {
 	out := new(SetVariablesResponse)
 	err := c.cc.Invoke(ctx, "/fs.Api/SetVariables", in, out, opts...)
 	if err != nil {
@@ -1060,15 +1070,24 @@ func (c *apiClient) HangupMatchingVars(ctx context.Context, in *HangupMatchingVa
 	return out, nil
 }
 
+func (c *apiClient) Queue(ctx context.Context, in *QueueRequest, opts ...grpc.CallOption) (*QueueResponse, error) {
+	out := new(QueueResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/Queue", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ApiServer is the server API for Api service.
 type ApiServer interface {
 	Originate(context.Context, *OriginateRequest) (*OriginateResponse, error)
-	CallApplication(context.Context, *CallApplicationRequest) (*CallApplicationResponse, error)
 	Execute(context.Context, *ExecuteRequest) (*ExecuteResponse, error)
-	SetVariables(context.Context, *SetVariablesReqeust) (*SetVariablesResponse, error)
+	SetVariables(context.Context, *SetVariablesRequest) (*SetVariablesResponse, error)
 	Bridge(context.Context, *BridgeRequest) (*BridgeResponse, error)
 	Hangup(context.Context, *HangupRequest) (*HangupResponse, error)
 	HangupMatchingVars(context.Context, *HangupMatchingVarsReqeust) (*HangupMatchingVarsResponse, error)
+	Queue(context.Context, *QueueRequest) (*QueueResponse, error)
 }
 
 // UnimplementedApiServer can be embedded to have forward compatible implementations.
@@ -1078,13 +1097,10 @@ type UnimplementedApiServer struct {
 func (*UnimplementedApiServer) Originate(ctx context.Context, req *OriginateRequest) (*OriginateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Originate not implemented")
 }
-func (*UnimplementedApiServer) CallApplication(ctx context.Context, req *CallApplicationRequest) (*CallApplicationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CallApplication not implemented")
-}
 func (*UnimplementedApiServer) Execute(ctx context.Context, req *ExecuteRequest) (*ExecuteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Execute not implemented")
 }
-func (*UnimplementedApiServer) SetVariables(ctx context.Context, req *SetVariablesReqeust) (*SetVariablesResponse, error) {
+func (*UnimplementedApiServer) SetVariables(ctx context.Context, req *SetVariablesRequest) (*SetVariablesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariables not implemented")
 }
 func (*UnimplementedApiServer) Bridge(ctx context.Context, req *BridgeRequest) (*BridgeResponse, error) {
@@ -1095,6 +1111,9 @@ func (*UnimplementedApiServer) Hangup(ctx context.Context, req *HangupRequest) (
 }
 func (*UnimplementedApiServer) HangupMatchingVars(ctx context.Context, req *HangupMatchingVarsReqeust) (*HangupMatchingVarsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HangupMatchingVars not implemented")
+}
+func (*UnimplementedApiServer) Queue(ctx context.Context, req *QueueRequest) (*QueueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Queue not implemented")
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -1119,24 +1138,6 @@ func _Api_Originate_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_CallApplication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CallApplicationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ApiServer).CallApplication(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/fs.Api/CallApplication",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).CallApplication(ctx, req.(*CallApplicationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Api_Execute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExecuteRequest)
 	if err := dec(in); err != nil {
@@ -1156,7 +1157,7 @@ func _Api_Execute_Handler(srv interface{}, ctx context.Context, dec func(interfa
 }
 
 func _Api_SetVariables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetVariablesReqeust)
+	in := new(SetVariablesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1168,7 +1169,7 @@ func _Api_SetVariables_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: "/fs.Api/SetVariables",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).SetVariables(ctx, req.(*SetVariablesReqeust))
+		return srv.(ApiServer).SetVariables(ctx, req.(*SetVariablesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1227,6 +1228,24 @@ func _Api_HangupMatchingVars_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Api_Queue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).Queue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/Queue",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).Queue(ctx, req.(*QueueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "fs.Api",
 	HandlerType: (*ApiServer)(nil),
@@ -1234,10 +1253,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Originate",
 			Handler:    _Api_Originate_Handler,
-		},
-		{
-			MethodName: "CallApplication",
-			Handler:    _Api_CallApplication_Handler,
 		},
 		{
 			MethodName: "Execute",
@@ -1258,6 +1273,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HangupMatchingVars",
 			Handler:    _Api_HangupMatchingVars_Handler,
+		},
+		{
+			MethodName: "Queue",
+			Handler:    _Api_Queue_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

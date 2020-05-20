@@ -6,12 +6,11 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"time"
 )
 
 /*
 TODO: 1. можливо при _discard_abandoned_after брати максимально відалений ABANDONED
-
+ringtone_id
 */
 
 type InboundQueue struct {
@@ -45,7 +44,6 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *agentTeam) {
 	var err *model.AppError
 	defer attempt.Log("stopped queue")
-	defer close(attempt.done)
 
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
@@ -55,30 +53,29 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	attempt.SetState(model.MEMBER_STATE_FIND_AGENT)
 
 	attempts := 0
-	timeout := time.NewTimer(time.Second * 50)
-
-	defer timeout.Stop()
 
 	var agent agent_manager.AgentObject
 	var agentCall call_manager.Call
 
 	var calling = mCall.HangupAt() == 0
 
+	ags := attempt.On(AttemptHookDistributeAgent)
+
+	//timeout := time.NewTimer(time.Second * 10)
+
 	for calling {
 		select {
+		//case <-timeout.C:
+		//fmt.Println("TIMEOUT")
+		//calling = false
+		case <-attempt.Context.Done():
+			calling = false
 		case <-mCall.HangupChan():
 			calling = false
 			break
 
-		case <-timeout.C:
-			//TODO program timeout ?
-			fmt.Println("TIMEOUT")
-
-		case <-attempt.cancel:
-			// deprecated
-			panic("TODO")
-
-		case agent = <-attempt.distributeAgent:
+		case <-ags:
+			agent = attempt.Agent()
 			attempts++
 			if mCall.HangupCause() != "" {
 				attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))
@@ -90,12 +87,14 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			cr := queue.AgentCallRequest(agent, team, attempt)
 			cr.Applications = []*model.CallRequestApplication{
+				//{
+				//	AppName: "set",
+				//	Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
+				//},
 				{
-					AppName: "set",
-					Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
-				},
-				{
-					AppName: "park",
+					AppName: "sleep",
+					Args:    "5000",
+					//Args:    fmt.Sprintf("queue_test %s", mCall.Id()),
 				},
 			}
 			cr.Variables["wbt_parent_id"] = mCall.Id()
@@ -112,8 +111,6 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		top:
 			for agentCall.HangupCause() == "" && mCall.HangupCause() == "" {
 				select {
-				case <-timeout.C:
-					fmt.Println("TIMEOUT")
 				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
@@ -122,6 +119,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						printfIfErr(mCall.Bridge(agentCall))
 					case call_manager.CALL_STATE_BRIDGE:
 						team.Bridged(attempt, agent)
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						break top
 					}
@@ -159,7 +157,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		panic(agentCall.Id())
 	}
 
-	if mCall.BridgeAt() > 0 && agentCall != nil { //FIXME Accept or Bridge ?
+	if agentCall != nil && agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
 
 		// FIXME
 		if team.PostProcessing() && agentCall.ReportingAt() > 0 {
@@ -171,7 +169,6 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}
-
-	close(attempt.distributeAgent)
+	go attempt.Off("*")
 	queue.queueManager.LeavingMember(attempt, queue)
 }

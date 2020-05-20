@@ -38,20 +38,42 @@ const (
 	QUEUE_NODE_ID_FIELD     = "cc_app_id"
 )
 
+type RingtoneFile struct {
+	Id   int
+	Type string
+}
+
+func (r *RingtoneFile) Uri(domainId int64) string {
+	return RingtoneUri(domainId, r.Id, r.Type)
+}
+
+func RingtoneUri(domainId int64, id int, mimeType string) string {
+	switch mimeType {
+	case "audio/mp3":
+		return fmt.Sprintf("shout://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.mp3", id, domainId)
+	case "audio/wav":
+		return fmt.Sprintf("http_cache://http://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.wav", id, domainId)
+	default:
+		return ""
+	}
+}
+
 type Queue struct {
-	Id         int               `json:"id" db:"id"`
-	DomainId   int64             `json:"domain_id" db:"domain_id"`
-	DomainName string            `json:"domain_name" db:"domain_name"`
-	Type       uint8             `json:"type" db:"type"`
-	Name       string            `json:"name" db:"name"`
-	Strategy   string            `json:"strategy" db:"strategy"`
-	Payload    []byte            `json:"payload" db:"payload"`
-	UpdatedAt  int64             `json:"updated_at" db:"updated_at"`
-	MaxCalls   uint16            `json:"max_calls" db:"max_calls"`
-	Variables  map[string]string `json:"variables" db:"variables"`
-	TeamId     *int              `json:"team_id" db:"team_id"`
-	Timeout    uint16            `json:"timeout" db:"timeout"`
-	SchemaId   *int              `json:"schema_id" db:"schema_id"`
+	Id           int               `json:"id" db:"id"`
+	DomainId     int64             `json:"domain_id" db:"domain_id"`
+	DomainName   string            `json:"domain_name" db:"domain_name"`
+	Type         uint8             `json:"type" db:"type"`
+	Name         string            `json:"name" db:"name"`
+	Strategy     string            `json:"strategy" db:"strategy"`
+	Payload      []byte            `json:"payload" db:"payload"`
+	UpdatedAt    int64             `json:"updated_at" db:"updated_at"`
+	MaxCalls     uint16            `json:"max_calls" db:"max_calls"`
+	Variables    map[string]string `json:"variables" db:"variables"`
+	TeamId       *int              `json:"team_id" db:"team_id"`
+	Timeout      uint16            `json:"timeout" db:"timeout"`
+	RingtoneId   *int              `json:"ringtone_id" db:"ringtone_id"`
+	RingtoneType *string           `json:"ringtone_type" db:"ringtone_type"`
+	SchemaId     *int              `json:"schema_id" db:"schema_id"`
 }
 
 //FIXME  enum & queue_type
@@ -105,13 +127,12 @@ Agent stickli
 
 type QueueInboundSettings struct {
 	QueueDialingSettings
-	DiscardAbandonedAfter  int    `json:"discard_abandoned_after"`
-	AbandonedResumeAllowed bool   `json:"abandoned_resume_allowed"`
-	TimeBaseScore          string `json:"time_base_score"`
-	MaxWait                int    `json:"max_wait"`
-	MaxWaitWithNoAgent     int    `json:"max_wait_with_no_agent"`
-	HangupOnRingingAgent   bool   `json:"hangup_on_ringing_agent"`
-	MaxCallPerAgent        int    `json:"max_call_per_agent"`
+	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`
+	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
+	MaxWait               int    `json:"timeout"`
+	MaxWaitWithNoAgent    int    `json:"timeout_with_no_agents"`
+	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
+	MaxCallPerAgent int `json:"max_call_per_agent"`
 }
 
 type QueueIVRSettings struct {

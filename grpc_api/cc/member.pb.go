@@ -25,6 +25,250 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+type QueueEvent struct {
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to Data:
+	//	*QueueEvent_Bridged
+	//	*QueueEvent_Leaving
+	Data                 isQueueEvent_Data `protobuf_oneof:"data"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *QueueEvent) Reset()         { *m = QueueEvent{} }
+func (m *QueueEvent) String() string { return proto.CompactTextString(m) }
+func (*QueueEvent) ProtoMessage()    {}
+func (*QueueEvent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{0}
+}
+
+func (m *QueueEvent) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueueEvent.Unmarshal(m, b)
+}
+func (m *QueueEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueueEvent.Marshal(b, m, deterministic)
+}
+func (m *QueueEvent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueueEvent.Merge(m, src)
+}
+func (m *QueueEvent) XXX_Size() int {
+	return xxx_messageInfo_QueueEvent.Size(m)
+}
+func (m *QueueEvent) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueueEvent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueueEvent proto.InternalMessageInfo
+
+func (m *QueueEvent) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+type isQueueEvent_Data interface {
+	isQueueEvent_Data()
+}
+
+type QueueEvent_Bridged struct {
+	Bridged *QueueEvent_BridgedData `protobuf:"bytes,2,opt,name=bridged,proto3,oneof"`
+}
+
+type QueueEvent_Leaving struct {
+	Leaving *QueueEvent_LeavingData `protobuf:"bytes,3,opt,name=leaving,proto3,oneof"`
+}
+
+func (*QueueEvent_Bridged) isQueueEvent_Data() {}
+
+func (*QueueEvent_Leaving) isQueueEvent_Data() {}
+
+func (m *QueueEvent) GetData() isQueueEvent_Data {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *QueueEvent) GetBridged() *QueueEvent_BridgedData {
+	if x, ok := m.GetData().(*QueueEvent_Bridged); ok {
+		return x.Bridged
+	}
+	return nil
+}
+
+func (m *QueueEvent) GetLeaving() *QueueEvent_LeavingData {
+	if x, ok := m.GetData().(*QueueEvent_Leaving); ok {
+		return x.Leaving
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*QueueEvent) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*QueueEvent_Bridged)(nil),
+		(*QueueEvent_Leaving)(nil),
+	}
+}
+
+type QueueEvent_BridgedData struct {
+	AgentId              int32    `protobuf:"varint,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	AgentCallId          string   `protobuf:"bytes,2,opt,name=agent_call_id,json=agentCallId,proto3" json:"agent_call_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *QueueEvent_BridgedData) Reset()         { *m = QueueEvent_BridgedData{} }
+func (m *QueueEvent_BridgedData) String() string { return proto.CompactTextString(m) }
+func (*QueueEvent_BridgedData) ProtoMessage()    {}
+func (*QueueEvent_BridgedData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{0, 0}
+}
+
+func (m *QueueEvent_BridgedData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueueEvent_BridgedData.Unmarshal(m, b)
+}
+func (m *QueueEvent_BridgedData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueueEvent_BridgedData.Marshal(b, m, deterministic)
+}
+func (m *QueueEvent_BridgedData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueueEvent_BridgedData.Merge(m, src)
+}
+func (m *QueueEvent_BridgedData) XXX_Size() int {
+	return xxx_messageInfo_QueueEvent_BridgedData.Size(m)
+}
+func (m *QueueEvent_BridgedData) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueueEvent_BridgedData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueueEvent_BridgedData proto.InternalMessageInfo
+
+func (m *QueueEvent_BridgedData) GetAgentId() int32 {
+	if m != nil {
+		return m.AgentId
+	}
+	return 0
+}
+
+func (m *QueueEvent_BridgedData) GetAgentCallId() string {
+	if m != nil {
+		return m.AgentCallId
+	}
+	return ""
+}
+
+type QueueEvent_LeavingData struct {
+	Result               string   `protobuf:"bytes,1,opt,name=result,proto3" json:"result,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *QueueEvent_LeavingData) Reset()         { *m = QueueEvent_LeavingData{} }
+func (m *QueueEvent_LeavingData) String() string { return proto.CompactTextString(m) }
+func (*QueueEvent_LeavingData) ProtoMessage()    {}
+func (*QueueEvent_LeavingData) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{0, 1}
+}
+
+func (m *QueueEvent_LeavingData) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_QueueEvent_LeavingData.Unmarshal(m, b)
+}
+func (m *QueueEvent_LeavingData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_QueueEvent_LeavingData.Marshal(b, m, deterministic)
+}
+func (m *QueueEvent_LeavingData) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_QueueEvent_LeavingData.Merge(m, src)
+}
+func (m *QueueEvent_LeavingData) XXX_Size() int {
+	return xxx_messageInfo_QueueEvent_LeavingData.Size(m)
+}
+func (m *QueueEvent_LeavingData) XXX_DiscardUnknown() {
+	xxx_messageInfo_QueueEvent_LeavingData.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_QueueEvent_LeavingData proto.InternalMessageInfo
+
+func (m *QueueEvent_LeavingData) GetResult() string {
+	if m != nil {
+		return m.Result
+	}
+	return ""
+}
+
+type AnswerConversationRequest struct {
+	ChannelId            string   `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *AnswerConversationRequest) Reset()         { *m = AnswerConversationRequest{} }
+func (m *AnswerConversationRequest) String() string { return proto.CompactTextString(m) }
+func (*AnswerConversationRequest) ProtoMessage()    {}
+func (*AnswerConversationRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{1}
+}
+
+func (m *AnswerConversationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AnswerConversationRequest.Unmarshal(m, b)
+}
+func (m *AnswerConversationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AnswerConversationRequest.Marshal(b, m, deterministic)
+}
+func (m *AnswerConversationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AnswerConversationRequest.Merge(m, src)
+}
+func (m *AnswerConversationRequest) XXX_Size() int {
+	return xxx_messageInfo_AnswerConversationRequest.Size(m)
+}
+func (m *AnswerConversationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AnswerConversationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AnswerConversationRequest proto.InternalMessageInfo
+
+func (m *AnswerConversationRequest) GetChannelId() string {
+	if m != nil {
+		return m.ChannelId
+	}
+	return ""
+}
+
+type AnswerConversationResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *AnswerConversationResponse) Reset()         { *m = AnswerConversationResponse{} }
+func (m *AnswerConversationResponse) String() string { return proto.CompactTextString(m) }
+func (*AnswerConversationResponse) ProtoMessage()    {}
+func (*AnswerConversationResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{2}
+}
+
+func (m *AnswerConversationResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AnswerConversationResponse.Unmarshal(m, b)
+}
+func (m *AnswerConversationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AnswerConversationResponse.Marshal(b, m, deterministic)
+}
+func (m *AnswerConversationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AnswerConversationResponse.Merge(m, src)
+}
+func (m *AnswerConversationResponse) XXX_Size() int {
+	return xxx_messageInfo_AnswerConversationResponse.Size(m)
+}
+func (m *AnswerConversationResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AnswerConversationResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AnswerConversationResponse proto.InternalMessageInfo
+
 type ChatJoinToQueueRequest struct {
 	ChannelId            string   `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	QueueName            string   `protobuf:"bytes,2,opt,name=queue_name,json=queueName,proto3" json:"queue_name,omitempty"`
@@ -42,7 +286,7 @@ func (m *ChatJoinToQueueRequest) Reset()         { *m = ChatJoinToQueueRequest{}
 func (m *ChatJoinToQueueRequest) String() string { return proto.CompactTextString(m) }
 func (*ChatJoinToQueueRequest) ProtoMessage()    {}
 func (*ChatJoinToQueueRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{0}
+	return fileDescriptor_9b9836b7e13de206, []int{3}
 }
 
 func (m *ChatJoinToQueueRequest) XXX_Unmarshal(b []byte) error {
@@ -126,7 +370,7 @@ func (m *ChatJoinToQueueResponse) Reset()         { *m = ChatJoinToQueueResponse
 func (m *ChatJoinToQueueResponse) String() string { return proto.CompactTextString(m) }
 func (*ChatJoinToQueueResponse) ProtoMessage()    {}
 func (*ChatJoinToQueueResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{1}
+	return fileDescriptor_9b9836b7e13de206, []int{4}
 }
 
 func (m *ChatJoinToQueueResponse) XXX_Unmarshal(b []byte) error {
@@ -188,7 +432,7 @@ func (m *EmailJoinToQueueRequest) Reset()         { *m = EmailJoinToQueueRequest
 func (m *EmailJoinToQueueRequest) String() string { return proto.CompactTextString(m) }
 func (*EmailJoinToQueueRequest) ProtoMessage()    {}
 func (*EmailJoinToQueueRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{2}
+	return fileDescriptor_9b9836b7e13de206, []int{5}
 }
 
 func (m *EmailJoinToQueueRequest) XXX_Unmarshal(b []byte) error {
@@ -241,7 +485,7 @@ func (m *EmailJoinToQueueResponse) Reset()         { *m = EmailJoinToQueueRespon
 func (m *EmailJoinToQueueResponse) String() string { return proto.CompactTextString(m) }
 func (*EmailJoinToQueueResponse) ProtoMessage()    {}
 func (*EmailJoinToQueueResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{3}
+	return fileDescriptor_9b9836b7e13de206, []int{6}
 }
 
 func (m *EmailJoinToQueueResponse) XXX_Unmarshal(b []byte) error {
@@ -283,7 +527,7 @@ func (m *DirectAgentToMemberRequest) Reset()         { *m = DirectAgentToMemberR
 func (m *DirectAgentToMemberRequest) String() string { return proto.CompactTextString(m) }
 func (*DirectAgentToMemberRequest) ProtoMessage()    {}
 func (*DirectAgentToMemberRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{4}
+	return fileDescriptor_9b9836b7e13de206, []int{7}
 }
 
 func (m *DirectAgentToMemberRequest) XXX_Unmarshal(b []byte) error {
@@ -343,7 +587,7 @@ func (m *DirectAgentToMemberResponse) Reset()         { *m = DirectAgentToMember
 func (m *DirectAgentToMemberResponse) String() string { return proto.CompactTextString(m) }
 func (*DirectAgentToMemberResponse) ProtoMessage()    {}
 func (*DirectAgentToMemberResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{5}
+	return fileDescriptor_9b9836b7e13de206, []int{8}
 }
 
 func (m *DirectAgentToMemberResponse) XXX_Unmarshal(b []byte) error {
@@ -372,21 +616,23 @@ func (m *DirectAgentToMemberResponse) GetAttemptId() int64 {
 }
 
 type CallJoinToQueueRequest struct {
-	CallId               string   `protobuf:"bytes,1,opt,name=call_id,json=callId,proto3" json:"call_id,omitempty"`
-	QueueName            string   `protobuf:"bytes,2,opt,name=queue_name,json=queueName,proto3" json:"queue_name,omitempty"`
-	QueueId              int64    `protobuf:"varint,3,opt,name=queue_id,json=queueId,proto3" json:"queue_id,omitempty"`
-	Priority             int32    `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`
-	DomainId             int64    `protobuf:"varint,100,opt,name=domain_id,json=domainId,proto3" json:"domain_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	MemberCallId         string                               `protobuf:"bytes,1,opt,name=member_call_id,json=memberCallId,proto3" json:"member_call_id,omitempty"`
+	Queue                *CallJoinToQueueRequest_Queue        `protobuf:"bytes,2,opt,name=queue,proto3" json:"queue,omitempty"`
+	WaitingMusic         *CallJoinToQueueRequest_WaitingMusic `protobuf:"bytes,3,opt,name=waitingMusic,proto3" json:"waitingMusic,omitempty"`
+	Timeout              int32                                `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	Priority             int32                                `protobuf:"varint,5,opt,name=priority,proto3" json:"priority,omitempty"`
+	Variables            map[string]string                    `protobuf:"bytes,6,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	DomainId             int64                                `protobuf:"varint,100,opt,name=domain_id,json=domainId,proto3" json:"domain_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                             `json:"-"`
+	XXX_unrecognized     []byte                               `json:"-"`
+	XXX_sizecache        int32                                `json:"-"`
 }
 
 func (m *CallJoinToQueueRequest) Reset()         { *m = CallJoinToQueueRequest{} }
 func (m *CallJoinToQueueRequest) String() string { return proto.CompactTextString(m) }
 func (*CallJoinToQueueRequest) ProtoMessage()    {}
 func (*CallJoinToQueueRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{6}
+	return fileDescriptor_9b9836b7e13de206, []int{9}
 }
 
 func (m *CallJoinToQueueRequest) XXX_Unmarshal(b []byte) error {
@@ -407,23 +653,30 @@ func (m *CallJoinToQueueRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CallJoinToQueueRequest proto.InternalMessageInfo
 
-func (m *CallJoinToQueueRequest) GetCallId() string {
+func (m *CallJoinToQueueRequest) GetMemberCallId() string {
 	if m != nil {
-		return m.CallId
+		return m.MemberCallId
 	}
 	return ""
 }
 
-func (m *CallJoinToQueueRequest) GetQueueName() string {
+func (m *CallJoinToQueueRequest) GetQueue() *CallJoinToQueueRequest_Queue {
 	if m != nil {
-		return m.QueueName
+		return m.Queue
 	}
-	return ""
+	return nil
 }
 
-func (m *CallJoinToQueueRequest) GetQueueId() int64 {
+func (m *CallJoinToQueueRequest) GetWaitingMusic() *CallJoinToQueueRequest_WaitingMusic {
 	if m != nil {
-		return m.QueueId
+		return m.WaitingMusic
+	}
+	return nil
+}
+
+func (m *CallJoinToQueueRequest) GetTimeout() int32 {
+	if m != nil {
+		return m.Timeout
 	}
 	return 0
 }
@@ -435,11 +688,120 @@ func (m *CallJoinToQueueRequest) GetPriority() int32 {
 	return 0
 }
 
+func (m *CallJoinToQueueRequest) GetVariables() map[string]string {
+	if m != nil {
+		return m.Variables
+	}
+	return nil
+}
+
 func (m *CallJoinToQueueRequest) GetDomainId() int64 {
 	if m != nil {
 		return m.DomainId
 	}
 	return 0
+}
+
+type CallJoinToQueueRequest_Queue struct {
+	Id                   int32    `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CallJoinToQueueRequest_Queue) Reset()         { *m = CallJoinToQueueRequest_Queue{} }
+func (m *CallJoinToQueueRequest_Queue) String() string { return proto.CompactTextString(m) }
+func (*CallJoinToQueueRequest_Queue) ProtoMessage()    {}
+func (*CallJoinToQueueRequest_Queue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{9, 0}
+}
+
+func (m *CallJoinToQueueRequest_Queue) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CallJoinToQueueRequest_Queue.Unmarshal(m, b)
+}
+func (m *CallJoinToQueueRequest_Queue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CallJoinToQueueRequest_Queue.Marshal(b, m, deterministic)
+}
+func (m *CallJoinToQueueRequest_Queue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CallJoinToQueueRequest_Queue.Merge(m, src)
+}
+func (m *CallJoinToQueueRequest_Queue) XXX_Size() int {
+	return xxx_messageInfo_CallJoinToQueueRequest_Queue.Size(m)
+}
+func (m *CallJoinToQueueRequest_Queue) XXX_DiscardUnknown() {
+	xxx_messageInfo_CallJoinToQueueRequest_Queue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CallJoinToQueueRequest_Queue proto.InternalMessageInfo
+
+func (m *CallJoinToQueueRequest_Queue) GetId() int32 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
+}
+
+func (m *CallJoinToQueueRequest_Queue) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+type CallJoinToQueueRequest_WaitingMusic struct {
+	Id                   int32    `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Type                 string   `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CallJoinToQueueRequest_WaitingMusic) Reset()         { *m = CallJoinToQueueRequest_WaitingMusic{} }
+func (m *CallJoinToQueueRequest_WaitingMusic) String() string { return proto.CompactTextString(m) }
+func (*CallJoinToQueueRequest_WaitingMusic) ProtoMessage()    {}
+func (*CallJoinToQueueRequest_WaitingMusic) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9b9836b7e13de206, []int{9, 1}
+}
+
+func (m *CallJoinToQueueRequest_WaitingMusic) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic.Unmarshal(m, b)
+}
+func (m *CallJoinToQueueRequest_WaitingMusic) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic.Marshal(b, m, deterministic)
+}
+func (m *CallJoinToQueueRequest_WaitingMusic) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic.Merge(m, src)
+}
+func (m *CallJoinToQueueRequest_WaitingMusic) XXX_Size() int {
+	return xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic.Size(m)
+}
+func (m *CallJoinToQueueRequest_WaitingMusic) XXX_DiscardUnknown() {
+	xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CallJoinToQueueRequest_WaitingMusic proto.InternalMessageInfo
+
+func (m *CallJoinToQueueRequest_WaitingMusic) GetId() int32 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
+}
+
+func (m *CallJoinToQueueRequest_WaitingMusic) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *CallJoinToQueueRequest_WaitingMusic) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
 }
 
 type CallJoinToQueueResponse struct {
@@ -453,7 +815,7 @@ func (m *CallJoinToQueueResponse) Reset()         { *m = CallJoinToQueueResponse
 func (m *CallJoinToQueueResponse) String() string { return proto.CompactTextString(m) }
 func (*CallJoinToQueueResponse) ProtoMessage()    {}
 func (*CallJoinToQueueResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{7}
+	return fileDescriptor_9b9836b7e13de206, []int{10}
 }
 
 func (m *CallJoinToQueueResponse) XXX_Unmarshal(b []byte) error {
@@ -499,7 +861,7 @@ func (m *AttemptResultRequest) Reset()         { *m = AttemptResultRequest{} }
 func (m *AttemptResultRequest) String() string { return proto.CompactTextString(m) }
 func (*AttemptResultRequest) ProtoMessage()    {}
 func (*AttemptResultRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{8}
+	return fileDescriptor_9b9836b7e13de206, []int{11}
 }
 
 func (m *AttemptResultRequest) XXX_Unmarshal(b []byte) error {
@@ -587,7 +949,7 @@ func (m *AttemptResultResponse) Reset()         { *m = AttemptResultResponse{} }
 func (m *AttemptResultResponse) String() string { return proto.CompactTextString(m) }
 func (*AttemptResultResponse) ProtoMessage()    {}
 func (*AttemptResultResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9b9836b7e13de206, []int{9}
+	return fileDescriptor_9b9836b7e13de206, []int{12}
 }
 
 func (m *AttemptResultResponse) XXX_Unmarshal(b []byte) error {
@@ -616,6 +978,11 @@ func (m *AttemptResultResponse) GetStatus() string {
 }
 
 func init() {
+	proto.RegisterType((*QueueEvent)(nil), "cc.QueueEvent")
+	proto.RegisterType((*QueueEvent_BridgedData)(nil), "cc.QueueEvent.BridgedData")
+	proto.RegisterType((*QueueEvent_LeavingData)(nil), "cc.QueueEvent.LeavingData")
+	proto.RegisterType((*AnswerConversationRequest)(nil), "cc.AnswerConversationRequest")
+	proto.RegisterType((*AnswerConversationResponse)(nil), "cc.AnswerConversationResponse")
 	proto.RegisterType((*ChatJoinToQueueRequest)(nil), "cc.ChatJoinToQueueRequest")
 	proto.RegisterType((*ChatJoinToQueueResponse)(nil), "cc.ChatJoinToQueueResponse")
 	proto.RegisterType((*EmailJoinToQueueRequest)(nil), "cc.EmailJoinToQueueRequest")
@@ -623,6 +990,9 @@ func init() {
 	proto.RegisterType((*DirectAgentToMemberRequest)(nil), "cc.DirectAgentToMemberRequest")
 	proto.RegisterType((*DirectAgentToMemberResponse)(nil), "cc.DirectAgentToMemberResponse")
 	proto.RegisterType((*CallJoinToQueueRequest)(nil), "cc.CallJoinToQueueRequest")
+	proto.RegisterMapType((map[string]string)(nil), "cc.CallJoinToQueueRequest.VariablesEntry")
+	proto.RegisterType((*CallJoinToQueueRequest_Queue)(nil), "cc.CallJoinToQueueRequest.Queue")
+	proto.RegisterType((*CallJoinToQueueRequest_WaitingMusic)(nil), "cc.CallJoinToQueueRequest.WaitingMusic")
 	proto.RegisterType((*CallJoinToQueueResponse)(nil), "cc.CallJoinToQueueResponse")
 	proto.RegisterType((*AttemptResultRequest)(nil), "cc.AttemptResultRequest")
 	proto.RegisterMapType((map[string]string)(nil), "cc.AttemptResultRequest.VariablesEntry")
@@ -632,56 +1002,72 @@ func init() {
 func init() { proto.RegisterFile("member.proto", fileDescriptor_9b9836b7e13de206) }
 
 var fileDescriptor_9b9836b7e13de206 = []byte{
-	// 774 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcf, 0x6e, 0xd3, 0x4e,
-	0x10, 0xae, 0xf3, 0x3f, 0xd3, 0xf6, 0x97, 0xfe, 0x96, 0xd2, 0xb8, 0x4e, 0x81, 0x90, 0x03, 0x04,
-	0x0e, 0xb1, 0x08, 0x17, 0x84, 0x7a, 0x89, 0xa0, 0x12, 0xa9, 0x80, 0x52, 0x53, 0x21, 0x6e, 0xd1,
-	0xd6, 0x9e, 0xa6, 0x2b, 0xec, 0xb5, 0x6b, 0xaf, 0x4b, 0xa3, 0xaa, 0x17, 0x1e, 0x01, 0x24, 0x4e,
-	0x1c, 0x79, 0x23, 0x24, 0x9e, 0x80, 0x3b, 0x8f, 0x00, 0xf2, 0xda, 0x4e, 0x93, 0xd4, 0x49, 0x4f,
-	0xdc, 0x3c, 0x33, 0xbb, 0xb3, 0xdf, 0xf7, 0xed, 0x37, 0x6b, 0x58, 0x71, 0xd0, 0x39, 0x44, 0xbf,
-	0xe3, 0xf9, 0xae, 0x70, 0x49, 0xce, 0x34, 0xb5, 0xad, 0xa1, 0xeb, 0x0e, 0x6d, 0xd4, 0xa9, 0xc7,
-	0x74, 0xca, 0xb9, 0x2b, 0xa8, 0x60, 0x2e, 0x0f, 0xe2, 0x15, 0xad, 0x9f, 0x0a, 0x6c, 0x3c, 0x3b,
-	0xa6, 0x62, 0xd7, 0x65, 0xfc, 0xc0, 0xdd, 0x0f, 0x31, 0x44, 0x03, 0x4f, 0x42, 0x0c, 0x04, 0xb9,
-	0x05, 0x60, 0x1e, 0x53, 0xce, 0xd1, 0x1e, 0x30, 0x4b, 0x55, 0x9a, 0x4a, 0xbb, 0x6a, 0x54, 0x93,
-	0x4c, 0xdf, 0x8a, 0xca, 0x27, 0xd1, 0xf2, 0x01, 0xa7, 0x0e, 0xaa, 0xb9, 0xb8, 0x2c, 0x33, 0xaf,
-	0xa9, 0x83, 0x64, 0x13, 0x2a, 0x71, 0x99, 0x59, 0x6a, 0xbe, 0xa9, 0xb4, 0xf3, 0x46, 0x59, 0xc6,
-	0x7d, 0x8b, 0x68, 0x50, 0xf1, 0x7c, 0xe6, 0xfa, 0x4c, 0x8c, 0xd4, 0x42, 0x53, 0x69, 0x17, 0x8d,
-	0x71, 0x4c, 0x08, 0x14, 0x64, 0xbf, 0xa2, 0xec, 0x27, 0xbf, 0xc9, 0x06, 0x94, 0x78, 0x18, 0xb1,
-	0x52, 0x4b, 0x32, 0x9b, 0x44, 0xa4, 0x01, 0x55, 0xcb, 0x75, 0x28, 0xe3, 0xd1, 0x19, 0x96, 0x3c,
-	0xa3, 0x12, 0x27, 0xfa, 0x56, 0xeb, 0xb3, 0x02, 0xf5, 0x2b, 0xc4, 0x02, 0xcf, 0xe5, 0x81, 0x6c,
-	0x18, 0x08, 0x2a, 0xc2, 0x20, 0x61, 0x95, 0x44, 0xd7, 0x51, 0xba, 0x0b, 0x2b, 0x1f, 0xd1, 0x36,
-	0x5d, 0x07, 0x07, 0x02, 0xcf, 0x84, 0xa4, 0x55, 0x35, 0x96, 0x93, 0xdc, 0x01, 0x9e, 0x49, 0xcd,
-	0xa8, 0x10, 0xe8, 0x78, 0x22, 0xc2, 0x54, 0x90, 0x98, 0xaa, 0x49, 0xa6, 0x6f, 0xb5, 0x6c, 0xa8,
-	0xef, 0x38, 0x94, 0xd9, 0x19, 0x6a, 0x6f, 0x42, 0x05, 0xa3, 0xd2, 0xa5, 0xd6, 0x65, 0x19, 0xf7,
-	0xad, 0x29, 0x29, 0x73, 0x52, 0xaf, 0xb1, 0x94, 0x0b, 0x25, 0xe8, 0x82, 0x7a, 0xf5, 0xb4, 0xc5,
-	0x12, 0xb4, 0xbe, 0x29, 0xa0, 0x3d, 0x67, 0x3e, 0x9a, 0xa2, 0x37, 0x44, 0x2e, 0x0e, 0xdc, 0x57,
-	0xd2, 0x4f, 0x29, 0xca, 0x06, 0x54, 0x63, 0x83, 0xa5, 0x30, 0xf3, 0x46, 0x25, 0x4e, 0xc4, 0x38,
-	0x69, 0xb4, 0x29, 0xc5, 0x99, 0x37, 0xca, 0x32, 0xee, 0x5b, 0xe4, 0x01, 0xac, 0x99, 0xae, 0xe3,
-	0x84, 0x9c, 0x99, 0xd2, 0x7e, 0xa9, 0x2b, 0x8a, 0x46, 0x6d, 0x2a, 0x3f, 0x4b, 0xa9, 0x30, 0x43,
-	0x69, 0x1b, 0x1a, 0x99, 0xe8, 0x12, 0x56, 0xd3, 0xf2, 0x2b, 0xb3, 0xf2, 0x7f, 0x8f, 0xcc, 0x4e,
-	0xed, 0x2c, 0xf9, 0xeb, 0x50, 0x36, 0xa9, 0x3d, 0xa1, 0x7e, 0x29, 0x0a, 0xff, 0x99, 0xcd, 0x17,
-	0xde, 0xdb, 0x23, 0xa8, 0x5f, 0x41, 0x79, 0xcd, 0xb5, 0xfd, 0xc9, 0xc1, 0x7a, 0x2f, 0xe6, 0x69,
-	0x60, 0x10, 0xda, 0x62, 0x62, 0x88, 0x17, 0x28, 0x32, 0xd1, 0x2f, 0x37, 0x35, 0x09, 0xf7, 0xa0,
-	0xe6, 0x30, 0x3e, 0x70, 0x8f, 0x8e, 0xd0, 0x67, 0x7c, 0x38, 0xa0, 0x22, 0x61, 0xb7, 0xea, 0x30,
-	0xbe, 0x97, 0x64, 0x7b, 0xd2, 0x0f, 0x78, 0xe6, 0x31, 0x1f, 0xa3, 0x15, 0xc9, 0x65, 0xc5, 0x89,
-	0x9e, 0x20, 0x3b, 0x50, 0x3d, 0xa5, 0x3e, 0xa3, 0x87, 0x36, 0x06, 0x6a, 0xb1, 0x99, 0x6f, 0x2f,
-	0x77, 0xef, 0x77, 0x4c, 0xb3, 0x93, 0x05, 0xb4, 0xf3, 0x2e, 0x5d, 0xb9, 0xc3, 0x85, 0x3f, 0x32,
-	0x2e, 0x77, 0x12, 0x15, 0xca, 0x16, 0x0b, 0x3c, 0x9b, 0x8e, 0xe4, 0xfc, 0x57, 0x8c, 0x34, 0x24,
-	0x4d, 0x58, 0xb6, 0x30, 0x30, 0x7d, 0xe6, 0x45, 0xde, 0x51, 0xcb, 0xf1, 0x3c, 0x4e, 0xa4, 0xc8,
-	0x43, 0xf8, 0x5f, 0xf8, 0x94, 0x07, 0x47, 0xe8, 0x0f, 0xc6, 0xf7, 0x54, 0x91, 0x38, 0x6b, 0x69,
-	0x61, 0x3f, 0xbe, 0x2f, 0x6d, 0x1b, 0xfe, 0x9b, 0x06, 0x41, 0xd6, 0x20, 0xff, 0x01, 0x47, 0x89,
-	0xd4, 0xd1, 0x27, 0x59, 0x87, 0xe2, 0x29, 0xb5, 0xc3, 0xd4, 0x08, 0x71, 0xf0, 0x34, 0xf7, 0x44,
-	0x69, 0xe9, 0x70, 0x73, 0x86, 0xd7, 0xe2, 0x2b, 0xeb, 0xfe, 0xce, 0xc3, 0x6a, 0x6c, 0xdf, 0xb7,
-	0xe8, 0x9f, 0x32, 0x13, 0xc9, 0x57, 0x05, 0x56, 0xa7, 0x7a, 0x10, 0x75, 0x9e, 0x5c, 0xda, 0x66,
-	0x46, 0x25, 0x3e, 0xb0, 0xf5, 0xe6, 0xd3, 0x8f, 0x5f, 0x5f, 0x72, 0xbb, 0xdd, 0x17, 0xba, 0x74,
-	0xb4, 0x89, 0x5c, 0xa0, 0xaf, 0x4b, 0xf6, 0x81, 0x7e, 0x9e, 0xaa, 0x70, 0xa1, 0xc7, 0x73, 0x1b,
-	0xe8, 0xe7, 0xe3, 0x89, 0xbe, 0xd0, 0x13, 0x67, 0x04, 0xfa, 0xf9, 0xa5, 0x6b, 0x2e, 0xc8, 0x4b,
-	0xa8, 0xcd, 0x18, 0x92, 0x68, 0xd1, 0xf9, 0xd9, 0xb3, 0xa4, 0x35, 0x32, 0x6b, 0x09, 0xba, 0x25,
-	0xd9, 0x6d, 0xfa, 0x61, 0x4e, 0xba, 0x65, 0xfe, 0x86, 0x92, 0x6e, 0xd9, 0x2f, 0x79, 0x6b, 0x89,
-	0xec, 0xc1, 0xda, 0xec, 0x23, 0x47, 0xe4, 0x96, 0x39, 0x0f, 0xad, 0xb6, 0x95, 0x5d, 0x1c, 0x37,
-	0x7c, 0x0f, 0x37, 0x32, 0x9e, 0x18, 0x72, 0x3b, 0xda, 0x36, 0xff, 0x65, 0xd4, 0xee, 0xcc, 0xad,
-	0xa7, 0x9d, 0x0f, 0x4b, 0xf2, 0x97, 0xfb, 0xf8, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x27, 0x87,
-	0x0e, 0x44, 0xa4, 0x07, 0x00, 0x00,
+	// 1030 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0x4d, 0x6f, 0xdb, 0x46,
+	0x13, 0x36, 0xa9, 0xef, 0x91, 0x6d, 0xf9, 0xdd, 0x37, 0xb5, 0x29, 0xda, 0x6d, 0x55, 0xa2, 0x1f,
+	0x4e, 0x0b, 0x98, 0xad, 0x0a, 0x04, 0x45, 0x90, 0x8b, 0xe2, 0xb8, 0x8d, 0x52, 0xa7, 0x69, 0x58,
+	0xa3, 0xed, 0x4d, 0x58, 0x93, 0x6b, 0x65, 0x51, 0x72, 0xa9, 0x2c, 0x97, 0xb2, 0x05, 0xc3, 0x97,
+	0xde, 0x7b, 0x49, 0x81, 0x9e, 0xfa, 0xaf, 0x0a, 0xf4, 0x17, 0xe4, 0x7f, 0xb4, 0xe0, 0xee, 0x52,
+	0x5f, 0xa6, 0x94, 0x00, 0xbd, 0x71, 0x66, 0x76, 0x66, 0x67, 0x9e, 0x99, 0x79, 0x96, 0xb0, 0x19,
+	0x91, 0xe8, 0x9c, 0xf0, 0xa3, 0x11, 0x8f, 0x45, 0x8c, 0x4c, 0xdf, 0xb7, 0x0f, 0x86, 0x71, 0x3c,
+	0x0c, 0x89, 0x8b, 0x47, 0xd4, 0xc5, 0x8c, 0xc5, 0x02, 0x0b, 0x1a, 0xb3, 0x44, 0x9d, 0x70, 0x7e,
+	0x33, 0x01, 0x9e, 0xa7, 0x24, 0x25, 0x27, 0x63, 0xc2, 0x04, 0x42, 0x50, 0x66, 0x38, 0x22, 0x96,
+	0xd1, 0x31, 0x0e, 0x1b, 0x9e, 0xfc, 0x46, 0xf7, 0xa0, 0x76, 0xce, 0x69, 0x30, 0x24, 0x81, 0x65,
+	0x76, 0x8c, 0xc3, 0x66, 0xd7, 0x3e, 0xf2, 0xfd, 0xa3, 0x99, 0xd3, 0xd1, 0x43, 0x65, 0x7d, 0x84,
+	0x05, 0x7e, 0xbc, 0xe1, 0xe5, 0x87, 0x33, 0xbf, 0x90, 0xe0, 0x31, 0x65, 0x43, 0xab, 0x54, 0xe8,
+	0x77, 0xaa, 0xac, 0xb9, 0x9f, 0x3e, 0x6c, 0x9f, 0x42, 0x73, 0x2e, 0x22, 0x6a, 0x43, 0x1d, 0x0f,
+	0x09, 0x13, 0x03, 0x1a, 0xc8, 0xb4, 0x2a, 0x5e, 0x4d, 0xca, 0xfd, 0x00, 0x39, 0xb0, 0xa5, 0x4c,
+	0x3e, 0x0e, 0xc3, 0xcc, 0x6e, 0xca, 0xb4, 0x9b, 0x52, 0x79, 0x8c, 0xc3, 0xb0, 0x1f, 0xd8, 0x1f,
+	0x41, 0x73, 0xee, 0x1e, 0xb4, 0x0b, 0x55, 0x4e, 0x92, 0x34, 0x14, 0xba, 0x44, 0x2d, 0x3d, 0xac,
+	0x42, 0x39, 0xc0, 0x02, 0x3b, 0xf7, 0xa1, 0xdd, 0x63, 0xc9, 0x25, 0xe1, 0xc7, 0x31, 0x1b, 0x13,
+	0x9e, 0x48, 0xb0, 0x3c, 0xf2, 0x32, 0x25, 0x89, 0x40, 0xef, 0x02, 0xf8, 0x2f, 0x30, 0x63, 0x24,
+	0xcc, 0x93, 0x69, 0x78, 0x0d, 0xad, 0xe9, 0x07, 0xce, 0x01, 0xd8, 0x45, 0xbe, 0xc9, 0x28, 0x66,
+	0x09, 0x71, 0xfe, 0x36, 0x60, 0xf7, 0xf8, 0x05, 0x16, 0x4f, 0x62, 0xca, 0xce, 0x62, 0x09, 0xc3,
+	0xdb, 0xc5, 0xcd, 0xcc, 0x2f, 0xb3, 0xe3, 0x03, 0xd9, 0x1a, 0x55, 0x63, 0x43, 0x6a, 0xbe, 0xcb,
+	0xfa, 0xd3, 0x86, 0xba, 0x32, 0xd3, 0x40, 0x02, 0x5d, 0xf2, 0x6a, 0x52, 0xee, 0x07, 0xc8, 0x86,
+	0xfa, 0x88, 0xd3, 0x98, 0x53, 0x31, 0xb1, 0xca, 0x12, 0xbb, 0xa9, 0x3c, 0x6d, 0x75, 0x65, 0xae,
+	0xd5, 0xbb, 0x50, 0x65, 0x69, 0x36, 0x3f, 0x56, 0x55, 0xa1, 0xa3, 0x24, 0xb4, 0x0f, 0x8d, 0x20,
+	0x8e, 0x30, 0x65, 0xd9, 0x1d, 0x81, 0xbc, 0xa3, 0xae, 0x14, 0xfd, 0xc0, 0x79, 0x65, 0xc0, 0xde,
+	0xad, 0xc2, 0x54, 0xd1, 0x59, 0xc0, 0x44, 0x60, 0x91, 0x26, 0x39, 0xdc, 0x4a, 0x7a, 0x53, 0x49,
+	0x1f, 0xc0, 0xe6, 0x25, 0x09, 0xfd, 0x38, 0x22, 0x03, 0x41, 0xae, 0x84, 0x2c, 0xab, 0xe1, 0x35,
+	0xb5, 0xee, 0x8c, 0x5c, 0x49, 0xcc, 0xb0, 0x10, 0x24, 0x1a, 0xc9, 0xc1, 0x28, 0xcb, 0x9c, 0x1a,
+	0x5a, 0xd3, 0x0f, 0x9c, 0x10, 0xf6, 0x4e, 0x22, 0x4c, 0xc3, 0x02, 0xb4, 0xdb, 0x50, 0x27, 0x99,
+	0x69, 0x86, 0x75, 0x4d, 0xca, 0xfd, 0x60, 0x01, 0x4a, 0x53, 0xcd, 0x5a, 0x0e, 0xe5, 0x5a, 0x08,
+	0xba, 0x60, 0xdd, 0xbe, 0x6d, 0x3d, 0x04, 0xce, 0x9f, 0x06, 0xd8, 0x8f, 0x28, 0x27, 0xbe, 0xe8,
+	0x65, 0xe3, 0x7a, 0x16, 0x3f, 0x95, 0x9b, 0x9b, 0x67, 0xb9, 0x0f, 0x0d, 0xb5, 0xca, 0x79, 0x9a,
+	0x25, 0xaf, 0xae, 0x14, 0x2a, 0xcf, 0xe9, 0x4e, 0x98, 0xaa, 0xe5, 0xf9, 0x4e, 0xdc, 0x85, 0x1d,
+	0x3f, 0x8e, 0xa2, 0x94, 0x51, 0x5f, 0xce, 0x5f, 0x3e, 0x15, 0x15, 0xaf, 0xb5, 0xa0, 0x5f, 0x2e,
+	0xa9, 0xbc, 0x54, 0xd2, 0x03, 0xd8, 0x2f, 0xcc, 0x4e, 0x57, 0xb5, 0x08, 0xbf, 0xb1, 0x0c, 0xff,
+	0xab, 0x32, 0xec, 0x66, 0x0b, 0x58, 0x00, 0xff, 0x87, 0xb0, 0xad, 0x0b, 0xcb, 0xb7, 0x56, 0xe1,
+	0xa2, 0x99, 0x4b, 0xad, 0x2d, 0xba, 0x07, 0x15, 0x89, 0xbc, 0xa6, 0x9c, 0x4e, 0x46, 0x1d, 0xc5,
+	0x01, 0x15, 0xa3, 0x78, 0xea, 0x38, 0xfa, 0x16, 0x36, 0x2f, 0x31, 0x15, 0x94, 0x0d, 0x9f, 0xa6,
+	0x09, 0xf5, 0x35, 0xf3, 0x7c, 0xb2, 0xc6, 0xfd, 0xa7, 0xb9, 0xe3, 0xde, 0x82, 0x33, 0xb2, 0xa0,
+	0x26, 0x68, 0x44, 0xe2, 0x54, 0xe8, 0xed, 0xc9, 0xc5, 0x85, 0xc5, 0xaa, 0x2c, 0x2d, 0xd6, 0x37,
+	0xd0, 0x18, 0x63, 0x4e, 0xf1, 0x79, 0x48, 0x12, 0xab, 0xda, 0x29, 0x1d, 0x36, 0xbb, 0x77, 0xd7,
+	0xdc, 0xff, 0x63, 0x7e, 0xf6, 0x84, 0x09, 0x3e, 0xf1, 0x66, 0xbe, 0x6b, 0x47, 0xce, 0xfe, 0x0c,
+	0x2a, 0x32, 0x0c, 0xda, 0x06, 0x73, 0xca, 0x8c, 0x26, 0x0d, 0xa6, 0x7b, 0x6d, 0xce, 0xf6, 0xda,
+	0xfe, 0x1a, 0x36, 0xe7, 0xcb, 0x7c, 0x1b, 0x9f, 0x4c, 0x27, 0x26, 0x23, 0xa2, 0x77, 0x4f, 0x7e,
+	0xdb, 0x0f, 0x60, 0x7b, 0x31, 0x5d, 0xb4, 0x03, 0xa5, 0x5f, 0xc8, 0x44, 0xb7, 0x30, 0xfb, 0x44,
+	0x77, 0xa0, 0x32, 0xc6, 0x61, 0x9a, 0x07, 0x53, 0xc2, 0x7d, 0xf3, 0x2b, 0xc3, 0xf9, 0x02, 0xf6,
+	0x6e, 0x61, 0xf0, 0x86, 0x25, 0xf9, 0xc7, 0x84, 0x3b, 0x3d, 0x35, 0x55, 0x9e, 0x24, 0xea, 0x39,
+	0xca, 0x5c, 0x33, 0x7f, 0x73, 0xf1, 0xcc, 0x05, 0xde, 0xf9, 0x18, 0x5a, 0x11, 0x65, 0x83, 0xf8,
+	0xe2, 0x82, 0x70, 0xca, 0x86, 0x03, 0x2c, 0x34, 0x65, 0x6e, 0x45, 0x94, 0x3d, 0xd3, 0xda, 0x9e,
+	0xdc, 0x3e, 0x72, 0x35, 0xa2, 0x9c, 0x64, 0x27, 0xf4, 0x6a, 0x28, 0x45, 0x4f, 0xa0, 0x93, 0xf9,
+	0x06, 0x57, 0x64, 0x83, 0xe5, 0x80, 0x15, 0x25, 0xba, 0xa6, 0xbd, 0x16, 0xd4, 0x02, 0x9a, 0x8c,
+	0x42, 0x3c, 0x91, 0x6c, 0x5b, 0xf7, 0x72, 0x11, 0x75, 0xa0, 0x19, 0x90, 0xc4, 0xe7, 0x74, 0x94,
+	0x6d, 0xaa, 0x55, 0x53, 0xec, 0x37, 0xa7, 0x42, 0x9f, 0xc2, 0xff, 0x04, 0xc7, 0x2c, 0xb9, 0x20,
+	0x7c, 0x30, 0x65, 0xac, 0xba, 0xcc, 0xb3, 0x95, 0x1b, 0x9e, 0x2b, 0xe6, 0xfa, 0x8f, 0x4d, 0x73,
+	0xe1, 0x9d, 0xa5, 0xba, 0xd6, 0xb7, 0xac, 0xfb, 0xba, 0x04, 0x5b, 0x8a, 0x2c, 0x7e, 0x20, 0x7c,
+	0x4c, 0x7d, 0x82, 0xfe, 0x30, 0x60, 0x6b, 0x21, 0x06, 0xb2, 0x56, 0xc1, 0x65, 0xb7, 0x0b, 0x2c,
+	0xfa, 0x01, 0xfd, 0xfe, 0xd7, 0xbf, 0x5e, 0xff, 0x6e, 0x3e, 0xe9, 0x3e, 0x76, 0x25, 0x71, 0xf8,
+	0x84, 0x09, 0xc2, 0x5d, 0x59, 0x7d, 0xe2, 0x5e, 0xe7, 0x28, 0xdc, 0xb8, 0x8a, 0x47, 0x12, 0xf7,
+	0x7a, 0xca, 0x9f, 0x37, 0xae, 0x9e, 0x8c, 0xc4, 0xbd, 0x9e, 0x4d, 0xcd, 0x0d, 0xea, 0x41, 0x6b,
+	0x69, 0x20, 0x91, 0xbd, 0x7a, 0x53, 0xed, 0xed, 0xc5, 0xff, 0x17, 0x67, 0xe3, 0x73, 0x03, 0x9d,
+	0x42, 0x6b, 0xe9, 0xed, 0xd3, 0x21, 0x0a, 0x5f, 0x7a, 0x7b, 0xbf, 0xd0, 0xa6, 0x0b, 0xdc, 0x40,
+	0xcf, 0x60, 0x67, 0xf9, 0x1d, 0x41, 0xd2, 0x65, 0xc5, 0x5b, 0x66, 0x1f, 0x14, 0x1b, 0xa7, 0x01,
+	0x7f, 0x86, 0xff, 0x17, 0xb0, 0x38, 0x7a, 0x2f, 0x73, 0x5b, 0xfd, 0xf8, 0xd8, 0xef, 0xaf, 0xb4,
+	0xe7, 0x91, 0xcf, 0xab, 0xf2, 0xff, 0xf1, 0xcb, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x7a, 0xa7,
+	0x70, 0x5c, 0x71, 0x0a, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -697,7 +1083,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MemberServiceClient interface {
 	AttemptResult(ctx context.Context, in *AttemptResultRequest, opts ...grpc.CallOption) (*AttemptResultResponse, error)
-	CallJoinToQueue(ctx context.Context, in *CallJoinToQueueRequest, opts ...grpc.CallOption) (*CallJoinToQueueResponse, error)
+	CallJoinToQueue(ctx context.Context, in *CallJoinToQueueRequest, opts ...grpc.CallOption) (MemberService_CallJoinToQueueClient, error)
 	ChatJoinToQueue(ctx context.Context, in *ChatJoinToQueueRequest, opts ...grpc.CallOption) (*ChatJoinToQueueResponse, error)
 	EmailJoinToQueue(ctx context.Context, in *EmailJoinToQueueRequest, opts ...grpc.CallOption) (*EmailJoinToQueueResponse, error)
 	DirectAgentToMember(ctx context.Context, in *DirectAgentToMemberRequest, opts ...grpc.CallOption) (*DirectAgentToMemberResponse, error)
@@ -720,13 +1106,36 @@ func (c *memberServiceClient) AttemptResult(ctx context.Context, in *AttemptResu
 	return out, nil
 }
 
-func (c *memberServiceClient) CallJoinToQueue(ctx context.Context, in *CallJoinToQueueRequest, opts ...grpc.CallOption) (*CallJoinToQueueResponse, error) {
-	out := new(CallJoinToQueueResponse)
-	err := c.cc.Invoke(ctx, "/cc.MemberService/CallJoinToQueue", in, out, opts...)
+func (c *memberServiceClient) CallJoinToQueue(ctx context.Context, in *CallJoinToQueueRequest, opts ...grpc.CallOption) (MemberService_CallJoinToQueueClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_MemberService_serviceDesc.Streams[0], "/cc.MemberService/CallJoinToQueue", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &memberServiceCallJoinToQueueClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type MemberService_CallJoinToQueueClient interface {
+	Recv() (*QueueEvent, error)
+	grpc.ClientStream
+}
+
+type memberServiceCallJoinToQueueClient struct {
+	grpc.ClientStream
+}
+
+func (x *memberServiceCallJoinToQueueClient) Recv() (*QueueEvent, error) {
+	m := new(QueueEvent)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *memberServiceClient) ChatJoinToQueue(ctx context.Context, in *ChatJoinToQueueRequest, opts ...grpc.CallOption) (*ChatJoinToQueueResponse, error) {
@@ -759,7 +1168,7 @@ func (c *memberServiceClient) DirectAgentToMember(ctx context.Context, in *Direc
 // MemberServiceServer is the server API for MemberService service.
 type MemberServiceServer interface {
 	AttemptResult(context.Context, *AttemptResultRequest) (*AttemptResultResponse, error)
-	CallJoinToQueue(context.Context, *CallJoinToQueueRequest) (*CallJoinToQueueResponse, error)
+	CallJoinToQueue(*CallJoinToQueueRequest, MemberService_CallJoinToQueueServer) error
 	ChatJoinToQueue(context.Context, *ChatJoinToQueueRequest) (*ChatJoinToQueueResponse, error)
 	EmailJoinToQueue(context.Context, *EmailJoinToQueueRequest) (*EmailJoinToQueueResponse, error)
 	DirectAgentToMember(context.Context, *DirectAgentToMemberRequest) (*DirectAgentToMemberResponse, error)
@@ -772,8 +1181,8 @@ type UnimplementedMemberServiceServer struct {
 func (*UnimplementedMemberServiceServer) AttemptResult(ctx context.Context, req *AttemptResultRequest) (*AttemptResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AttemptResult not implemented")
 }
-func (*UnimplementedMemberServiceServer) CallJoinToQueue(ctx context.Context, req *CallJoinToQueueRequest) (*CallJoinToQueueResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CallJoinToQueue not implemented")
+func (*UnimplementedMemberServiceServer) CallJoinToQueue(req *CallJoinToQueueRequest, srv MemberService_CallJoinToQueueServer) error {
+	return status.Errorf(codes.Unimplemented, "method CallJoinToQueue not implemented")
 }
 func (*UnimplementedMemberServiceServer) ChatJoinToQueue(ctx context.Context, req *ChatJoinToQueueRequest) (*ChatJoinToQueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ChatJoinToQueue not implemented")
@@ -807,22 +1216,25 @@ func _MemberService_AttemptResult_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MemberService_CallJoinToQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CallJoinToQueueRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _MemberService_CallJoinToQueue_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CallJoinToQueueRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(MemberServiceServer).CallJoinToQueue(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/cc.MemberService/CallJoinToQueue",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MemberServiceServer).CallJoinToQueue(ctx, req.(*CallJoinToQueueRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(MemberServiceServer).CallJoinToQueue(m, &memberServiceCallJoinToQueueServer{stream})
+}
+
+type MemberService_CallJoinToQueueServer interface {
+	Send(*QueueEvent) error
+	grpc.ServerStream
+}
+
+type memberServiceCallJoinToQueueServer struct {
+	grpc.ServerStream
+}
+
+func (x *memberServiceCallJoinToQueueServer) Send(m *QueueEvent) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _MemberService_ChatJoinToQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -888,10 +1300,6 @@ var _MemberService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _MemberService_AttemptResult_Handler,
 		},
 		{
-			MethodName: "CallJoinToQueue",
-			Handler:    _MemberService_CallJoinToQueue_Handler,
-		},
-		{
 			MethodName: "ChatJoinToQueue",
 			Handler:    _MemberService_ChatJoinToQueue_Handler,
 		},
@@ -904,6 +1312,12 @@ var _MemberService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _MemberService_DirectAgentToMember_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CallJoinToQueue",
+			Handler:       _MemberService_CallJoinToQueue_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "member.proto",
 }

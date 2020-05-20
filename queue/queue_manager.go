@@ -1,9 +1,11 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
+	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
@@ -87,19 +89,19 @@ func (queueManager *QueueManager) GetNodeId() string {
 	return queueManager.app.GetInstanceId()
 }
 
-func (queueManager *QueueManager) CreateAttemptIfNotExists(attempt *model.MemberAttempt) (*Attempt, *model.AppError) {
+func (queueManager *QueueManager) CreateAttemptIfNotExists(ctx context.Context, attempt *model.MemberAttempt) (*Attempt, *model.AppError) {
 	var a *Attempt
 	var ok bool
 
 	if a, ok = queueManager.GetAttempt(attempt.Id); ok {
-
-		if attempt.Result == nil {
-			wlog.Error(fmt.Sprintf("attempt %v in queue", a.Id()))
-		} else {
-			a.SetMember(attempt)
-		}
+		panic("ERROR")
+		//if attempt.Result == nil {
+		//	wlog.Error(fmt.Sprintf("attempt %v in queue", a.Id()))
+		//} else {
+		//	a.SetMember(attempt)
+		//}
 	} else {
-		a = queueManager.createAttempt(attempt)
+		a = queueManager.createAttempt(ctx, attempt)
 		if attempt.AgentId != nil && attempt.AgentUpdatedAt != nil {
 			if agent, err := queueManager.agentManager.GetAgent(*attempt.AgentId, *attempt.AgentUpdatedAt); err != nil {
 				panic(err.Error())
@@ -112,8 +114,8 @@ func (queueManager *QueueManager) CreateAttemptIfNotExists(attempt *model.Member
 	return a, nil
 }
 
-func (queueManager *QueueManager) createAttempt(conf *model.MemberAttempt) *Attempt {
-	attempt := NewAttempt(conf)
+func (queueManager *QueueManager) createAttempt(ctx context.Context, conf *model.MemberAttempt) *Attempt {
+	attempt := NewAttempt(ctx, conf)
 	queueManager.membersCache.AddWithDefaultExpires(attempt.Id(), attempt)
 	queueManager.wg.Add(1)
 	queueManager.attemptCount++
@@ -193,7 +195,7 @@ func (queueManager *QueueManager) SetAgentWaitingChannel(agent agent_manager.Age
 
 func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppError) {
 
-	queue, err := queueManager.GetQueue(int(attempt.QueueId()), attempt.QueueUpdatedAt())
+	queue, err := queueManager.GetQueue(attempt.QueueId(), attempt.QueueUpdatedAt())
 	if err != nil {
 		wlog.Error(err.Error())
 		//TODO added to model "dialing.queue.new_queue.app_error"
@@ -232,34 +234,38 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 	return queue, nil
 }
 
-func (queueManager *QueueManager) DistributeCall(queueId int, id string) (*Attempt, *model.AppError) {
+func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.CallJoinToQueueRequest) (*Attempt, *model.AppError) {
 	var member *model.MemberAttempt
 
-	req, err := queueManager.app.GetCall(id)
+	req, err := queueManager.app.GetCall(in.MemberCallId)
 	if err != nil {
 		wlog.Error(fmt.Sprintf("distribute error: %s", err.Error()))
 		return nil, err
 	}
 
-	call, err := queueManager.callManager.SubscribeCall(req)
+	ringtone := ""
+	if in.WaitingMusic != nil {
+		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
+			ringtone = model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), fmt.Sprintf("audio/%s", in.WaitingMusic.Type))
+		}
+	}
+	call, err := queueManager.callManager.InboundCall(req, ringtone)
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", req.AppId, req.Id, err.Error()))
 		return nil, err
 	}
 
-	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(queueId),
-		call.Id(), call.FromNumber(), call.FromName(), 0)
+	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(in.GetQueue().GetId()),
+		call.Id(), call.FromNumber(), call.FromName(), in.Variables, int(in.Priority))
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
 		return nil, err
 	}
 
-	attempt, _ := queueManager.CreateAttemptIfNotExists(member)
-	queueManager.DistributeAttempt(attempt)
+	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, member)
 
-	//FIXME
-	<-attempt.done
+	queueManager.DistributeAttempt(attempt)
 	return attempt, nil
 }
 
@@ -272,7 +278,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(queueId int, channelId s
 		return nil, err
 	}
 
-	attempt, err := queueManager.CreateAttemptIfNotExists(member)
+	attempt, err := queueManager.CreateAttemptIfNotExists(context.Background(), member)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +294,7 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 		return nil, err
 	}
 
-	attempt, _ := queueManager.CreateAttemptIfNotExists(member)
+	attempt, _ := queueManager.CreateAttemptIfNotExists(context.Background(), member)
 	queueManager.DistributeAttempt(attempt)
 	return attempt, nil
 }

@@ -34,7 +34,7 @@ func TestCallManager(t *testing.T) {
 		if i > 5 {
 			break
 		}
-		//testCallCancel(cm, t)
+		testCallCancel(cm, t)
 		//testCallError(cm, t)
 		testWaitForHangup(cm, t)
 		testCallAnswer(cm, t)
@@ -148,7 +148,7 @@ func testCallCancel(cm CallManager, t *testing.T) {
 		t.Errorf("call %s error: %s", call.Id(), call.Err().Error())
 	}
 
-	call.Hangup(model.CALL_HANGUP_USER_BUSY)
+	call.Hangup(model.CALL_HANGUP_USER_BUSY, false)
 	for {
 		select {
 		case state := <-call.State():
@@ -257,7 +257,7 @@ func testCallHangup(cm CallManager, t *testing.T) {
 
 			switch state {
 			case CALL_STATE_ACCEPT:
-				err := call.Hangup(model.CALL_HANGUP_REJECTED)
+				err := call.Hangup(model.CALL_HANGUP_REJECTED, false)
 				if err != nil {
 					t.Errorf("assert call %s  error: %s", call.Id(), err.Error())
 				}
@@ -307,7 +307,7 @@ func testCallStates(cm CallManager, t *testing.T) {
 			case CALL_STATE_ACCEPT:
 				accept = true
 			case CALL_STATE_JOIN:
-				err := call.Hangup(model.CALL_HANGUP_NO_ANSWER)
+				err := call.Hangup(model.CALL_HANGUP_NO_ANSWER, false)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
@@ -357,7 +357,7 @@ func testCallHold(cm CallManager, t *testing.T) {
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				err = call.Hangup(model.CALL_HANGUP_NO_ANSWER)
+				err = call.Hangup(model.CALL_HANGUP_NO_ANSWER, false)
 				if err != nil {
 					t.Errorf("assert call %s error: %s", call.Id(), err.Error())
 				}
@@ -452,7 +452,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 			switch state {
 
 			case CALL_STATE_BRIDGE:
-				err := call.Hangup(model.CALL_HANGUP_NORMAL_CLEARING)
+				err := call.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
 				if err != nil {
 					t.Error(err.Error())
 					panic(call.Id())

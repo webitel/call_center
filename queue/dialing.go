@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -85,7 +86,7 @@ func (d *DialingImpl) routeIdleAttempts() {
 	}
 
 	for _, v := range members {
-		att, _ := d.queueManager.CreateAttemptIfNotExists(v) //todo check err
+		att, _ := d.queueManager.CreateAttemptIfNotExists(context.Background(), v) //todo check err
 		d.queueManager.input <- att
 	}
 }
@@ -99,9 +100,8 @@ func (d *DialingImpl) routeIdleAgents() {
 	if attempts, err := d.store.Member().GetTimeouts(d.app.GetInstanceId()); err == nil {
 		for _, v := range attempts {
 			if attempt, ok := d.queueManager.membersCache.Get(v.Id); ok {
-
 				if _, err := d.queueManager.GetQueue(attempt.(*Attempt).QueueId(), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
-					attempt.(*Attempt).timeout <- v
+					attempt.(*Attempt).SetTimeout(v)
 				} else {
 					wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d", v.Id))
 				}

@@ -74,13 +74,15 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, number string, name string,
+	vars map[string]string, priority int) (*model.MemberAttempt, *model.AppError) {
 	var attempt *model.MemberAttempt
 
 	if err := s.GetMaster().SelectOne(&attempt, `select *
-		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Priority) attempt_id`, map[string]interface{}{
+		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Vars, :Priority) attempt_id`, map[string]interface{}{
 		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
 		"Node": node,
+		"Vars": model.MapToJson(vars),
 	}); err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
@@ -348,4 +350,25 @@ returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
 			err.Error(), http.StatusInternalServerError)
 	}
 	return res, nil
+}
+
+func (s SqlMemberStore) CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError) {
+	res, err := s.GetMaster().SelectStr(`insert into cc_msg_participants (name, conversation_id, attempt_id)
+select :Name, parent.conversation_id, :AttemptId
+from cc_msg_participants parent
+    inner join cc_msg_conversation cmc on parent.conversation_id = cmc.id
+where parent.channel_id = :Parent and cmc.closed_at is null
+returning channel_id`, map[string]interface{}{
+		"Name":      name,
+		"AttemptId": attemptId,
+		"Parent":    parentChannelId,
+	})
+
+	if err != nil {
+		return "", model.NewAppError("SqlMemberStore.CreateConversationChannel", "store.sql_member.create_conv_channel.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return res, nil
+
 }

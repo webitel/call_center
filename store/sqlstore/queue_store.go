@@ -24,7 +24,7 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 	var queue *model.Queue
 	if err := s.GetReplica().SelectOne(&queue, `
-			select q.id,
+select q.id,
        q.type,
        q.domain_id,
        d.name as domain_name,
@@ -35,9 +35,12 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
        q.variables,
        q.timeout,
        q.team_id,
-       q.schema_id
+       q.schema_id,
+       q.ringtone_id,
+       f.mime_type ringtone_type
 from cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
+    left join storage.media_files f on f.id = q.ringtone_id
 where q.id = :Id		
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {

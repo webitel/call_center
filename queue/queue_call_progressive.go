@@ -130,6 +130,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					cr := queue.AgentCallRequest(agent, team, attempt)
 					cr.Applications = []*model.CallRequestApplication{
 						{
+							AppName: "pre_answer", // TODO test
+						},
+						{
 							AppName: "set",
 							Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
 						},

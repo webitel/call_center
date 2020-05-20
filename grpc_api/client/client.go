@@ -1,7 +1,9 @@
 package client
 
 import (
+	"context"
 	"fmt"
+	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/discovery"
 	"github.com/webitel/wlog"
@@ -22,7 +24,7 @@ type AgentApi interface {
 
 type MemberApi interface {
 	AttemptResult(attemptId int64, status string) error
-	JoinCallToQueue(domainId int64, callId string, queueId int64, queueName string, priority int) (string, error)
+	JoinCallToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (cc.MemberService_CallJoinToQueueClient, error)
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 	JoinChatToQueue(domainId int64, channelId string, queueId int64, name, number string) (string, error)
 }

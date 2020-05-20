@@ -4,20 +4,22 @@ package fs;
 
 service Api {
     rpc Originate(OriginateRequest) returns (OriginateResponse) {}
-    rpc CallApplication(CallApplicationRequest) returns (CallApplicationResponse) {}
     rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
-    rpc SetVariables(SetVariablesReqeust) returns (SetVariablesResponse) {}
+    rpc SetVariables(SetVariablesRequest) returns (SetVariablesResponse) {}
     rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
+    rpc Queue(QueueRequest) returns (QueueResponse) {}
 }
 
-message CallApplicationRequest {
-    string uuid = 1;
-    repeated Extension extensions = 2;
+message QueueRequest {
+    string id = 1;
+    map<string,string> variables = 2;
+    string playback_file = 3;
+    int32 playback_args = 4;
 }
 
-message CallApplicationResponse {
+message QueueResponse {
     ErrorExecute error = 1;
 }
 
@@ -50,15 +52,15 @@ message HangupResponse {
     ErrorExecute error = 1;
 }
 
-message Extension {
-    string appName = 1;
-    string args = 2;
-}
-
 message OriginateRequest {
     enum Strategy {
         FAILOVER = 0;
         MULTIPLE = 1;
+    }
+
+    message Extension {
+        string appName = 1;
+        string args = 2;
     }
 
     map<string, string> variables = 1;
@@ -90,7 +92,7 @@ message BridgeResponse {
     ErrorExecute error = 2;
 }
 
-message SetVariablesReqeust {
+message SetVariablesRequest {
     string uuid = 1;
     map<string, string> variables = 2;
 }

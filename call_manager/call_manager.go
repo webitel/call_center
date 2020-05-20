@@ -1,6 +1,7 @@
 package call_manager
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/external_commands"
@@ -27,8 +28,7 @@ type CallManager interface {
 	ActiveCalls() int
 	NewCall(callRequest *model.CallRequest) Call
 	GetCall(id string) (Call, bool)
-	InboundCall() <-chan Call
-	SubscribeCall(call *model.Call) (Call, *model.AppError)
+	InboundCall(call *model.Call, ringtone string) (Call, *model.AppError)
 	CountConnection() int
 }
 
@@ -38,14 +38,13 @@ type CallManagerImpl struct {
 	serviceDiscovery discovery.ServiceDiscovery
 	poolConnections  discovery.Pool
 
-	mq          mq.MQ
-	calls       utils.ObjectCache
-	stop        chan struct{}
-	stopped     chan struct{}
-	inboundCall chan Call
-	watcher     *utils.Watcher
-	proxy       string
-	startOnce   sync.Once
+	mq        mq.MQ
+	calls     utils.ObjectCache
+	stop      chan struct{}
+	stopped   chan struct{}
+	watcher   *utils.Watcher
+	proxy     string
+	startOnce sync.Once
 }
 
 func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ) CallManager {
@@ -56,7 +55,6 @@ func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, 
 		mq:               mq,
 		stop:             make(chan struct{}),
 		stopped:          make(chan struct{}),
-		inboundCall:      make(chan Call, MAX_INBOUND_CALL_QUEUE),
 		calls:            utils.NewLruWithParams(MAX_CALL_CACHE, "CallManager", MAX_CALL_EXPIRE_CACHE, ""),
 	}
 }
@@ -123,13 +121,16 @@ func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
 }
 
-func (cm *CallManagerImpl) SubscribeCall(call *model.Call) (Call, *model.AppError) {
+func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call, *model.AppError) {
 	cli, err := cm.getApiConnectionById(call.AppId)
 	if err != nil {
 		return nil, err
 	}
-	err = cli.SetCallVariables(call.Id, map[string]string{
+
+	err = cli.JoinQueue(context.Background(), call.Id, ringtone, map[string]string{
 		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
+		//"transfer_after_bridge":   "'park:':inline",
+		//"valet_hold_music":        play,
 	})
 
 	if err != nil {
@@ -158,7 +159,7 @@ func (cm *CallManagerImpl) SubscribeCall(call *model.Call) (Call, *model.AppErro
 			Type:   "dest",
 			Id:     call.FromNumber,
 			Number: call.FromNumber,
-			Name:   call.FromNumber,
+			Name:   call.FromName,
 		},
 		To:       nil,
 		ParentId: nil,
@@ -181,10 +182,6 @@ func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {
 		return call.(Call), true
 	}
 	return nil, false
-}
-
-func (cm *CallManagerImpl) InboundCall() <-chan Call {
-	return cm.inboundCall
 }
 
 func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {

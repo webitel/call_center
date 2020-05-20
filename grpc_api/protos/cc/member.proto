@@ -11,10 +11,44 @@ service MemberService {
         };
     }
 
-    rpc CallJoinToQueue(CallJoinToQueueRequest) returns (CallJoinToQueueResponse) {}
+    rpc CallJoinToQueue(CallJoinToQueueRequest) returns (stream QueueEvent) {}
+
+//    rpc CallJoinToQueueStream(CallJoinToQueueRequest) returns (stream QueueEvent) {}
+
+
     rpc ChatJoinToQueue(ChatJoinToQueueRequest) returns (ChatJoinToQueueResponse) {}
+
+//    rpc Conversation(AnswerConversationRequest) returns (AnswerConversationResponse) {}
+
     rpc EmailJoinToQueue(EmailJoinToQueueRequest) returns (EmailJoinToQueueResponse) {}
     rpc DirectAgentToMember(DirectAgentToMemberRequest) returns (DirectAgentToMemberResponse) {}
+}
+
+message QueueEvent {
+    string name = 1;
+
+    message BridgedData {
+        int32 agent_id = 1;
+        string agent_call_id = 2;
+    }
+
+    message LeavingData {
+        string result = 1;
+    }
+
+    oneof data {
+        BridgedData bridged = 2;
+        LeavingData leaving = 3;
+    }
+}
+
+
+message AnswerConversationRequest {
+    string channel_id = 1;
+}
+
+message AnswerConversationResponse {
+
 }
 
 message ChatJoinToQueueRequest {
@@ -58,10 +92,22 @@ message DirectAgentToMemberResponse {
 }
 
 message CallJoinToQueueRequest {
-    string call_id = 1;
-    string queue_name = 2;
-    int64 queue_id = 3;
-    int32 priority = 4;
+    message Queue {
+        int32 id = 1;
+        string name = 2;
+    }
+    message WaitingMusic {
+        int32 id = 1;
+        string name = 2;
+        string type = 3;
+    }
+
+    string member_call_id = 1;
+    Queue queue = 2;
+    WaitingMusic waitingMusic = 3;
+    int32 timeout = 4;
+    int32 priority = 5;
+    map<string,string> variables= 6;
 
     int64 domain_id = 100;
 }
