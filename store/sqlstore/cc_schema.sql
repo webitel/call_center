@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.2
--- Dumped by pg_dump version 12.2
+-- Dumped from database version 12.3 (Debian 12.3-1.pgdg100+1)
+-- Dumped by pg_dump version 12.3 (Debian 12.3-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -16,508 +16,6 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-ALTER TABLE IF EXISTS ONLY call_center.cc_team DROP CONSTRAINT IF EXISTS cc_team_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_supervisor_in_team DROP CONSTRAINT IF EXISTS cc_supervisor_in_team_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_supervisor_in_team DROP CONSTRAINT IF EXISTS cc_supervisor_in_team_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_skill DROP CONSTRAINT IF EXISTS cc_skill_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_skill_in_agent DROP CONSTRAINT IF EXISTS cc_skill_in_agent_cc_skils_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_skill_in_agent DROP CONSTRAINT IF EXISTS cc_skill_in_agent_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_statistics DROP CONSTRAINT IF EXISTS cc_queue_statistics_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_statistics DROP CONSTRAINT IF EXISTS cc_queue_statistics_cc_bucket_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_cc_queue_id_fk_2;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_cc_outbound_resource_group_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_cc_list_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_calendar_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource DROP CONSTRAINT IF EXISTS cc_outbound_resource_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource DROP CONSTRAINT IF EXISTS cc_outbound_resource_sip_gateway_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_in_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_in_group_cc_outbound_resource_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_in_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_in_group_cc_outbound_resource_group_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_cc_communication_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_wbt_user_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_cc_outbound_resource_group_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_display DROP CONSTRAINT IF EXISTS cc_outbound_resource_display_cc_outbound_resource_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource DROP CONSTRAINT IF EXISTS cc_outbound_resource_cc_email_profile_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_cc_outbound_resource_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_messages DROP CONSTRAINT IF EXISTS cc_member_messages_cc_member_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt_log DROP CONSTRAINT IF EXISTS cc_member_attempt_log_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt_log DROP CONSTRAINT IF EXISTS cc_member_attempt_log_cc_member_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt DROP CONSTRAINT IF EXISTS cc_member_attempt_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt DROP CONSTRAINT IF EXISTS cc_member_attempt_cc_member_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt DROP CONSTRAINT IF EXISTS cc_member_attempt_cc_bucket_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt DROP CONSTRAINT IF EXISTS cc_member_attempt_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list DROP CONSTRAINT IF EXISTS cc_list_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_communications DROP CONSTRAINT IF EXISTS cc_list_communications_cc_list_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email_profile DROP CONSTRAINT IF EXISTS cc_email_profile_wbt_user_id_fk_2;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email_profile DROP CONSTRAINT IF EXISTS cc_email_profile_wbt_user_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email_profile DROP CONSTRAINT IF EXISTS cc_email_profile_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email_profile DROP CONSTRAINT IF EXISTS cc_email_profile_acr_routing_scheme_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email DROP CONSTRAINT IF EXISTS cc_email_cc_email_profiles_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email DROP CONSTRAINT IF EXISTS cc_email_cc_email_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls_history DROP CONSTRAINT IF EXISTS cc_calls_history_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls_history DROP CONSTRAINT IF EXISTS cc_calls_history_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls_history DROP CONSTRAINT IF EXISTS cc_calls_history_cc_member_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls_history DROP CONSTRAINT IF EXISTS cc_calls_history_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls DROP CONSTRAINT IF EXISTS cc_calls_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls DROP CONSTRAINT IF EXISTS cc_calls_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls DROP CONSTRAINT IF EXISTS cc_calls_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_in_queue DROP CONSTRAINT IF EXISTS cc_bucket_in_queue_cc_queue_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_in_queue DROP CONSTRAINT IF EXISTS cc_bucket_in_queue_cc_bucket_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_acl DROP CONSTRAINT IF EXISTS cc_bucket_acl_cc_bucket_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent DROP CONSTRAINT IF EXISTS cc_agent_wbt_user_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent DROP CONSTRAINT IF EXISTS cc_agent_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_state_history DROP CONSTRAINT IF EXISTS cc_agent_status_history_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_activity DROP CONSTRAINT IF EXISTS cc_agent_statistic_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_in_team DROP CONSTRAINT IF EXISTS cc_agent_in_team_cc_team_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_in_team DROP CONSTRAINT IF EXISTS cc_agent_in_team_cc_skils_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_in_team DROP CONSTRAINT IF EXISTS cc_agent_in_team_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_channel DROP CONSTRAINT IF EXISTS cc_agent_channels_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_attempt DROP CONSTRAINT IF EXISTS cc_agent_attempt_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_cc_agent_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar DROP CONSTRAINT IF EXISTS calendar_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar DROP CONSTRAINT IF EXISTS calendar_calendar_timezones_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_acl DROP CONSTRAINT IF EXISTS calendar_acl_subject_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_acl DROP CONSTRAINT IF EXISTS calendar_acl_object_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_acl DROP CONSTRAINT IF EXISTS calendar_acl_grantor_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_acl DROP CONSTRAINT IF EXISTS calendar_acl_grantor_fk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_acl DROP CONSTRAINT IF EXISTS calendar_acl_domain_fk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_variables DROP CONSTRAINT IF EXISTS acr_routing_variables_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_scheme DROP CONSTRAINT IF EXISTS acr_routing_scheme_wbt_domain_dc_fk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_outbound_call DROP CONSTRAINT IF EXISTS acr_routing_outbound_call_acr_routing_scheme_id_fk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_jobs DROP CONSTRAINT IF EXISTS acr_jobs_acr_routing_scheme_id_fk;
-DROP TRIGGER IF EXISTS tg_cc_set_agent_change_status_u ON call_center.cc_agent;
-DROP TRIGGER IF EXISTS tg_cc_set_agent_change_status_i ON call_center.cc_agent;
-DROP TRIGGER IF EXISTS cc_team_set_rbac_acl ON call_center.cc_team;
-DROP TRIGGER IF EXISTS cc_queue_resource_set_rbac_acl ON call_center.cc_queue;
-DROP TRIGGER IF EXISTS cc_outbound_resource_set_rbac_acl ON call_center.cc_outbound_resource;
-DROP TRIGGER IF EXISTS cc_outbound_resource_group_resource_set_rbac_acl ON call_center.cc_outbound_resource_group;
-DROP TRIGGER IF EXISTS cc_member_sys_offset_id_trigger_update ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_sys_offset_id_trigger_inserted ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_statistic_trigger_updated ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_statistic_trigger_inserted ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_statistic_trigger_deleted ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_set_sys_destinations_update ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_set_sys_destinations_insert ON call_center.cc_member;
-DROP TRIGGER IF EXISTS cc_member_attempt_dev_tg ON call_center.cc_member_attempt;
-DROP TRIGGER IF EXISTS cc_list_set_rbac_acl ON call_center.cc_list;
-DROP TRIGGER IF EXISTS cc_calls_set_timing_trigger_updated ON call_center.cc_calls;
-DROP TRIGGER IF EXISTS cc_bucket_set_rbac_acl ON call_center.cc_bucket;
-DROP TRIGGER IF EXISTS cc_agent_set_rbac_acl ON call_center.cc_agent;
-DROP TRIGGER IF EXISTS calendar_set_rbac_acl ON call_center.calendar;
-DROP STATISTICS IF EXISTS call_center.cc_member_timezone_stats;
-DROP INDEX IF EXISTS call_center.cc_team_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_team_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_team_domain_id_name_uindex;
-DROP INDEX IF EXISTS call_center.cc_team_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_team_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_team_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_team_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_supervisor_in_team_team_id_agent_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_supervisor_in_team_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_skils_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_skill_in_agent_skill_id_agent_id_capacity_uindex;
-DROP INDEX IF EXISTS call_center.cc_skill_in_agent_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_skill_in_agent_agent_id_skill_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_statistics_queue_id_bucket_id_skill_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_resource_queue_id_resource_group_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_resource_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_member_statistics_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_id_priority_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_enabled_priority_index;
-DROP INDEX IF EXISTS call_center.cc_queue_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_queue_distribute_res_idx;
-DROP INDEX IF EXISTS call_center.cc_queue_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_queue_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_queue_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_queue_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_in_group_resource_id_group_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_in_group_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_distr_res_idx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_group_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_gateway_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_display_resource_id_index;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_display_resource_id_display_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_display_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_outbound_resource_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_member_timezone_index;
-DROP INDEX IF EXISTS call_center.cc_member_sens_idx;
-DROP INDEX IF EXISTS call_center.cc_member_search_destination_idx;
-DROP INDEX IF EXISTS call_center.cc_member_queue_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_messages_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_member_distribute_check_sys_offset_id;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_queue_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_member_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_queue_id_idx;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_member_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_hangup_at_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_created_at_queue_id_bucket_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_created_at_agent_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_log_created_at_agent_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_history_member_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_attempt_history_agent_id_index;
-DROP INDEX IF EXISTS call_center.cc_member_agent_id_index;
-DROP INDEX IF EXISTS call_center.cc_list_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_list_communications_list_id_number_uindex;
-DROP INDEX IF EXISTS call_center.cc_list_communications_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_list_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_list_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_list_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_list_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_email_profiles_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_email_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_communication_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_communication_code_domain_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_cluster_node_name_uindex;
-DROP INDEX IF EXISTS call_center.cc_calls_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_calls_history_parent_id_index;
-DROP INDEX IF EXISTS call_center.cc_calls_history_domain_id_created_at_index;
-DROP INDEX IF EXISTS call_center.cc_call_list_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_bucket_in_queue_queue_id_bucket_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_bucket_in_queue_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_bucket_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_bucket_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_bucket_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_bucket_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_bucket_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.cc_agent_user_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_status_history_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_state_timeout_index;
-DROP INDEX IF EXISTS call_center.cc_agent_state_history_agent_id_joined_at_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_missed_attempt_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_missed_attempt_attempt_id_index;
-DROP INDEX IF EXISTS call_center.cc_agent_missed_attempt_agent_id_index;
-DROP INDEX IF EXISTS call_center.cc_agent_last_2hour_calls_mat_agent_id_adx;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_team_id_lvl_index;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_team_id_agent_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_team_id_agent_id_skill_id_lvl_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_skill_id_team_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_in_team_agent_id_index;
-DROP INDEX IF EXISTS call_center.cc_agent_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_domain_udx;
-DROP INDEX IF EXISTS call_center.cc_agent_attempt_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_activity_agent_id_last_offering_call_at_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.cc_agent_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.cc_agent_acl_id_uindex;
-DROP INDEX IF EXISTS call_center.cc_agent_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.calendar_timezones_utc_offset_index;
-DROP INDEX IF EXISTS call_center.calendar_timezones_name_uindex;
-DROP INDEX IF EXISTS call_center.calendar_timezones_id_uindex;
-DROP INDEX IF EXISTS call_center.calendar_id_uindex;
-DROP INDEX IF EXISTS call_center.calendar_domain_udx;
-DROP INDEX IF EXISTS call_center.calendar_acl_subject_object_udx;
-DROP INDEX IF EXISTS call_center.calendar_acl_object_subject_udx;
-DROP INDEX IF EXISTS call_center.calendar_acl_grantor_idx;
-DROP INDEX IF EXISTS call_center.agent_statistic_id_uindex;
-DROP INDEX IF EXISTS call_center.acr_routing_variables_id_uindex;
-DROP INDEX IF EXISTS call_center.acr_routing_variables_domain_id_key_uindex;
-DROP INDEX IF EXISTS call_center.acr_routing_scheme_id_uindex;
-DROP INDEX IF EXISTS call_center.acr_routing_outbound_call_id_uindex;
-DROP INDEX IF EXISTS call_center.acr_jobs_id_uindex;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team DROP CONSTRAINT IF EXISTS cc_team_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_team_acl DROP CONSTRAINT IF EXISTS cc_team_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_supervisor_in_team DROP CONSTRAINT IF EXISTS cc_supervisor_in_team_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_skill DROP CONSTRAINT IF EXISTS cc_skils_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_skill_in_agent DROP CONSTRAINT IF EXISTS cc_skill_in_agent_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_statistics DROP CONSTRAINT IF EXISTS cc_queue_statistics_pk_queue_id_bucket_id_skill_id;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_statistics DROP CONSTRAINT IF EXISTS cc_queue_statistics_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_resource DROP CONSTRAINT IF EXISTS cc_queue_resource_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue DROP CONSTRAINT IF EXISTS cc_queue_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_queue_acl DROP CONSTRAINT IF EXISTS cc_queue_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_in_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_in_group_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_group_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_group_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_display DROP CONSTRAINT IF EXISTS cc_outbound_resource_display_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_outbound_resource_acl DROP CONSTRAINT IF EXISTS cc_outbound_resource_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member DROP CONSTRAINT IF EXISTS cc_member_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_messages DROP CONSTRAINT IF EXISTS cc_member_messages_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt DROP CONSTRAINT IF EXISTS cc_member_attempt_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt_log DROP CONSTRAINT IF EXISTS cc_member_attempt_log_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_member_attempt_history DROP CONSTRAINT IF EXISTS cc_member_attempt_history_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_communications DROP CONSTRAINT IF EXISTS cc_list_communications_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list_acl DROP CONSTRAINT IF EXISTS cc_list_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email_profile DROP CONSTRAINT IF EXISTS cc_email_profiles_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_email DROP CONSTRAINT IF EXISTS cc_email_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_communication DROP CONSTRAINT IF EXISTS cc_communication_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_cluster DROP CONSTRAINT IF EXISTS cc_cluster_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls DROP CONSTRAINT IF EXISTS cc_calls_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_calls_history DROP CONSTRAINT IF EXISTS cc_calls_history_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_list DROP CONSTRAINT IF EXISTS cc_call_list_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket DROP CONSTRAINT IF EXISTS cc_bucket_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_bucket_in_queue DROP CONSTRAINT IF EXISTS cc_bucket_in_queue_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_state_history DROP CONSTRAINT IF EXISTS cc_agent_status_history_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent DROP CONSTRAINT IF EXISTS cc_agent_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_missed_attempt DROP CONSTRAINT IF EXISTS cc_agent_missed_attempt_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_in_team DROP CONSTRAINT IF EXISTS cc_agent_in_team_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_channel DROP CONSTRAINT IF EXISTS cc_agent_channels_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_attempt DROP CONSTRAINT IF EXISTS cc_agent_attempt_pk;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_acl DROP CONSTRAINT IF EXISTS cc_agent_acl_pk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar_timezones DROP CONSTRAINT IF EXISTS calendar_timezones_pk;
-ALTER TABLE IF EXISTS ONLY call_center.calendar DROP CONSTRAINT IF EXISTS calendar_pkey;
-ALTER TABLE IF EXISTS ONLY call_center.cc_agent_activity DROP CONSTRAINT IF EXISTS agent_statistic_pk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_variables DROP CONSTRAINT IF EXISTS acr_routing_variables_pk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_scheme DROP CONSTRAINT IF EXISTS acr_routing_scheme_pk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_routing_outbound_call DROP CONSTRAINT IF EXISTS acr_routing_outbound_call_pk;
-ALTER TABLE IF EXISTS ONLY call_center.acr_jobs DROP CONSTRAINT IF EXISTS acr_jobs_pk;
-ALTER TABLE IF EXISTS call_center.cc_team_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_team ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_supervisor_in_team ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_skill_in_agent ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_skill ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_queue_statistics ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_queue_resource ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_queue_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_queue ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource_in_group ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource_group_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource_group ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource_display ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_outbound_resource ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_member_messages ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_member_attempt ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_member ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_list_communications ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_list_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_list ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_email_profile ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_email ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_communication ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_cluster ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_bucket_in_queue ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_bucket ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_state_history ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_missed_attempt ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_in_team ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_attempt ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_activity ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent_acl ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.cc_agent ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.calendar_timezones ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.calendar ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.acr_routing_variables ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.acr_routing_scheme ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.acr_routing_outbound_call ALTER COLUMN pos DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.acr_routing_outbound_call ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE IF EXISTS call_center.acr_jobs ALTER COLUMN id DROP DEFAULT;
-DROP SEQUENCE IF EXISTS call_center.cc_team_id_seq;
-DROP SEQUENCE IF EXISTS call_center.cc_team_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_team_acl;
-DROP VIEW IF EXISTS call_center.cc_sys_queue_distribute_resources;
-DROP VIEW IF EXISTS call_center.cc_sys_distribute_queue;
-DROP VIEW IF EXISTS call_center.cc_sys_distribute_queue_bucket_seg;
-DROP VIEW IF EXISTS call_center.cc_sys_agent_group_team_bucket;
-DROP SEQUENCE IF EXISTS call_center.cc_supervisor_in_team_id_seq;
-DROP TABLE IF EXISTS call_center.cc_supervisor_in_team;
-DROP SEQUENCE IF EXISTS call_center.cc_skils_id_seq;
-DROP SEQUENCE IF EXISTS call_center.cc_skill_in_agent_id_seq;
-DROP TABLE IF EXISTS call_center.cc_skill_in_agent;
-DROP TABLE IF EXISTS call_center.cc_skill;
-DROP SEQUENCE IF EXISTS call_center.cc_queue_resource_id_seq1;
-DROP SEQUENCE IF EXISTS call_center.cc_queue_resource_id_seq;
-DROP TABLE IF EXISTS call_center.cc_queue_resource;
-DROP SEQUENCE IF EXISTS call_center.cc_queue_member_statistics_id_seq;
-DROP VIEW IF EXISTS call_center.cc_queue_list;
-DROP TABLE IF EXISTS call_center.cc_queue_statistics;
-DROP SEQUENCE IF EXISTS call_center.cc_queue_id_seq;
-DROP SEQUENCE IF EXISTS call_center.cc_queue_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_queue_acl;
-DROP SEQUENCE IF EXISTS call_center.cc_outbound_resource_in_group_id_seq;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource_in_group;
-DROP SEQUENCE IF EXISTS call_center.cc_outbound_resource_group_id_seq;
-DROP SEQUENCE IF EXISTS call_center.cc_outbound_resource_group_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource_group_acl;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource_group;
-DROP SEQUENCE IF EXISTS call_center.cc_outbound_resource_display_id_seq;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource_display;
-DROP SEQUENCE IF EXISTS call_center.cc_outbound_resource_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource_acl;
-DROP VIEW IF EXISTS call_center.cc_member_view_attempt_history;
-DROP VIEW IF EXISTS call_center.cc_member_view_attempt;
-DROP TABLE IF EXISTS call_center.cc_outbound_resource;
-DROP SEQUENCE IF EXISTS call_center.cc_member_messages_id_seq;
-DROP TABLE IF EXISTS call_center.cc_member_messages;
-DROP SEQUENCE IF EXISTS call_center.cc_member_id_seq;
-DROP TABLE IF EXISTS call_center.cc_member_attempt_log_day_tmp;
-DROP VIEW IF EXISTS call_center.cc_member_attempt_log_day;
-DROP MATERIALIZED VIEW IF EXISTS call_center.cc_member_attempt_log_day_5min;
-DROP SEQUENCE IF EXISTS call_center.cc_list_communications_id_seq;
-DROP TABLE IF EXISTS call_center.cc_list_communications;
-DROP SEQUENCE IF EXISTS call_center.cc_list_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_list_acl;
-DROP SEQUENCE IF EXISTS call_center.cc_email_profiles_id_seq;
-DROP VIEW IF EXISTS call_center.cc_email_profile_list;
-DROP TABLE IF EXISTS call_center.cc_email_profile;
-DROP SEQUENCE IF EXISTS call_center.cc_email_id_seq;
-DROP TABLE IF EXISTS call_center.cc_email;
-DROP SEQUENCE IF EXISTS call_center.cc_communication_id_seq;
-DROP TABLE IF EXISTS call_center.cc_communication;
-DROP SEQUENCE IF EXISTS call_center.cc_cluster_id_seq;
-DROP TABLE IF EXISTS call_center.cc_cluster;
-DROP VIEW IF EXISTS call_center.cc_calls_all;
-DROP VIEW IF EXISTS call_center.cc_calls_all_h;
-DROP VIEW IF EXISTS call_center.cc_calls_all_a;
-DROP SEQUENCE IF EXISTS call_center.cc_call_list_id_seq;
-DROP TABLE IF EXISTS call_center.cc_list;
-DROP VIEW IF EXISTS call_center.cc_call_history_list;
-DROP TABLE IF EXISTS call_center.cc_team;
-DROP TABLE IF EXISTS call_center.cc_queue;
-DROP TABLE IF EXISTS call_center.cc_member_attempt_history;
-DROP TABLE IF EXISTS call_center.cc_member;
-DROP TABLE IF EXISTS call_center.cc_calls_history;
-DROP SEQUENCE IF EXISTS call_center.cc_bucket_in_queue_id_seq;
-DROP TABLE IF EXISTS call_center.cc_bucket_in_queue;
-DROP SEQUENCE IF EXISTS call_center.cc_bucket_id_seq;
-DROP TABLE IF EXISTS call_center.cc_bucket_acl;
-DROP TABLE IF EXISTS call_center.cc_bucket;
-DROP VIEW IF EXISTS call_center.cc_agent_waiting;
-DROP TABLE IF EXISTS call_center.cc_calls;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_missed_attempt_id_seq;
-DROP VIEW IF EXISTS call_center.cc_agent_list;
-DROP VIEW IF EXISTS call_center.cc_agent_last_2hour_calls;
-DROP MATERIALIZED VIEW IF EXISTS call_center.cc_agent_last_2hour_calls_mat;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_in_team_id_seq;
-DROP TABLE IF EXISTS call_center.cc_agent_in_team;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_id_seq;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_history_id_seq;
-DROP MATERIALIZED VIEW IF EXISTS call_center.cc_agent_end_state_day_5min;
-DROP MATERIALIZED VIEW IF EXISTS call_center.cc_agent_daily_state_activity_mat;
-DROP TABLE IF EXISTS call_center.cc_agent_state_history;
-DROP VIEW IF EXISTS call_center.cc_agent_daily_calls;
-DROP MATERIALIZED VIEW IF EXISTS call_center.cc_agent_daily_calls_mat;
-DROP TABLE IF EXISTS call_center.cc_member_attempt_log;
-DROP SEQUENCE IF EXISTS call_center.cc_member_attempt_id_seq;
-DROP TABLE IF EXISTS call_center.cc_member_attempt;
-DROP TABLE IF EXISTS call_center.cc_agent_missed_attempt;
-DROP TABLE IF EXISTS call_center.cc_agent_channel;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_attempt_id_seq;
-DROP TABLE IF EXISTS call_center.cc_agent_attempt;
-DROP SEQUENCE IF EXISTS call_center.cc_agent_acl_id_seq;
-DROP TABLE IF EXISTS call_center.cc_agent_acl;
-DROP TABLE IF EXISTS call_center.cc_agent;
-DROP SEQUENCE IF EXISTS call_center.calendar_timezones_id_seq;
-DROP TABLE IF EXISTS call_center.calendar_timezones_by_interval;
-DROP TABLE IF EXISTS call_center.calendar_timezone_offsets;
-DROP MATERIALIZED VIEW IF EXISTS call_center.calendar_intervals;
-DROP TABLE IF EXISTS call_center.calendar_timezones;
-DROP SEQUENCE IF EXISTS call_center.calendar_id_seq;
-DROP TABLE IF EXISTS call_center.calendar_acl;
-DROP TABLE IF EXISTS call_center.calendar;
-DROP SEQUENCE IF EXISTS call_center.agent_statistic_id_seq;
-DROP TABLE IF EXISTS call_center.cc_agent_activity;
-DROP SEQUENCE IF EXISTS call_center.acr_routing_variables_id_seq;
-DROP TABLE IF EXISTS call_center.acr_routing_variables;
-DROP SEQUENCE IF EXISTS call_center.acr_routing_scheme_id_seq;
-DROP TABLE IF EXISTS call_center.acr_routing_scheme;
-DROP SEQUENCE IF EXISTS call_center.acr_routing_outbound_call_pos_seq;
-DROP SEQUENCE IF EXISTS call_center.acr_routing_outbound_call_id_seq;
-DROP TABLE IF EXISTS call_center.acr_routing_outbound_call;
-DROP SEQUENCE IF EXISTS call_center.acr_jobs_id_seq;
-DROP TABLE IF EXISTS call_center.acr_jobs;
-DROP OPERATOR FAMILY IF EXISTS call_center.gin_cc_pair_test2_ops USING gin;
-DROP PROCEDURE IF EXISTS call_center.test_sp(INOUT cnt integer);
-DROP FUNCTION IF EXISTS call_center.cc_view_timestamp(t timestamp with time zone);
-DROP FUNCTION IF EXISTS call_center.cc_un_reserve_members_with_resources(node character varying, res character varying);
-DROP FUNCTION IF EXISTS call_center.cc_timezone_offset_id(integer);
-DROP FUNCTION IF EXISTS call_center.cc_team_agents_by_bucket(ch_ character varying, team_id_ integer, bucket_id integer);
-DROP FUNCTION IF EXISTS call_center.cc_set_rbac_rec();
-DROP FUNCTION IF EXISTS call_center.cc_set_agent_change_status();
-DROP FUNCTION IF EXISTS call_center.cc_set_active_members(node character varying);
-DROP FUNCTION IF EXISTS call_center.cc_resource_set_error(_id bigint, _routing_id bigint, _error_id character varying, _strategy character varying);
-DROP FUNCTION IF EXISTS call_center.cc_queue_default_timezone_offset_id(integer);
-DROP FUNCTION IF EXISTS call_center.cc_outbound_resource_timing(jsonb);
-DROP FUNCTION IF EXISTS call_center.cc_member_sys_offset_id_trigger_update();
-DROP FUNCTION IF EXISTS call_center.cc_member_sys_offset_id_trigger_inserted();
-DROP FUNCTION IF EXISTS call_center.cc_member_statistic_trigger_updated();
-DROP FUNCTION IF EXISTS call_center.cc_member_statistic_trigger_inserted();
-DROP FUNCTION IF EXISTS call_center.cc_member_statistic_trigger_deleted();
-DROP FUNCTION IF EXISTS call_center.cc_member_statistic_trigger();
-DROP FUNCTION IF EXISTS call_center.cc_member_set_sys_destinations_tg();
-DROP FUNCTION IF EXISTS call_center.cc_member_destination_views_to_json(in_ call_center.cc_member_destination_view[]);
-DROP FUNCTION IF EXISTS call_center.cc_member_communications(jsonb);
-DROP FUNCTION IF EXISTS call_center.cc_member_communication_types(jsonb);
-DROP FUNCTION IF EXISTS call_center.cc_member_attempt_log_day_f(queue_id integer, bucket_id integer);
-DROP FUNCTION IF EXISTS call_center.cc_member_attempt_dev_tgf();
-DROP FUNCTION IF EXISTS call_center.cc_get_time(_t character varying, _def_t character varying);
-DROP FUNCTION IF EXISTS call_center.cc_get_lookup(_id bigint, _name character varying);
-DROP FUNCTION IF EXISTS call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer);
-DROP FUNCTION IF EXISTS call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint);
-DROP FUNCTION IF EXISTS call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint);
-DROP FUNCTION IF EXISTS call_center.cc_calls_set_timing();
-DROP FUNCTION IF EXISTS call_center.cc_attempt_reporting(attempt_id_ bigint);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ integer, agent_call_id_ character varying, member_call_id_ character varying);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_missed_agent(attempt_id_ bigint, agent_hold_ integer);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_leaving(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_bridged(attempt_id_ bigint);
-DROP FUNCTION IF EXISTS call_center.cc_attempt_abandoned(attempt_id_ bigint);
-DROP FUNCTION IF EXISTS call_center.cc_arr_type_to_jsonb(anyarray);
-DROP FUNCTION IF EXISTS call_center.cc_agent_state_timeout();
-DROP FUNCTION IF EXISTS call_center.cc_agent_set_login(agent_id_ integer, channels_ character varying[], on_demand_ boolean);
-DROP FUNCTION IF EXISTS call_center.calendar_json_to_excepts(jsonb);
-DROP FUNCTION IF EXISTS call_center.calendar_json_to_accepts(jsonb);
-DROP FUNCTION IF EXISTS call_center.calendar_accepts_to_jsonb(call_center.calendar_accept_time[]);
-DROP TYPE IF EXISTS call_center.cc_type;
-DROP TYPE IF EXISTS call_center.cc_member_destination_view;
-DROP TYPE IF EXISTS call_center.cc_communication_type_l;
-DROP TYPE IF EXISTS call_center.cc_communication_type_in_member;
-DROP TYPE IF EXISTS call_center.cc_communication_t;
-DROP TYPE IF EXISTS call_center.cc_agent_in_attempt;
-DROP TYPE IF EXISTS call_center.calendar_except_date;
-DROP TYPE IF EXISTS call_center.calendar_accept_time;
-DROP SCHEMA IF EXISTS call_center;
 --
 -- Name: call_center; Type: SCHEMA; Schema: -; Owner: -
 --
@@ -636,6 +134,102 @@ CREATE FUNCTION call_center.calendar_accepts_to_jsonb(call_center.calendar_accep
              from unnest($1) a
     ) x;
 $_$;
+
+
+--
+-- Name: calendar_check_timing(bigint, integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.calendar_check_timing(domain_id_ bigint, calendar_id_ integer, name_ character varying) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+    declare
+        res record;
+begin
+    select c.name,
+           (
+               select x.name
+               from unnest(c.excepts) as x
+               where not x.disabled is true
+                 and case
+                         when x.repeat is true then
+                                 to_char((current_timestamp AT TIME ZONE ct.name)::date, 'MM-DD') =
+                                 to_char((to_timestamp(x.date / 1000) at time zone ct.name)::date, 'MM-DD')
+                         else
+                                 (current_timestamp AT TIME ZONE ct.name)::date =
+                                 (to_timestamp(x.date / 1000) at time zone ct.name)::date
+                   end
+               limit 1
+           )                     excepted,
+           exists(
+                   select 1
+                   from unnest(c.accepts) as x
+                   where not x.disabled is true
+                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.name)::int
+                     and (to_char(current_timestamp AT TIME ZONE ct.name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
+               )                 accept,
+           case
+               when c.start_at > 0 and c.end_at > 0 then
+                   not current_date AT TIME ZONE ct.name between (to_timestamp(c.start_at / 1000) at time zone ct.name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.name)::date
+               else false end as expire
+    into res
+    from calendar c
+             inner join calendar_timezones ct on c.timezone_id = ct.id
+    where c.domain_id = domain_id_
+      and (
+        c.id = calendar_id_ or c.name = name_
+        )
+    limit 1;
+
+    return res;
+end;
+$$;
+
+
+--
+-- Name: calendar_check_timing_p(bigint, integer, character varying, character varying, character varying, boolean, boolean); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.calendar_check_timing_p(domain_id_ bigint, calendar_id_ integer, name_ character varying, INOUT name_out character varying, INOUT excepted_out character varying, INOUT accept_out boolean, INOUT expire_out boolean)
+    LANGUAGE plpgsql
+    AS $$
+begin
+    select c.name::varchar,
+           (
+               select x.name
+               from unnest(c.excepts) as x
+               where not x.disabled is true
+                 and case
+                         when x.repeat is true then
+                                 to_char((current_timestamp AT TIME ZONE ct.name)::date, 'MM-DD') =
+                                 to_char((to_timestamp(x.date / 1000) at time zone ct.name)::date, 'MM-DD')
+                         else
+                                 (current_timestamp AT TIME ZONE ct.name)::date =
+                                 (to_timestamp(x.date / 1000) at time zone ct.name)::date
+                   end
+               limit 1
+           )::varchar                     excepted,
+           exists(
+                   select 1
+                   from unnest(c.accepts) as x
+                   where not x.disabled is true
+                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.name)::int
+                     and (to_char(current_timestamp AT TIME ZONE ct.name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
+               )::bool                 accept,
+           case
+               when c.start_at > 0 and c.end_at > 0 then
+                   not current_date AT TIME ZONE ct.name between (to_timestamp(c.start_at / 1000) at time zone ct.name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.name)::date
+               else false end as expire
+    into name_out, excepted_out, accept_out, excepted_out
+    from calendar c
+             inner join calendar_timezones ct on c.timezone_id = ct.id
+    where c.domain_id = domain_id_
+      and (
+        c.id = calendar_id_ or c.name = name_
+        )
+    limit 1;
+end;
+$$;
 
 
 --
@@ -835,47 +429,50 @@ $$;
 
 
 --
--- Name: cc_attempt_end_reporting(bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ bigint DEFAULT NULL::bigint, next_offering_at_ bigint DEFAULT NULL::bigint, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
-    agent_id_  int;
-    member_id_ int8;
-    queue_id_ int;
-    channel_ varchar;
-    agent_call_id_ varchar;
+    attempt cc_member_attempt%rowtype;
     agent_timeout_ timestamptz;
+    time_ int8 = extract(EPOCH  from now()) * 1000;
 begin
     update cc_member_attempt
         set state_str  =  'leaving',
             leaving_at = now(),
             reporting_at = now(),
-            result = status_
+            result = status_,
+            description = description_
     where id = attempt_id_ and state_str != 'leaving'
-    returning agent_call_id, channel, agent_id, queue_id into agent_call_id_, channel_, agent_id_, queue_id_;
+    returning * into attempt;
 
-    if queue_id_ isnull then
+    if attempt.id isnull then
         raise exception  'not found %', attempt_id_;
     end if;
 
-
     update cc_member
-    set last_hangup_at  = extract(EPOCH from now())::int8, -- todo delete me
+    set last_hangup_at  = time_, -- todo delete me
         last_attempt_id = attempt_id_,
-        last_agent      = coalesce(agent_id_, last_agent),
+        variables = case when variables_ isnull then variables else variables_ end,
+        expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
+        min_offering_at = case when next_offering_at_ isnull then min_offering_at else next_offering_at_ end,
+        last_agent      = coalesce(attempt.agent_id, last_agent),
         reporting_at    = cc_view_timestamp(now()), --FIXME
-        stop_at         = case when status_ isnull then null else (extract(EPOCH from now()) * 1000)::int8 end, --TODO
+--         stop_at         = case when status_ isnull then null else (extract(EPOCH from now()) * 1000)::int8 end, --TODO
         stop_cause      = status_,
-        communications  = jsonb_set(
-                jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
-            , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
+        communications = jsonb_set(
+                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                          attempt_id_::text::jsonb, true)
+            , array [attempt.communication_idx, 'last_activity_at']::text[],
+                time_::text::jsonb
+            ),
         attempts        = attempts + 1                     --TODO
-    where id = member_id_;
+    where id = attempt.member_id;
 
-     if agent_id_ notnull then
+    if attempt.agent_id notnull then
         update cc_agent_channel c
         set state = 'wrap_time',
             joined_at = now(),
@@ -884,14 +481,13 @@ begin
             select ct.wrap_up_time
             from cc_queue q
                 inner join cc_team ct on q.team_id = ct.id
-            where q.id = queue_id_
+            where q.id = attempt.queue_id
         ) x
-        where (c.agent_id, c.channel) = (agent_id_, channel_)
+        where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
         returning timeout into agent_timeout_;
     end if;
 
-
-    return row(cc_view_timestamp(now()), channel_, agent_call_id_, agent_id_, cc_view_timestamp(agent_timeout_));
+    return row(cc_view_timestamp(now()), attempt.channel, attempt.agent_call_id, attempt.agent_id, cc_view_timestamp(agent_timeout_));
 end;
 $$;
 
@@ -1173,10 +769,101 @@ $_$;
 
 
 --
--- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, character varying, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, variables_ jsonb, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint)
+    LANGUAGE plpgsql
+    AS $$
+declare
+    _timezone_id int4;
+    _discard_abandoned_after int4;
+    _weight int4;
+    dnc_list_id_ int4;
+    _domain_id int8;
+    _calendar_id int4;
+BEGIN
+  select c.timezone_id,
+           (payload->>'discard_abandoned_after')::int discard_abandoned_after,
+         c.domain_id,
+         q.dnc_list_id,
+         q.calendar_id
+  from cc_queue q
+      inner join calendar c on q.calendar_id = c.id
+  where  q.id = _queue_id
+  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id;
+
+  --TODO
+  if exists(select clc.id
+    from cc_list_communications clc
+    where (clc.list_id = dnc_list_id_ and clc.number = _number)) then
+          raise exception 'number % banned', _number;
+  end if;
+
+  if not exists(select accept
+from calendar_check_timing(_domain_id, _calendar_id, null)
+as x (name varchar, excepted varchar, accept bool, expire bool)
+where accept and excepted is null and not expire) then
+      raise exception 'number % calendar not working', _number;
+  end if;
+
+  if  _discard_abandoned_after > 0 then
+      select
+            case when log.result = 'abandoned' then
+                 extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+            else coalesce(_priority, 0) end
+        from cc_member_attempt_history log
+        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+            and log.queue_id = _queue_id
+            and log.destination->>'destination' = _number
+        order by log.leaving_at desc
+        limit 1
+        into _weight;
+  end if;
+
+  return query with attempts as (
+      insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
+          values (1, _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _number),
+                  _node_name, (select clc.id
+from cc_list_communications clc
+where (clc.list_id = dnc_list_id_ and clc.number = _number)))
+          returning *
+  )
+  select a.id,
+         a.member_id,
+         null::varchar    result,
+         a.queue_id,
+         cq.updated_at as queue_updated_at,
+         0::integer       queue_count,
+         0::integer       queue_active_count,
+         0::integer       queue_waiting_count,
+         null::integer    resource_id,
+         null::bigint     resource_updated_at,
+         null::bigint     gateway_updated_at,
+         a.destination    destination,
+         variables_,
+         _name,
+         a.member_call_id,
+         null::bigint     agent_id,
+         null::bigint     agent_updated_at,
+         ct.updated_at::bigint     team_updated_at,
+         a.list_communication_id::int8
+  from attempts a
+           inner join cc_queue cq on a.queue_id = cq.id
+           left join cc_team ct on cq.team_id = ct.id
+           left join cc_list_communications lc on (lc.list_id = cq.dnc_list_id and lc.number = a.destination->>'destination');
+
+  --raise notice '%', _attempt_id;
+
+END;
+$$;
+
+
+--
+-- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
     LANGUAGE plpgsql
     AS $_$
 declare
@@ -1231,8 +918,8 @@ BEGIN
   end if;
 
   return query with attempts as (
-      insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id)
-          values (1, _queue_id, _member_id, coalesce(_weight, _priority), _call_id, _destination, _node_name)
+      insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, channel)
+          values (1, _queue_id, _member_id, coalesce(_weight, _priority), _call_id, _destination, _node_name, 'chat')
           returning *
   )
   select a.id,
@@ -1292,6 +979,55 @@ CREATE FUNCTION call_center.cc_get_time(_t character varying, _def_t character v
 BEGIN
   return (to_char(current_timestamp AT TIME ZONE coalesce(_t, _def_t), 'SSSS') :: int / 60)::int;
 END;
+$$;
+
+
+--
+-- Name: cc_list_statistics_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_list_statistics_trigger_deleted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    insert into cc_list_statistics (list_id, count)
+    select l.list_id, l.cnt
+    from (
+             select l.list_id, count(*) cnt
+             from deleted l
+                inner join cc_list li on li.id = l.list_id
+             group by l.list_id
+         ) l
+    on conflict (list_id)
+        do update
+        set count = cc_list_statistics.count - EXCLUDED.count ;
+
+    RETURN NULL;
+END
+$$;
+
+
+--
+-- Name: cc_list_statistics_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_list_statistics_trigger_inserted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    insert into cc_list_statistics (list_id, count)
+    select l.list_id, l.cnt
+    from (
+             select l.list_id, count(*) cnt
+             from inserted l
+             group by l.list_id
+         ) l
+    on conflict (list_id)
+        do update
+        set count = EXCLUDED.count + cc_list_statistics.count;
+    RETURN NULL;
+END
 $$;
 
 
@@ -1555,6 +1291,124 @@ $$;
 
 
 --
+-- Name: cc_msg_create_conversation(character varying, character varying, character varying, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_msg_create_conversation(key_ character varying, title_ character varying, name_ character varying, body_ jsonb) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+    declare conversation_id_ int8;
+    channel_id_ varchar;
+    posted_at_ timestamptz;
+begin
+    insert into cc_msg_conversation (title, domain_id)
+    values (title_, (select p.domain_id
+			from cc_msg_profiles p
+			where p.secret_key = key_))
+    returning id into conversation_id_;
+
+    insert into cc_msg_participants (name, conversation_id)
+    values (name_, conversation_id_)
+    returning channel_id into channel_id_;
+
+    insert into cc_msg_post(conversation_id, body, posted_by)
+    values (conversation_id_, body_, name_)
+    returning posted_at into posted_at_;
+
+    return row(posted_at_, conversation_id_, channel_id_::text);
+end;
+$$;
+
+
+--
+-- Name: cc_msg_history(uuid, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_msg_history(channel_id_ uuid, limit_ integer, offset_ integer) RETURNS SETOF record
+    LANGUAGE plpgsql
+    AS $$
+    declare conversation_id_ int8;
+begin
+    select o.conversation_id
+    into conversation_id_
+    from cc_msg_participants o
+        inner join cc_msg_conversation cmc on o.conversation_id = cmc.id
+    where o.channel_id = channel_id_ and cmc.closed_at isnull;
+
+    if conversation_id_ isnull then
+        raise exception 'not found'; -- todo
+    end if;
+
+    return query select msg.posted_by, (extract(epoch from msg.posted_at) * 1000)::int8 posted_at, msg.body
+    from cc_msg_post msg
+    where msg.conversation_id = conversation_id_
+    order by msg.posted_at desc
+    limit limit_
+    offset offset_;
+end;
+$$;
+
+
+--
+-- Name: cc_msg_post(uuid, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_msg_post(channel_id_ uuid, body_ jsonb) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+    declare last_ timestamptz;
+        posted_by_ varchar;
+begin
+    update cc_msg_participants n
+        set activity_at  = now()
+    from cc_msg_participants o
+    where n.channel_id = channel_id_ and n.channel_id = o.channel_id
+    returning o.activity_at into last_;
+
+    insert into cc_msg_post (body, conversation_id, posted_by)
+    select body_, p.conversation_id, p.name
+    from cc_msg_participants p
+    where p.channel_id = channel_id_
+    returning posted_by into posted_by_;
+
+    return row( (extract(epoch from now()) )::int8 , posted_by_, body_ );
+
+end;
+$$;
+
+
+--
+-- Name: cc_msg_unread(uuid, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_msg_unread(channel_id_ uuid, limit_ integer) RETURNS SETOF record
+    LANGUAGE plpgsql
+    AS $$
+    declare activity_at_ timestamptz;
+        conversation_id_ int8;
+begin
+    update cc_msg_participants n
+        set activity_at  = now()
+    from cc_msg_participants o
+        inner join cc_msg_conversation cmc on o.conversation_id = cmc.id
+    where n.channel_id = channel_id_ and n.channel_id = o.channel_id and cmc.closed_at isnull
+    returning o.conversation_id, o.activity_at into conversation_id_, activity_at_;
+
+    if conversation_id_ isnull then
+        raise exception 'not found'; -- todo
+    end if;
+
+    return query select msg.posted_by, (extract(epoch from msg.posted_at) * 1000)::int8 posted_at, msg.body
+    from cc_msg_post msg
+    where msg.conversation_id = conversation_id_
+        and msg.posted_at > activity_at_
+    order by msg.posted_at desc
+    limit limit_;
+end;
+$$;
+
+
+--
 -- Name: cc_outbound_resource_timing(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -1705,7 +1559,7 @@ BEGIN
             c.resource_updated_at::bigint as resource_updated_at,
             c.gateway_updated_at::bigint as gateway_updated_at,
             c.destination,
-            c.variables,
+            c.variables ,
             c.member_name,
             a.member_call_id,
             a.agent_id,
@@ -1724,8 +1578,23 @@ CREATE FUNCTION call_center.cc_set_agent_change_status() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  insert into cc_agent_state_history (agent_id, joined_at, state, queue_id, attempt_id)
-  values (new.id, now(), new.state, new.active_queue_id, new.attempt_id);
+  insert into cc_agent_state_history (agent_id, joined_at, state)
+  values (new.id, now(), new.state);
+  RETURN new;
+END;
+$$;
+
+
+--
+-- Name: cc_set_agent_channel_change_status(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_set_agent_channel_change_status() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration)
+  values (new.agent_id, new.joined_at, new.state, new.channel, new.joined_at - coalesce(old.joined_at, now()));
   RETURN new;
 END;
 $$;
@@ -1855,17 +1724,18 @@ begin
                q.calendar_id,
                q.type,
                csdqbs.bucket_id,
+               q.sec_between_retries,
                case
-                   when q.type = 1 then (select count(*)
+                   when q.type in  (1, 6) then (select count(*) --fixme
                                          from cc_member_attempt a
                                          where a.queue_id = q.id
                                            and (a.state = 3)
                                            and a.agent_id isnull)
                    else csdqbs.member_waiting end                                                                 member_waiting
         from cc_queue q
-                 left join cc_sys_distribute_queue_bucket_seg csdqbs on q.id = csdqbs.queue_id and q.type > 1
+                 left join cc_sys_distribute_queue_bucket_seg csdqbs on q.id = csdqbs.queue_id and q.type in (1,2,3,4,5) -- FIXME
         where q.enabled
-          and (q.type = 1 or csdqbs.member_waiting > 0)
+          and (q.type in (1, 6) or csdqbs.member_waiting > 0)
     )
             ,
          res as (
@@ -1873,7 +1743,7 @@ begin
              from dis
                       left join cc_sys_queue_distribute_resources r on r.queue_id = dis.id and dis.type != 1
              where dis.member_waiting > 0
-               and (dis.type = 1 or r.queue_id notnull)
+               and (dis.type in (1, 6) or r.queue_id notnull)
          ),
          ag as (
              --FIXME channel in C
@@ -1885,11 +1755,13 @@ begin
                       group by res.team_id, res.bucket_id
                   ) t
          )
-    select x.*, t.bucket_id, t.id as queue_id, case when t.type = 1 then 'u' else 'i' end op
+    select x.*, t.bucket_id, t.id as queue_id, case when t.type in (1, 6) then 'u' else 'i' end op,
+             case when t.type in ( 6) then 'chat' else 'call' end channel
     from (
              select res.*,
                     ag.agents,
-                    row (res.id, res.bucket_id, res.type, 499976700000000, res.ran, 100, res.member_waiting, 1)::cc_sys_distribute_request req
+                    row (res.id, res.bucket_id, res.type, (extract(epoch  from now()) * 1000)::int8 - (res.sec_between_retries * 1000)
+                        , res.ran, 100, res.member_waiting, 1)::cc_sys_distribute_request req
              from res
                       left join ag on res.type > 0 and res.team_id = ag.team_id and
                                       coalesce(res.bucket_id, 0) = coalesce(ag.bucket_id, 0)
@@ -1904,8 +1776,8 @@ begin
 
     cnt = (select count(*) from cc_distribute_member_tmp);
 
-    insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination)
-        select 'call', --fixme
+    insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
+        select t.channel,
                t.id,
                t.queue_id,
                t.resource_id,
@@ -1913,7 +1785,8 @@ begin
                t.bucket_id,
                json_build_object('id', x->'id', 'destination', x->'destination',
         'priority', x->'priority',
-        'type', json_build_object('id', x->'type'->'id', 'name', comm.name)) as destination
+        'type', json_build_object('id', x->'type'->'id', 'name', comm.name)) as destination,
+               t.destination_idx - 1
         from cc_distribute_member_tmp t
             inner join cc_member cm on t.id = cm.id
             inner join lateral jsonb_extract_path(cm.communications, (t.destination_idx - 1)::text) x on true
@@ -2407,7 +2280,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     id bigint NOT NULL,
     queue_id integer NOT NULL,
     state integer DEFAULT 0 NOT NULL,
-    member_id bigint NOT NULL,
+    member_id bigint,
     weight integer DEFAULT 0 NOT NULL,
     hangup_at bigint DEFAULT 0 NOT NULL,
     resource_id integer,
@@ -2431,7 +2304,9 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     channel character varying DEFAULT 'call'::character varying NOT NULL,
     timeout timestamp with time zone,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
-    email_group_id bigint
+    email_group_id bigint,
+    communication_idx integer DEFAULT 1 NOT NULL,
+    conversation_id bigint
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2441,6 +2316,13 @@ WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_
 --
 
 COMMENT ON TABLE call_center.cc_member_attempt IS 'todo';
+
+
+--
+-- Name: COLUMN cc_member_attempt.communication_idx; Type: COMMENT; Schema: call_center; Owner: -
+--
+
+COMMENT ON COLUMN call_center.cc_member_attempt.communication_idx IS 'fixme';
 
 
 --
@@ -2548,7 +2430,8 @@ CREATE TABLE call_center.cc_agent_state_history (
     attempt_id bigint,
     channel character varying DEFAULT 'call'::character varying NOT NULL,
     status character varying DEFAULT 'fixme'::character varying NOT NULL,
-    on_demand boolean DEFAULT false NOT NULL
+    on_demand boolean DEFAULT false NOT NULL,
+    duration interval DEFAULT '00:00:00'::interval NOT NULL
 );
 
 
@@ -2941,7 +2824,8 @@ CREATE TABLE call_center.cc_calls_history (
     member_id bigint,
     duration integer DEFAULT 0 NOT NULL,
     description character varying,
-    tags character varying[]
+    tags character varying[],
+    created_at2 timestamp with time zone
 );
 
 
@@ -2960,7 +2844,6 @@ CREATE TABLE call_center.cc_member (
     stop_at bigint DEFAULT 0 NOT NULL,
     last_hangup_at bigint DEFAULT 0 NOT NULL,
     attempts integer DEFAULT 0 NOT NULL,
-    timezone character varying(50),
     agent_id bigint,
     "offset" interval,
     communications jsonb NOT NULL,
@@ -2973,7 +2856,7 @@ CREATE TABLE call_center.cc_member (
     domain_id bigint NOT NULL,
     skill_id integer,
     reporting_at bigint,
-    ready_at timestamp with time zone,
+    ready_at timestamp with time zone DEFAULT now() NOT NULL,
     last_attempt_id bigint,
     sys_destinations call_center.cc_destination[],
     pause_at timestamp with time zone
@@ -3034,7 +2917,7 @@ CREATE TABLE call_center.cc_queue (
     max_calls integer DEFAULT 0 NOT NULL,
     sec_between_retries integer DEFAULT 10 NOT NULL,
     updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
-    name character varying(50),
+    name character varying(50) NOT NULL,
     max_of_retry smallint DEFAULT 0 NOT NULL,
     variables jsonb DEFAULT '{}'::jsonb NOT NULL,
     timeout integer DEFAULT 60 NOT NULL,
@@ -3048,7 +2931,8 @@ CREATE TABLE call_center.cc_queue (
     updated_by bigint NOT NULL,
     schema_id integer,
     callback_timeout integer DEFAULT 0 NOT NULL,
-    description character varying DEFAULT ''::character varying
+    description character varying DEFAULT ''::character varying,
+    ringtone_id integer
 );
 
 
@@ -3102,7 +2986,7 @@ CREATE VIEW call_center.cc_call_history_list AS
     c.answered_at,
     c.bridged_at,
     c.hangup_at,
-    ''::character varying AS hangup_by,
+    'FIXME'::character varying AS hangup_by,
     c.cause,
     (((c.hangup_at - c.created_at) / 1000))::integer AS duration,
     c.hold_sec,
@@ -3130,7 +3014,7 @@ CREATE VIEW call_center.cc_call_history_list AS
         END AS queue_wait_sec,
     (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
     cma.result,
-    0 AS reporting_sec,
+    1 AS reporting_sec,
     c.agent_id,
     c.team_id,
     c.user_id,
@@ -3141,7 +3025,9 @@ CREATE VIEW call_center.cc_call_history_list AS
     c.gateway_id,
     c.from_number,
     c.to_number,
-    c.tags
+    c.tags,
+    cma.display,
+    c.created_at2
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM storage.files f_1
@@ -3163,7 +3049,7 @@ CREATE TABLE call_center.cc_list (
     id bigint NOT NULL,
     name character varying(50) NOT NULL,
     type integer DEFAULT 0 NOT NULL,
-    description character varying(20),
+    description character varying,
     domain_id bigint NOT NULL,
     created_at bigint NOT NULL,
     created_by bigint NOT NULL,
@@ -3581,6 +3467,16 @@ ALTER SEQUENCE call_center.cc_list_communications_id_seq OWNED BY call_center.cc
 
 
 --
+-- Name: cc_list_statistics; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_list_statistics (
+    list_id integer NOT NULL,
+    count integer DEFAULT 0 NOT NULL
+);
+
+
+--
 -- Name: cc_member_attempt_log_day_5min; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
 --
 
@@ -3823,6 +3719,200 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
 
 
 --
+-- Name: cc_msg_attachment; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_msg_attachment (
+    id bigint NOT NULL,
+    post_id bigint NOT NULL,
+    file_name character varying NOT NULL,
+    file_type character varying NOT NULL
+);
+
+
+--
+-- Name: cc_msg_attachment_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_attachment_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_attachment_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_attachment_id_seq OWNED BY call_center.cc_msg_attachment.id;
+
+
+--
+-- Name: cc_msg_conversation; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_msg_conversation (
+    title character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    domain_id bigint NOT NULL,
+    id bigint NOT NULL,
+    closed_at timestamp with time zone,
+    activity_at timestamp without time zone DEFAULT now() NOT NULL,
+    profile_id integer NOT NULL,
+    variables jsonb,
+    closed_by bigint
+);
+
+
+--
+-- Name: cc_msg_conversation_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_conversation_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_conversation_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_conversation_id_seq OWNED BY call_center.cc_msg_conversation.id;
+
+
+--
+-- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_conversation_profile_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_conversation_profile_id_seq OWNED BY call_center.cc_msg_conversation.profile_id;
+
+
+--
+-- Name: cc_msg_participants; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_msg_participants (
+    id bigint NOT NULL,
+    type_id integer DEFAULT 0 NOT NULL,
+    name character varying,
+    conversation_id bigint NOT NULL,
+    channel_id uuid DEFAULT uuid_generate_v4() NOT NULL,
+    activity_at timestamp with time zone DEFAULT now() NOT NULL,
+    attempt_id bigint
+);
+
+
+--
+-- Name: COLUMN cc_msg_participants.type_id; Type: COMMENT; Schema: call_center; Owner: -
+--
+
+COMMENT ON COLUMN call_center.cc_msg_participants.type_id IS 'group/single';
+
+
+--
+-- Name: cc_msg_participants_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_participants_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_participants_id_seq OWNED BY call_center.cc_msg_participants.id;
+
+
+--
+-- Name: cc_msg_post; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_msg_post (
+    id bigint NOT NULL,
+    posted_at timestamp with time zone DEFAULT now() NOT NULL,
+    posted_by character varying,
+    body jsonb NOT NULL,
+    conversation_id bigint NOT NULL,
+    schema_idx integer DEFAULT 0 NOT NULL,
+    participant_id bigint
+);
+
+
+--
+-- Name: cc_msg_post_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_post_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_post_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_post_id_seq OWNED BY call_center.cc_msg_post.id;
+
+
+--
+-- Name: cc_msg_profiles; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_msg_profiles (
+    id bigint NOT NULL,
+    secret_key character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    schema_id integer,
+    conversation_max_time integer DEFAULT 360 NOT NULL
+);
+
+
+--
+-- Name: cc_msg_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_msg_profiles_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_msg_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_msg_profiles_id_seq OWNED BY call_center.cc_msg_profiles.id;
+
+
+--
 -- Name: cc_outbound_resource_acl; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -4044,7 +4134,6 @@ ALTER SEQUENCE call_center.cc_queue_id_seq OWNED BY call_center.cc_queue.id;
 --
 
 CREATE TABLE call_center.cc_queue_statistics (
-    id bigint NOT NULL,
     queue_id bigint NOT NULL,
     member_count integer DEFAULT 0 NOT NULL,
     member_waiting integer DEFAULT 0 NOT NULL,
@@ -4077,18 +4166,20 @@ CREATE VIEW call_center.cc_queue_list AS
     call_center.cc_get_lookup((c.id)::bigint, c.name) AS calendar,
     call_center.cc_get_lookup(cl.id, cl.name) AS dnc_list,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    call_center.cc_get_lookup((q.ringtone_id)::bigint, mf.name) AS ringtone,
     q.description,
     call_center.cc_get_lookup(s.id, s.name) AS schema,
     COALESCE(ss.member_count, (0)::bigint) AS count,
     COALESCE(ss.member_waiting, (0)::bigint) AS waiting,
     COALESCE(act.cnt, (0)::bigint) AS active
-   FROM ((((((((call_center.cc_queue q
+   FROM (((((((((call_center.cc_queue q
      JOIN call_center.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = q.updated_by)))
      LEFT JOIN call_center.acr_routing_scheme s ON ((q.schema_id = s.id)))
      LEFT JOIN call_center.cc_list cl ON ((q.dnc_list_id = cl.id)))
      LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+     LEFT JOIN storage.media_files mf ON ((q.ringtone_id = mf.id)))
      LEFT JOIN LATERAL ( SELECT sum(s_1.member_waiting) AS member_waiting,
             sum(s_1.member_count) AS member_count
            FROM call_center.cc_queue_statistics s_1
@@ -4099,22 +4190,26 @@ CREATE VIEW call_center.cc_queue_list AS
 
 
 --
--- Name: cc_queue_member_statistics_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_queue_report_general; Type: VIEW; Schema: call_center; Owner: -
 --
 
-CREATE SEQUENCE call_center.cc_queue_member_statistics_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_queue_member_statistics_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_queue_member_statistics_id_seq OWNED BY call_center.cc_queue_statistics.id;
+CREATE VIEW call_center.cc_queue_report_general AS
+SELECT
+    NULL::jsonb AS queue,
+    NULL::jsonb AS team,
+    NULL::bigint AS waiting,
+    NULL::bigint AS processed,
+    NULL::bigint AS cnt,
+    NULL::bigint AS calls,
+    NULL::bigint AS abandoned,
+    NULL::double precision AS bill_sec,
+    NULL::double precision AS avg_wrap_sec,
+    NULL::double precision AS avg_awt_sec,
+    NULL::double precision AS max_awt_sec,
+    NULL::double precision AS avg_asa_sec,
+    NULL::double precision AS avg_aht_sec,
+    NULL::integer AS queue_id,
+    NULL::bigint AS team_id;
 
 
 --
@@ -4313,18 +4408,23 @@ CREATE VIEW call_center.cc_sys_agent_group_team_bucket AS
 CREATE VIEW call_center.cc_sys_distribute_queue_bucket_seg AS
  SELECT s.queue_id,
     s.bucket_id,
-    s.member_waiting,
+    (s.member_waiting)::integer AS member_waiting,
         CASE
-            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN (s.member_waiting)::bigint
+            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN s.member_waiting
             ELSE (((ceil((((s.member_count * cbiq.ratio) / 100))::double precision))::integer - log.log))::bigint
         END AS lim,
     cbiq.ratio
-   FROM ((call_center.cc_queue_statistics s
+   FROM ((( SELECT s_1.queue_id,
+            s_1.bucket_id,
+            sum(s_1.member_waiting) AS member_waiting,
+            sum(s_1.member_count) AS member_count
+           FROM call_center.cc_queue_statistics s_1
+          GROUP BY s_1.queue_id, s_1.bucket_id) s
      LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((s.queue_id = cbiq.queue_id) AND (s.bucket_id = cbiq.bucket_id))))
      LEFT JOIN LATERAL call_center.cc_member_attempt_log_day_f((s.queue_id)::integer, (s.bucket_id)::integer) log(log) ON ((s.bucket_id IS NOT NULL)))
   WHERE ((s.member_waiting > 0) AND ((
         CASE
-            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN (s.member_waiting)::bigint
+            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN s.member_waiting
             ELSE (((round((((s.member_count * cbiq.ratio) / 100))::double precision))::integer - COALESCE(log.log, 0)))::bigint
         END)::numeric > (0)::numeric));
 
@@ -4616,6 +4716,48 @@ ALTER TABLE ONLY call_center.cc_member_messages ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: cc_msg_attachment id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_attachment ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_attachment_id_seq'::regclass);
+
+
+--
+-- Name: cc_msg_conversation id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_conversation_id_seq'::regclass);
+
+
+--
+-- Name: cc_msg_conversation profile_id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN profile_id SET DEFAULT nextval('call_center.cc_msg_conversation_profile_id_seq'::regclass);
+
+
+--
+-- Name: cc_msg_participants id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_participants ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_participants_id_seq'::regclass);
+
+
+--
+-- Name: cc_msg_post id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_post ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_post_id_seq'::regclass);
+
+
+--
+-- Name: cc_msg_profiles id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_profiles ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_profiles_id_seq'::regclass);
+
+
+--
 -- Name: cc_outbound_resource id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -4676,13 +4818,6 @@ ALTER TABLE ONLY call_center.cc_queue_acl ALTER COLUMN id SET DEFAULT nextval('c
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_resource_id_seq1'::regclass);
-
-
---
--- Name: cc_queue_statistics id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_queue_statistics ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_member_statistics_id_seq'::regclass);
 
 
 --
@@ -4921,6 +5056,14 @@ ALTER TABLE ONLY call_center.cc_list_communications
 
 
 --
+-- Name: cc_list_statistics cc_list_statistics_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_list_statistics
+    ADD CONSTRAINT cc_list_statistics_pk UNIQUE (list_id);
+
+
+--
 -- Name: cc_member_attempt_history cc_member_attempt_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -4958,6 +5101,46 @@ ALTER TABLE ONLY call_center.cc_member_messages
 
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cc_msg_attachment cc_msg_attachment_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_attachment
+    ADD CONSTRAINT cc_msg_attachment_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_msg_conversation cc_msg_conversation_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_conversation
+    ADD CONSTRAINT cc_msg_conversation_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_msg_participants cc_msg_participants_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_participants
+    ADD CONSTRAINT cc_msg_participants_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_msg_post cc_msg_post_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_post
+    ADD CONSTRAINT cc_msg_post_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_msg_profiles cc_msg_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_profiles
+    ADD CONSTRAINT cc_msg_profiles_pk PRIMARY KEY (id);
 
 
 --
@@ -5033,14 +5216,6 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_queue_statistics cc_queue_statistics_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_queue_statistics
-    ADD CONSTRAINT cc_queue_statistics_pk PRIMARY KEY (id);
-
-
---
 -- Name: cc_queue_statistics cc_queue_statistics_pk_queue_id_bucket_id_skill_id; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -5096,17 +5271,52 @@ CREATE UNIQUE INDEX acr_jobs_id_uindex ON call_center.acr_jobs USING btree (id);
 
 
 --
--- Name: acr_routing_outbound_call_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: acr_routing_outbound_call_created_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX acr_routing_outbound_call_id_uindex ON call_center.acr_routing_outbound_call USING btree (id);
+CREATE INDEX acr_routing_outbound_call_created_by_index ON call_center.acr_routing_outbound_call USING btree (created_by);
 
 
 --
--- Name: acr_routing_scheme_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: acr_routing_outbound_call_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX acr_routing_scheme_id_uindex ON call_center.acr_routing_scheme USING btree (id);
+CREATE UNIQUE INDEX acr_routing_outbound_call_domain_id_name_uindex ON call_center.acr_routing_outbound_call USING btree (domain_id, name);
+
+
+--
+-- Name: acr_routing_outbound_call_pattern; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX acr_routing_outbound_call_pattern ON call_center.acr_routing_outbound_call USING btree (domain_id, pos DESC) INCLUDE (id, name, pattern, scheme_id) WHERE (NOT disabled);
+
+
+--
+-- Name: acr_routing_outbound_call_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX acr_routing_outbound_call_updated_by_index ON call_center.acr_routing_outbound_call USING btree (updated_by);
+
+
+--
+-- Name: acr_routing_scheme_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX acr_routing_scheme_created_by_index ON call_center.acr_routing_scheme USING btree (created_by);
+
+
+--
+-- Name: acr_routing_scheme_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX acr_routing_scheme_domain_id_name_uindex ON call_center.acr_routing_scheme USING btree (domain_id, name);
+
+
+--
+-- Name: acr_routing_scheme_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX acr_routing_scheme_updated_by_index ON call_center.acr_routing_scheme USING btree (updated_by);
 
 
 --
@@ -5114,13 +5324,6 @@ CREATE UNIQUE INDEX acr_routing_scheme_id_uindex ON call_center.acr_routing_sche
 --
 
 CREATE UNIQUE INDEX acr_routing_variables_domain_id_key_uindex ON call_center.acr_routing_variables USING btree (domain_id, key);
-
-
---
--- Name: acr_routing_variables_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX acr_routing_variables_id_uindex ON call_center.acr_routing_variables USING btree (id);
 
 
 --
@@ -5152,17 +5355,24 @@ CREATE UNIQUE INDEX calendar_acl_subject_object_udx ON call_center.calendar_acl 
 
 
 --
+-- Name: calendar_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX calendar_created_by_index ON call_center.calendar USING btree (created_by);
+
+
+--
+-- Name: calendar_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX calendar_domain_id_name_uindex ON call_center.calendar USING btree (domain_id, name);
+
+
+--
 -- Name: calendar_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_domain_udx ON call_center.calendar USING btree (id, domain_id);
-
-
---
--- Name: calendar_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_id_uindex ON call_center.calendar USING btree (id);
 
 
 --
@@ -5187,17 +5397,17 @@ CREATE UNIQUE INDEX calendar_timezones_utc_offset_index ON call_center.calendar_
 
 
 --
+-- Name: calendar_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX calendar_updated_by_index ON call_center.calendar USING btree (updated_by);
+
+
+--
 -- Name: cc_agent_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_agent_acl_grantor_idx ON call_center.cc_agent_acl USING btree (grantor);
-
-
---
--- Name: cc_agent_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_acl_id_uindex ON call_center.cc_agent_acl USING btree (id);
 
 
 --
@@ -5229,6 +5439,27 @@ CREATE UNIQUE INDEX cc_agent_attempt_id_uindex ON call_center.cc_agent_attempt U
 
 
 --
+-- Name: cc_agent_channel_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_channel_agent_id_index ON call_center.cc_agent_channel USING btree (agent_id);
+
+
+--
+-- Name: cc_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_created_by_index ON call_center.cc_agent USING btree (created_by);
+
+
+--
+-- Name: cc_agent_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_domain_id_index ON call_center.cc_agent USING btree (domain_id);
+
+
+--
 -- Name: cc_agent_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5236,24 +5467,10 @@ CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id,
 
 
 --
--- Name: cc_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_id_uindex ON call_center.cc_agent USING btree (id);
-
-
---
 -- Name: cc_agent_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_agent_in_team_agent_id_index ON call_center.cc_agent_in_team USING btree (agent_id);
-
-
---
--- Name: cc_agent_in_team_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_in_team_id_uindex ON call_center.cc_agent_in_team USING btree (id);
 
 
 --
@@ -5313,10 +5530,10 @@ CREATE UNIQUE INDEX cc_agent_missed_attempt_id_uindex ON call_center.cc_agent_mi
 
 
 --
--- Name: cc_agent_state_history_agent_id_joined_at_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history_joined_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_agent_state_history_agent_id_joined_at_uindex ON call_center.cc_agent_state_history USING btree (agent_id, joined_at DESC);
+CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_agent_state_history USING btree (channel, joined_at DESC) INCLUDE (agent_id, state);
 
 
 --
@@ -5327,10 +5544,10 @@ CREATE INDEX cc_agent_state_timeout_index ON call_center.cc_agent USING btree (s
 
 
 --
--- Name: cc_agent_status_history_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_agent_status_history_id_uindex ON call_center.cc_agent_state_history USING btree (id);
+CREATE INDEX cc_agent_updated_by_index ON call_center.cc_agent USING btree (updated_by);
 
 
 --
@@ -5362,6 +5579,20 @@ CREATE UNIQUE INDEX cc_bucket_acl_subject_object_udx ON call_center.cc_bucket_ac
 
 
 --
+-- Name: cc_bucket_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_bucket_created_by_index ON call_center.cc_bucket USING btree (created_by);
+
+
+--
+-- Name: cc_bucket_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_bucket_domain_id_name_uindex ON call_center.cc_bucket USING btree (domain_id, name);
+
+
+--
 -- Name: cc_bucket_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5369,17 +5600,10 @@ CREATE UNIQUE INDEX cc_bucket_domain_udx ON call_center.cc_bucket USING btree (i
 
 
 --
--- Name: cc_bucket_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue_bucket_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_bucket_id_uindex ON call_center.cc_bucket USING btree (id);
-
-
---
--- Name: cc_bucket_in_queue_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_bucket_in_queue_id_uindex ON call_center.cc_bucket_in_queue USING btree (id);
+CREATE INDEX cc_bucket_in_queue_bucket_id_index ON call_center.cc_bucket_in_queue USING btree (bucket_id);
 
 
 --
@@ -5390,17 +5614,52 @@ CREATE UNIQUE INDEX cc_bucket_in_queue_queue_id_bucket_id_uindex ON call_center.
 
 
 --
--- Name: cc_call_list_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_call_list_id_uindex ON call_center.cc_list USING btree (id);
+CREATE INDEX cc_bucket_updated_by_index ON call_center.cc_bucket USING btree (updated_by);
+
+
+--
+-- Name: cc_calls_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_agent_id_index ON call_center.cc_calls_history USING btree (agent_id);
+
+
+--
+-- Name: cc_calls_history_created_at2_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_created_at2_index ON call_center.cc_calls_history USING btree (created_at2 DESC);
+
+
+--
+-- Name: cc_calls_history_destination_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_destination_idx ON call_center.cc_calls_history USING gin (domain_id, destination gin_trgm_ops);
 
 
 --
 -- Name: cc_calls_history_domain_id_created_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_calls_history_domain_id_created_at_index ON call_center.cc_calls_history USING btree (domain_id, created_at);
+CREATE INDEX cc_calls_history_domain_id_created_at_index ON call_center.cc_calls_history USING btree (domain_id, created_at DESC NULLS LAST);
+
+
+--
+-- Name: cc_calls_history_from_number_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_from_number_idx ON call_center.cc_calls_history USING gin (domain_id, from_number gin_trgm_ops);
+
+
+--
+-- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_member_id_index ON call_center.cc_calls_history USING btree (member_id);
 
 
 --
@@ -5411,10 +5670,31 @@ CREATE INDEX cc_calls_history_parent_id_index ON call_center.cc_calls_history US
 
 
 --
--- Name: cc_calls_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_queue_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_calls_id_uindex ON call_center.cc_calls USING btree (id);
+CREATE INDEX cc_calls_history_queue_id_index ON call_center.cc_calls_history USING btree (queue_id);
+
+
+--
+-- Name: cc_calls_history_team_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_team_id_index ON call_center.cc_calls_history USING btree (team_id);
+
+
+--
+-- Name: cc_calls_history_to_number_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_to_number_idx ON call_center.cc_calls_history USING gin (domain_id, to_number gin_trgm_ops);
+
+
+--
+-- Name: cc_calls_history_user_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_user_id_index ON call_center.cc_calls_history USING btree (user_id);
 
 
 --
@@ -5432,24 +5712,17 @@ CREATE UNIQUE INDEX cc_communication_code_domain_id_uindex ON call_center.cc_com
 
 
 --
--- Name: cc_communication_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_communication_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_communication_id_uindex ON call_center.cc_communication USING btree (id);
-
-
---
--- Name: cc_email_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_email_id_uindex ON call_center.cc_email USING btree (id);
+CREATE INDEX cc_communication_domain_id_index ON call_center.cc_communication USING btree (domain_id);
 
 
 --
--- Name: cc_email_profiles_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_email_profile_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_email_profiles_id_uindex ON call_center.cc_email_profile USING btree (id);
+CREATE INDEX cc_email_profile_domain_id_index ON call_center.cc_email_profile USING btree (domain_id);
 
 
 --
@@ -5457,13 +5730,6 @@ CREATE UNIQUE INDEX cc_email_profiles_id_uindex ON call_center.cc_email_profile 
 --
 
 CREATE INDEX cc_list_acl_grantor_idx ON call_center.cc_list_acl USING btree (grantor);
-
-
---
--- Name: cc_list_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_list_acl_id_uindex ON call_center.cc_list_acl USING btree (id);
 
 
 --
@@ -5481,13 +5747,6 @@ CREATE UNIQUE INDEX cc_list_acl_subject_object_udx ON call_center.cc_list_acl US
 
 
 --
--- Name: cc_list_communications_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_list_communications_id_uindex ON call_center.cc_list_communications USING btree (id);
-
-
---
 -- Name: cc_list_communications_list_id_number_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5495,10 +5754,38 @@ CREATE UNIQUE INDEX cc_list_communications_list_id_number_uindex ON call_center.
 
 
 --
+-- Name: cc_list_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_list_created_by_index ON call_center.cc_list USING btree (created_by);
+
+
+--
+-- Name: cc_list_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_list_domain_id_index ON call_center.cc_list USING btree (domain_id);
+
+
+--
 -- Name: cc_list_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE UNIQUE INDEX cc_list_domain_udx ON call_center.cc_list USING btree (id, domain_id);
+
+
+--
+-- Name: cc_list_statistics_list_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_list_statistics_list_id_uindex ON call_center.cc_list_statistics USING btree (list_id);
+
+
+--
+-- Name: cc_list_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_list_updated_by_index ON call_center.cc_list USING btree (updated_by);
 
 
 --
@@ -5520,6 +5807,13 @@ CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_a
 --
 
 CREATE INDEX cc_member_attempt_history_member_id_index ON call_center.cc_member_attempt_history USING btree (member_id);
+
+
+--
+-- Name: cc_member_attempt_history_queue_id_leaving_at_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_queue_id_leaving_at_index ON call_center.cc_member_attempt_history USING btree (queue_id, leaving_at DESC);
 
 
 --
@@ -5621,10 +5915,45 @@ CREATE INDEX cc_member_sens_idx ON call_center.cc_member USING btree (queue_id, 
 
 
 --
--- Name: cc_member_timezone_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_activity_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_timezone_index ON call_center.cc_member USING btree (timezone);
+CREATE INDEX cc_msg_conversation_activity_at_index ON call_center.cc_msg_conversation USING btree (activity_at DESC);
+
+
+--
+-- Name: cc_msg_conversation_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_msg_conversation_domain_id_index ON call_center.cc_msg_conversation USING btree (domain_id);
+
+
+--
+-- Name: cc_msg_participants_channel_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_msg_participants_channel_id_uindex ON call_center.cc_msg_participants USING btree (channel_id);
+
+
+--
+-- Name: cc_msg_participants_conversation_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_msg_participants_conversation_id_index ON call_center.cc_msg_participants USING btree (conversation_id);
+
+
+--
+-- Name: cc_msg_post_conversation_id_posted_at_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_msg_post_conversation_id_posted_at_index ON call_center.cc_msg_post USING btree (conversation_id, posted_at DESC);
+
+
+--
+-- Name: cc_msg_profiles_secret_key_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_msg_profiles_secret_key_uindex ON call_center.cc_msg_profiles USING btree (secret_key);
 
 
 --
@@ -5632,13 +5961,6 @@ CREATE INDEX cc_member_timezone_index ON call_center.cc_member USING btree (time
 --
 
 CREATE INDEX cc_outbound_resource_acl_grantor_idx ON call_center.cc_outbound_resource_acl USING btree (grantor);
-
-
---
--- Name: cc_outbound_resource_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_outbound_resource_acl_id_uindex ON call_center.cc_outbound_resource_acl USING btree (id);
 
 
 --
@@ -5656,10 +5978,10 @@ CREATE UNIQUE INDEX cc_outbound_resource_acl_subject_object_udx ON call_center.c
 
 
 --
--- Name: cc_outbound_resource_display_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_created_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_outbound_resource_display_id_uindex ON call_center.cc_outbound_resource_display USING btree (id);
+CREATE INDEX cc_outbound_resource_created_by_index ON call_center.cc_outbound_resource USING btree (created_by);
 
 
 --
@@ -5674,6 +5996,13 @@ CREATE UNIQUE INDEX cc_outbound_resource_display_resource_id_display_uindex ON c
 --
 
 CREATE INDEX cc_outbound_resource_display_resource_id_index ON call_center.cc_outbound_resource_display USING btree (resource_id);
+
+
+--
+-- Name: cc_outbound_resource_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_domain_id_index ON call_center.cc_outbound_resource USING btree (domain_id);
 
 
 --
@@ -5698,13 +6027,6 @@ CREATE INDEX cc_outbound_resource_group_acl_grantor_idx ON call_center.cc_outbou
 
 
 --
--- Name: cc_outbound_resource_group_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_outbound_resource_group_acl_id_uindex ON call_center.cc_outbound_resource_group_acl USING btree (id);
-
-
---
 -- Name: cc_outbound_resource_group_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5719,10 +6041,24 @@ CREATE UNIQUE INDEX cc_outbound_resource_group_acl_subject_object_udx ON call_ce
 
 
 --
+-- Name: cc_outbound_resource_group_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_group_created_by_index ON call_center.cc_outbound_resource_group USING btree (created_by);
+
+
+--
 -- Name: cc_outbound_resource_group_distr_res_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_distr_res_idx ON call_center.cc_outbound_resource_group USING btree (id, domain_id) INCLUDE (name);
+
+
+--
+-- Name: cc_outbound_resource_group_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_group_domain_id_index ON call_center.cc_outbound_resource_group USING btree (domain_id);
 
 
 --
@@ -5733,10 +6069,17 @@ CREATE UNIQUE INDEX cc_outbound_resource_group_domain_udx ON call_center.cc_outb
 
 
 --
--- Name: cc_outbound_resource_in_group_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_outbound_resource_in_group_id_uindex ON call_center.cc_outbound_resource_in_group USING btree (id);
+CREATE INDEX cc_outbound_resource_group_updated_by_index ON call_center.cc_outbound_resource_group USING btree (updated_by);
+
+
+--
+-- Name: cc_outbound_resource_in_group_group_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_in_group_group_id_index ON call_center.cc_outbound_resource_in_group USING btree (group_id);
 
 
 --
@@ -5747,17 +6090,17 @@ CREATE UNIQUE INDEX cc_outbound_resource_in_group_resource_id_group_id_uindex ON
 
 
 --
+-- Name: cc_outbound_resource_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_updated_by_index ON call_center.cc_outbound_resource USING btree (updated_by);
+
+
+--
 -- Name: cc_queue_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_queue_acl_grantor_idx ON call_center.cc_queue_acl USING btree (grantor);
-
-
---
--- Name: cc_queue_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_queue_acl_id_uindex ON call_center.cc_queue_acl USING btree (id);
 
 
 --
@@ -5803,24 +6146,17 @@ CREATE INDEX cc_queue_id_priority_uindex ON call_center.cc_queue USING btree (pr
 
 
 --
--- Name: cc_queue_member_statistics_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_queue_member_statistics_id_uindex ON call_center.cc_queue_statistics USING btree (id);
-
-
---
--- Name: cc_queue_resource_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_queue_resource_id_uindex ON call_center.cc_outbound_resource USING btree (id);
-
-
---
 -- Name: cc_queue_resource_queue_id_resource_group_id_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE UNIQUE INDEX cc_queue_resource_queue_id_resource_group_id_uindex ON call_center.cc_queue_resource USING btree (queue_id, resource_group_id);
+
+
+--
+-- Name: cc_queue_resource_resource_group_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_queue_resource_resource_group_id_index ON call_center.cc_queue_resource USING btree (resource_group_id);
 
 
 --
@@ -5831,6 +6167,13 @@ CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON ca
 
 
 --
+-- Name: cc_skill_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_skill_domain_id_index ON call_center.cc_skill USING btree (domain_id);
+
+
+--
 -- Name: cc_skill_in_agent_agent_id_skill_id_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5838,10 +6181,10 @@ CREATE UNIQUE INDEX cc_skill_in_agent_agent_id_skill_id_uindex ON call_center.cc
 
 
 --
--- Name: cc_skill_in_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_skill_in_agent_id_uindex ON call_center.cc_skill_in_agent USING btree (id);
+CREATE INDEX cc_skill_in_agent_created_by_index ON call_center.cc_skill_in_agent USING btree (created_by);
 
 
 --
@@ -5852,17 +6195,17 @@ CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_
 
 
 --
--- Name: cc_skils_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_skils_id_uindex ON call_center.cc_skill USING btree (id);
+CREATE INDEX cc_skill_in_agent_updated_by_index ON call_center.cc_skill_in_agent USING btree (updated_by);
 
 
 --
--- Name: cc_supervisor_in_team_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_supervisor_in_team_id_uindex ON call_center.cc_supervisor_in_team USING btree (id);
+CREATE INDEX cc_supervisor_in_team_agent_id_index ON call_center.cc_supervisor_in_team USING btree (agent_id);
 
 
 --
@@ -5880,13 +6223,6 @@ CREATE INDEX cc_team_acl_grantor_idx ON call_center.cc_team_acl USING btree (gra
 
 
 --
--- Name: cc_team_acl_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_team_acl_id_uindex ON call_center.cc_team_acl USING btree (id);
-
-
---
 -- Name: cc_team_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5898,6 +6234,13 @@ CREATE UNIQUE INDEX cc_team_acl_object_subject_udx ON call_center.cc_team_acl US
 --
 
 CREATE UNIQUE INDEX cc_team_acl_subject_object_udx ON call_center.cc_team_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_team_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_team_created_by_index ON call_center.cc_team USING btree (created_by);
 
 
 --
@@ -5915,10 +6258,10 @@ CREATE UNIQUE INDEX cc_team_domain_udx ON call_center.cc_team USING btree (id, d
 
 
 --
--- Name: cc_team_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_team_id_uindex ON call_center.cc_team USING btree (id);
+CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (updated_by);
 
 
 --
@@ -5926,6 +6269,36 @@ CREATE UNIQUE INDEX cc_team_id_uindex ON call_center.cc_team USING btree (id);
 --
 
 CREATE STATISTICS call_center.cc_member_timezone_stats (dependencies) ON queue_id, "offset" FROM call_center.cc_member;
+
+
+--
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
 
 
 --
@@ -6048,6 +6421,20 @@ CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH
 
 
 --
+-- Name: cc_list_communications tg_cc_list_statistics_deleted; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER tg_cc_list_statistics_deleted AFTER DELETE ON call_center.cc_list_communications REFERENCING OLD TABLE AS deleted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_list_statistics_trigger_deleted();
+
+
+--
+-- Name: cc_list_communications tg_cc_list_statistics_inserted; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER tg_cc_list_statistics_inserted AFTER INSERT ON call_center.cc_list_communications REFERENCING NEW TABLE AS inserted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_list_statistics_trigger_inserted();
+
+
+--
 -- Name: cc_agent tg_cc_set_agent_change_status_i; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -6059,6 +6446,20 @@ CREATE TRIGGER tg_cc_set_agent_change_status_i AFTER INSERT ON call_center.cc_ag
 --
 
 CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN (((old.state)::text <> (new.state)::text)) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
+
+
+--
+-- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_i; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER tg_cc_set_agent_channel_change_status_i AFTER INSERT ON call_center.cc_agent_channel FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
+
+
+--
+-- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_u; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER tg_cc_set_agent_channel_change_status_u AFTER UPDATE ON call_center.cc_agent_channel FOR EACH ROW WHEN (((old.state)::text <> (new.state)::text)) EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
 
 
 --
@@ -6078,11 +6479,59 @@ ALTER TABLE ONLY call_center.acr_routing_outbound_call
 
 
 --
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_acr_routing_scheme_id_fk_2 FOREIGN KEY (scheme_id) REFERENCES call_center.acr_routing_scheme(id);
+
+
+--
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_outbound_call
+    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
 -- Name: acr_routing_scheme acr_routing_scheme_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.acr_routing_scheme
     ADD CONSTRAINT acr_routing_scheme_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_scheme
+    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.acr_routing_scheme
+    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6147,6 +6596,22 @@ ALTER TABLE ONLY call_center.calendar
 
 ALTER TABLE ONLY call_center.calendar
     ADD CONSTRAINT calendar_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: calendar calendar_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.calendar
+    ADD CONSTRAINT calendar_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: calendar calendar_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.calendar
+    ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6270,6 +6735,22 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
+-- Name: cc_agent cc_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_agent
+    ADD CONSTRAINT cc_agent_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_agent cc_agent_wbt_user_id_fk_3; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_agent
+    ADD CONSTRAINT cc_agent_wbt_user_id_fk_3 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
 -- Name: cc_bucket_acl cc_bucket_acl_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -6334,27 +6815,27 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue
 
 
 --
--- Name: cc_calls cc_calls_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
-ALTER TABLE ONLY call_center.cc_calls
-    ADD CONSTRAINT cc_calls_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id);
-
-
---
--- Name: cc_calls cc_calls_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_calls
-    ADD CONSTRAINT cc_calls_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id);
+ALTER TABLE ONLY call_center.cc_bucket
+    ADD CONSTRAINT cc_bucket_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
 
 
 --
--- Name: cc_calls cc_calls_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
-ALTER TABLE ONLY call_center.cc_calls
-    ADD CONSTRAINT cc_calls_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id);
+ALTER TABLE ONLY call_center.cc_bucket
+    ADD CONSTRAINT cc_bucket_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_bucket cc_bucket_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_bucket
+    ADD CONSTRAINT cc_bucket_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6387,6 +6868,14 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 ALTER TABLE ONLY call_center.cc_calls_history
     ADD CONSTRAINT cc_calls_history_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: cc_communication cc_communication_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_communication
+    ADD CONSTRAINT cc_communication_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
 
 
 --
@@ -6486,11 +6975,35 @@ ALTER TABLE ONLY call_center.cc_list_communications
 
 
 --
+-- Name: cc_list_statistics cc_list_statistics_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_list_statistics
+    ADD CONSTRAINT cc_list_statistics_cc_list_id_fk FOREIGN KEY (list_id) REFERENCES call_center.cc_list(id) ON UPDATE CASCADE ON DELETE CASCADE DEFERRABLE;
+
+
+--
 -- Name: cc_list cc_list_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.cc_list
     ADD CONSTRAINT cc_list_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_list cc_list_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_list
+    ADD CONSTRAINT cc_list_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_list cc_list_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_list
+    ADD CONSTRAINT cc_list_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6506,7 +7019,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
-    ADD CONSTRAINT cc_member_attempt_cc_bucket_id_fk FOREIGN KEY (bucket_id) REFERENCES call_center.cc_bucket(id) ON UPDATE SET NULL ON DELETE SET NULL;
+    ADD CONSTRAINT cc_member_attempt_cc_bucket_id_fk FOREIGN KEY (bucket_id) REFERENCES call_center.cc_bucket(id);
 
 
 --
@@ -6526,6 +7039,14 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
+-- Name: cc_member_attempt_history cc_member_attempt_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member_attempt_history
+    ADD CONSTRAINT cc_member_attempt_history_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
 -- Name: cc_member_attempt_log cc_member_attempt_log_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -6542,11 +7063,51 @@ ALTER TABLE ONLY call_center.cc_member_attempt_log
 
 
 --
+-- Name: cc_member cc_member_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member
+    ADD CONSTRAINT cc_member_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
 -- Name: cc_member_messages cc_member_messages_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.cc_member_messages
     ADD CONSTRAINT cc_member_messages_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_msg_attachment cc_msg_attachment_cc_msg_post_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_attachment
+    ADD CONSTRAINT cc_msg_attachment_cc_msg_post_id_fk FOREIGN KEY (post_id) REFERENCES call_center.cc_msg_post(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_msg_conversation cc_msg_conversation_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_conversation
+    ADD CONSTRAINT cc_msg_conversation_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_msg_participants cc_msg_participants_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_participants
+    ADD CONSTRAINT cc_msg_participants_cc_msg_conversation_id_fk FOREIGN KEY (conversation_id) REFERENCES call_center.cc_msg_conversation(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_msg_post cc_msg_post_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_msg_post
+    ADD CONSTRAINT cc_msg_post_cc_msg_conversation_id_fk FOREIGN KEY (conversation_id) REFERENCES call_center.cc_msg_conversation(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -6694,6 +7255,22 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_outbound_resource_group
+    ADD CONSTRAINT cc_outbound_resource_group_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_outbound_resource_group
+    ADD CONSTRAINT cc_outbound_resource_group_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
 -- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -6723,6 +7300,22 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
     ADD CONSTRAINT cc_outbound_resource_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_outbound_resource
+    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_outbound_resource
+    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6846,6 +7439,22 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
+-- Name: cc_queue cc_queue_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_queue cc_queue_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
 -- Name: cc_skill_in_agent cc_skill_in_agent_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -6859,6 +7468,22 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
     ADD CONSTRAINT cc_skill_in_agent_cc_skils_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id);
+
+
+--
+-- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_in_agent
+    ADD CONSTRAINT cc_skill_in_agent_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_in_agent
+    ADD CONSTRAINT cc_skill_in_agent_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
@@ -6939,6 +7564,22 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 ALTER TABLE ONLY call_center.cc_team
     ADD CONSTRAINT cc_team_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: cc_team cc_team_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team
+    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_team cc_team_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team
+    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
 
 
 --
