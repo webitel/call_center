@@ -20,6 +20,7 @@ type Result string
 const (
 	AttemptHookDistributeAgent  = "agent"
 	AttemptHookBridgedAgent     = "bridged"
+	AttemptHookLeaving          = "leaving"
 	AttemptHookReportingTimeout = "timeout_reporting"
 )
 
@@ -169,8 +170,11 @@ func (a *Attempt) ExportVariables() map[string]string {
 	return res
 }
 
-func (a *Attempt) MemberId() int64 {
-	return a.member.MemberId
+func (a *Attempt) MemberId() *int64 {
+	if a.member.MemberId != nil && *a.member.MemberId != 0 {
+		return a.member.MemberId
+	}
+	return nil
 }
 
 func (a *Attempt) IsBarred() bool {

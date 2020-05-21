@@ -20,7 +20,7 @@ type ChannelEvent struct {
 type Distribute struct {
 	Channel         string                    `json:"channel"`
 	QueueId         int                       `json:"queue_id"`
-	MemberId        int64                     `json:"member_id"`
+	MemberId        *int64                    `json:"member_id"`
 	AgentId         *int                      `json:"agent_id"`
 	MemberChannelId *string                   `json:"member_channel_id"`
 	AgentChannelId  *string                   `json:"agent_channel_id"`

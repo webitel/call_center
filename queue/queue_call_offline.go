@@ -109,7 +109,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"wbt_from_name":                     agent.Name(),
 				"wbt_from_type":                     "user", //todo agent ?
 
-				"wbt_to_id":     fmt.Sprintf("%v", attempt.MemberId()),
+				"wbt_to_id":     fmt.Sprintf("%d", attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
 				"wbt_to_type":   "member",
 				"wbt_to_number": attempt.Destination(),

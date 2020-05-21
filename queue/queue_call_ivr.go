@@ -67,7 +67,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				"wbt_from_name":                     attempt.resource.Gateway().Name,
 				"wbt_from_type":                     "gateway",
 
-				"wbt_to_id":     fmt.Sprintf("%v", attempt.MemberId()),
+				"wbt_to_id":     fmt.Sprintf("%d", attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
 				"wbt_to_type":   "member",
 				"wbt_to_number": attempt.Destination(),

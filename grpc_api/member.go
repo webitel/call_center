@@ -51,10 +51,13 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 	}
 
 	bridged := attempt.On(queue.AttemptHookBridgedAgent)
+	leaving := attempt.On(queue.AttemptHookLeaving)
 
 	for {
 		select {
-		case e, ok := <-bridged:
+		case <-leaving:
+			goto stop
+		case _, ok := <-bridged:
 			if !ok {
 				out.Send(&cc.QueueEvent{
 					Data: &cc.QueueEvent_Leaving{
@@ -64,19 +67,6 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 					},
 				})
 				goto stop
-			}
-
-			err2 := out.Send(&cc.QueueEvent{
-				Data: &cc.QueueEvent_Bridged{
-					Bridged: &cc.QueueEvent_BridgedData{
-						AgentId:     1,
-						AgentCallId: e.String(0),
-					},
-				},
-			})
-
-			if err2 != nil {
-				break
 			}
 		}
 	}

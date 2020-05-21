@@ -143,7 +143,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			if agentCall.BridgeAt() == 0 {
 				team.MissedAndWaitingAttempt(attempt, agent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
-					panic(agentCall.Id())
+					//TODO WaitForHangup
+					//panic(agentCall.Id())
 				}
 				agent = nil
 				agentCall = nil
@@ -154,7 +155,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		panic(agentCall.Id())
+		//panic(agentCall.Id())
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
@@ -169,6 +170,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}
+
+	go attempt.Emit(AttemptHookLeaving)
 	go attempt.Off("*")
 	queue.queueManager.LeavingMember(attempt, queue)
 }

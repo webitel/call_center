@@ -53,7 +53,7 @@ type MemberAttempt struct {
 	QueueWaitingCount int `json:"queue_waiting_count" db:"queue_waiting_count"`
 
 	State               uint8     `json:"state" db:"state"`
-	MemberId            int64     `json:"member_id" db:"member_id"`
+	MemberId            *int64    `json:"member_id" db:"member_id"`
 	CreatedAt           time.Time `json:"created_at" db:"created_at"`
 	HangupAt            int64     `json:"hangup_at" db:"hangup_at"`
 	BridgedAt           int64     `json:"bridged_at" db:"bridged_at"`

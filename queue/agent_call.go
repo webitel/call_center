@@ -31,7 +31,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"wbt_to_name":               agent.Name(),
 				"wbt_to_type":               "user", //todo agent ?
 
-				"wbt_from_id":     fmt.Sprintf("%v", attempt.MemberId()),
+				"wbt_from_id":     fmt.Sprintf("%d", attempt.MemberId()),
 				"wbt_from_name":   attempt.Name(),
 				"wbt_from_type":   "member",
 				"wbt_from_number": attempt.Destination(),
