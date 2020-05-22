@@ -227,7 +227,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 
 		return nil, err
 	} else {
-		wlog.Info(fmt.Sprintf("[%s] join member %s[%d] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+		wlog.Info(fmt.Sprintf("[%s] join member %s[%v] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
 			attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 	}
 
@@ -303,7 +303,7 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObj
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
 
-	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%d] AttemptId=%d  from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
+	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%v] AttemptId=%d  from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
 		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
 }
 

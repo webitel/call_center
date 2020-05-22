@@ -75,7 +75,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"wbt_from_name":                     agent.Name(),
 				"wbt_from_type":                     "user", //todo agent ?
 
-				"wbt_to_id":     fmt.Sprintf("%d", attempt.MemberId()),
+				"wbt_to_id":     fmt.Sprintf("%d", *attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
 				"wbt_to_type":   "member",
 				"wbt_to_number": attempt.Destination(),
@@ -96,7 +96,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.Id()),
 				model.QUEUE_NAME_FIELD:        queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
-				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", *attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},

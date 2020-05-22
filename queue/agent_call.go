@@ -31,7 +31,6 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"wbt_to_name":               agent.Name(),
 				"wbt_to_type":               "user", //todo agent ?
 
-				"wbt_from_id":     fmt.Sprintf("%d", attempt.MemberId()),
 				"wbt_from_name":   attempt.Name(),
 				"wbt_from_type":   "member",
 				"wbt_from_number": attempt.Destination(),
@@ -53,7 +52,6 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				model.QUEUE_NAME_FIELD:      queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
 				//model.QUEUE_SIDE_FIELD:       model.QUEUE_SIDE_AGENT,
-				model.QUEUE_MEMBER_ID_FIELD:  fmt.Sprintf("%d", attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
 			},
 		),
@@ -61,6 +59,12 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
 	}
+
+	if attempt.MemberId() != nil {
+		cr.Variables["wbt_from_id"] = fmt.Sprintf("%d", *attempt.MemberId())
+		cr.Variables[model.QUEUE_MEMBER_ID_FIELD] = cr.Variables["wbt_from_id"]
+	}
+
 	return cr
 }
 
