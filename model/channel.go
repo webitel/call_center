@@ -17,4 +17,5 @@ type ChannelTimeout struct {
 	AgentId   int    `json:"agent_id" db:"agent_id"`
 	Channel   string `json:"channel" db:"channel"`
 	Timestamp int64  `json:"timestamp" db:"timestamp"`
+	DomainId  int64  `json:"domain_id" db:"domain_id"`
 }

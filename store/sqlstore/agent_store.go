@@ -334,11 +334,12 @@ values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
 	var channels []*model.ChannelTimeout
 	_, err := s.GetMaster().Select(&channels, `update cc_agent_channel
-	set state = 'waiting',
-		timeout = null,
-		joined_at = now()
-	where timeout < now()
-	returning agent_id, channel, cc_view_timestamp(joined_at) as timestamp`)
+set state = 'waiting',
+    timeout = null,
+    joined_at = now()
+from cc_agent a
+where timeout < now() and a.id = cc_agent_channel.agent_id
+returning agent_id, channel, cc_view_timestamp(joined_at) as timestamp, a.domain_id`)
 
 	if err != nil {
 		return nil, model.NewAppError("SqlAgentStore.GetChannelTimeout", "store.sql_agent.channel_timeout.app_error", nil,
