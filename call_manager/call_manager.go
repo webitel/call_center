@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	MAX_CALL_CACHE         = 10000
-	MAX_CALL_EXPIRE_CACHE  = 60 * 60 * 24 //day
-	MAX_INBOUND_CALL_QUEUE = 1000
+	MAX_CALL_CACHE        = 10000
+	MAX_CALL_EXPIRE_CACHE = 60 * 60 * 24 //day
 
 	WATCHER_INTERVAL = 1000 * 5 // 30s
 )

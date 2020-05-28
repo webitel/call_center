@@ -75,6 +75,29 @@ const (
 	CallActionHangupName  = "hangup"
 )
 
+type InboundCallQueue struct {
+	AttemptId      int64  `json:"attempt_id" db:"attempt_id"`
+	QueueId        int    `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt int64  `json:"queue_updated_at" db:"queue_updated_at"`
+	Destination    []byte `json:"destination" db:"destination"`
+	Variables      []byte `json:"variables" db:"variables"`
+	Name           string `json:"name" db:"name"`
+	TeamUpdatedAt  int64  `json:"team_updated_at" db:"team_updated_at"`
+	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
+
+	CallId          string  `json:"call_id" db:"call_id"`
+	CallState       string  `json:"call_state" db:"call_state"`
+	CallDirection   string  `json:"call_direction" db:"call_direction"`
+	CallDestination string  `json:"call_destination" db:"call_destination"`
+	CallTimestamp   int64   `json:"call_timestamp" db:"call_timestamp"`
+	CallAppId       string  `json:"call_app_id" db:"call_app_id"`
+	CallFromNumber  *string `json:"call_from_number" db:"call_from_number"`
+	CallFromName    *string `json:"call_from_name" db:"call_from_name"`
+	CallAnsweredAt  int64   `json:"call_answered_at" db:"call_answered_at"`
+	CallBridgedAt   int64   `json:"call_bridged_at" db:"call_bridged_at"`
+	CallCreatedAt   int64   `json:"call_created_at" db:"call_created_at"`
+}
+
 ///id, direction, destination, parent_id, timestamp, app_id, from_number, domain_id, answered_at, bridged_at, created_at
 type Call struct {
 	Id          string  `json:"id" db:"id"`

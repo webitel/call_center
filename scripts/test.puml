@@ -1,35 +1,53 @@
 @startuml
 
-interface Call {
+interface Chat {
     Id() string
-    NodeName() string
-    FromNumber() string
-    FromName() string
-    Invite() *model.AppError
-    State() <-chan CallState
-    HangupCause() string
-    HangupCode() string
-    GetState() CallState
-    Err() *model.AppError
-    GetAttribute(name string) (string, bool)
-    GetIntAttribute(name string) (int, bool)
-    OfferingAt() int64
-    AcceptAt() int64
-    BridgeAt() int64
-    HangupAt() int64
-    DurationSeconds() int
-    BillSeconds() int
-    AnswerSeconds() int
-    WaitSeconds() int
-    WaitForHangup()
-    HangupChan() <-chan struct{}
-    NewCall(callRequest *model.CallRequest) Call
-    Hangup(cause string) *model.AppError
-    Hold() *model.AppError
-    DTMF(val rune) *model.AppError
-    Bridge(other Call) *model.AppError
 }
 
+interface Call {
+	Id() string
+	NodeName() string
+
+	FromNumber() string
+	FromName() string
+
+	QueueId() *int
+	QueueCallPriority() int
+
+	Invite() *model.AppError
+	State() <-chan CallState
+
+	HangupCause() string
+	HangupCauseCode() int
+	GetState() CallState
+	Err() *model.AppError
+
+	CallAction() <-chan CallAction
+	AddAction(action CallAction)
+
+	BridgeId() *string
+
+	OfferingAt() int64
+	AcceptAt() int64
+	BridgeAt() int64
+	HangupAt() int64
+	ReportingAt() int64
+
+	DurationSeconds() int
+	BillSeconds() int
+	AnswerSeconds() int
+	WaitSeconds() int
+
+	WaitForHangup()
+	HangupChan() <-chan struct{}
+
+	NewCall(callRequest *model.CallRequest) Call
+	ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
+	Hangup(cause string, reporting bool) *model.AppError
+	Hold() *model.AppError
+	DTMF(val rune) *model.AppError
+	Bridge(other Call) *model.AppError
+}
 
 class BaseQueue {
 

@@ -91,6 +91,65 @@ func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId
 	return attempt, nil
 }
 
+func (s SqlMemberStore) DistributeCallToQueue2(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError) {
+	var att *model.InboundCallQueue
+	err := s.GetMaster().SelectOne(&att, `select *
+from cc_distribute_inbound_call_to_queue2(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
+	:Priority::int)
+as x (
+    attempt_id int8,
+    queue_id int,
+    queue_updated_at int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_updated_at int8,
+
+    call_id varchar,
+    call_state varchar,
+    call_direction varchar,
+    call_destination varchar,
+    call_timestamp int8,
+    call_app_id varchar,
+    call_from_number varchar,
+    call_from_name varchar,
+    call_answered_at int8,
+    call_bridged_at int8,
+    call_created_at int8
+);`, map[string]interface{}{
+		"AppId":     node,
+		"QueueId":   queueId,
+		"CallId":    callId,
+		"Variables": model.MapToJson(vars),
+		"Priority":  priority,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
+			fmt.Sprintf("QueueId=%v, CallId=%v %s", queueId, callId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return att, nil
+}
+
+func (s SqlMemberStore) DistributeCallToQueue2Cancel(id int64) *model.AppError {
+	_, err := s.GetMaster().Exec(`update cc_member_attempt
+set result = 'cancel',
+    state_str = 'leaving',
+    leaving_at = now()
+where id = :Id`, map[string]interface{}{
+		"Id": id,
+	})
+
+	if err != nil {
+
+		return model.NewAppError("SqlMemberStore.DistributeCallToQueue2Cancel", "store.sql_member.distribute_call_cancel.app_error", nil,
+			fmt.Sprintf("Id=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError) {
 	var attempt *model.MemberAttempt
 

@@ -12,6 +12,7 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"sync"
+	"time"
 )
 
 const (
@@ -235,12 +236,39 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 }
 
 func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.CallJoinToQueueRequest) (*Attempt, *model.AppError) {
-	var member *model.MemberAttempt
+	//var member *model.MemberAttempt
 
-	req, err := queueManager.app.GetCall(in.MemberCallId)
+	// FIXME add domain
+	res, err := queueManager.store.Member().DistributeCallToQueue2(
+		queueManager.app.GetInstanceId(),
+		int64(in.GetQueue().GetId()),
+		in.GetMemberCallId(),
+		in.GetVariables(),
+		int(in.GetPriority()),
+	)
+
 	if err != nil {
-		wlog.Error(fmt.Sprintf("distribute error: %s", err.Error()))
+		wlog.Error(err.Error())
 		return nil, err
+	}
+
+	callInfo := &model.Call{
+		Id:          res.CallId,
+		State:       res.CallState,
+		DomainId:    in.DomainId,
+		Direction:   res.CallDirection,
+		Destination: res.CallDestination,
+		Timestamp:   res.CallTimestamp,
+		AppId:       res.CallAppId,
+		AnsweredAt:  res.CallAnsweredAt,
+		BridgedAt:   res.CallBridgedAt,
+		CreatedAt:   res.CallCreatedAt,
+	}
+	if res.CallFromName != nil {
+		callInfo.FromName = *res.CallFromName
+	}
+	if res.CallFromNumber != nil {
+		callInfo.FromNumber = *res.CallFromNumber
 	}
 
 	ringtone := ""
@@ -249,23 +277,36 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 			ringtone = model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), fmt.Sprintf("audio/%s", in.WaitingMusic.Type))
 		}
 	}
-	call, err := queueManager.callManager.InboundCall(req, ringtone)
+
+	_, err = queueManager.callManager.InboundCall(callInfo, ringtone)
 	if err != nil {
-		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", req.AppId, req.Id, err.Error()))
+		printfIfErr(queueManager.store.Member().DistributeCallToQueue2Cancel(res.AttemptId))
+		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))
 		return nil, err
 	}
 
-	member, err = queueManager.store.Member().DistributeCallToQueue(queueManager.app.GetInstanceId(), int64(in.GetQueue().GetId()),
-		call.Id(), call.FromNumber(), call.FromName(), in.Variables, int(in.Priority))
+	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+		Id:                  res.AttemptId,
+		QueueId:             res.QueueId,
+		QueueUpdatedAt:      res.QueueUpdatedAt,
+		QueueCount:          0, // TODO
+		QueueActiveCount:    0,
+		QueueWaitingCount:   0,
+		CreatedAt:           time.Time{},
+		HangupAt:            0,
+		BridgedAt:           0,
+		Destination:         res.Destination,
+		ListCommunicationId: nil,
+		TeamUpdatedAt:       model.NewInt64(res.TeamUpdatedAt),
+		Variables:           res.Variables,
+		Name:                res.Name,
+		MemberCallId:        &res.CallId,
+	})
 
-	if err != nil {
-		wlog.Error(fmt.Sprintf("[%s] call %s distribute error: %s", call.NodeName(), call.Id(), err.Error()))
+	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
+		printfIfErr(queueManager.store.Member().DistributeCallToQueue2Cancel(res.AttemptId))
 		return nil, err
 	}
-
-	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, member)
-
-	queueManager.DistributeAttempt(attempt)
 	return attempt, nil
 }
 

@@ -151,6 +151,6 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 func printfIfErr(err *model.AppError) {
 	if err != nil {
-		panic(err.Error())
+		wlog.Error(err.Error())
 	}
 }
