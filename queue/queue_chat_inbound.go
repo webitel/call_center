@@ -75,7 +75,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam) {
 			agentChannelId, _ := queue.queueManager.store.Member().CreateConversationChannel(mChannel.Id(), agent.Name(), attempt.Id())
 			aChannel = NewParticipant(agentChannelId)
 
-			queue.Hook(model.NewInt(agent.Id()), NewDistributeEvent(attempt, queue, agent, mChannel, aChannel))
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, mChannel, aChannel))
 			team.Offering(attempt, agent, aChannel, mChannel)
 
 			for {

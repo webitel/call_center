@@ -81,7 +81,7 @@ type WaitingChannelEvent struct {
 	ChannelEvent
 }
 
-func NewDistributeEvent(a *Attempt, queue QueueObject, agent agent_manager.AgentObject, mChannel, aChannel Channel) model.Event {
+func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, mChannel, aChannel Channel) model.Event {
 	e := DistributeEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,
@@ -108,10 +108,10 @@ func NewDistributeEvent(a *Attempt, queue QueueObject, agent agent_manager.Agent
 		e.Distribute.AgentChannelId = model.NewString(aChannel.Id())
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewOfferingEvent(a *Attempt, timestamp int64, aChannel, mChannel Channel) model.Event {
+func NewOfferingEvent(a *Attempt, userId int64, timestamp int64, aChannel, mChannel Channel) model.Event {
 	e := OfferingEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,
@@ -133,10 +133,10 @@ func NewOfferingEvent(a *Attempt, timestamp int64, aChannel, mChannel Channel) m
 		e.Offering.AgentChannelId = model.NewString(aChannel.Id())
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewAnsweredEvent(a *Attempt, timestamp int64) model.Event {
+func NewAnsweredEvent(a *Attempt, userId int64, timestamp int64) model.Event {
 	e := AnsweredEvent{
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
@@ -146,22 +146,23 @@ func NewAnsweredEvent(a *Attempt, timestamp int64) model.Event {
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewBridgedEventEvent(a *Attempt, timestamp int64) model.Event {
+func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event {
 	e := BridgedEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,
 			AttemptId: model.NewInt64(a.Id()),
 			Status:    model.ChannelStateBridged,
+			Timestamp: timestamp,
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewReportingEventEvent(a *Attempt, timestamp int64, deadlineSec int) model.Event {
+func NewReportingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec int) model.Event {
 	e := ReportingEvent{
 		Reporting: Reporting{
 			Timeout: timestamp + (int64(deadlineSec) * 1000),
@@ -174,10 +175,10 @@ func NewReportingEventEvent(a *Attempt, timestamp int64, deadlineSec int) model.
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewMissedEventEvent(a *Attempt, timestamp int64, timeout int64) model.Event {
+func NewMissedEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64) model.Event {
 	e := MissedEvent{
 		Missed: Missed{
 			Timeout: timeout,
@@ -190,10 +191,10 @@ func NewMissedEventEvent(a *Attempt, timestamp int64, timeout int64) model.Event
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewWrapTimeEventEvent(a *Attempt, timestamp int64, timeout int64) model.Event {
+func NewWrapTimeEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64) model.Event {
 	e := WrapTimeEvent{
 		WrapTime: WrapTime{
 			Timeout: timeout,
@@ -206,10 +207,10 @@ func NewWrapTimeEventEvent(a *Attempt, timestamp int64, timeout int64) model.Eve
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }
 
-func NewWaitingChannelEvent(channel string, attemptId *int64, timestamp int64) model.Event {
+func NewWaitingChannelEvent(channel string, userId int64, attemptId *int64, timestamp int64) model.Event {
 	e := WaitingChannelEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   channel,
@@ -219,5 +220,5 @@ func NewWaitingChannelEvent(channel string, attemptId *int64, timestamp int64) m
 		},
 	}
 
-	return model.NewEvent("channel", e)
+	return model.NewEvent("channel", userId, e)
 }

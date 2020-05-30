@@ -371,7 +371,8 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 func (s *SqlMemberStore) Reporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status) as x (timestamp int8, channel varchar, agent_call_id varchar, agent_id int, agent_timeout int8)`, map[string]interface{}{
+from cc_attempt_end_reporting(:AttemptId::int8, :Status) as
+x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)`, map[string]interface{}{
 		"AttemptId": attemptId,
 		"Status":    "success", //FIXME
 	})

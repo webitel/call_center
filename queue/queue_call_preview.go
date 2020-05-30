@@ -111,7 +111,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Destination(), display),
 	})
 
-	queue.Hook(model.NewInt(agent.Id()), NewDistributeEvent(attempt, queue, agent, nil, call))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))
 
 	printfIfErr(call.Invite())
 	var calling = true

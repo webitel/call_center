@@ -113,7 +113,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
 	var agentCall call_manager.Call
 
-	queue.Hook(model.NewInt(agent.Id()), NewDistributeEvent(attempt, queue, agent, nil, mCall))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, mCall))
 	mCall.Invite()
 
 	var calling = true

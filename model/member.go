@@ -145,6 +145,9 @@ type AttemptReportingResult struct {
 	Channel      *string `json:"channel" db:"channel"`
 	AgentCallId  *string `json:"agent_call_id" db:"agent_call_id"`
 	AgentId      *int    `json:"agent_id" db:"agent_id"`
+	UserId       *int64  `json:"user_id" db:"user_id"`
+	DomainId     *int64  `json:"domain_id" db:"domain_id"`
+	QueueId      int     `json:"queue_id" db:"queue_id"`
 	AgentTimeout *int64  `json:"agent_timeout" db:"agent_timeout"`
 	//AgentCallAppId *string `json:"agent_call_app_id"`
 }

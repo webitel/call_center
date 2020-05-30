@@ -14,10 +14,8 @@ type MQ interface {
 
 	ConsumeCallEvent() <-chan model.CallActionData
 
-	AgentChangeStatus(domainId int64, agentId int, e E) *model.AppError
-
-	ChannelEvent(channel string, domainId int64, agentId int, e E) *model.AppError
-	AttemptEvent(channel string, domainId int64, queueId int, agentId *int, e E) *model.AppError
+	AgentChangeStatus(domainId int64, userId int64, e E) *model.AppError
+	AgentChannelEvent(channel string, domainId int64, queueId int, userId int64, e E) *model.AppError
 
 	QueueEvent() QueueEvent
 }

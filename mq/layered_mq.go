@@ -37,14 +37,10 @@ func (l *LayeredMQ) QueueEvent() QueueEvent {
 	return l.MQLayer.QueueEvent()
 }
 
-func (l *LayeredMQ) AgentChangeStatus(domainId int64, agentId int, e E) *model.AppError {
-	return l.MQLayer.AgentChangeStatus(domainId, agentId, e)
+func (l *LayeredMQ) AgentChangeStatus(domainId int64, userId int64, e E) *model.AppError {
+	return l.MQLayer.AgentChangeStatus(domainId, userId, e)
 }
 
-func (l *LayeredMQ) ChannelEvent(channel string, domainId int64, agentId int, e E) *model.AppError {
-	return l.MQLayer.ChannelEvent(channel, domainId, agentId, e)
-}
-
-func (l *LayeredMQ) AttemptEvent(channel string, domainId int64, queueId int, agentId *int, e E) *model.AppError {
-	return l.MQLayer.AttemptEvent(channel, domainId, queueId, agentId, e)
+func (l *LayeredMQ) AgentChannelEvent(channel string, domainId int64, queueId int, userId int64, e E) *model.AppError {
+	return l.MQLayer.AgentChannelEvent(channel, domainId, queueId, userId, e)
 }

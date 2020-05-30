@@ -74,14 +74,16 @@ type AgentEvent struct {
 }
 
 type Event struct {
-	Name string      `json:"event"`
-	Data interface{} `json:"data"`
+	Name   string      `json:"event"`
+	UserId int64       `json:"user_id"`
+	Data   interface{} `json:"data"`
 }
 
-func NewEvent(name string, data interface{}) Event {
+func NewEvent(name string, userId int64, data interface{}) Event {
 	return Event{
-		Name: name,
-		Data: data,
+		UserId: userId,
+		Name:   name,
+		Data:   data,
 	}
 }
 

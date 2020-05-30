@@ -182,8 +182,8 @@ func (queue *BaseQueue) Channel() string {
 	return queue.channel
 }
 
-func (queue *BaseQueue) Hook(agentId *int, e model.Event) {
-	if err := queue.queueManager.mq.AttemptEvent(queue.Channel(), queue.domainId, queue.id, agentId, e); err != nil {
+func (queue *BaseQueue) Hook(agent agent_manager.AgentObject, e model.Event) {
+	if err := queue.queueManager.mq.AgentChannelEvent(queue.Channel(), queue.domainId, queue.id, agent.UserId(), e); err != nil {
 		wlog.Error(err.Error())
 	}
 }
@@ -201,8 +201,8 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 		wlog.Error(err.Error())
 		return
 	}
-	e := NewOfferingEvent(attempt, timestamp, aChannel, mChannel)
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewOfferingEvent(attempt, agent.UserId(), timestamp, aChannel, mChannel)
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -217,10 +217,9 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 		return
 	}
 
-	agentId := model.NewInt(agent.Id())
 	attId := model.NewInt64(attempt.Id())
-	e := NewWaitingChannelEvent(attempt.channel, attId, timestamp)
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewWaitingChannelEvent(attempt.channel, agent.UserId(), attId, timestamp)
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 	}
@@ -228,10 +227,9 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 
 //FIXME store
 func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject) {
-	agentId := model.NewInt(agent.Id())
 	timestamp := model.GetMillis()
-	e := NewAnsweredEvent(attempt, timestamp)
-	err := tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewAnsweredEvent(attempt, agent.UserId(), timestamp)
+	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -244,9 +242,9 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 		wlog.Error(err.Error())
 		return
 	}
-	agentId := model.NewInt(agent.Id())
-	e := NewBridgedEventEvent(attempt, timestamp)
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+
+	e := NewBridgedEventEvent(attempt, agent.UserId(), timestamp)
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -254,23 +252,20 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 }
 
 func (tm *agentTeam) WrapTime(attempt *Attempt, agent agent_manager.AgentObject, timestamp int64) {
-	agentId := model.NewInt(agent.Id())
-	e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
-	err := tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 	}
 }
 
 func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject) {
-	agentId := model.NewInt(agent.Id())
-
 	if !tm.PostProcessing() {
 		// FIXME
 		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "SUCCESS", 30,
 			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
-			e := NewWrapTimeEventEvent(attempt, timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
-			err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+			e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 			if err != nil {
 				wlog.Error(err.Error())
 			}
@@ -285,16 +280,16 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 		wlog.Error(err.Error())
 		return
 	}
-	e := NewReportingEventEvent(attempt, timestamp, tm.PostProcessingTimeout())
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewReportingEventEvent(attempt, agent.UserId(), timestamp, tm.PostProcessingTimeout())
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
 	}
 
 	result := attempt.WaitTimeout()
-	waiting := NewWaitingChannelEvent(attempt.channel, model.NewInt64(attempt.Id()), result.Timestamp)
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, waiting)
+	waiting := NewWaitingChannelEvent(attempt.channel, agent.UserId(), model.NewInt64(attempt.Id()), result.Timestamp)
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), waiting)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -302,14 +297,13 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.AgentObject) {
-	agentId := model.NewInt(agent.Id())
 	timestamp, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), holdSec, int(tm.BusyDelayTime()))
 	if err != nil {
 		wlog.Error(err.Error())
 		return
 	}
-	e := NewMissedEventEvent(attempt, timestamp, timestamp+(int64(tm.BusyDelayTime())*1000))
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewMissedEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.BusyDelayTime())*1000))
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
@@ -317,14 +311,13 @@ func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.A
 }
 
 func (tm *agentTeam) MissedAndWaitingAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
-	agentId := model.NewInt(agent.Id())
 	timestamp, err := tm.teamManager.store.Member().SetAttemptMissedAgent(attempt.Id(), int(tm.BusyDelayTime()))
 	if err != nil {
 		wlog.Error(err.Error())
 		return
 	}
-	e := NewMissedEventEvent(attempt, timestamp, timestamp+(int64(tm.BusyDelayTime())*1000))
-	err = tm.teamManager.mq.AttemptEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agentId, e)
+	e := NewMissedEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.BusyDelayTime())*1000))
+	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())
 		return

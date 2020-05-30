@@ -339,7 +339,7 @@ set state = 'waiting',
     joined_at = now()
 from cc_agent a
 where timeout < now() and a.id = cc_agent_channel.agent_id
-returning agent_id, channel, cc_view_timestamp(joined_at) as timestamp, a.domain_id`)
+returning a.user_id, channel, cc_view_timestamp(joined_at) as timestamp, a.domain_id`)
 
 	if err != nil {
 		return nil, model.NewAppError("SqlAgentStore.GetChannelTimeout", "store.sql_agent.channel_timeout.app_error", nil,

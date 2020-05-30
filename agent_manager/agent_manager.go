@@ -79,7 +79,7 @@ func (am *agentManager) SetOnline(agent AgentObject, channels []string, onDemand
 		return nil, err
 	}
 	//FIXME add pool send event
-	return data, am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventOnlineStatus(agent, data, onDemand))
+	return data, am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventOnlineStatus(agent, data, onDemand))
 }
 
 func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
@@ -110,7 +110,7 @@ func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
 		return err
 	}
 	//add channel queue
-	return am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventStatus(agent, event))
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
 
 func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError {
@@ -133,7 +133,7 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 		return err
 	}
 	//add channel queue
-	return am.mq.AgentChangeStatus(agent.DomainId(), agent.Id(), NewAgentEventStatus(agent, event))
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
 
 // TODO deprecated

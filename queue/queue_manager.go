@@ -190,8 +190,8 @@ func (queueManager *QueueManager) SetAgentWaitingChannel(agent agent_manager.Age
 		return 0, err
 	}
 
-	e := NewWaitingChannelEvent(channel, nil, timestamp)
-	return 0, queueManager.mq.ChannelEvent(channel, agent.DomainId(), agent.Id(), e)
+	e := NewWaitingChannelEvent(channel, agent.UserId(), nil, timestamp)
+	return 0, queueManager.mq.AgentChannelEvent(channel, agent.DomainId(), 0, agent.UserId(), e)
 }
 
 func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppError) {
@@ -405,23 +405,23 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		}
 	} else {
 		// FIXME
-
 	}
+	if res.UserId != nil && res.DomainId != nil {
+		e := WrapTimeEvent{
+			WrapTime: WrapTime{
+				Timeout: *res.AgentTimeout,
+			},
+			ChannelEvent: ChannelEvent{
+				Timestamp: res.Timestamp,
+				Channel:   *res.Channel,
+				AttemptId: model.NewInt64(attemptId),
+				Status:    model.ChannelStateWrapTime,
+			},
+		}
 
-	e := WrapTimeEvent{
-		WrapTime: WrapTime{
-			Timeout: *res.AgentTimeout,
-		},
-		ChannelEvent: ChannelEvent{
-			Timestamp: res.Timestamp,
-			Channel:   *res.Channel,
-			AttemptId: model.NewInt64(attemptId),
-			Status:    model.ChannelStateWrapTime,
-		},
+		ev := model.NewEvent("channel", *res.UserId, e)
+		err = queueManager.mq.AgentChannelEvent(*res.Channel, *res.DomainId, 0, *res.UserId, ev)
 	}
-
-	ev := model.NewEvent("channel", e)
-	err = queueManager.mq.AttemptEvent(*res.Channel, 1, 2134, res.AgentId, ev)
 
 	return err
 }
