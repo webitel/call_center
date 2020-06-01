@@ -78,28 +78,3 @@ func (queue *CallingQueue) MissedAgentAttempt(attemptId int64, agentId int, call
 
 	return queue.queueManager.store.Agent().CreateMissed(missed)
 }
-
-func (queue *CallingQueue) AgentReportingCall1(team *agentTeam, agent agent_manager.AgentObject, call call_manager.Call) {
-	var noAnswer = false
-	var timeout = 0
-
-	if call.Err() != nil {
-		switch call.HangupCause() {
-		case model.CALL_HANGUP_NO_ANSWER:
-			noAnswer = true
-			timeout = int(team.NoAnswerDelayTime())
-		case model.CALL_HANGUP_REJECTED:
-			timeout = int(team.RejectDelayTime())
-		//case model.CALL_HANGUP_USER_BUSY:
-		default:
-			timeout = int(team.BusyDelayTime())
-		}
-
-		if noAnswer {
-		}
-
-		agent.SetStateFine(timeout, noAnswer)
-	} else {
-		agent.SetStateReporting(int(team.WrapUpTime()))
-	}
-}

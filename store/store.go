@@ -78,12 +78,6 @@ type AgentStore interface {
 	SetOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	WaitingChannel(agentId int, channel string) (int64, *model.AppError)
 
-	SetWaiting(agentId int, bridged bool) *model.AppError
-	SetOffering(agentId, queueId int, attemptId int64) (int, *model.AppError)
-	SetTalking(agentId int) *model.AppError
-	SetReporting(agentId int, timeout int) *model.AppError
-	SetFine(agentId int, timeout int, noAnswer bool) *model.AppError
-
 	SetOnBreak(agentId int) *model.AppError
 
 	SetStatus(agentId int, status string, payload *string) *model.AppError
@@ -91,7 +85,6 @@ type AgentStore interface {
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
-	ChangeDeadlineState() ([]*model.AgentChangedState, *model.AppError)
 
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 	ConfirmAttempt(agentId int, attemptId int64) (int, *model.AppError)

@@ -2,8 +2,6 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
@@ -67,49 +65,6 @@ func (at *agentTeam) PostProcessing() bool {
 
 func (at *agentTeam) PostProcessingTimeout() int {
 	return at.data.PostProcessingTimeout
-}
-
-func (at *agentTeam) OfferingCall(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
-	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
-		agent.Name(), agent.Id(), model.AGENT_STATE_OFFERING, queue.Name()))
-	return agent.SetStateOffering(queue.Id(), attempt.Id())
-}
-
-func (at *agentTeam) Talking(queue QueueObject, agent agent_manager.AgentObject, attempt *Attempt) *model.AppError {
-	wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" for queue %s",
-		agent.Name(), agent.Id(), model.AGENT_STATE_TALK, queue.Name()))
-	return agent.SetStateTalking()
-}
-
-func (at *agentTeam) ReportingCall(queue *CallingQueue, agent agent_manager.AgentObject, call call_manager.Call, attempt *Attempt) *model.AppError {
-	var noAnswer = false
-	var timeout = 0
-	// після кенцел а сторони вейтінг ?
-	if call != nil {
-		switch call.HangupCause() {
-		case model.CALL_HANGUP_NO_ANSWER:
-			noAnswer = true
-			timeout = int(at.NoAnswerDelayTime())
-		case model.CALL_HANGUP_REJECTED:
-			timeout = int(at.RejectDelayTime())
-		default:
-			timeout = int(at.BusyDelayTime())
-		}
-
-		if err := queue.MissedAgentAttempt(attempt.Id(), agent.Id(), call); err != nil {
-			return err
-		}
-
-		if noAnswer && at.MaxNoAnswer() > 0 && at.MaxNoAnswer() <= agent.SuccessivelyNoAnswers()+1 {
-			return agent.SetOnBreak()
-		}
-
-		wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" %d sec", agent.Name(), agent.Id(), model.AGENT_STATE_FINE, timeout))
-		return agent.SetStateFine(timeout, noAnswer)
-	} else {
-		wlog.Debug(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" %d sec", agent.Name(), agent.Id(), model.AGENT_STATE_REPORTING, at.WrapUpTime()))
-		return agent.SetStateReporting(int(at.WrapUpTime()))
-	}
 }
 
 func NewTeamManager(s store.Store, m mq.MQ) *teamManager {

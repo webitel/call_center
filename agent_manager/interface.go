@@ -14,13 +14,6 @@ type AgentManager interface {
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
-
-	//FIXME deprecated
-	SetAgentWaiting(agent AgentObject, bridged bool) *model.AppError
-	SetAgentOffering(agent AgentObject, queueId int, attemptId int64) (int, *model.AppError)
-	SetAgentTalking(agent AgentObject) *model.AppError
-	SetAgentReporting(agent AgentObject, timeout int) *model.AppError
-	SetAgentFine(agent AgentObject, timeout int, noAnswer bool) *model.AppError
 }
 
 type AgentObject interface {
@@ -38,10 +31,4 @@ type AgentObject interface {
 	Online(channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
-
-	//FIXME deprecated
-	SetStateOffering(queueId int, attemptId int64) *model.AppError
-	SetStateTalking() *model.AppError
-	SetStateReporting(deadline int) *model.AppError
-	SetStateFine(deadline int, noAnswer bool) *model.AppError
 }

@@ -139,33 +139,6 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 // TODO deprecated
 func (am *agentManager) changeDeadlineState() {
 	return
-	var agent AgentObject
-	if s, err := am.store.Agent().ChangeDeadlineState(); err != nil {
-		wlog.Error(err.Error())
-	} else {
-		for _, v := range s {
-			if agent, err = am.GetAgent(v.AgentId, v.AgentUpdatedAt); err != nil {
-				wlog.Error(fmt.Sprintf("agent %d has been changed state to \"%s\" error: %s", v.AgentId, v.State, err.Error()))
-			} else {
-				//TODO not link attempt
-				fmt.Println("FIXME", agent)
-
-				//ag := model.EventAttempt{
-				//	Status:    v.State,
-				//	AgentId:   model.NewInt(agent.Id()),
-				//	UserId:    model.NewInt64(agent.UserId()),
-				//	Timestamp: v.AgentUpdatedAt,
-				//	DomainId:  agent.DomainId(),
-				//}
-				//
-				//if err = am.mq.AttemptEvent(ag); err != nil {
-				//	wlog.Error(fmt.Sprintf("agent \"%s\" notify %s error: %s", agent.Name(), v.State, err.Error()))
-				//} else {
-				//	wlog.Debug(fmt.Sprintf("agent \"%s\" has been changed state to \"%s\" - timeout", agent.Name(), v.State))
-				//}
-			}
-		}
-	}
 }
 
 func (am *agentManager) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {

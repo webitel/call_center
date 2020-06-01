@@ -116,7 +116,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
 						team.Answered(attempt, agent)
-						printfIfErr(mCall.Bridge(agentCall))
+						printfIfErr(agentCall.Bridge(mCall))
 					case call_manager.CALL_STATE_BRIDGE:
 						team.Bridged(attempt, agent)
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())

@@ -28,26 +28,6 @@ func (agent *Agent) UserId() int64 {
 	return 0
 }
 
-func (agent *Agent) SetStateOffering(queueId int, attemptId int64) *model.AppError {
-	var err *model.AppError
-	if agent.info.SuccessivelyNoAnswers, err = agent.manager.SetAgentOffering(agent, queueId, attemptId); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (agent *Agent) SetStateTalking() *model.AppError {
-	return agent.manager.SetAgentTalking(agent)
-}
-
-func (agent *Agent) SetStateReporting(deadline int) *model.AppError {
-	return agent.manager.SetAgentReporting(agent, deadline)
-}
-
-func (agent *Agent) SetStateFine(deadline int, noAnswer bool) *model.AppError {
-	return agent.manager.SetAgentFine(agent, deadline, noAnswer)
-}
-
 func (agent *Agent) Name() string {
 	return agent.info.Name
 }

@@ -36,54 +36,7 @@ func (queue *OfflineCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	return nil
 }
 
-func (queue *OfflineCallQueue) reporting(attempt *Attempt) {
-	attempt.SetState(model.MEMBER_STATE_POST_PROCESS)
-
-	info := queue.GetCallInfoFromAttempt(attempt)
-	wlog.Debug(fmt.Sprintf("attempt[%d] start reporting", attempt.Id()))
-	result := &model.AttemptResult{}
-	result.Id = attempt.Id()
-	if info.fromCall != nil {
-		result.LegAId = model.NewString(info.fromCall.Id())
-
-		if info.agent != nil {
-			result.AgentId = model.NewInt(info.agent.Id())
-			result.LegBId = model.NewString(info.toCall.Id())
-
-			team, err := queue.GetTeam(attempt)
-			if err != nil {
-				//FIXME
-			}
-			team.ReportingCall(&queue.CallingQueue, info.agent, info.toCall, attempt)
-		}
-
-		result.OfferingAt = info.fromCall.OfferingAt()
-		result.AnsweredAt = info.fromCall.AcceptAt()
-
-		if info.fromCall.BillSeconds() > 0 {
-			result.Result = model.MEMBER_CAUSE_SUCCESSFUL
-			result.BridgedAt = info.fromCall.BridgeAt()
-		} else {
-			result.Result = model.MEMBER_CAUSE_ABANDONED
-		}
-		result.HangupAt = info.fromCall.HangupAt()
-	} else {
-		attempt.Agent().SetStateReporting(5) //FIXME
-		result.HangupAt = model.GetMillis()
-	}
-	result.State = model.MEMBER_STATE_END
-
-	//if err := queue.SetAttemptResult(result); err != nil {
-	//	wlog.Error(fmt.Sprintf("attempt [%d] set result error: %s", attempt.Id(), err.Error()))
-	//}
-	close(attempt.distributeAgent)
-	wlog.Debug(fmt.Sprintf("attempt[%d] reporting: %v", attempt.Id(), result))
-	queue.queueManager.LeavingMember(attempt, queue)
-}
-
 func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject) {
-
-	defer queue.reporting(attempt)
 
 	callRequest := &model.CallRequest{
 		Endpoints:    agent.GetCallEndpoints(),
@@ -143,24 +96,39 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	})
 
 	call := queue.NewCall(callRequest)
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))
 	call.Invite()
 
-	defer team.Missed(attempt, 20, agent)
-
 	var calling = true
-	//agent.SetStateOffering(queue.id) //TODO ringing
-	agent.SetStateOffering(queue.id, attempt.Id())
 	for calling {
 		select {
 		case state := <-call.State():
 			switch state {
+			case call_manager.CALL_STATE_RINGING:
+				team.Offering(attempt, agent, call, nil)
 			case call_manager.CALL_STATE_ACCEPT:
-
+				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
-				agent.SetStateTalking()
+				team.Bridged(attempt, agent)
 			}
 		case <-call.HangupChan():
 			calling = false
 		}
 	}
+
+	if call.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
+
+		// FIXME
+		if team.PostProcessing() && call.ReportingAt() > 0 {
+			team.WrapTime(attempt, agent, call.ReportingAt())
+		} else {
+			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+			team.Reporting(attempt, agent)
+		}
+	} else {
+		team.Missed(attempt, 5, agent)
+	}
+
+	close(attempt.distributeAgent)
+	queue.queueManager.LeavingMember(attempt, queue)
 }
