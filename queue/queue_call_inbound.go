@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"time"
 )
 
 /*
@@ -61,13 +62,14 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 	ags := attempt.On(AttemptHookDistributeAgent)
 
-	//timeout := time.NewTimer(time.Second * 10)
+	//TODO
+	timeout := time.NewTimer(time.Second * 360)
 
 	for calling {
 		select {
-		//case <-timeout.C:
-		//fmt.Println("TIMEOUT")
-		//calling = false
+		case <-timeout.C:
+			fmt.Println("TIMEOUT")
+			calling = false
 		case <-attempt.Context.Done():
 			calling = false
 		case <-mCall.HangupChan():
@@ -87,14 +89,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			cr := queue.AgentCallRequest(agent, team, attempt)
 			cr.Applications = []*model.CallRequestApplication{
-				//{
-				//	AppName: "set",
-				//	Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
-				//},
 				{
 					AppName: "sleep",
 					Args:    "5000",
-					//Args:    fmt.Sprintf("queue_test %s", mCall.Id()),
 				},
 			}
 			cr.Variables["wbt_parent_id"] = mCall.Id()
@@ -118,10 +115,17 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						team.Answered(attempt, agent)
 						printfIfErr(agentCall.Bridge(mCall))
 					case call_manager.CALL_STATE_BRIDGE:
-						team.Bridged(attempt, agent)
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
+						fmt.Println("TODO")
+						//team.Bridged(attempt, agent)
+						//attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						break top
+					}
+				case s := <-mCall.State():
+					if s == call_manager.CALL_STATE_BRIDGE {
+						timeout.Stop()
+						team.Bridged(attempt, agent)
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					}
 				case <-mCall.HangupChan():
 					attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))

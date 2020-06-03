@@ -125,6 +125,7 @@ Agent stickli
 
 */
 
+//{"time_base_score": "system", "timeout_with_no_agents": "12", "discard_abandoned_after": "1000"}
 type QueueInboundSettings struct {
 	QueueDialingSettings
 	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`

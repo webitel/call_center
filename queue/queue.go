@@ -280,6 +280,7 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 		wlog.Error(err.Error())
 		return
 	}
+
 	e := NewReportingEventEvent(attempt, agent.UserId(), timestamp, tm.PostProcessingTimeout())
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {

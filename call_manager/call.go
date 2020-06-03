@@ -114,7 +114,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "park", "hangup"}[s]
+	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "hold", "hangup"}[s]
 }
 
 var (
@@ -139,9 +139,8 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		api:         api,
 		cm:          cm,
 		hangupCh:    make(chan struct{}),
-		chState:     make(chan CallState, 5),
-		//actions:     make(chan CallAction, 5), //FIXME
-		state: CALL_STATE_NEW,
+		chState:     make(chan CallState, 5), // FIXME
+		state:       CALL_STATE_NEW,
 	}
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))

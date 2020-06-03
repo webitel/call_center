@@ -56,17 +56,24 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 	for {
 		select {
 		case <-leaving:
+			out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Leaving{
+					Leaving: &cc.QueueEvent_LeavingData{
+						Result: "abandoned",
+					},
+				},
+			})
 			goto stop
 		case _, ok := <-bridged:
-			if !ok {
+			if ok {
 				out.Send(&cc.QueueEvent{
-					Data: &cc.QueueEvent_Leaving{
-						Leaving: &cc.QueueEvent_LeavingData{
-							Result: "abandoned",
+					Data: &cc.QueueEvent_Bridged{
+						Bridged: &cc.QueueEvent_BridgedData{
+							AgentId:     0, //TODO
+							AgentCallId: "",
 						},
 					},
 				})
-				goto stop
 			}
 		}
 	}
