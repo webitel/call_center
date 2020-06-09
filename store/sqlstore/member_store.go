@@ -66,7 +66,7 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update cc_member_attempt
 			set state = :State,
 				agent_id = null
-			where id = :Id and state != :CancelState and result isnull`, map[string]interface{}{"Id": id, "State": model.MEMBER_STATE_FIND_AGENT, "CancelState": model.MEMBER_STATE_CANCEL}); err != nil {
+			where id = :Id and state != :CancelState and result isnull`, map[string]interface{}{"Id": id, "State": model.MemberStateWaitAgent, "CancelState": model.MemberStateCancel}); err != nil {
 		return model.NewAppError("SqlMemberStore.SetFindAgentState", "store.sql_member.set_attempt_state_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 	}
@@ -74,27 +74,10 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, number string, name string,
-	vars map[string]string, priority int) (*model.MemberAttempt, *model.AppError) {
-	var attempt *model.MemberAttempt
-
-	if err := s.GetMaster().SelectOne(&attempt, `select *
-		from cc_distribute_inbound_call_to_queue(:Node, :QueueId, :CallId, :Number, :Name, :Vars, :Priority) attempt_id`, map[string]interface{}{
-		"QueueId": queueId, "CallId": callId, "Number": number, "Name": name, "Priority": priority,
-		"Node": node,
-		"Vars": model.MapToJson(vars),
-	}); err != nil {
-		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
-			fmt.Sprintf("QueueId=%v, CallId=%v Number=%v %s", queueId, callId, number, err.Error()), http.StatusInternalServerError)
-	}
-
-	return attempt, nil
-}
-
-func (s SqlMemberStore) DistributeCallToQueue2(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError) {
 	var att *model.InboundCallQueue
 	err := s.GetMaster().SelectOne(&att, `select *
-from cc_distribute_inbound_call_to_queue2(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
+from cc_distribute_inbound_call_to_queue(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
 	:Priority::int)
 as x (
     attempt_id int8,
@@ -132,10 +115,10 @@ as x (
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueue2Cancel(id int64) *model.AppError {
+func (s SqlMemberStore) DistributeCallToQueueCancel(id int64) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_member_attempt
 set result = 'cancel',
-    state_str = 'leaving',
+    state = 'leaving',
     leaving_at = now()
 where id = :Id`, map[string]interface{}{
 		"Id": id,
@@ -184,19 +167,6 @@ func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicat
 
 }
 
-func (s SqlMemberStore) ReportingAttempt(attemptId int64) (int64, *model.AppError) {
-	i, err := s.GetMaster().SelectInt(`select cc_attempt_reporting(:AttemptId::int8)`, map[string]interface{}{
-		"AttemptId": attemptId,
-	})
-
-	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.ReportingAttempt", "store.sql_member.set_attempt_reporting.app_error", nil,
-			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
-	}
-
-	return i, nil
-}
-
 func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *string) *model.AppError {
 	_, err := s.GetMaster().Exec(`select cc_attempt_leaving(:AttemptId::int8, :HoldSec::int, :Result::varchar)`, map[string]interface{}{
 		"AttemptId": attemptId,
@@ -210,10 +180,6 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 	}
 
 	return nil
-}
-
-type test struct {
-	Timestamp int64 `json:"timestamp" db:"timestamp"`
 }
 
 func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string) (int64, *model.AppError) {
@@ -260,7 +226,7 @@ where x.last_state_change notnull `, map[string]interface{}{
 	})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptBridged", "store.sql_member.set_attempt_bridged.app_error", nil,
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptAbandoned", "store.sql_member.set_attempt_abandoned.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
@@ -277,7 +243,7 @@ where x.last_state_change notnull `, map[string]interface{}{
 	})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptBridged", "store.sql_member.set_attempt_bridged.app_error", nil,
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptMissedAgent", "store.sql_member.set_attempt_messed_agent.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
@@ -289,13 +255,13 @@ func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec int) (
     update cc_member_attempt
     set timeout  = now() + (:DeadlineSec::varchar || ' sec')::interval,
         reporting_at = now(),
-        state_str = :State,
+        state = :State,
 		result = 'FIXME'
     where id = :Id
-    returning agent_id, channel, state_str, reporting_at
+    returning agent_id, channel, state, reporting_at
 )
 update cc_agent_channel c
-set state = att.state_str,
+set state = att.state,
     joined_at = att.reporting_at
 from att
 where (att.agent_id, att.channel) = (c.agent_id, c.channel)
@@ -395,14 +361,15 @@ func (s SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppErro
     returning *
 )
 insert
-into cc_member_attempt_history (id, queue_id, member_id, weight, resource_id, result,
+into cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, resource_id, result,
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
-                                bridged_at, created_at, channel)
-select a.id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
+                                bridged_at, channel)
+select a.id, domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
        a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
-       a.offering_at, a.reporting_at, a.bridged_at, a.created_at, a.channel
+       a.offering_at, a.reporting_at, a.bridged_at, a.channel
 from del a
+    inner join cc_queue q on q.id = a.queue_id
 returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
 
 	if err != nil {

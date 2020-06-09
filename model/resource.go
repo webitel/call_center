@@ -69,10 +69,12 @@ func (g *SipGateway) Endpoint(destination string) string {
 	return fmt.Sprintf(SIP_ENDPOINT_TEMPLATE, strings.Replace(destination, " ", "", -1), g.Proxy)
 }
 
-func (g *SipGateway) Bridge(parentId string, destination string, display string) string {
+func (g *SipGateway) Bridge(parentId string, name, destination string, display string) string {
 	res := []string{
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
 		fmt.Sprintf("origination_caller_id_number=%s", display),
+		fmt.Sprintf("effective_callee_id_name='%s'", name),
+		//fmt.Sprintf("origination_callee_id_name='%s'", name),
 		fmt.Sprintf("%s=%v", CallVariableDomainId, 1), //FIXME DOMAIN ID
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
 		fmt.Sprintf("%s='%v'", CallVariableGatewayName, g.Name),

@@ -128,6 +128,8 @@ func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call,
 
 	err = cli.JoinQueue(context.Background(), call.Id, ringtone, map[string]string{
 		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
+		//"bridge_export_vars":      "cc_agent_id",
+		//"bridge_export_vars":      model.QUEUE_AGENT_ID_FIELD,
 		//"transfer_after_bridge":   "'park:':inline",
 		//"valet_hold_music":        play,
 	})

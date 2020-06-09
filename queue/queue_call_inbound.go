@@ -51,7 +51,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		//FIXME
 		panic(err.Error())
 	}
-	attempt.SetState(model.MEMBER_STATE_FIND_AGENT)
+	attempt.SetState(model.MemberStateWaitAgent)
 
 	attempts := 0
 
@@ -68,7 +68,6 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	for calling {
 		select {
 		case <-timeout.C:
-			fmt.Println("TIMEOUT")
 			calling = false
 		case <-attempt.Context.Done():
 			calling = false
@@ -91,7 +90,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			cr.Applications = []*model.CallRequestApplication{
 				{
 					AppName: "sleep",
-					Args:    "5000",
+					Args:    "2000",
 				},
 			}
 			cr.Variables["wbt_parent_id"] = mCall.Id()
@@ -106,7 +105,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 		top:
-			for agentCall.HangupCause() == "" && mCall.HangupCause() == "" {
+			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
 				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
@@ -139,7 +138,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						agentCall.WaitForHangup()
 					}
 
-					attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
+					attempt.Log(fmt.Sprintf("[%s] agent call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
 					break top // FIXME
 				}
 			}
@@ -154,7 +153,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 				agentCall = nil
 			}
 
-			calling = mCall.HangupAt() == 0
+			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
 		}
 	}
 
@@ -169,6 +168,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			team.WrapTime(attempt, agent, agentCall.ReportingAt())
 		} else {
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+			// fixme error go leak
 			team.Reporting(attempt, agent)
 		}
 	} else {

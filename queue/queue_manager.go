@@ -239,7 +239,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	//var member *model.MemberAttempt
 
 	// FIXME add domain
-	res, err := queueManager.store.Member().DistributeCallToQueue2(
+	res, err := queueManager.store.Member().DistributeCallToQueue(
 		queueManager.app.GetInstanceId(),
 		int64(in.GetQueue().GetId()),
 		in.GetMemberCallId(),
@@ -274,13 +274,13 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	ringtone := ""
 	if in.WaitingMusic != nil {
 		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
-			ringtone = model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), fmt.Sprintf("audio/%s", in.WaitingMusic.Type))
+			ringtone = fmt.Sprintf("endless_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), fmt.Sprintf("audio/%s", in.WaitingMusic.Type)))
 		}
 	}
 
 	_, err = queueManager.callManager.InboundCall(callInfo, ringtone)
 	if err != nil {
-		printfIfErr(queueManager.store.Member().DistributeCallToQueue2Cancel(res.AttemptId))
+		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))
 		return nil, err
 	}
@@ -304,7 +304,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	})
 
 	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
-		printfIfErr(queueManager.store.Member().DistributeCallToQueue2Cancel(res.AttemptId))
+		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
 	}
 	return attempt, nil

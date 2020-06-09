@@ -45,13 +45,9 @@ type MemberStore interface {
 
 	//Reporting(attemptId int64, result string) *model.AppError
 	DistributeChatToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
-	DistributeCallToQueue(node string, queueId int64, callId string, number string, name string,
-		vars map[string]string, priority int) (*model.MemberAttempt, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
-	DistributeCallToQueue2(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError)
-	DistributeCallToQueue2Cancel(id int64) *model.AppError
-
-	ReportingAttempt(attemptId int64) (int64, *model.AppError)
+	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError)
+	DistributeCallToQueueCancel(id int64) *model.AppError
 
 	SetAttemptFindAgent(id int64) *model.AppError
 

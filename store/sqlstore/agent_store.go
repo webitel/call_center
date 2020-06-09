@@ -24,17 +24,19 @@ func (s *SqlAgentStore) CreateTableIfNotExists() {
 func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update cc_member_attempt a
-set state = 4
+set state = :Active
 from (
     select a.id as attempt_id, a.agent_id, ca.updated_at as agent_updated_at
     from cc_member_attempt a
         inner join cc_agent ca on a.agent_id = ca.id
-    where a.state = 3 and a.agent_id notnull and a.node_id = :Node
+    where a.state = :WaitAgent and a.agent_id notnull and a.node_id = :Node
     for update skip locked
 ) t
 where a.id = t.attempt_id
 returning t.*`, map[string]interface{}{
-		"Node": nodeId,
+		"Node":      nodeId,
+		"Active":    model.MemberStateActive,
+		"WaitAgent": model.MemberStateWaitAgent,
 	}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 			map[string]interface{}{"Error": err.Error()},

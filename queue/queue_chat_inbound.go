@@ -50,7 +50,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam) {
 		//FIXME
 		panic(err.Error())
 	}
-	attempt.SetState(model.MEMBER_STATE_FIND_AGENT)
+	attempt.SetState(model.MemberStateWaitAgent)
 
 	timeout := time.NewTimer(time.Second * 20)
 

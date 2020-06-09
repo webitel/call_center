@@ -17,14 +17,16 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: call_center; Type: SCHEMA; Schema: -; Owner: -
+-- Name: call_center; Type: SCHEMA; Schema: -; Owner: opensips
 --
 
 CREATE SCHEMA call_center;
 
 
+ALTER SCHEMA call_center OWNER TO opensips;
+
 --
--- Name: calendar_accept_time; Type: TYPE; Schema: call_center; Owner: -
+-- Name: calendar_accept_time; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.calendar_accept_time AS (
@@ -35,8 +37,10 @@ CREATE TYPE call_center.calendar_accept_time AS (
 );
 
 
+ALTER TYPE call_center.calendar_accept_time OWNER TO opensips;
+
 --
--- Name: calendar_except_date; Type: TYPE; Schema: call_center; Owner: -
+-- Name: calendar_except_date; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.calendar_except_date AS (
@@ -47,8 +51,10 @@ CREATE TYPE call_center.calendar_except_date AS (
 );
 
 
+ALTER TYPE call_center.calendar_except_date OWNER TO opensips;
+
 --
--- Name: cc_agent_in_attempt; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_agent_in_attempt; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_agent_in_attempt AS (
@@ -57,8 +63,10 @@ CREATE TYPE call_center.cc_agent_in_attempt AS (
 );
 
 
+ALTER TYPE call_center.cc_agent_in_attempt OWNER TO opensips;
+
 --
--- Name: cc_communication_t; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_communication_t; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_communication_t AS (
@@ -69,8 +77,10 @@ CREATE TYPE call_center.cc_communication_t AS (
 );
 
 
+ALTER TYPE call_center.cc_communication_t OWNER TO opensips;
+
 --
--- Name: cc_communication_type_in_member; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_communication_type_in_member; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_communication_type_in_member AS (
@@ -80,8 +90,10 @@ CREATE TYPE call_center.cc_communication_type_in_member AS (
 );
 
 
+ALTER TYPE call_center.cc_communication_type_in_member OWNER TO opensips;
+
 --
--- Name: cc_communication_type_l; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_communication_type_l; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_communication_type_l AS (
@@ -90,8 +102,10 @@ CREATE TYPE call_center.cc_communication_type_l AS (
 );
 
 
+ALTER TYPE call_center.cc_communication_type_l OWNER TO opensips;
+
 --
--- Name: cc_member_destination_view; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_member_destination_view; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_member_destination_view AS (
@@ -108,8 +122,10 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 );
 
 
+ALTER TYPE call_center.cc_member_destination_view OWNER TO opensips;
+
 --
--- Name: cc_type; Type: TYPE; Schema: call_center; Owner: -
+-- Name: cc_type; Type: TYPE; Schema: call_center; Owner: opensips
 --
 
 CREATE TYPE call_center.cc_type AS ENUM (
@@ -121,149 +137,10 @@ CREATE TYPE call_center.cc_type AS ENUM (
 );
 
 
---
--- Name: calendar_accepts_to_jsonb(call_center.calendar_accept_time[]); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.calendar_accepts_to_jsonb(call_center.calendar_accept_time[]) RETURNS jsonb
-    LANGUAGE sql IMMUTABLE
-    AS $_$
-    select jsonb_agg(x.r)
-    from (
-             select row_to_json(a) r
-             from unnest($1) a
-    ) x;
-$_$;
-
+ALTER TYPE call_center.cc_type OWNER TO opensips;
 
 --
--- Name: calendar_check_timing(bigint, integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.calendar_check_timing(domain_id_ bigint, calendar_id_ integer, name_ character varying) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-    declare
-        res record;
-begin
-    select c.name,
-           (
-               select x.name
-               from unnest(c.excepts) as x
-               where not x.disabled is true
-                 and case
-                         when x.repeat is true then
-                                 to_char((current_timestamp AT TIME ZONE ct.name)::date, 'MM-DD') =
-                                 to_char((to_timestamp(x.date / 1000) at time zone ct.name)::date, 'MM-DD')
-                         else
-                                 (current_timestamp AT TIME ZONE ct.name)::date =
-                                 (to_timestamp(x.date / 1000) at time zone ct.name)::date
-                   end
-               limit 1
-           )                     excepted,
-           exists(
-                   select 1
-                   from unnest(c.accepts) as x
-                   where not x.disabled is true
-                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.name)::int
-                     and (to_char(current_timestamp AT TIME ZONE ct.name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
-               )                 accept,
-           case
-               when c.start_at > 0 and c.end_at > 0 then
-                   not current_date AT TIME ZONE ct.name between (to_timestamp(c.start_at / 1000) at time zone ct.name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.name)::date
-               else false end as expire
-    into res
-    from calendar c
-             inner join calendar_timezones ct on c.timezone_id = ct.id
-    where c.domain_id = domain_id_
-      and (
-        c.id = calendar_id_ or c.name = name_
-        )
-    limit 1;
-
-    return res;
-end;
-$$;
-
-
---
--- Name: calendar_check_timing_p(bigint, integer, character varying, character varying, character varying, boolean, boolean); Type: PROCEDURE; Schema: call_center; Owner: -
---
-
-CREATE PROCEDURE call_center.calendar_check_timing_p(domain_id_ bigint, calendar_id_ integer, name_ character varying, INOUT name_out character varying, INOUT excepted_out character varying, INOUT accept_out boolean, INOUT expire_out boolean)
-    LANGUAGE plpgsql
-    AS $$
-begin
-    select c.name::varchar,
-           (
-               select x.name
-               from unnest(c.excepts) as x
-               where not x.disabled is true
-                 and case
-                         when x.repeat is true then
-                                 to_char((current_timestamp AT TIME ZONE ct.name)::date, 'MM-DD') =
-                                 to_char((to_timestamp(x.date / 1000) at time zone ct.name)::date, 'MM-DD')
-                         else
-                                 (current_timestamp AT TIME ZONE ct.name)::date =
-                                 (to_timestamp(x.date / 1000) at time zone ct.name)::date
-                   end
-               limit 1
-           )::varchar                     excepted,
-           exists(
-                   select 1
-                   from unnest(c.accepts) as x
-                   where not x.disabled is true
-                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.name)::int
-                     and (to_char(current_timestamp AT TIME ZONE ct.name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
-               )::bool                 accept,
-           case
-               when c.start_at > 0 and c.end_at > 0 then
-                   not current_date AT TIME ZONE ct.name between (to_timestamp(c.start_at / 1000) at time zone ct.name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.name)::date
-               else false end as expire
-    into name_out, excepted_out, accept_out, excepted_out
-    from calendar c
-             inner join calendar_timezones ct on c.timezone_id = ct.id
-    where c.domain_id = domain_id_
-      and (
-        c.id = calendar_id_ or c.name = name_
-        )
-    limit 1;
-end;
-$$;
-
-
---
--- Name: calendar_json_to_accepts(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.calendar_json_to_accepts(jsonb) RETURNS call_center.calendar_accept_time[]
-    LANGUAGE sql IMMUTABLE
-    AS $_$
-    select array(
-       select row ((x -> 'disabled')::bool, (x -> 'day')::smallint, (x -> 'start_time_of_day')::smallint, (x -> 'end_time_of_day')::smallint)::calendar_accept_time
-       from jsonb_array_elements($1) x
-       order by x -> 'day', x -> 'start_time_of_day'
-   )::calendar_accept_time[]
-$_$;
-
-
---
--- Name: calendar_json_to_excepts(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.calendar_json_to_excepts(jsonb) RETURNS call_center.calendar_except_date[]
-    LANGUAGE sql IMMUTABLE
-    AS $_$
-    select array(
-       select row ((x -> 'disabled')::bool, (x -> 'date')::int8, (x ->> 'name')::varchar, (x -> 'repeat')::bool)::calendar_except_date
-       from jsonb_array_elements($1) x
-       order by x -> 'date'
-   )::calendar_except_date[]
-$_$;
-
-
---
--- Name: cc_agent_set_login(integer, character varying[], boolean); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_agent_set_login(integer, character varying[], boolean); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_agent_set_login(agent_id_ integer, channels_ character varying[], on_demand_ boolean DEFAULT false) RETURNS record
@@ -275,20 +152,20 @@ begin
     update cc_agent
     set status            = 'online', -- enum added
         status_payload = null,
-        successively_no_answers = 0,
         on_demand = on_demand_,
         last_state_change = now()     -- todo rename to status
     where cc_agent.id = agent_id_;
 
     with c as (
         insert into cc_agent_channel (agent_id, channel, state, online)
-            select a.id, x, 'waiting', coalesce((channels_::varchar[]) && array [x]::varchar[], false)
+            select a.id, x, 'waiting', coalesce((channels_::varchar[]) && array [x]::varchar[], true)
             from cc_agent a,
                  unnest((a.allow_channels)::varchar[]) x -- TODO global var
             where a.id = agent_id_
             on conflict (agent_id, channel) do update
                 set online = excluded.online,
                     timeout = case when excluded.state = 'waiting' then null else excluded.timeout end,
+--                     joined_at = case when excluded.state = 'waiting' then now() else excluded.timeout end,
                     state = case
                                 when
                                     (exists(select 1 from cc_member_attempt at where at.agent_id = excluded.agent_id))
@@ -307,8 +184,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_agent_set_login(agent_id_ integer, channels_ character varying[], on_demand_ boolean) OWNER TO opensips;
+
 --
--- Name: cc_agent_state_timeout(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_agent_state_timeout(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_agent_state_timeout() RETURNS SETOF record
@@ -348,8 +227,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_agent_state_timeout() OWNER TO opensips;
+
 --
--- Name: cc_arr_type_to_jsonb(anyarray); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_arr_type_to_jsonb(anyarray); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_arr_type_to_jsonb(anyarray) RETURNS jsonb
@@ -360,8 +241,10 @@ select jsonb_agg(row_to_json(a))
 $_$;
 
 
+ALTER FUNCTION call_center.cc_arr_type_to_jsonb(anyarray) OWNER TO opensips;
+
 --
--- Name: cc_attempt_abandoned(bigint); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint) RETURNS record
@@ -374,7 +257,7 @@ begin
         set leaving_at = now(),
             last_state_change = now(),
             result = 'abandoned', --TODO
-            state_str = 'leaving'
+            state = 'leaving'
     where id = attempt_id_
     returning * into attempt;
 
@@ -396,8 +279,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint) OWNER TO opensips;
+
 --
--- Name: cc_attempt_bridged(bigint); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_bridged(bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_bridged(attempt_id_ bigint) RETURNS record
@@ -408,7 +293,7 @@ declare
 begin
 
     update cc_member_attempt
-    set state_str = 'bridged',
+    set state = 'bridged',
         bridged_at = now(),
         last_state_change = now()
     where id = attempt_id_
@@ -417,7 +302,7 @@ begin
 
     if attempt.agent_id notnull then
         update cc_agent_channel ch
-        set state = attempt.state_str,
+        set state = attempt.state,
             joined_at = now(),
             no_answers = 0
         where  (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
@@ -428,8 +313,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_bridged(attempt_id_ bigint) OWNER TO opensips;
+
 --
--- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ bigint DEFAULT NULL::bigint, next_offering_at_ bigint DEFAULT NULL::bigint, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
@@ -439,14 +326,16 @@ declare
     attempt cc_member_attempt%rowtype;
     agent_timeout_ timestamptz;
     time_ int8 = extract(EPOCH  from now()) * 1000;
+    user_id_ int8 = null;
+    domain_id_ int8;
 begin
     update cc_member_attempt
-        set state_str  =  'leaving',
+        set state  =  'leaving',
             leaving_at = now(),
             reporting_at = now(),
             result = status_,
             description = description_
-    where id = attempt_id_ and state_str != 'leaving'
+    where id = attempt_id_ and state != 'leaving'
     returning * into attempt;
 
     if attempt.id isnull then
@@ -473,6 +362,11 @@ begin
     where id = attempt.member_id;
 
     if attempt.agent_id notnull then
+        select a.user_id, a.domain_id
+        into user_id_, domain_id_
+        from cc_agent a
+        where a.id = attempt.agent_id;
+
         update cc_agent_channel c
         set state = 'wrap_time',
             joined_at = now(),
@@ -487,13 +381,15 @@ begin
         returning timeout into agent_timeout_;
     end if;
 
-    return row(cc_view_timestamp(now()), attempt.channel, attempt.agent_call_id, attempt.agent_id, cc_view_timestamp(agent_timeout_));
+    return row(cc_view_timestamp(now()), attempt.channel, attempt.queue_id, attempt.agent_call_id, attempt.agent_id, user_id_, domain_id_, cc_view_timestamp(agent_timeout_));
 end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying, expire_at_ bigint, next_offering_at_ bigint, variables_ jsonb) OWNER TO opensips;
+
 --
--- Name: cc_attempt_leaving(bigint, integer, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_leaving(bigint, integer, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS timestamp with time zone
@@ -508,7 +404,7 @@ begin
     update cc_member_attempt
         set leaving_at = now(),
             result = result_,
-            state_str = 'leaving'
+            state = 'leaving'
     where id = attempt_id_
     returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
 
@@ -541,8 +437,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) OWNER TO opensips;
+
 --
--- Name: cc_attempt_missed_agent(bigint, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_missed_agent(bigint, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_missed_agent(attempt_id_ bigint, agent_hold_ integer) RETURNS record
@@ -555,8 +453,7 @@ declare
 begin
 
     update cc_member_attempt  n
-    set state_str = 'waiting',
-        state = 3, -- FIXME C
+    set state = 'wait_agent',
         last_state_change = now(),
         agent_id = null ,
         agent_call_id = null
@@ -577,8 +474,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_missed_agent(attempt_id_ bigint, agent_hold_ integer) OWNER TO opensips;
+
 --
--- Name: cc_attempt_offering(bigint, integer, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_offering(bigint, integer, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ integer, agent_call_id_ character varying, member_call_id_ character varying) RETURNS record
@@ -589,7 +488,7 @@ declare
 begin
 
     update cc_member_attempt
-    set state_str = 'offering',
+    set state = 'offering',
         last_state_change = now(),
         offering_at = coalesce(offering_at, now()),
         agent_id = case when agent_id isnull and agent_id_::int notnull then agent_id_ else agent_id end,
@@ -602,9 +501,10 @@ begin
 
     if attempt.agent_id notnull then
         update cc_agent_channel ch
-        set state = attempt.state_str,
+        set state = attempt.state,
             joined_at = now(),
-            no_answers = 0
+            no_answers = 0,
+            queue_id = attempt.queue_id
         where  (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
 
@@ -613,45 +513,66 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ integer, agent_call_id_ character varying, member_call_id_ character varying) OWNER TO opensips;
+
 --
--- Name: cc_attempt_reporting(bigint); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_call_set_bridged(character varying, character varying, timestamp with time zone, character varying, bigint, character varying); Type: PROCEDURE; Schema: call_center; Owner: opensips
 --
 
-CREATE FUNCTION call_center.cc_attempt_reporting(attempt_id_ bigint) RETURNS bigint
+CREATE PROCEDURE call_center.cc_call_set_bridged(id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, bridged_id_ character varying)
     LANGUAGE plpgsql
     AS $$
-declare agent_id_ int;
-    result_ varchar;
-    cur_time_ timestamptz = now();
+declare r record;
 begin
-     -- TODO agent send in call
-     update cc_member_attempt a
-     set state_str = 'reporting',
-         hangup_at = 1, --delete
-         leaving_at = cur_time_
-     where id = attempt_id_
-     returning agent_id, result into agent_id_, result_;
+--     insert into cc_calls (id, state, timestamp, app_id, domain_id, bridged_id)
+--     values (id_, state_, timestamp_, app_id_, domain_id_, bridged_id_)
+--     on conflict (id) where timestamp < timestamp_
+--         do update set
+--           state = EXCLUDED.state,
+--           bridged_id = EXCLUDED.bridged_id,
+--           timestamp = EXCLUDED.timestamp
+--     returning * into r;
 
-     if result_ notnull  then
-         delete from cc_member_attempt where id = attempt_id_;
-     end if;
+    update cc_calls
+        set state = state_,
+            bridged_id = id_,
+            timestamp = timestamp_
+    where cc_calls.id = bridged_id_
+    returning * into r;
 
-     if agent_id_ notnull  then
-         update cc_agent
-            set attempt_id  = attempt_id_,
-                state = 'reporting',
-                last_bridge_end_at = cur_time_,
-                last_state_change = cur_time_
-         where id = agent_id_;
-     end if;
+    update cc_calls
+        set state = state_,
+            bridged_id = bridged_id_,
+            timestamp = timestamp_,
+            to_number = r.to_number,
+            to_name = r.to_name,
+            to_id = r.to_id,
+            to_type = r.to_type,
+            user_id = coalesce(user_id, r.user_id),
+            gateway_id = coalesce(gateway_id, r.gateway_id)
+    where cc_calls.id = id_;
 
-     return (extract(EPOCH from cur_time_) * 1000)::int8;
+
+--     insert into cc_calls (id, state, timestamp, app_id, domain_id, bridged_id , to_number, to_name, to_id)
+--     values (bridged_id_, state_, timestamp_, app_id_, domain_id_, id_ , r.to_number, r.to_name, r.to_id )
+--     on conflict (id) where timestamp < timestamp_
+--         do update set
+--           state = excluded.state,
+--           bridged_id = excluded.bridged_id,
+--           timestamp = excluded.timestamp,
+--           to_number = excluded.to_number,
+--           to_name = excluded.to_name,
+--           to_id = excluded.to_id--,
+--           user_id = case when excluded.user_id isnull then r.user_id end
+--           ;
 end;
 $$;
 
 
+ALTER PROCEDURE call_center.cc_call_set_bridged(id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, bridged_id_ character varying) OWNER TO opensips;
+
 --
--- Name: cc_calls_set_timing(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_calls_set_timing(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_calls_set_timing() RETURNS trigger
@@ -660,7 +581,7 @@ CREATE FUNCTION call_center.cc_calls_set_timing() RETURNS trigger
 BEGIN
 
     if new.state = 'active' then
-        if new.answered_at = 0 then
+        if new.answered_at isnull then
             new.answered_at = new.timestamp;
 
             if new.direction = 'inbound' and new.parent_id notnull then
@@ -668,7 +589,7 @@ BEGIN
             end if;
 
         else if old.state = 'hold' then
-            new.hold_sec =  ((new.timestamp - old.timestamp) / 1000)::int4;
+            new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision; --((new.timestamp - old.timestamp) / 1000)::int4;
         end if;
         end if;
     else if (new.state = 'bridge' ) then
@@ -684,8 +605,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_calls_set_timing() OWNER TO opensips;
+
 --
--- Name: cc_confirm_agent_attempt(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_confirm_agent_attempt(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) RETURNS integer
@@ -707,8 +630,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) OWNER TO opensips;
+
 --
--- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
@@ -768,11 +693,13 @@ END;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) OWNER TO opensips;
+
 --
--- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, character varying, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, variables_ jsonb, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint)
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, _priority integer DEFAULT 0) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -782,29 +709,64 @@ declare
     dnc_list_id_ int4;
     _domain_id int8;
     _calendar_id int4;
+    _queue_updated_at int8;
+    _team_updated_at int8;
+    _team_id_ int;
+    _list_comm_id int8;
+
+    _call record;
+    _attempt record;
 BEGIN
   select c.timezone_id,
            (payload->>'discard_abandoned_after')::int discard_abandoned_after,
          c.domain_id,
          q.dnc_list_id,
-         q.calendar_id
+         q.calendar_id,
+         q.updated_at,
+         ct.updated_at,
+         q.team_id
   from cc_queue q
-      inner join calendar c on q.calendar_id = c.id
+    inner join flow.calendar c on q.calendar_id = c.id
+    inner join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
-  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id;
+  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+      _team_updated_at, _team_id_;
 
-  --TODO
-  if exists(select clc.id
-    from cc_list_communications clc
-    where (clc.list_id = dnc_list_id_ and clc.number = _number)) then
-          raise exception 'number % banned', _number;
+  select *
+  from cc_calls c
+  where c.id = _call_id
+--   for update
+  into _call;
+
+  if _call.id isnull or _call.direction isnull then
+--       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
+--           values ('call', _queue_id, 'leaving', now(), _call_id, 'abandoned');
+      raise exception 'not found call';
   end if;
 
+
   if not exists(select accept
-from calendar_check_timing(_domain_id, _calendar_id, null)
-as x (name varchar, excepted varchar, accept bool, expire bool)
-where accept and excepted is null and not expire) then
-      raise exception 'number % calendar not working', _number;
+            from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+            as x (name varchar, excepted varchar, accept bool, expire bool)
+            where accept and excepted is null and not expire)
+  then
+--       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
+--           values ('call', _queue_id, 'leaving', now(), _call_id, 'now_working');
+      raise exception 'number % calendar not working', _call.from_number;
+  end if;
+
+
+  --TODO
+  select clc.id
+    into _list_comm_id
+    from cc_list_communications clc
+    where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)
+  limit 1;
+
+  if _list_comm_id notnull then
+--           insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result, list_communication_id)
+--           values ('call', _queue_id, 'leaving', now(), _call_id, 'banned', _list_comm_id);
+          raise exception 'number % banned', _call.from_number;
   end if;
 
   if  _discard_abandoned_after > 0 then
@@ -815,149 +777,167 @@ where accept and excepted is null and not expire) then
         from cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
-            and log.destination->>'destination' = _number
+            and log.destination->>'destination' = _call.from_number
         order by log.leaving_at desc
         limit 1
         into _weight;
   end if;
 
-  return query with attempts as (
-      insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
-          values (1, _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _number),
-                  _node_name, (select clc.id
-from cc_list_communications clc
-where (clc.list_id = dnc_list_id_ and clc.number = _number)))
-          returning *
-  )
-  select a.id,
-         a.member_id,
-         null::varchar    result,
-         a.queue_id,
-         cq.updated_at as queue_updated_at,
-         0::integer       queue_count,
-         0::integer       queue_active_count,
-         0::integer       queue_waiting_count,
-         null::integer    resource_id,
-         null::bigint     resource_updated_at,
-         null::bigint     gateway_updated_at,
-         a.destination    destination,
-         variables_,
-         _name,
-         a.member_call_id,
-         null::bigint     agent_id,
-         null::bigint     agent_updated_at,
-         ct.updated_at::bigint     team_updated_at,
-         a.list_communication_id::int8
-  from attempts a
-           inner join cc_queue cq on a.queue_id = cq.id
-           left join cc_team ct on cq.team_id = ct.id
-           left join cc_list_communications lc on (lc.list_id = cq.dnc_list_id and lc.number = a.destination->>'destination');
+  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
+  values ('waiting', _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
+              _node_name, (select clc.id
+                            from cc_list_communications clc
+                            where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
+  returning * into _attempt;
 
-  --raise notice '%', _attempt_id;
+  update cc_calls
+  set queue_id  = _attempt.queue_id,
+      team_id = _team_id_,
+      attempt_id = _attempt.id,
+      payload = variables_
+  where id = _call_id
+  returning * into _call;
+
+  if _call.id isnull or _call.direction isnull then
+--       insert into cc_member_attempt(channel, queue_id, state, leaving_at, result, member_call_id)
+--       values ('call', _queue_id, 'leaving', now(), 'abandoned', _call_id);
+      raise exception 'not found call';
+  end if;
+
+  return row(
+      _attempt.id::int8,
+      _attempt.queue_id::int,
+      _queue_updated_at::int8,
+      _attempt.destination::jsonb,
+      variables_::jsonb,
+      _call.from_name::varchar,
+      _team_updated_at::int8,
+
+      _call.id::varchar,
+      _call.state::varchar,
+      _call.direction::varchar,
+      _call.destination::varchar,
+      cc_view_timestamp(_call.timestamp)::int8,
+      _call.app_id::varchar,
+      _call.from_number::varchar,
+      _call.from_name::varchar,
+      cc_view_timestamp(_call.answered_at)::int8,
+      cc_view_timestamp(_call.bridged_at)::int8,
+      cc_view_timestamp(_call.created_at)::int8
+  );
 
 END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, _priority integer) OWNER TO opensips;
+
 --
--- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
     LANGUAGE plpgsql
     AS $_$
 declare
-    _attempt_id bigint = null;
-    _member_id bigint;
-    _timezone_id int4;
+    _attempt_id               bigint = null;
+    _member_id                bigint;
+    _timezone_id              int4;
     _abandoned_resume_allowed bool;
-    _discard_abandoned_after int4;
-    _weight int4;
-    _destination jsonb;
-    _domain_id int8;
+    _discard_abandoned_after  int4;
+    _weight                   int4;
+    _destination              jsonb;
+    _domain_id                int8;
 BEGIN
 
-  select
-         m.id,
-         jsonb_path_query_first(communications, '$[*] ? (@.destination == $destination)', vars => jsonb_build_object('destination', _number))
-  from cc_member m
-  where m.queue_id = _queue_id and m.communications @>  (jsonb_build_array(jsonb_build_object('destination', _number)))::jsonb
-    and not exists(select 1 from cc_member_attempt a where a.member_id = m.id for update skip locked )
-  limit 1
-  into _member_id, _destination;
+    select m.id,
+           jsonb_path_query_first(communications, '$[*] ? (@.destination == $destination)',
+                                  vars => jsonb_build_object('destination', _number))
+    from cc_member m
+    where m.queue_id = _queue_id
+      and m.communications @> (jsonb_build_array(jsonb_build_object('destination', _number)))::jsonb
+      and not exists(select 1 from cc_member_attempt a where a.member_id = m.id for update skip locked)
+    limit 1
+    into _member_id, _destination;
 
-  select c.timezone_id,
-           (payload->>'abandoned_resume_allowed')::bool abandoned_resume_allowed,
-           (payload->>'discard_abandoned_after')::int discard_abandoned_after,
-         c.domain_id
-  from cc_queue q
-      inner join calendar c on q.calendar_id = c.id
-  where  q.id = _queue_id
-  into _timezone_id, _abandoned_resume_allowed, _discard_abandoned_after, _domain_id;
+    select c.timezone_id,
+           (payload ->> 'abandoned_resume_allowed')::bool abandoned_resume_allowed,
+           (payload ->> 'discard_abandoned_after')::int   discard_abandoned_after,
+           c.domain_id
+    from cc_queue q
+             inner join flow.calendar c on q.calendar_id = c.id
+    where q.id = _queue_id
+    into _timezone_id, _abandoned_resume_allowed, _discard_abandoned_after, _domain_id;
 
 
-  if _abandoned_resume_allowed is true and _discard_abandoned_after > 0 then
-        select (case when log.result = 'ABANDONED'
-               then ((((extract(EPOCH from now()) * 1000)::int8 - log.hangup_at) / 1000) ) + coalesce(_priority, 0)
-               else null end)::int
+    if _abandoned_resume_allowed is true and _discard_abandoned_after > 0 then
+        select (case
+                    when log.result = 'ABANDONED'
+                        then ((((extract(EPOCH from now()) * 1000)::int8 - log.hangup_at) / 1000)) +
+                             coalesce(_priority, 0)
+                    else null end)::int
         from cc_member_attempt_log log
-        where log.created_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+        where log.created_at >= (now() - (_discard_abandoned_after || ' sec')::interval)
           and log.member_id = _member_id
         order by log.created_at desc
         limit 1
         into _weight;
-  end if;
+    end if;
 
 
-  if _member_id isnull  then
-    _destination = jsonb_build_object('destination', _number);
+    if _member_id isnull then
+        _destination = jsonb_build_object('destination', _number);
 
-    insert into cc_member(domain_id, queue_id, name, priority, timezone_id, communications)
-    select _domain_id, _queue_id, _name, _priority, _timezone_id, (jsonb_build_array(_destination))::jsonb
-    returning cc_member.id into _member_id;
-  end if;
+        insert into cc_member(domain_id, queue_id, name, priority, timezone_id, communications)
+        select _domain_id, _queue_id, _name, _priority, coalesce(_timezone_id, 344), (jsonb_build_array(_destination))::jsonb
+        returning cc_member.id into _member_id;
+    end if;
 
-  return query with attempts as (
-      insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, channel)
-          values (1, _queue_id, _member_id, coalesce(_weight, _priority), _call_id, _destination, _node_name, 'chat')
-          returning *
-  )
-  select a.id,
-         a.member_id,
-         null::varchar    result,
-         a.queue_id,
-         cq.updated_at as queue_updated_at,
-         0::integer       queue_count,
-         0::integer       queue_active_count,
-         0::integer       queue_waiting_count,
-         null::integer    resource_id,
-         null::bigint     resource_updated_at,
-         null::bigint     gateway_updated_at,
-         a.destination    destination,
-         cm.variables,
-         cm.name,
-         a.member_call_id,
-         null::bigint     agent_id,
-         null::bigint     agent_updated_at,
-         ct.updated_at::bigint     team_updated_at
-  from attempts a
-           left join cc_member cm on a.member_id = cm.id
-           inner join cc_queue cq on a.queue_id = cq.id
-           left join cc_team ct on cq.team_id = ct.id
-           left join cc_list_communications lc on lc.list_id = cq.dnc_list_id and lc.number = a.destination->>'destination';
+    return query with attempts as (
+        insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id,
+                                       channel)
+            values (1, _queue_id, _member_id, coalesce(_weight, _priority), _call_id, _destination, _node_name, 'chat')
+            returning *
+    )
+                 select a.id,
+                        a.member_id,
+                        null::varchar         result,
+                        a.queue_id,
+                        cq.updated_at as      queue_updated_at,
+                        0::integer            queue_count,
+                        0::integer            queue_active_count,
+                        0::integer            queue_waiting_count,
+                        null::integer         resource_id,
+                        null::bigint          resource_updated_at,
+                        null::bigint          gateway_updated_at,
+                        a.destination         destination,
+                        cm.variables,
+                        cm.name,
+                        a.member_call_id,
+                        null::bigint          agent_id,
+                        null::bigint          agent_updated_at,
+                        ct.updated_at::bigint team_updated_at
+                 from attempts a
+                          left join cc_member cm on a.member_id = cm.id
+                          inner join cc_queue cq on a.queue_id = cq.id
+                          left join cc_team ct on cq.team_id = ct.id
+                          left join cc_list_communications lc
+                                    on lc.list_id = cq.dnc_list_id and lc.number = a.destination ->> 'destination';
 
-  --raise notice '%', _attempt_id;
+    --raise notice '%', _attempt_id;
 
 END;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer) OWNER TO opensips;
+
 --
--- Name: cc_get_lookup(bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_get_lookup(bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_get_lookup(_id bigint, _name character varying) RETURNS jsonb
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
     if _id isnull then
@@ -969,8 +949,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_get_lookup(_id bigint, _name character varying) OWNER TO opensips;
+
 --
--- Name: cc_get_time(character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_get_time(character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_get_time(_t character varying, _def_t character varying) RETURNS integer
@@ -982,8 +964,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_get_time(_t character varying, _def_t character varying) OWNER TO opensips;
+
 --
--- Name: cc_list_statistics_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_list_statistics_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_list_statistics_trigger_deleted() RETURNS trigger
@@ -1008,8 +992,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_list_statistics_trigger_deleted() OWNER TO opensips;
+
 --
--- Name: cc_list_statistics_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_list_statistics_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_list_statistics_trigger_inserted() RETURNS trigger
@@ -1031,14 +1017,16 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_list_statistics_trigger_inserted() OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_dev_tgf(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_dev_tgf(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_attempt_dev_tgf() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    BEGIN
+BEGIN
 
         if old.result isnull then
             raise exception 'not allow';
@@ -1049,8 +1037,10 @@ CREATE FUNCTION call_center.cc_member_attempt_dev_tgf() RETURNS trigger
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_attempt_dev_tgf() OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_log_day_f(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_day_f(integer, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_attempt_log_day_f(queue_id integer, bucket_id integer) RETURNS integer
@@ -1063,8 +1053,10 @@ CREATE FUNCTION call_center.cc_member_attempt_log_day_f(queue_id integer, bucket
 $_$;
 
 
+ALTER FUNCTION call_center.cc_member_attempt_log_day_f(queue_id integer, bucket_id integer) OWNER TO opensips;
+
 --
--- Name: cc_member_communication_types(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_communication_types(jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_communication_types(jsonb) RETURNS integer[]
@@ -1074,8 +1066,10 @@ CREATE FUNCTION call_center.cc_member_communication_types(jsonb) RETURNS integer
 $_$;
 
 
+ALTER FUNCTION call_center.cc_member_communication_types(jsonb) OWNER TO opensips;
+
 --
--- Name: cc_member_communications(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_communications(jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_communications(jsonb) RETURNS jsonb
@@ -1098,8 +1092,10 @@ CREATE FUNCTION call_center.cc_member_communications(jsonb) RETURNS jsonb
                      ) x)::jsonb$_$;
 
 
+ALTER FUNCTION call_center.cc_member_communications(jsonb) OWNER TO opensips;
+
 --
--- Name: cc_member_destination_views_to_json(call_center.cc_member_destination_view[]); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_destination_views_to_json(call_center.cc_member_destination_view[]); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_destination_views_to_json(in_ call_center.cc_member_destination_view[]) RETURNS jsonb
@@ -1110,8 +1106,10 @@ select jsonb_agg(x)
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_destination_views_to_json(in_ call_center.cc_member_destination_view[]) OWNER TO opensips;
+
 --
--- Name: cc_member_set_sys_destinations_tg(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_set_sys_destinations_tg(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_set_sys_destinations_tg() RETURNS trigger
@@ -1133,8 +1131,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_set_sys_destinations_tg() OWNER TO opensips;
+
 --
--- Name: cc_member_statistic_trigger(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_statistic_trigger(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger() RETURNS trigger
@@ -1146,8 +1146,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_statistic_trigger() OWNER TO opensips;
+
 --
--- Name: cc_member_statistic_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_statistic_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger_deleted() RETURNS trigger
@@ -1174,8 +1176,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_statistic_trigger_deleted() OWNER TO opensips;
+
 --
--- Name: cc_member_statistic_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_statistic_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger_inserted() RETURNS trigger
@@ -1202,8 +1206,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_statistic_trigger_inserted() OWNER TO opensips;
+
 --
--- Name: cc_member_statistic_trigger_updated(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_statistic_trigger_updated(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger_updated() RETURNS trigger
@@ -1244,8 +1250,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_statistic_trigger_updated() OWNER TO opensips;
+
 --
--- Name: cc_member_sys_offset_id_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_sys_offset_id_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_sys_offset_id_trigger_inserted() RETURNS trigger
@@ -1270,8 +1278,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_sys_offset_id_trigger_inserted() OWNER TO opensips;
+
 --
--- Name: cc_member_sys_offset_id_trigger_update(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_member_sys_offset_id_trigger_update(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_member_sys_offset_id_trigger_update() RETURNS trigger
@@ -1290,8 +1300,10 @@ END
 $$;
 
 
+ALTER FUNCTION call_center.cc_member_sys_offset_id_trigger_update() OWNER TO opensips;
+
 --
--- Name: cc_msg_create_conversation(character varying, character varying, character varying, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_msg_create_conversation(character varying, character varying, character varying, jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_msg_create_conversation(key_ character varying, title_ character varying, name_ character varying, body_ jsonb) RETURNS record
@@ -1320,8 +1332,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_msg_create_conversation(key_ character varying, title_ character varying, name_ character varying, body_ jsonb) OWNER TO opensips;
+
 --
--- Name: cc_msg_history(uuid, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_msg_history(uuid, integer, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_msg_history(channel_id_ uuid, limit_ integer, offset_ integer) RETURNS SETOF record
@@ -1349,8 +1363,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_msg_history(channel_id_ uuid, limit_ integer, offset_ integer) OWNER TO opensips;
+
 --
--- Name: cc_msg_post(uuid, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_msg_post(uuid, jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_msg_post(channel_id_ uuid, body_ jsonb) RETURNS record
@@ -1377,8 +1393,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_msg_post(channel_id_ uuid, body_ jsonb) OWNER TO opensips;
+
 --
--- Name: cc_msg_unread(uuid, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_msg_unread(uuid, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_msg_unread(channel_id_ uuid, limit_ integer) RETURNS SETOF record
@@ -1408,8 +1426,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_msg_unread(channel_id_ uuid, limit_ integer) OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_timing(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_timing(jsonb); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_outbound_resource_timing(jsonb) RETURNS smallint[]
@@ -1423,7 +1443,7 @@ BEGIN
     )
     select array_agg(distinct t.id) x
     into res_
-    from call_center.calendar_timezone_offsets t,
+    from flow.calendar_timezone_offsets t,
          lateral (select current_timestamp AT TIME ZONE t.names[1] t) with_timezone
     where exists (select 1 from times where (to_char(with_timezone.t, 'SSSS') :: int / 60) between times.start and times.end);
 
@@ -1432,23 +1452,27 @@ END;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_outbound_resource_timing(jsonb) OWNER TO opensips;
+
 --
--- Name: cc_queue_default_timezone_offset_id(integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_queue_default_timezone_offset_id(integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_queue_default_timezone_offset_id(integer) RETURNS integer[]
     LANGUAGE sql IMMUTABLE
     AS $_$
-    select array[c.timezone_id, z.offset_id]::int4[]
+select array[c.timezone_id, z.offset_id]::int4[]
     from cc_queue q
-        inner join calendar c on c.id = q.calendar_id
-        inner join calendar_timezones z on z.id = c.timezone_id
+        inner join flow.calendar c on c.id = q.calendar_id
+        inner join flow.calendar_timezones z on z.id = c.timezone_id
     where q.id = $1;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_queue_default_timezone_offset_id(integer) OWNER TO opensips;
+
 --
--- Name: cc_resource_set_error(bigint, bigint, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_resource_set_error(bigint, bigint, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_resource_set_error(_id bigint, _routing_id bigint, _error_id character varying, _strategy character varying) RETURNS record
@@ -1502,8 +1526,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_resource_set_error(_id bigint, _routing_id bigint, _error_id character varying, _strategy character varying) OWNER TO opensips;
+
 --
--- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint)
@@ -1511,8 +1537,9 @@ CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURN
     AS $$
 BEGIN
     return query update cc_member_attempt a
-        set state = 1
+        set state = 'waiting'
             ,node_id = node
+            ,last_state_change = now()
             ,list_communication_id = lc.id
         from (
             select c.id,
@@ -1531,7 +1558,6 @@ BEGIN
                    tm.updated_at                      as team_updated_at,
                    cq.dnc_list_id
             from cc_member_attempt c
-                     --inner join stats s on s.queue_id = c.queue_id
                      inner join cc_member cm on c.member_id = cm.id
                      inner join cc_queue cq on cm.queue_id = cq.id
                      left join cc_team tm on tm.id = cq.team_id
@@ -1539,8 +1565,8 @@ BEGIN
                      left join directory.sip_gateway gw on gw.id = r.gateway_id
                      left join cc_agent ca on c.agent_id = ca.id
                      left join cc_queue_statistics cqs on cq.id = cqs.queue_id
-            where c.state = 0
-              and c.hangup_at = 0
+            where c.state = 'idle'
+              and c.hangup_at isnull
             order by cq.priority desc, c.weight desc
                 for update of c skip locked
         ) c
@@ -1570,38 +1596,67 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_set_active_members(node character varying) OWNER TO opensips;
+
 --
--- Name: cc_set_agent_change_status(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_set_agent_change_status(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_set_agent_change_status() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  insert into cc_agent_state_history (agent_id, joined_at, state)
-  values (new.id, now(), new.state);
-  RETURN new;
+    -- FIXME
+    if TG_OP = 'INSERT' then
+        return new;
+    end if;
+    insert into cc_agent_state_history (agent_id, joined_at, state, duration, payload)
+    values (old.id, old.last_state_change, old.status,  new.last_state_change - old.last_state_change, old.status_payload);
+--     update cc_agent_channel
+--     set online = case when new.status = 'online' then true else false end
+--     where cc_agent_channel.agent_id = new.id;
+RETURN new;
 END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_set_agent_change_status() OWNER TO opensips;
+
 --
--- Name: cc_set_agent_channel_change_status(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_set_agent_channel_change_status(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_set_agent_channel_change_status() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration)
-  values (new.agent_id, new.joined_at, new.state, new.channel, new.joined_at - coalesce(old.joined_at, now()));
+        -- FIXME
+    if TG_OP = 'INSERT' then
+        return new;
+    end if;
+  if new.online != old.online and new.state = 'waiting' then
+      new.joined_at := now();
+      if new.online then
+          return new;
+      end if;
+  end if;
+
+  if new.state = 'waiting' then
+      new.queue_id := null;
+  end if;
+
+  insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
+  values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id);
+
   RETURN new;
 END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_set_agent_channel_change_status() OWNER TO opensips;
+
 --
--- Name: cc_set_rbac_rec(); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_set_rbac_rec(); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_set_rbac_rec() RETURNS trigger
@@ -1625,8 +1680,10 @@ CREATE FUNCTION call_center.cc_set_rbac_rec() RETURNS trigger
 $_$;
 
 
+ALTER FUNCTION call_center.cc_set_rbac_rec() OWNER TO opensips;
+
 --
--- Name: cc_team_agents_by_bucket(character varying, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_team_agents_by_bucket(character varying, integer, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_team_agents_by_bucket(ch_ character varying, team_id_ integer, bucket_id integer) RETURNS integer[]
@@ -1642,6 +1699,7 @@ begin
     where (cac.agent_id, cac.channel) = (a.id, $1) and cac.state = 'waiting' and cac.timeout isnull
       and a.status = 'online'
       and b.team_id = $2::int4
+      and not exists(select 1 from cc_member_attempt att where att.agent_id = cac.agent_id)
       and case when $3 isnull then true else b.bucket_id = $3 end ;
 
     return res;
@@ -1649,21 +1707,25 @@ end;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_team_agents_by_bucket(ch_ character varying, team_id_ integer, bucket_id integer) OWNER TO opensips;
+
 --
--- Name: cc_timezone_offset_id(integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_timezone_offset_id(integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_timezone_offset_id(integer) RETURNS smallint
     LANGUAGE sql IMMUTABLE
     AS $_$
-    select z.offset_id
-    from calendar_timezones z
+select z.offset_id
+    from flow.calendar_timezones z
     where z.id = $1;
 $_$;
 
 
+ALTER FUNCTION call_center.cc_timezone_offset_id(integer) OWNER TO opensips;
+
 --
--- Name: cc_un_reserve_members_with_resources(character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_un_reserve_members_with_resources(character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_un_reserve_members_with_resources(node character varying, res character varying) RETURNS integer
@@ -1684,8 +1746,10 @@ END;
 $$;
 
 
+ALTER FUNCTION call_center.cc_un_reserve_members_with_resources(node character varying, res character varying) OWNER TO opensips;
+
 --
--- Name: cc_view_timestamp(timestamp with time zone); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_view_timestamp(timestamp with time zone); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
 CREATE FUNCTION call_center.cc_view_timestamp(t timestamp with time zone) RETURNS bigint
@@ -1701,8 +1765,10 @@ end;
 $$;
 
 
+ALTER FUNCTION call_center.cc_view_timestamp(t timestamp with time zone) OWNER TO opensips;
+
 --
--- Name: test_sp(integer); Type: PROCEDURE; Schema: call_center; Owner: -
+-- Name: test_sp(integer); Type: PROCEDURE; Schema: call_center; Owner: opensips
 --
 
 CREATE PROCEDURE call_center.test_sp(INOUT cnt integer)
@@ -1729,7 +1795,7 @@ begin
                    when q.type in  (1, 6) then (select count(*) --fixme
                                          from cc_member_attempt a
                                          where a.queue_id = q.id
-                                           and (a.state = 3)
+                                           and (a.state = 'wait_agent')
                                            and a.agent_id isnull)
                    else csdqbs.member_waiting end                                                                 member_waiting
         from cc_queue q
@@ -1756,7 +1822,7 @@ begin
                   ) t
          )
     select x.*, t.bucket_id, t.id as queue_id, case when t.type in (1, 6) then 'u' else 'i' end op,
-             case when t.type in ( 6) then 'chat' else 'call' end channel
+             case when t.type in ( 6) then 'chat' else 'call' end channel, t.domain_id
     from (
              select res.*,
                     ag.agents,
@@ -1794,8 +1860,7 @@ begin
     where t.op = 'i';
 
     update cc_member_attempt a
-    set agent_id = t.agent_id,
-        state    = 3
+    set agent_id = t.agent_id
     from (
              select t.id, t.agent_id
              from cc_distribute_member_tmp t
@@ -1808,191 +1873,23 @@ end;
 $$;
 
 
+ALTER PROCEDURE call_center.test_sp(INOUT cnt integer) OWNER TO opensips;
+
 --
--- Name: gin_cc_pair_test2_ops; Type: OPERATOR FAMILY; Schema: call_center; Owner: -
+-- Name: gin_cc_pair_test2_ops; Type: OPERATOR FAMILY; Schema: call_center; Owner: opensips
 --
 
 CREATE OPERATOR FAMILY call_center.gin_cc_pair_test2_ops USING gin;
 
+
+ALTER OPERATOR FAMILY call_center.gin_cc_pair_test2_ops USING gin OWNER TO opensips;
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: acr_jobs; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.acr_jobs (
-    id bigint NOT NULL,
-    start_at timestamp without time zone DEFAULT now() NOT NULL,
-    stop_at timestamp without time zone,
-    name name NOT NULL,
-    state smallint DEFAULT 0 NOT NULL,
-    direction character varying(10) NOT NULL,
-    schema_id integer NOT NULL
-);
-
-
---
--- Name: acr_jobs_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.acr_jobs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acr_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.acr_jobs_id_seq OWNED BY call_center.acr_jobs.id;
-
-
---
--- Name: acr_routing_outbound_call; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.acr_routing_outbound_call (
-    id bigint NOT NULL,
-    domain_id bigint NOT NULL,
-    name character varying(100) NOT NULL,
-    description character varying(200) DEFAULT ''::character varying NOT NULL,
-    created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
-    pattern character varying(50) NOT NULL,
-    priority integer DEFAULT 0 NOT NULL,
-    disabled boolean DEFAULT false,
-    scheme_id bigint NOT NULL,
-    pos integer NOT NULL
-);
-
-
---
--- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.acr_routing_outbound_call_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.acr_routing_outbound_call_id_seq OWNED BY call_center.acr_routing_outbound_call.id;
-
-
---
--- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.acr_routing_outbound_call_pos_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.acr_routing_outbound_call_pos_seq OWNED BY call_center.acr_routing_outbound_call.pos;
-
-
---
--- Name: acr_routing_scheme; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.acr_routing_scheme (
-    id bigint NOT NULL,
-    domain_id bigint NOT NULL,
-    name character varying(100) NOT NULL,
-    scheme jsonb NOT NULL,
-    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
-    description character varying(200) DEFAULT ''::character varying NOT NULL,
-    debug boolean DEFAULT false NOT NULL,
-    state smallint,
-    type character varying DEFAULT 'call'::character varying NOT NULL
-);
-
-
---
--- Name: COLUMN acr_routing_scheme.state; Type: COMMENT; Schema: call_center; Owner: -
---
-
-COMMENT ON COLUMN call_center.acr_routing_scheme.state IS 'draft / new / used';
-
-
---
--- Name: acr_routing_scheme_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.acr_routing_scheme_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acr_routing_scheme_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.acr_routing_scheme_id_seq OWNED BY call_center.acr_routing_scheme.id;
-
-
---
--- Name: acr_routing_variables; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.acr_routing_variables (
-    id bigint NOT NULL,
-    domain_id bigint NOT NULL,
-    key character varying(20) NOT NULL,
-    value character varying(100) DEFAULT ''::character varying NOT NULL
-);
-
-
---
--- Name: acr_routing_variables_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.acr_routing_variables_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: acr_routing_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.acr_routing_variables_id_seq OWNED BY call_center.acr_routing_variables.id;
-
-
---
--- Name: cc_agent_activity; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_activity; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_activity (
@@ -2011,8 +1908,10 @@ CREATE TABLE call_center.cc_agent_activity (
 );
 
 
+ALTER TABLE call_center.cc_agent_activity OWNER TO opensips;
+
 --
--- Name: agent_statistic_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: agent_statistic_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.agent_statistic_id_seq
@@ -2024,136 +1923,17 @@ CREATE SEQUENCE call_center.agent_statistic_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.agent_statistic_id_seq OWNER TO opensips;
+
 --
--- Name: agent_statistic_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: agent_statistic_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.agent_statistic_id_seq OWNED BY call_center.cc_agent_activity.id;
 
 
 --
--- Name: calendar; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.calendar (
-    id integer NOT NULL,
-    start_at bigint,
-    end_at bigint,
-    name character varying(20) NOT NULL,
-    domain_id bigint NOT NULL,
-    description character varying(200),
-    timezone_id integer NOT NULL,
-    created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
-    excepts call_center.calendar_except_date[],
-    accepts call_center.calendar_accept_time[]
-);
-
-
---
--- Name: calendar_acl; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.calendar_acl (
-    dc bigint NOT NULL,
-    object bigint NOT NULL,
-    grantor bigint NOT NULL,
-    subject bigint NOT NULL,
-    access smallint DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: calendar_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.calendar_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.calendar_id_seq OWNED BY call_center.calendar.id;
-
-
---
--- Name: calendar_timezones; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.calendar_timezones (
-    id integer NOT NULL,
-    name character varying(100) NOT NULL,
-    utc_offset interval NOT NULL,
-    offset_id smallint NOT NULL
-);
-
-
---
--- Name: calendar_intervals; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
---
-
-CREATE MATERIALIZED VIEW call_center.calendar_intervals AS
- SELECT row_number() OVER (ORDER BY calendar_timezones.utc_offset) AS id,
-    calendar_timezones.utc_offset
-   FROM call_center.calendar_timezones
-  GROUP BY calendar_timezones.utc_offset
-  ORDER BY calendar_timezones.utc_offset
-  WITH NO DATA;
-
-
---
--- Name: calendar_timezone_offsets; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.calendar_timezone_offsets (
-    id bigint,
-    utc_offset interval,
-    names text[]
-);
-
-
---
--- Name: calendar_timezones_by_interval; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.calendar_timezones_by_interval (
-    id bigint,
-    utc_offset interval,
-    names character varying[]
-);
-
-
---
--- Name: calendar_timezones_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.calendar_timezones_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: calendar_timezones_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.calendar_timezones_id_seq OWNED BY call_center.calendar_timezones.id;
-
-
---
--- Name: cc_agent; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent (
@@ -2161,8 +1941,6 @@ CREATE TABLE call_center.cc_agent (
     user_id bigint NOT NULL,
     updated_at bigint DEFAULT 0 NOT NULL,
     status character varying(20) DEFAULT 'offline'::character varying NOT NULL,
-    state character varying(20) DEFAULT 'waiting'::character varying NOT NULL,
-    state_timeout timestamp without time zone,
     description character varying(250) DEFAULT ''::character varying NOT NULL,
     domain_id bigint NOT NULL,
     successively_no_answers integer DEFAULT 0 NOT NULL,
@@ -2178,8 +1956,10 @@ CREATE TABLE call_center.cc_agent (
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
+ALTER TABLE call_center.cc_agent OWNER TO opensips;
+
 --
--- Name: cc_agent_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_acl (
@@ -2192,8 +1972,10 @@ CREATE TABLE call_center.cc_agent_acl (
 );
 
 
+ALTER TABLE call_center.cc_agent_acl OWNER TO opensips;
+
 --
--- Name: cc_agent_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_acl_id_seq
@@ -2204,15 +1986,17 @@ CREATE SEQUENCE call_center.cc_agent_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_acl_id_seq OWNED BY call_center.cc_agent_acl.id;
 
 
 --
--- Name: cc_agent_attempt; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_attempt (
@@ -2223,8 +2007,10 @@ CREATE TABLE call_center.cc_agent_attempt (
 );
 
 
+ALTER TABLE call_center.cc_agent_attempt OWNER TO opensips;
+
 --
--- Name: cc_agent_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_attempt_id_seq
@@ -2235,15 +2021,17 @@ CREATE SEQUENCE call_center.cc_agent_attempt_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_attempt_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_attempt_id_seq OWNED BY call_center.cc_agent_attempt.id;
 
 
 --
--- Name: cc_agent_channel; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_channel; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_channel (
@@ -2254,13 +2042,16 @@ CREATE TABLE call_center.cc_agent_channel (
     timeout timestamp with time zone,
     online boolean DEFAULT true NOT NULL,
     max_opened integer DEFAULT 1 NOT NULL,
-    no_answers integer DEFAULT 0 NOT NULL
+    no_answers integer DEFAULT 0 NOT NULL,
+    queue_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
+ALTER TABLE call_center.cc_agent_channel OWNER TO opensips;
+
 --
--- Name: cc_agent_missed_attempt; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_missed_attempt (
@@ -2272,17 +2063,17 @@ CREATE TABLE call_center.cc_agent_missed_attempt (
 );
 
 
+ALTER TABLE call_center.cc_agent_missed_attempt OWNER TO opensips;
+
 --
--- Name: cc_member_attempt; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member_attempt; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     id bigint NOT NULL,
     queue_id integer NOT NULL,
-    state integer DEFAULT 0 NOT NULL,
     member_id bigint,
     weight integer DEFAULT 0 NOT NULL,
-    hangup_at bigint DEFAULT 0 NOT NULL,
     resource_id integer,
     node_id character varying(20),
     result character varying(200),
@@ -2298,35 +2089,36 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     member_call_id character varying,
     offering_at timestamp with time zone,
     reporting_at timestamp with time zone,
-    state_str character varying DEFAULT 'joined'::character varying NOT NULL,
+    state character varying DEFAULT 'idle'::character varying NOT NULL,
     bridged_at timestamp with time zone,
-    created_at integer DEFAULT 0 NOT NULL,
     channel character varying DEFAULT 'call'::character varying NOT NULL,
     timeout timestamp with time zone,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
-    email_group_id bigint,
     communication_idx integer DEFAULT 1 NOT NULL,
-    conversation_id bigint
+    conversation_id bigint,
+    hangup_at timestamp with time zone
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
+ALTER TABLE call_center.cc_member_attempt OWNER TO opensips;
+
 --
--- Name: TABLE cc_member_attempt; Type: COMMENT; Schema: call_center; Owner: -
+-- Name: TABLE cc_member_attempt; Type: COMMENT; Schema: call_center; Owner: opensips
 --
 
 COMMENT ON TABLE call_center.cc_member_attempt IS 'todo';
 
 
 --
--- Name: COLUMN cc_member_attempt.communication_idx; Type: COMMENT; Schema: call_center; Owner: -
+-- Name: COLUMN cc_member_attempt.communication_idx; Type: COMMENT; Schema: call_center; Owner: opensips
 --
 
 COMMENT ON COLUMN call_center.cc_member_attempt.communication_idx IS 'fixme';
 
 
 --
--- Name: cc_member_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_member_attempt_id_seq
@@ -2337,15 +2129,17 @@ CREATE SEQUENCE call_center.cc_member_attempt_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_member_attempt_id_seq OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_member_attempt_id_seq OWNED BY call_center.cc_member_attempt.id;
 
 
 --
--- Name: cc_member_attempt_log; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_member_attempt_log (
@@ -2372,8 +2166,10 @@ CREATE TABLE call_center.cc_member_attempt_log (
 ALTER TABLE ONLY call_center.cc_member_attempt_log ALTER COLUMN created_at SET STATISTICS 1000;
 
 
+ALTER TABLE call_center.cc_member_attempt_log OWNER TO opensips;
+
 --
--- Name: cc_agent_daily_calls_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_daily_calls_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_daily_calls_mat AS
@@ -2398,8 +2194,10 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_daily_calls_mat AS
   WITH NO DATA;
 
 
+ALTER TABLE call_center.cc_agent_daily_calls_mat OWNER TO opensips;
+
 --
--- Name: cc_agent_daily_calls; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_daily_calls; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_agent_daily_calls AS
@@ -2415,28 +2213,29 @@ CREATE VIEW call_center.cc_agent_daily_calls AS
           WHERE ((l.created_at > a.max_missed_call_time) AND (l.agent_id = a.id))) m ON (true));
 
 
+ALTER TABLE call_center.cc_agent_daily_calls OWNER TO opensips;
+
 --
--- Name: cc_agent_state_history; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_state_history (
     id bigint NOT NULL,
     agent_id bigint NOT NULL,
-    joined_at timestamp without time zone DEFAULT now() NOT NULL,
+    joined_at timestamp with time zone DEFAULT now() NOT NULL,
     state character varying(20) NOT NULL,
-    timeout_at timestamp without time zone,
-    payload jsonb,
     queue_id integer,
     attempt_id bigint,
-    channel character varying DEFAULT 'call'::character varying NOT NULL,
-    status character varying DEFAULT 'fixme'::character varying NOT NULL,
-    on_demand boolean DEFAULT false NOT NULL,
-    duration interval DEFAULT '00:00:00'::interval NOT NULL
+    channel character varying,
+    duration interval DEFAULT '00:00:00'::interval NOT NULL,
+    payload character varying
 );
 
 
+ALTER TABLE call_center.cc_agent_state_history OWNER TO opensips;
+
 --
--- Name: cc_agent_daily_state_activity_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_daily_state_activity_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_daily_state_activity_mat AS
@@ -2450,7 +2249,6 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_daily_state_activity_mat AS
             h2_1.agent_id,
             h2_1.joined_at,
             h2_1.state,
-            h2_1.timeout_at,
             h2_1.payload,
             h2_1.queue_id
            FROM call_center.cc_agent_state_history h2_1
@@ -2462,8 +2260,10 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_daily_state_activity_mat AS
   WITH NO DATA;
 
 
+ALTER TABLE call_center.cc_agent_daily_state_activity_mat OWNER TO opensips;
+
 --
--- Name: cc_agent_end_state_day_5min; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_end_state_day_5min; Type: MATERIALIZED VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_end_state_day_5min AS
@@ -2480,7 +2280,6 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_end_state_day_5min AS
                     h2_1.agent_id,
                     h2_1.joined_at,
                     h2_1.state,
-                    h2_1.timeout_at,
                     h2_1.payload
                    FROM call_center.cc_agent_state_history h2_1
                   WHERE ((h2_1.agent_id = h.agent_id) AND (h2_1.joined_at > h.joined_at))
@@ -2494,8 +2293,10 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_end_state_day_5min AS
   WITH NO DATA;
 
 
+ALTER TABLE call_center.cc_agent_end_state_day_5min OWNER TO opensips;
+
 --
--- Name: cc_agent_history_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_history_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_history_id_seq
@@ -2506,15 +2307,17 @@ CREATE SEQUENCE call_center.cc_agent_history_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_history_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_history_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_history_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_history_id_seq OWNED BY call_center.cc_agent_state_history.id;
 
 
 --
--- Name: cc_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_id_seq
@@ -2526,15 +2329,17 @@ CREATE SEQUENCE call_center.cc_agent_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_id_seq OWNED BY call_center.cc_agent.id;
 
 
 --
--- Name: cc_agent_in_team; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_agent_in_team (
@@ -2549,8 +2354,10 @@ CREATE TABLE call_center.cc_agent_in_team (
 );
 
 
+ALTER TABLE call_center.cc_agent_in_team OWNER TO opensips;
+
 --
--- Name: cc_agent_in_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_in_team_id_seq
@@ -2561,15 +2368,17 @@ CREATE SEQUENCE call_center.cc_agent_in_team_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_in_team_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_in_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_in_team_id_seq OWNED BY call_center.cc_agent_in_team.id;
 
 
 --
--- Name: cc_agent_last_2hour_calls_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_last_2hour_calls_mat; Type: MATERIALIZED VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_last_2hour_calls_mat AS
@@ -2594,8 +2403,10 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_last_2hour_calls_mat AS
   WITH NO DATA;
 
 
+ALTER TABLE call_center.cc_agent_last_2hour_calls_mat OWNER TO opensips;
+
 --
--- Name: cc_agent_last_2hour_calls; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_last_2hour_calls; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_agent_last_2hour_calls AS
@@ -2611,8 +2422,10 @@ CREATE VIEW call_center.cc_agent_last_2hour_calls AS
           WHERE ((l.created_at > a.max_missed_call_time) AND (l.agent_id = a.id))) m ON (true));
 
 
+ALTER TABLE call_center.cc_agent_last_2hour_calls OWNER TO opensips;
+
 --
--- Name: cc_agent_list; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_list; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_agent_list AS
@@ -2632,8 +2445,10 @@ CREATE VIEW call_center.cc_agent_list AS
           WHERE (c.agent_id = a.id)) ch ON (true));
 
 
+ALTER TABLE call_center.cc_agent_list OWNER TO opensips;
+
 --
--- Name: cc_agent_missed_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_agent_missed_attempt_id_seq
@@ -2644,15 +2459,17 @@ CREATE SEQUENCE call_center.cc_agent_missed_attempt_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_agent_missed_attempt_id_seq OWNER TO opensips;
+
 --
--- Name: cc_agent_missed_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_agent_missed_attempt_id_seq OWNED BY call_center.cc_agent_missed_attempt.id;
 
 
 --
--- Name: cc_calls; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_calls; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE UNLOGGED TABLE call_center.cc_calls (
@@ -2660,7 +2477,6 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     direction character varying,
     destination character varying,
     parent_id character varying,
-    "timestamp" bigint NOT NULL,
     state character varying NOT NULL,
     app_id character varying NOT NULL,
     from_type character varying,
@@ -2673,10 +2489,6 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     to_id character varying,
     payload jsonb,
     domain_id bigint NOT NULL,
-    answered_at bigint DEFAULT 0 NOT NULL,
-    bridged_at bigint DEFAULT 0 NOT NULL,
-    hangup_at bigint DEFAULT 0 NOT NULL,
-    created_at bigint,
     hold_sec integer DEFAULT 0 NOT NULL,
     cause character varying,
     sip_code smallint,
@@ -2688,13 +2500,21 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     team_id integer,
     attempt_id integer,
     member_id bigint,
-    type character varying DEFAULT 'call'::character varying
+    type character varying DEFAULT 'call'::character varying,
+    "timestamp" timestamp with time zone,
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone,
+    hangup_by character varying
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
+ALTER TABLE call_center.cc_calls OWNER TO opensips;
+
 --
--- Name: cc_agent_waiting; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_agent_waiting; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_agent_waiting AS
@@ -2703,13 +2523,15 @@ CREATE VIEW call_center.cc_agent_waiting AS
     u.extension AS desctination
    FROM (call_center.cc_agent a
      JOIN directory.wbt_user u ON ((u.id = a.user_id)))
-  WHERE (((a.state)::text = 'waiting'::text) AND ((a.status)::text = 'waiting'::text) AND (NOT (EXISTS ( SELECT 1
+  WHERE (((a.status)::text = 'online'::text) AND (NOT (EXISTS ( SELECT 1
            FROM call_center.cc_calls c
-          WHERE ((c.user_id = u.id) AND (c.hangup_at = 0))))));
+          WHERE ((c.user_id = u.id) AND (c.hangup_at IS NULL))))));
 
+
+ALTER TABLE call_center.cc_agent_waiting OWNER TO opensips;
 
 --
--- Name: cc_bucket; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_bucket; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_bucket (
@@ -2724,8 +2546,10 @@ CREATE TABLE call_center.cc_bucket (
 );
 
 
+ALTER TABLE call_center.cc_bucket OWNER TO opensips;
+
 --
--- Name: cc_bucket_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_bucket_acl (
@@ -2737,8 +2561,10 @@ CREATE TABLE call_center.cc_bucket_acl (
 );
 
 
+ALTER TABLE call_center.cc_bucket_acl OWNER TO opensips;
+
 --
--- Name: cc_bucket_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_bucket_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_bucket_id_seq
@@ -2749,15 +2575,17 @@ CREATE SEQUENCE call_center.cc_bucket_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_bucket_id_seq OWNER TO opensips;
+
 --
--- Name: cc_bucket_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_bucket_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_bucket_id_seq OWNED BY call_center.cc_bucket.id;
 
 
 --
--- Name: cc_bucket_in_queue; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_bucket_in_queue (
@@ -2768,8 +2596,10 @@ CREATE TABLE call_center.cc_bucket_in_queue (
 );
 
 
+ALTER TABLE call_center.cc_bucket_in_queue OWNER TO opensips;
+
 --
--- Name: cc_bucket_in_queue_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_bucket_in_queue_id_seq
@@ -2780,15 +2610,17 @@ CREATE SEQUENCE call_center.cc_bucket_in_queue_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_bucket_in_queue_id_seq OWNER TO opensips;
+
 --
--- Name: cc_bucket_in_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_bucket_in_queue_id_seq OWNED BY call_center.cc_bucket_in_queue.id;
 
 
 --
--- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_calls_history (
@@ -2807,14 +2639,10 @@ CREATE TABLE call_center.cc_calls_history (
     to_id character varying,
     payload jsonb,
     domain_id bigint NOT NULL,
-    answered_at bigint,
-    bridged_at bigint,
-    hangup_at bigint,
     hold_sec integer,
     cause character varying,
     sip_code integer,
     bridged_id character varying,
-    created_at bigint NOT NULL,
     gateway_id bigint,
     user_id integer,
     queue_id integer,
@@ -2825,12 +2653,19 @@ CREATE TABLE call_center.cc_calls_history (
     duration integer DEFAULT 0 NOT NULL,
     description character varying,
     tags character varying[],
-    created_at2 timestamp with time zone
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL,
+    hangup_by character varying,
+    stored_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
+ALTER TABLE call_center.cc_calls_history OWNER TO opensips;
+
 --
--- Name: cc_member; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_member (
@@ -2861,13 +2696,15 @@ CREATE TABLE call_center.cc_member (
     sys_destinations call_center.cc_destination[],
     pause_at timestamp with time zone
 )
-WITH (autovacuum_analyze_threshold='50', fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
+WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN "offset" SET STATISTICS 100;
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
 
 
+ALTER TABLE call_center.cc_member OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_member_attempt_history (
@@ -2891,20 +2728,22 @@ CREATE TABLE call_center.cc_member_attempt_history (
     offering_at timestamp with time zone,
     reporting_at timestamp with time zone,
     bridged_at timestamp with time zone,
-    created_at integer,
-    channel character varying
+    channel character varying,
+    domain_id bigint
 );
 
 
+ALTER TABLE call_center.cc_member_attempt_history OWNER TO opensips;
+
 --
--- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: -
+-- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: opensips
 --
 
 COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
 
 
 --
--- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_queue (
@@ -2936,8 +2775,10 @@ CREATE TABLE call_center.cc_queue (
 );
 
 
+ALTER TABLE call_center.cc_queue OWNER TO opensips;
+
 --
--- Name: cc_team; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_team; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_team (
@@ -2962,8 +2803,10 @@ CREATE TABLE call_center.cc_team (
 );
 
 
+ALTER TABLE call_center.cc_team OWNER TO opensips;
+
 --
--- Name: cc_call_history_list; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_call_history_list; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_call_history_list AS
@@ -2986,17 +2829,19 @@ CREATE VIEW call_center.cc_call_history_list AS
     c.answered_at,
     c.bridged_at,
     c.hangup_at,
-    'FIXME'::character varying AS hangup_by,
+    c.stored_at,
+    COALESCE(c.hangup_by, ''::character varying) AS hangup_by,
     c.cause,
-    (((c.hangup_at - c.created_at) / 1000))::integer AS duration,
-    c.hold_sec,
+    (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint AS duration,
+    COALESCE(c.hold_sec, 0) AS hold_sec,
+    COALESCE(
         CASE
-            WHEN (c.answered_at > 0) THEN ((((c.hangup_at - c.answered_at) / 1000))::integer)::numeric
-            ELSE (0)::numeric
-        END AS wait_sec,
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.bridged_at - c.created_at)))::bigint
+            ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
+        END, (0)::bigint) AS wait_sec,
         CASE
-            WHEN (c.bridged_at > 0) THEN (((c.hangup_at - c.bridged_at) / 1000))::integer
-            ELSE 0
+            WHEN (c.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.bridged_at)))::bigint
+            ELSE (0)::bigint
         END AS bill_sec,
     c.sip_code,
     f.files,
@@ -3004,17 +2849,20 @@ CREATE VIEW call_center.cc_call_history_list AS
     call_center.cc_get_lookup((cm.id)::bigint, cm.name) AS member,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
     call_center.cc_get_lookup((ca.id)::bigint, ca.name) AS agent,
-    call_center.cc_view_timestamp(cma.joined_at) AS joined_at,
-    call_center.cc_view_timestamp(cma.leaving_at) AS leaving_at,
-    call_center.cc_view_timestamp(cma.reporting_at) AS reporting_at,
-    call_center.cc_view_timestamp(cma.bridged_at) AS queue_bridged_at,
+    cma.joined_at,
+    cma.leaving_at,
+    cma.reporting_at,
+    cma.bridged_at AS queue_bridged_at,
         CASE
             WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
             ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
         END AS queue_wait_sec,
     (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
     cma.result,
-    1 AS reporting_sec,
+        CASE
+            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - c.hangup_at)))::integer
+            ELSE 0
+        END AS reporting_sec,
     c.agent_id,
     c.team_id,
     c.user_id,
@@ -3026,8 +2874,7 @@ CREATE VIEW call_center.cc_call_history_list AS
     c.from_number,
     c.to_number,
     c.tags,
-    cma.display,
-    c.created_at2
+    cma.display
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM storage.files f_1
@@ -3037,12 +2884,14 @@ CREATE VIEW call_center.cc_call_history_list AS
      LEFT JOIN call_center.cc_agent_list ca ON ((c.agent_id = ca.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
      LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
-     LEFT JOIN directory.wbt_user u ON (((u.id = c.user_id) AND (u.dc = c.domain_id))))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
 
 
+ALTER TABLE call_center.cc_call_history_list OWNER TO opensips;
+
 --
--- Name: cc_list; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_list; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_list (
@@ -3058,8 +2907,10 @@ CREATE TABLE call_center.cc_list (
 );
 
 
+ALTER TABLE call_center.cc_list OWNER TO opensips;
+
 --
--- Name: cc_call_list_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_call_list_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_call_list_id_seq
@@ -3070,15 +2921,17 @@ CREATE SEQUENCE call_center.cc_call_list_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_call_list_id_seq OWNER TO opensips;
+
 --
--- Name: cc_call_list_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_call_list_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_call_list_id_seq OWNED BY call_center.cc_list.id;
 
 
 --
--- Name: cc_calls_all_a; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_calls_all_a; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_calls_all_a AS
@@ -3099,11 +2952,11 @@ CREATE VIEW call_center.cc_calls_all_a AS
         )
  SELECT a.rn,
     a.c,
-    c.created_at,
+    call_center.cc_view_timestamp(c.created_at) AS created_at,
     c.state,
     c.direction,
     c.destination,
-    to_char((now() - to_timestamp(((c.created_at / 1000))::double precision)), 'MM:SS'::text) AS duration,
+    to_char((now() - c.created_at), 'MM:SS'::text) AS duration,
     c.from_name,
     c.from_number,
     c.to_name,
@@ -3118,99 +2971,10 @@ CREATE VIEW call_center.cc_calls_all_a AS
   ORDER BY a.rn, a.c DESC;
 
 
---
--- Name: cc_calls_all_h; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_calls_all_h AS
- WITH RECURSIVE a AS (
-         SELECT c_1.id,
-            c_1.parent_id,
-            '+'::text AS c,
-            row_number() OVER (ORDER BY c_1.created_at DESC) AS rn
-           FROM call_center.cc_calls_history c_1
-          WHERE (c_1.parent_id IS NULL)
-        UNION ALL
-         SELECT c2.id,
-            c2.parent_id,
-            ' '::text AS text,
-            a_1.rn
-           FROM (call_center.cc_calls_history c2
-             JOIN a a_1 ON (((c2.parent_id)::text = (a_1.id)::text)))
-        )
- SELECT a.rn,
-    a.c,
-    c.created_at,
-    'hangup'::text AS state,
-    c.direction,
-    c.destination,
-    to_char((to_timestamp(((c.hangup_at / 1000))::double precision) - to_timestamp(((c.created_at / 1000))::double precision)), 'MM:SS'::text) AS duration,
-    c.from_name,
-    c.from_number,
-    c.to_name,
-    c.to_number,
-        CASE cch.direction
-            WHEN 'inbound'::text THEN cch.to_name
-            ELSE cch.from_name
-        END AS br
-   FROM ((a
-     JOIN call_center.cc_calls_history c ON (((c.id)::text = (a.id)::text)))
-     LEFT JOIN call_center.cc_calls_history cch ON (((c.bridged_id)::text = (cch.id)::text)))
-  ORDER BY a.rn, a.c DESC;
-
+ALTER TABLE call_center.cc_calls_all_a OWNER TO opensips;
 
 --
--- Name: cc_calls_all; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_calls_all AS
- SELECT t.active,
-    t.rn,
-    t.c,
-    t.created_at,
-    t.state,
-    t.direction,
-    t.destination,
-    t.duration,
-    t.from_name,
-    t.from_number,
-    t.to_name,
-    t.to_number,
-    t.br
-   FROM ( SELECT 1 AS active,
-            a.rn,
-            a.c,
-            a.created_at,
-            a.state,
-            a.direction,
-            a.destination,
-            a.duration,
-            a.from_name,
-            a.from_number,
-            a.to_name,
-            a.to_number,
-            a.br
-           FROM call_center.cc_calls_all_a a
-        UNION ALL
-         SELECT 0 AS active,
-            cc_calls_all_h.rn,
-            cc_calls_all_h.c,
-            cc_calls_all_h.created_at,
-            cc_calls_all_h.state,
-            cc_calls_all_h.direction,
-            cc_calls_all_h.destination,
-            cc_calls_all_h.duration,
-            cc_calls_all_h.from_name,
-            cc_calls_all_h.from_number,
-            cc_calls_all_h.to_name,
-            cc_calls_all_h.to_number,
-            cc_calls_all_h.br
-           FROM call_center.cc_calls_all_h) t
-  ORDER BY t.active DESC, t.c DESC;
-
-
---
--- Name: cc_cluster; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_cluster; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_cluster (
@@ -3222,8 +2986,10 @@ CREATE TABLE call_center.cc_cluster (
 );
 
 
+ALTER TABLE call_center.cc_cluster OWNER TO opensips;
+
 --
--- Name: cc_cluster_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_cluster_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_cluster_id_seq
@@ -3234,15 +3000,17 @@ CREATE SEQUENCE call_center.cc_cluster_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_cluster_id_seq OWNER TO opensips;
+
 --
--- Name: cc_cluster_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_cluster_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_cluster_id_seq OWNED BY call_center.cc_cluster.id;
 
 
 --
--- Name: cc_communication; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_communication; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_communication (
@@ -3255,8 +3023,10 @@ CREATE TABLE call_center.cc_communication (
 );
 
 
+ALTER TABLE call_center.cc_communication OWNER TO opensips;
+
 --
--- Name: cc_communication_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_communication_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_communication_id_seq
@@ -3268,15 +3038,17 @@ CREATE SEQUENCE call_center.cc_communication_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_communication_id_seq OWNER TO opensips;
+
 --
--- Name: cc_communication_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_communication_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_communication_id_seq OWNED BY call_center.cc_communication.id;
 
 
 --
--- Name: cc_email; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_email; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_email (
@@ -3302,8 +3074,10 @@ CREATE TABLE call_center.cc_email (
 );
 
 
+ALTER TABLE call_center.cc_email OWNER TO opensips;
+
 --
--- Name: cc_email_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_email_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_email_id_seq
@@ -3314,15 +3088,17 @@ CREATE SEQUENCE call_center.cc_email_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_email_id_seq OWNER TO opensips;
+
 --
--- Name: cc_email_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_email_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_email_id_seq OWNED BY call_center.cc_email.id;
 
 
 --
--- Name: cc_email_profile; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_email_profile; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_email_profile (
@@ -3349,15 +3125,17 @@ CREATE TABLE call_center.cc_email_profile (
 );
 
 
+ALTER TABLE call_center.cc_email_profile OWNER TO opensips;
+
 --
--- Name: COLUMN cc_email_profile.fetch_interval; Type: COMMENT; Schema: call_center; Owner: -
+-- Name: COLUMN cc_email_profile.fetch_interval; Type: COMMENT; Schema: call_center; Owner: opensips
 --
 
 COMMENT ON COLUMN call_center.cc_email_profile.fetch_interval IS 'sec; TODO add check > 5';
 
 
 --
--- Name: cc_email_profile_list; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_email_profile_list; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_email_profile_list AS
@@ -3379,11 +3157,13 @@ CREATE VIEW call_center.cc_email_profile_list AS
    FROM (((call_center.cc_email_profile t
      LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
      LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
-     LEFT JOIN call_center.acr_routing_scheme s ON ((s.id = t.flow_id)));
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = t.flow_id)));
 
+
+ALTER TABLE call_center.cc_email_profile_list OWNER TO opensips;
 
 --
--- Name: cc_email_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_email_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_email_profiles_id_seq
@@ -3395,15 +3175,17 @@ CREATE SEQUENCE call_center.cc_email_profiles_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_email_profiles_id_seq OWNER TO opensips;
+
 --
--- Name: cc_email_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_email_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_email_profiles_id_seq OWNED BY call_center.cc_email_profile.id;
 
 
 --
--- Name: cc_list_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_list_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_list_acl (
@@ -3416,8 +3198,10 @@ CREATE TABLE call_center.cc_list_acl (
 );
 
 
+ALTER TABLE call_center.cc_list_acl OWNER TO opensips;
+
 --
--- Name: cc_list_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_list_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_list_acl_id_seq
@@ -3428,15 +3212,17 @@ CREATE SEQUENCE call_center.cc_list_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_list_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_list_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_list_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_list_acl_id_seq OWNED BY call_center.cc_list_acl.id;
 
 
 --
--- Name: cc_list_communications; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_list_communications; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_list_communications (
@@ -3447,8 +3233,10 @@ CREATE TABLE call_center.cc_list_communications (
 );
 
 
+ALTER TABLE call_center.cc_list_communications OWNER TO opensips;
+
 --
--- Name: cc_list_communications_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_list_communications_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_list_communications_id_seq
@@ -3459,15 +3247,17 @@ CREATE SEQUENCE call_center.cc_list_communications_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_list_communications_id_seq OWNER TO opensips;
+
 --
--- Name: cc_list_communications_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_list_communications_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_list_communications_id_seq OWNED BY call_center.cc_list_communications.id;
 
 
 --
--- Name: cc_list_statistics; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_list_statistics; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_list_statistics (
@@ -3476,8 +3266,10 @@ CREATE TABLE call_center.cc_list_statistics (
 );
 
 
+ALTER TABLE call_center.cc_list_statistics OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_log_day_5min; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_day_5min; Type: MATERIALIZED VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_member_attempt_log_day_5min AS
@@ -3495,8 +3287,10 @@ CREATE MATERIALIZED VIEW call_center.cc_member_attempt_log_day_5min AS
   WITH NO DATA;
 
 
+ALTER TABLE call_center.cc_member_attempt_log_day_5min OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_log_day; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_day; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_member_attempt_log_day AS
@@ -3525,8 +3319,10 @@ CREATE VIEW call_center.cc_member_attempt_log_day AS
           ORDER BY l.queue_id, COALESCE(l.bucket_id, (0)::bigint)) g ON (true));
 
 
+ALTER TABLE call_center.cc_member_attempt_log_day OWNER TO opensips;
+
 --
--- Name: cc_member_attempt_log_day_tmp; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_day_tmp; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_member_attempt_log_day_tmp (
@@ -3552,8 +3348,10 @@ CREATE TABLE call_center.cc_member_attempt_log_day_tmp (
 );
 
 
+ALTER TABLE call_center.cc_member_attempt_log_day_tmp OWNER TO opensips;
+
 --
--- Name: cc_member_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_member_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_member_id_seq
@@ -3565,15 +3363,17 @@ CREATE SEQUENCE call_center.cc_member_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_member_id_seq OWNER TO opensips;
+
 --
--- Name: cc_member_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_member_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_member_id_seq OWNED BY call_center.cc_member.id;
 
 
 --
--- Name: cc_member_messages; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_member_messages; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_member_messages (
@@ -3586,8 +3386,10 @@ CREATE TABLE call_center.cc_member_messages (
 );
 
 
+ALTER TABLE call_center.cc_member_messages OWNER TO opensips;
+
 --
--- Name: cc_member_messages_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_member_messages_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_member_messages_id_seq
@@ -3598,15 +3400,17 @@ CREATE SEQUENCE call_center.cc_member_messages_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_member_messages_id_seq OWNER TO opensips;
+
 --
--- Name: cc_member_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_member_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_member_messages_id_seq OWNED BY call_center.cc_member_messages.id;
 
 
 --
--- Name: cc_outbound_resource; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource (
@@ -3633,13 +3437,15 @@ CREATE TABLE call_center.cc_outbound_resource (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource OWNER TO opensips;
+
 --
--- Name: cc_member_view_attempt; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_member_view_attempt; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_member_view_attempt AS
  SELECT t.id,
-    t.state_str AS state,
+    t.state,
     call_center.cc_view_timestamp(t.last_state_change) AS last_state_change,
     call_center.cc_view_timestamp(t.joined_at) AS joined_at,
     call_center.cc_view_timestamp(t.offering_at) AS offering_at,
@@ -3651,7 +3457,7 @@ CREATE VIEW call_center.cc_member_view_attempt AS
     call_center.cc_get_lookup((t.queue_id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup(t.member_id, cm.name) AS member,
     t.member_call_id,
-    cm.variables,
+    COALESCE(cm.variables, '{}'::jsonb) AS variables,
     call_center.cc_get_lookup((t.agent_id)::bigint, (COALESCE(u.name, (u.username)::text))::character varying) AS agent,
     t.agent_call_id,
     t.weight AS "position",
@@ -3677,17 +3483,19 @@ CREATE VIEW call_center.cc_member_view_attempt AS
      LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)));
 
 
+ALTER TABLE call_center.cc_member_view_attempt OWNER TO opensips;
+
 --
--- Name: cc_member_view_attempt_history; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_member_view_attempt_history; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_member_view_attempt_history AS
  SELECT t.id,
-    call_center.cc_view_timestamp(t.joined_at) AS joined_at,
-    call_center.cc_view_timestamp(t.offering_at) AS offering_at,
-    call_center.cc_view_timestamp(t.bridged_at) AS bridged_at,
-    call_center.cc_view_timestamp(t.reporting_at) AS reporting_at,
-    call_center.cc_view_timestamp(t.leaving_at) AS leaving_at,
+    t.joined_at,
+    t.offering_at,
+    t.bridged_at,
+    t.reporting_at,
+    t.leaving_at,
     t.channel,
     call_center.cc_get_lookup((t.queue_id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup(t.member_id, cm.name) AS member,
@@ -3702,12 +3510,11 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
     COALESCE(t.display, ''::character varying) AS display,
     t.destination,
     t.result,
-    cq.domain_id,
+    t.domain_id,
     t.queue_id,
     t.bucket_id,
     t.member_id,
-    t.agent_id,
-    t.joined_at AS joined_at_timestamp
+    t.agent_id
    FROM (((((((call_center.cc_member_attempt_history t
      JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))
      LEFT JOIN call_center.cc_member cm ON ((t.member_id = cm.id)))
@@ -3718,8 +3525,10 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
      LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)));
 
 
+ALTER TABLE call_center.cc_member_view_attempt_history OWNER TO opensips;
+
 --
--- Name: cc_msg_attachment; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_msg_attachment (
@@ -3730,8 +3539,10 @@ CREATE TABLE call_center.cc_msg_attachment (
 );
 
 
+ALTER TABLE call_center.cc_msg_attachment OWNER TO opensips;
+
 --
--- Name: cc_msg_attachment_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_attachment_id_seq
@@ -3742,15 +3553,17 @@ CREATE SEQUENCE call_center.cc_msg_attachment_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_attachment_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_attachment_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_attachment_id_seq OWNED BY call_center.cc_msg_attachment.id;
 
 
 --
--- Name: cc_msg_conversation; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_msg_conversation (
@@ -3766,8 +3579,10 @@ CREATE TABLE call_center.cc_msg_conversation (
 );
 
 
+ALTER TABLE call_center.cc_msg_conversation OWNER TO opensips;
+
 --
--- Name: cc_msg_conversation_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_conversation_id_seq
@@ -3778,15 +3593,17 @@ CREATE SEQUENCE call_center.cc_msg_conversation_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_conversation_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_conversation_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_conversation_id_seq OWNED BY call_center.cc_msg_conversation.id;
 
 
 --
--- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_conversation_profile_id_seq
@@ -3798,15 +3615,17 @@ CREATE SEQUENCE call_center.cc_msg_conversation_profile_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_conversation_profile_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_conversation_profile_id_seq OWNED BY call_center.cc_msg_conversation.profile_id;
 
 
 --
--- Name: cc_msg_participants; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_msg_participants; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_msg_participants (
@@ -3820,15 +3639,17 @@ CREATE TABLE call_center.cc_msg_participants (
 );
 
 
+ALTER TABLE call_center.cc_msg_participants OWNER TO opensips;
+
 --
--- Name: COLUMN cc_msg_participants.type_id; Type: COMMENT; Schema: call_center; Owner: -
+-- Name: COLUMN cc_msg_participants.type_id; Type: COMMENT; Schema: call_center; Owner: opensips
 --
 
 COMMENT ON COLUMN call_center.cc_msg_participants.type_id IS 'group/single';
 
 
 --
--- Name: cc_msg_participants_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_participants_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_participants_id_seq
@@ -3839,15 +3660,17 @@ CREATE SEQUENCE call_center.cc_msg_participants_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_participants_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_participants_id_seq OWNED BY call_center.cc_msg_participants.id;
 
 
 --
--- Name: cc_msg_post; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_msg_post; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_msg_post (
@@ -3861,8 +3684,10 @@ CREATE TABLE call_center.cc_msg_post (
 );
 
 
+ALTER TABLE call_center.cc_msg_post OWNER TO opensips;
+
 --
--- Name: cc_msg_post_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_post_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_post_id_seq
@@ -3873,15 +3698,17 @@ CREATE SEQUENCE call_center.cc_msg_post_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_post_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_post_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_post_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_post_id_seq OWNED BY call_center.cc_msg_post.id;
 
 
 --
--- Name: cc_msg_profiles; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_msg_profiles (
@@ -3893,8 +3720,10 @@ CREATE TABLE call_center.cc_msg_profiles (
 );
 
 
+ALTER TABLE call_center.cc_msg_profiles OWNER TO opensips;
+
 --
--- Name: cc_msg_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_msg_profiles_id_seq
@@ -3905,15 +3734,17 @@ CREATE SEQUENCE call_center.cc_msg_profiles_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_msg_profiles_id_seq OWNER TO opensips;
+
 --
--- Name: cc_msg_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_msg_profiles_id_seq OWNED BY call_center.cc_msg_profiles.id;
 
 
 --
--- Name: cc_outbound_resource_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource_acl (
@@ -3926,8 +3757,10 @@ CREATE TABLE call_center.cc_outbound_resource_acl (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource_acl OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_outbound_resource_acl_id_seq
@@ -3938,15 +3771,17 @@ CREATE SEQUENCE call_center.cc_outbound_resource_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_outbound_resource_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_acl_id_seq OWNED BY call_center.cc_outbound_resource_acl.id;
 
 
 --
--- Name: cc_outbound_resource_display; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource_display (
@@ -3956,8 +3791,10 @@ CREATE TABLE call_center.cc_outbound_resource_display (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource_display OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_display_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_outbound_resource_display_id_seq
@@ -3968,15 +3805,17 @@ CREATE SEQUENCE call_center.cc_outbound_resource_display_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_outbound_resource_display_id_seq OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_display_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_display_id_seq OWNED BY call_center.cc_outbound_resource_display.id;
 
 
 --
--- Name: cc_outbound_resource_group; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource_group (
@@ -3994,8 +3833,10 @@ CREATE TABLE call_center.cc_outbound_resource_group (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource_group OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_group_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource_group_acl (
@@ -4008,8 +3849,10 @@ CREATE TABLE call_center.cc_outbound_resource_group_acl (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource_group_acl OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_group_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_outbound_resource_group_acl_id_seq
@@ -4020,15 +3863,17 @@ CREATE SEQUENCE call_center.cc_outbound_resource_group_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_outbound_resource_group_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_group_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_group_acl_id_seq OWNED BY call_center.cc_outbound_resource_group_acl.id;
 
 
 --
--- Name: cc_outbound_resource_group_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_outbound_resource_group_id_seq
@@ -4039,15 +3884,17 @@ CREATE SEQUENCE call_center.cc_outbound_resource_group_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_outbound_resource_group_id_seq OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_group_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_group_id_seq OWNED BY call_center.cc_outbound_resource_group.id;
 
 
 --
--- Name: cc_outbound_resource_in_group; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_outbound_resource_in_group (
@@ -4057,8 +3904,10 @@ CREATE TABLE call_center.cc_outbound_resource_in_group (
 );
 
 
+ALTER TABLE call_center.cc_outbound_resource_in_group OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_in_group_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_outbound_resource_in_group_id_seq
@@ -4069,15 +3918,17 @@ CREATE SEQUENCE call_center.cc_outbound_resource_in_group_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_outbound_resource_in_group_id_seq OWNER TO opensips;
+
 --
--- Name: cc_outbound_resource_in_group_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_in_group_id_seq OWNED BY call_center.cc_outbound_resource_in_group.id;
 
 
 --
--- Name: cc_queue_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_queue_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_queue_acl (
@@ -4090,8 +3941,10 @@ CREATE TABLE call_center.cc_queue_acl (
 );
 
 
+ALTER TABLE call_center.cc_queue_acl OWNER TO opensips;
+
 --
--- Name: cc_queue_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_queue_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_queue_acl_id_seq
@@ -4102,15 +3955,17 @@ CREATE SEQUENCE call_center.cc_queue_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_queue_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_queue_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_queue_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_queue_acl_id_seq OWNED BY call_center.cc_queue_acl.id;
 
 
 --
--- Name: cc_queue_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_queue_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_queue_id_seq
@@ -4122,15 +3977,17 @@ CREATE SEQUENCE call_center.cc_queue_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_queue_id_seq OWNER TO opensips;
+
 --
--- Name: cc_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_queue_id_seq OWNED BY call_center.cc_queue.id;
 
 
 --
--- Name: cc_queue_statistics; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_queue_statistics; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_queue_statistics (
@@ -4143,8 +4000,10 @@ CREATE TABLE call_center.cc_queue_statistics (
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
+ALTER TABLE call_center.cc_queue_statistics OWNER TO opensips;
+
 --
--- Name: cc_queue_list; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_queue_list; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_queue_list AS
@@ -4173,10 +4032,10 @@ CREATE VIEW call_center.cc_queue_list AS
     COALESCE(ss.member_waiting, (0)::bigint) AS waiting,
     COALESCE(act.cnt, (0)::bigint) AS active
    FROM (((((((((call_center.cc_queue q
-     JOIN call_center.calendar c ON ((q.calendar_id = c.id)))
+     JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = q.updated_by)))
-     LEFT JOIN call_center.acr_routing_scheme s ON ((q.schema_id = s.id)))
+     LEFT JOIN flow.acr_routing_scheme s ON ((q.schema_id = s.id)))
      LEFT JOIN call_center.cc_list cl ON ((q.dnc_list_id = cl.id)))
      LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
      LEFT JOIN storage.media_files mf ON ((q.ringtone_id = mf.id)))
@@ -4189,8 +4048,10 @@ CREATE VIEW call_center.cc_queue_list AS
           WHERE ((a.queue_id = q.id) AND (a.leaving_at IS NULL))) act ON (true));
 
 
+ALTER TABLE call_center.cc_queue_list OWNER TO opensips;
+
 --
--- Name: cc_queue_report_general; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_queue_report_general; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_queue_report_general AS
@@ -4212,8 +4073,10 @@ SELECT
     NULL::bigint AS team_id;
 
 
+ALTER TABLE call_center.cc_queue_report_general OWNER TO opensips;
+
 --
--- Name: cc_queue_resource; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_queue_resource; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_queue_resource (
@@ -4223,8 +4086,10 @@ CREATE TABLE call_center.cc_queue_resource (
 );
 
 
+ALTER TABLE call_center.cc_queue_resource OWNER TO opensips;
+
 --
--- Name: cc_queue_resource_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_queue_resource_id_seq
@@ -4236,15 +4101,17 @@ CREATE SEQUENCE call_center.cc_queue_resource_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_queue_resource_id_seq OWNER TO opensips;
+
 --
--- Name: cc_queue_resource_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_queue_resource_id_seq OWNED BY call_center.cc_outbound_resource.id;
 
 
 --
--- Name: cc_queue_resource_id_seq1; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_id_seq1; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_queue_resource_id_seq1
@@ -4255,15 +4122,17 @@ CREATE SEQUENCE call_center.cc_queue_resource_id_seq1
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_queue_resource_id_seq1 OWNER TO opensips;
+
 --
--- Name: cc_queue_resource_id_seq1; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_id_seq1; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_queue_resource_id_seq1 OWNED BY call_center.cc_queue_resource.id;
 
 
 --
--- Name: cc_skill; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_skill; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_skill (
@@ -4274,8 +4143,10 @@ CREATE TABLE call_center.cc_skill (
 );
 
 
+ALTER TABLE call_center.cc_skill OWNER TO opensips;
+
 --
--- Name: cc_skill_in_agent; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_skill_in_agent (
@@ -4290,8 +4161,10 @@ CREATE TABLE call_center.cc_skill_in_agent (
 );
 
 
+ALTER TABLE call_center.cc_skill_in_agent OWNER TO opensips;
+
 --
--- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_skill_in_agent_id_seq
@@ -4303,15 +4176,17 @@ CREATE SEQUENCE call_center.cc_skill_in_agent_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_skill_in_agent_id_seq OWNER TO opensips;
+
 --
--- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_skill_in_agent_id_seq OWNED BY call_center.cc_skill_in_agent.id;
 
 
 --
--- Name: cc_skils_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_skils_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_skils_id_seq
@@ -4323,15 +4198,17 @@ CREATE SEQUENCE call_center.cc_skils_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_skils_id_seq OWNER TO opensips;
+
 --
--- Name: cc_skils_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_skils_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_skils_id_seq OWNED BY call_center.cc_skill.id;
 
 
 --
--- Name: cc_supervisor_in_team; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_supervisor_in_team (
@@ -4341,8 +4218,10 @@ CREATE TABLE call_center.cc_supervisor_in_team (
 );
 
 
+ALTER TABLE call_center.cc_supervisor_in_team OWNER TO opensips;
+
 --
--- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_supervisor_in_team_id_seq
@@ -4353,15 +4232,17 @@ CREATE SEQUENCE call_center.cc_supervisor_in_team_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_supervisor_in_team_id_seq OWNER TO opensips;
+
 --
--- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_supervisor_in_team_id_seq OWNED BY call_center.cc_supervisor_in_team.id;
 
 
 --
--- Name: cc_sys_agent_group_team_bucket; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_sys_agent_group_team_bucket; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_sys_agent_group_team_bucket AS
@@ -4401,8 +4282,10 @@ CREATE VIEW call_center.cc_sys_agent_group_team_bucket AS
      JOIN call_center.cc_agent a ON ((a.id = ag.agent_id)));
 
 
+ALTER TABLE call_center.cc_sys_agent_group_team_bucket OWNER TO opensips;
+
 --
--- Name: cc_sys_distribute_queue_bucket_seg; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_sys_distribute_queue_bucket_seg; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_sys_distribute_queue_bucket_seg AS
@@ -4429,8 +4312,10 @@ CREATE VIEW call_center.cc_sys_distribute_queue_bucket_seg AS
         END)::numeric > (0)::numeric));
 
 
+ALTER TABLE call_center.cc_sys_distribute_queue_bucket_seg OWNER TO opensips;
+
 --
--- Name: cc_sys_distribute_queue; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_sys_distribute_queue; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_sys_distribute_queue AS
@@ -4449,8 +4334,10 @@ CREATE VIEW call_center.cc_sys_distribute_queue AS
   ORDER BY q.domain_id, q.priority DESC, cqs.ratio DESC NULLS LAST;
 
 
+ALTER TABLE call_center.cc_sys_distribute_queue OWNER TO opensips;
+
 --
--- Name: cc_sys_queue_distribute_resources; Type: VIEW; Schema: call_center; Owner: -
+-- Name: cc_sys_queue_distribute_resources; Type: VIEW; Schema: call_center; Owner: opensips
 --
 
 CREATE VIEW call_center.cc_sys_queue_distribute_resources AS
@@ -4481,8 +4368,10 @@ CREATE VIEW call_center.cc_sys_queue_distribute_resources AS
   GROUP BY res.queue_id;
 
 
+ALTER TABLE call_center.cc_sys_queue_distribute_resources OWNER TO opensips;
+
 --
--- Name: cc_team_acl; Type: TABLE; Schema: call_center; Owner: -
+-- Name: cc_team_acl; Type: TABLE; Schema: call_center; Owner: opensips
 --
 
 CREATE TABLE call_center.cc_team_acl (
@@ -4495,8 +4384,10 @@ CREATE TABLE call_center.cc_team_acl (
 );
 
 
+ALTER TABLE call_center.cc_team_acl OWNER TO opensips;
+
 --
--- Name: cc_team_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_team_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_team_acl_id_seq
@@ -4507,15 +4398,17 @@ CREATE SEQUENCE call_center.cc_team_acl_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_team_acl_id_seq OWNER TO opensips;
+
 --
--- Name: cc_team_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_team_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_team_acl_id_seq OWNED BY call_center.cc_team_acl.id;
 
 
 --
--- Name: cc_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+-- Name: cc_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: opensips
 --
 
 CREATE SEQUENCE call_center.cc_team_id_seq
@@ -4526,369 +4419,290 @@ CREATE SEQUENCE call_center.cc_team_id_seq
     CACHE 1;
 
 
+ALTER TABLE call_center.cc_team_id_seq OWNER TO opensips;
+
 --
--- Name: cc_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+-- Name: cc_team_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: opensips
 --
 
 ALTER SEQUENCE call_center.cc_team_id_seq OWNED BY call_center.cc_team.id;
 
 
 --
--- Name: acr_jobs id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_jobs ALTER COLUMN id SET DEFAULT nextval('call_center.acr_jobs_id_seq'::regclass);
-
-
---
--- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_outbound_call_id_seq'::regclass);
-
-
---
--- Name: acr_routing_outbound_call pos; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call ALTER COLUMN pos SET DEFAULT nextval('call_center.acr_routing_outbound_call_pos_seq'::regclass);
-
-
---
--- Name: acr_routing_scheme id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_scheme ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_scheme_id_seq'::regclass);
-
-
---
--- Name: acr_routing_variables id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_variables ALTER COLUMN id SET DEFAULT nextval('call_center.acr_routing_variables_id_seq'::regclass);
-
-
---
--- Name: calendar id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar ALTER COLUMN id SET DEFAULT nextval('call_center.calendar_id_seq'::regclass);
-
-
---
--- Name: calendar_timezones id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_timezones ALTER COLUMN id SET DEFAULT nextval('call_center.calendar_timezones_id_seq'::regclass);
-
-
---
--- Name: cc_agent id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_acl_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_activity id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_activity id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_activity ALTER COLUMN id SET DEFAULT nextval('call_center.agent_statistic_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_attempt id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_attempt ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_attempt_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_in_team id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_in_team_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_missed_attempt id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_missed_attempt ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_missed_attempt_id_seq'::regclass);
 
 
 --
--- Name: cc_agent_state_history id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_state_history ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_history_id_seq'::regclass);
 
 
 --
--- Name: cc_bucket id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_bucket id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket ALTER COLUMN id SET DEFAULT nextval('call_center.cc_bucket_id_seq'::regclass);
 
 
 --
--- Name: cc_bucket_in_queue id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_in_queue ALTER COLUMN id SET DEFAULT nextval('call_center.cc_bucket_in_queue_id_seq'::regclass);
 
 
 --
--- Name: cc_cluster id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_cluster id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_cluster ALTER COLUMN id SET DEFAULT nextval('call_center.cc_cluster_id_seq'::regclass);
 
 
 --
--- Name: cc_communication id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_communication id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_communication ALTER COLUMN id SET DEFAULT nextval('call_center.cc_communication_id_seq'::regclass);
 
 
 --
--- Name: cc_email id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_email id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email ALTER COLUMN id SET DEFAULT nextval('call_center.cc_email_id_seq'::regclass);
 
 
 --
--- Name: cc_email_profile id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_email_profile id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile ALTER COLUMN id SET DEFAULT nextval('call_center.cc_email_profiles_id_seq'::regclass);
 
 
 --
--- Name: cc_list id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_list id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list ALTER COLUMN id SET DEFAULT nextval('call_center.cc_call_list_id_seq'::regclass);
 
 
 --
--- Name: cc_list_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_list_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_list_acl_id_seq'::regclass);
 
 
 --
--- Name: cc_list_communications id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_list_communications id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_communications ALTER COLUMN id SET DEFAULT nextval('call_center.cc_list_communications_id_seq'::regclass);
 
 
 --
--- Name: cc_member id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_member id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN id SET DEFAULT nextval('call_center.cc_member_id_seq'::regclass);
 
 
 --
--- Name: cc_member_attempt id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt ALTER COLUMN id SET DEFAULT nextval('call_center.cc_member_attempt_id_seq'::regclass);
 
 
 --
--- Name: cc_member_messages id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_member_messages id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_messages ALTER COLUMN id SET DEFAULT nextval('call_center.cc_member_messages_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_attachment id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_attachment ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_attachment_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_conversation id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_conversation_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_conversation profile_id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation profile_id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN profile_id SET DEFAULT nextval('call_center.cc_msg_conversation_profile_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_participants id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_participants id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_participants ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_participants_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_post id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_post id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_post ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_post_id_seq'::regclass);
 
 
 --
--- Name: cc_msg_profiles id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_profiles ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_profiles_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_resource_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_outbound_resource_acl_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource_display id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_display ALTER COLUMN id SET DEFAULT nextval('call_center.cc_outbound_resource_display_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource_group id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group ALTER COLUMN id SET DEFAULT nextval('call_center.cc_outbound_resource_group_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource_group_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_outbound_resource_group_acl_id_seq'::regclass);
 
 
 --
--- Name: cc_outbound_resource_in_group id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group ALTER COLUMN id SET DEFAULT nextval('call_center.cc_outbound_resource_in_group_id_seq'::regclass);
 
 
 --
--- Name: cc_queue id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_queue id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_id_seq'::regclass);
 
 
 --
--- Name: cc_queue_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_acl_id_seq'::regclass);
 
 
 --
--- Name: cc_queue_resource id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_queue_resource id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource ALTER COLUMN id SET DEFAULT nextval('call_center.cc_queue_resource_id_seq1'::regclass);
 
 
 --
--- Name: cc_skill id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_skill id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skils_id_seq'::regclass);
 
 
 --
--- Name: cc_skill_in_agent id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skill_in_agent_id_seq'::regclass);
 
 
 --
--- Name: cc_supervisor_in_team id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_supervisor_in_team ALTER COLUMN id SET DEFAULT nextval('call_center.cc_supervisor_in_team_id_seq'::regclass);
 
 
 --
--- Name: cc_team id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_team id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_id_seq'::regclass);
 
 
 --
--- Name: cc_team_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_team_acl id; Type: DEFAULT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_acl_id_seq'::regclass);
 
 
 --
--- Name: acr_jobs acr_jobs_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_jobs
-    ADD CONSTRAINT acr_jobs_pk PRIMARY KEY (id);
-
-
---
--- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_pk PRIMARY KEY (id);
-
-
---
--- Name: acr_routing_scheme acr_routing_scheme_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_pk PRIMARY KEY (id);
-
-
---
--- Name: acr_routing_variables acr_routing_variables_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_variables
-    ADD CONSTRAINT acr_routing_variables_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_agent_activity agent_statistic_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_activity agent_statistic_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_activity
@@ -4896,23 +4710,7 @@ ALTER TABLE ONLY call_center.cc_agent_activity
 
 
 --
--- Name: calendar calendar_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar
-    ADD CONSTRAINT calendar_pkey PRIMARY KEY (id);
-
-
---
--- Name: calendar_timezones calendar_timezones_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_timezones
-    ADD CONSTRAINT calendar_timezones_pk PRIMARY KEY (name);
-
-
---
--- Name: cc_agent_acl cc_agent_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -4920,7 +4718,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_attempt cc_agent_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt cc_agent_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_attempt
@@ -4928,7 +4726,7 @@ ALTER TABLE ONLY call_center.cc_agent_attempt
 
 
 --
--- Name: cc_agent_channel cc_agent_channels_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_channel cc_agent_channels_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_channel
@@ -4936,7 +4734,7 @@ ALTER TABLE ONLY call_center.cc_agent_channel
 
 
 --
--- Name: cc_agent_in_team cc_agent_in_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team cc_agent_in_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
@@ -4944,7 +4742,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 
 
 --
--- Name: cc_agent_missed_attempt cc_agent_missed_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt cc_agent_missed_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_missed_attempt
@@ -4952,7 +4750,7 @@ ALTER TABLE ONLY call_center.cc_agent_missed_attempt
 
 
 --
--- Name: cc_agent cc_agent_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent
@@ -4960,7 +4758,7 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
--- Name: cc_agent_state_history cc_agent_status_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history cc_agent_status_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_state_history
@@ -4968,7 +4766,7 @@ ALTER TABLE ONLY call_center.cc_agent_state_history
 
 
 --
--- Name: cc_bucket_in_queue cc_bucket_in_queue_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue cc_bucket_in_queue_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_in_queue
@@ -4976,7 +4774,7 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue
 
 
 --
--- Name: cc_bucket cc_bucket_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
@@ -4984,7 +4782,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 
 --
--- Name: cc_list cc_call_list_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list cc_call_list_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list
@@ -4992,7 +4790,7 @@ ALTER TABLE ONLY call_center.cc_list
 
 
 --
--- Name: cc_calls_history cc_calls_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls_history cc_calls_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
@@ -5000,7 +4798,7 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_calls cc_calls_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls cc_calls_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls
@@ -5008,7 +4806,7 @@ ALTER TABLE ONLY call_center.cc_calls
 
 
 --
--- Name: cc_cluster cc_cluster_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_cluster cc_cluster_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_cluster
@@ -5016,7 +4814,7 @@ ALTER TABLE ONLY call_center.cc_cluster
 
 
 --
--- Name: cc_communication cc_communication_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_communication cc_communication_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_communication
@@ -5024,7 +4822,7 @@ ALTER TABLE ONLY call_center.cc_communication
 
 
 --
--- Name: cc_email cc_email_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email cc_email_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email
@@ -5032,7 +4830,7 @@ ALTER TABLE ONLY call_center.cc_email
 
 
 --
--- Name: cc_email_profile cc_email_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email_profile cc_email_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile
@@ -5040,7 +4838,7 @@ ALTER TABLE ONLY call_center.cc_email_profile
 
 
 --
--- Name: cc_list_acl cc_list_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -5048,7 +4846,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_communications cc_list_communications_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_communications cc_list_communications_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_communications
@@ -5056,7 +4854,7 @@ ALTER TABLE ONLY call_center.cc_list_communications
 
 
 --
--- Name: cc_list_statistics cc_list_statistics_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_statistics cc_list_statistics_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_statistics
@@ -5064,7 +4862,7 @@ ALTER TABLE ONLY call_center.cc_list_statistics
 
 
 --
--- Name: cc_member_attempt_history cc_member_attempt_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history cc_member_attempt_history_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_history
@@ -5072,7 +4870,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt_history
 
 
 --
--- Name: cc_member_attempt_log cc_member_attempt_log_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log cc_member_attempt_log_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_log
@@ -5080,7 +4878,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt_log
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
@@ -5088,7 +4886,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
--- Name: cc_member_messages cc_member_messages_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_messages cc_member_messages_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_messages
@@ -5096,7 +4894,7 @@ ALTER TABLE ONLY call_center.cc_member_messages
 
 
 --
--- Name: cc_member cc_member_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member
@@ -5104,7 +4902,7 @@ ALTER TABLE ONLY call_center.cc_member
 
 
 --
--- Name: cc_msg_attachment cc_msg_attachment_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment cc_msg_attachment_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_attachment
@@ -5112,7 +4910,7 @@ ALTER TABLE ONLY call_center.cc_msg_attachment
 
 
 --
--- Name: cc_msg_conversation cc_msg_conversation_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation cc_msg_conversation_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_conversation
@@ -5120,7 +4918,7 @@ ALTER TABLE ONLY call_center.cc_msg_conversation
 
 
 --
--- Name: cc_msg_participants cc_msg_participants_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_participants cc_msg_participants_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_participants
@@ -5128,7 +4926,7 @@ ALTER TABLE ONLY call_center.cc_msg_participants
 
 
 --
--- Name: cc_msg_post cc_msg_post_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_post cc_msg_post_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_post
@@ -5136,7 +4934,7 @@ ALTER TABLE ONLY call_center.cc_msg_post
 
 
 --
--- Name: cc_msg_profiles cc_msg_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles cc_msg_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_profiles
@@ -5144,7 +4942,7 @@ ALTER TABLE ONLY call_center.cc_msg_profiles
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -5152,7 +4950,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_display cc_outbound_resource_display_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display cc_outbound_resource_display_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_display
@@ -5160,7 +4958,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_display
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -5168,7 +4966,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group
@@ -5176,7 +4974,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
--- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
@@ -5184,7 +4982,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -5192,7 +4990,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue cc_queue_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -5200,7 +4998,7 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_queue_resource cc_queue_resource_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_resource cc_queue_resource_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource
@@ -5208,7 +5006,7 @@ ALTER TABLE ONLY call_center.cc_queue_resource
 
 
 --
--- Name: cc_outbound_resource cc_queue_resource_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_queue_resource_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -5216,7 +5014,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_queue_statistics cc_queue_statistics_pk_queue_id_bucket_id_skill_id; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_statistics cc_queue_statistics_pk_queue_id_bucket_id_skill_id; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_statistics
@@ -5224,7 +5022,7 @@ ALTER TABLE ONLY call_center.cc_queue_statistics
 
 
 --
--- Name: cc_skill_in_agent cc_skill_in_agent_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent cc_skill_in_agent_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
@@ -5232,7 +5030,7 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skill cc_skils_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill cc_skils_pkey; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill
@@ -5240,7 +5038,7 @@ ALTER TABLE ONLY call_center.cc_skill
 
 
 --
--- Name: cc_supervisor_in_team cc_supervisor_in_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_supervisor_in_team
@@ -5248,7 +5046,7 @@ ALTER TABLE ONLY call_center.cc_supervisor_in_team
 
 
 --
--- Name: cc_team_acl cc_team_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -5256,7 +5054,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team cc_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team cc_team_pk; Type: CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team
@@ -5264,1015 +5062,884 @@ ALTER TABLE ONLY call_center.cc_team
 
 
 --
--- Name: acr_jobs_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX acr_jobs_id_uindex ON call_center.acr_jobs USING btree (id);
-
-
---
--- Name: acr_routing_outbound_call_created_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX acr_routing_outbound_call_created_by_index ON call_center.acr_routing_outbound_call USING btree (created_by);
-
-
---
--- Name: acr_routing_outbound_call_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX acr_routing_outbound_call_domain_id_name_uindex ON call_center.acr_routing_outbound_call USING btree (domain_id, name);
-
-
---
--- Name: acr_routing_outbound_call_pattern; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX acr_routing_outbound_call_pattern ON call_center.acr_routing_outbound_call USING btree (domain_id, pos DESC) INCLUDE (id, name, pattern, scheme_id) WHERE (NOT disabled);
-
-
---
--- Name: acr_routing_outbound_call_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX acr_routing_outbound_call_updated_by_index ON call_center.acr_routing_outbound_call USING btree (updated_by);
-
-
---
--- Name: acr_routing_scheme_created_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX acr_routing_scheme_created_by_index ON call_center.acr_routing_scheme USING btree (created_by);
-
-
---
--- Name: acr_routing_scheme_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX acr_routing_scheme_domain_id_name_uindex ON call_center.acr_routing_scheme USING btree (domain_id, name);
-
-
---
--- Name: acr_routing_scheme_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX acr_routing_scheme_updated_by_index ON call_center.acr_routing_scheme USING btree (updated_by);
-
-
---
--- Name: acr_routing_variables_domain_id_key_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX acr_routing_variables_domain_id_key_uindex ON call_center.acr_routing_variables USING btree (domain_id, key);
-
-
---
--- Name: agent_statistic_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: agent_statistic_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX agent_statistic_id_uindex ON call_center.cc_agent_activity USING btree (id);
 
 
 --
--- Name: calendar_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX calendar_acl_grantor_idx ON call_center.calendar_acl USING btree (grantor);
-
-
---
--- Name: calendar_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_acl_object_subject_udx ON call_center.calendar_acl USING btree (object, subject) INCLUDE (access);
-
-
---
--- Name: calendar_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_acl_subject_object_udx ON call_center.calendar_acl USING btree (subject, object) INCLUDE (access);
-
-
---
--- Name: calendar_created_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX calendar_created_by_index ON call_center.calendar USING btree (created_by);
-
-
---
--- Name: calendar_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_domain_id_name_uindex ON call_center.calendar USING btree (domain_id, name);
-
-
---
--- Name: calendar_domain_udx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_domain_udx ON call_center.calendar USING btree (id, domain_id);
-
-
---
--- Name: calendar_timezones_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_timezones_id_uindex ON call_center.calendar_timezones USING btree (id);
-
-
---
--- Name: calendar_timezones_name_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_timezones_name_uindex ON call_center.calendar_timezones USING btree (name);
-
-
---
--- Name: calendar_timezones_utc_offset_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX calendar_timezones_utc_offset_index ON call_center.calendar_timezones USING btree (id, utc_offset, name);
-
-
---
--- Name: calendar_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX calendar_updated_by_index ON call_center.calendar USING btree (updated_by);
-
-
---
--- Name: cc_agent_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_acl_grantor_idx ON call_center.cc_agent_acl USING btree (grantor);
 
 
 --
--- Name: cc_agent_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_acl_object_subject_udx ON call_center.cc_agent_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_agent_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_acl_subject_object_udx ON call_center.cc_agent_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_agent_activity_agent_id_last_offering_call_at_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_activity_agent_id_last_offering_call_at_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_activity_agent_id_last_offering_call_at_uindex ON call_center.cc_agent_activity USING btree (agent_id, last_offering_call_at);
 
 
 --
--- Name: cc_agent_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_attempt_id_uindex ON call_center.cc_agent_attempt USING btree (id);
 
 
 --
--- Name: cc_agent_channel_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_channel_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_channel_agent_id_index ON call_center.cc_agent_channel USING btree (agent_id);
 
 
 --
--- Name: cc_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_created_by_index ON call_center.cc_agent USING btree (created_by);
 
 
 --
--- Name: cc_agent_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_domain_id_index ON call_center.cc_agent USING btree (domain_id);
 
 
 --
--- Name: cc_agent_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id, domain_id);
 
 
 --
--- Name: cc_agent_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_in_team_agent_id_index ON call_center.cc_agent_in_team USING btree (agent_id);
 
 
 --
--- Name: cc_agent_in_team_skill_id_team_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_skill_id_team_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_in_team_skill_id_team_id_uindex ON call_center.cc_agent_in_team USING btree (skill_id, team_id);
 
 
 --
--- Name: cc_agent_in_team_team_id_agent_id_skill_id_lvl_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_team_id_agent_id_skill_id_lvl_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_in_team_team_id_agent_id_skill_id_lvl_uindex ON call_center.cc_agent_in_team USING btree (team_id, agent_id, skill_id, lvl DESC);
 
 
 --
--- Name: cc_agent_in_team_team_id_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_team_id_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_in_team_team_id_agent_id_uindex ON call_center.cc_agent_in_team USING btree (team_id, agent_id);
 
 
 --
--- Name: cc_agent_in_team_team_id_lvl_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_team_id_lvl_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_in_team_team_id_lvl_index ON call_center.cc_agent_in_team USING btree (team_id, lvl DESC);
 
 
 --
--- Name: cc_agent_last_2hour_calls_mat_agent_id_adx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_last_2hour_calls_mat_agent_id_adx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_last_2hour_calls_mat_agent_id_adx ON call_center.cc_agent_last_2hour_calls_mat USING btree (id);
 
 
 --
--- Name: cc_agent_missed_attempt_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_missed_attempt_agent_id_index ON call_center.cc_agent_missed_attempt USING btree (agent_id);
 
 
 --
--- Name: cc_agent_missed_attempt_attempt_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt_attempt_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_missed_attempt_attempt_id_index ON call_center.cc_agent_missed_attempt USING btree (attempt_id);
 
 
 --
--- Name: cc_agent_missed_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_missed_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_missed_attempt_id_uindex ON call_center.cc_agent_missed_attempt USING btree (id);
 
 
 --
--- Name: cc_agent_state_history_joined_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history_joined_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_agent_state_history USING btree (channel, joined_at DESC) INCLUDE (agent_id, state);
 
 
 --
--- Name: cc_agent_state_timeout_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_agent_state_timeout_index ON call_center.cc_agent USING btree (state_timeout);
-
-
---
--- Name: cc_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_agent_updated_by_index ON call_center.cc_agent USING btree (updated_by);
 
 
 --
--- Name: cc_agent_user_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_user_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_agent_user_id_uindex ON call_center.cc_agent USING btree (user_id);
 
 
 --
--- Name: cc_bucket_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_bucket_acl_grantor_idx ON call_center.cc_bucket_acl USING btree (grantor);
 
 
 --
--- Name: cc_bucket_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_bucket_acl_object_subject_udx ON call_center.cc_bucket_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_bucket_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_bucket_acl_subject_object_udx ON call_center.cc_bucket_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_bucket_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_bucket_created_by_index ON call_center.cc_bucket USING btree (created_by);
 
 
 --
--- Name: cc_bucket_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_bucket_domain_id_name_uindex ON call_center.cc_bucket USING btree (domain_id, name);
 
 
 --
--- Name: cc_bucket_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_bucket_domain_udx ON call_center.cc_bucket USING btree (id, domain_id);
 
 
 --
--- Name: cc_bucket_in_queue_bucket_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue_bucket_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_bucket_in_queue_bucket_id_index ON call_center.cc_bucket_in_queue USING btree (bucket_id);
 
 
 --
--- Name: cc_bucket_in_queue_queue_id_bucket_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue_queue_id_bucket_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_bucket_in_queue_queue_id_bucket_id_uindex ON call_center.cc_bucket_in_queue USING btree (queue_id, bucket_id);
 
 
 --
--- Name: cc_bucket_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_bucket_updated_by_index ON call_center.cc_bucket USING btree (updated_by);
 
 
 --
--- Name: cc_calls_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_agent_id_index ON call_center.cc_calls_history USING btree (agent_id);
 
 
 --
--- Name: cc_calls_history_created_at2_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_calls_history_created_at2_index ON call_center.cc_calls_history USING btree (created_at2 DESC);
-
-
---
--- Name: cc_calls_history_destination_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_destination_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_destination_idx ON call_center.cc_calls_history USING gin (domain_id, destination gin_trgm_ops);
 
 
 --
--- Name: cc_calls_history_domain_id_created_at_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_dev_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
-CREATE INDEX cc_calls_history_domain_id_created_at_index ON call_center.cc_calls_history USING btree (domain_id, created_at DESC NULLS LAST);
+CREATE INDEX cc_calls_history_dev_idx ON call_center.cc_calls_history USING btree (hangup_at DESC, parent_id);
 
 
 --
--- Name: cc_calls_history_from_number_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_domain_id_created_at_index; Type: INDEX; Schema: call_center; Owner: opensips
+--
+
+CREATE INDEX cc_calls_history_domain_id_created_at_index ON call_center.cc_calls_history USING btree (domain_id, created_at DESC);
+
+
+--
+-- Name: cc_calls_history_domain_id_store_at_index; Type: INDEX; Schema: call_center; Owner: opensips
+--
+
+CREATE INDEX cc_calls_history_domain_id_store_at_index ON call_center.cc_calls_history USING btree (domain_id, stored_at DESC);
+
+
+--
+-- Name: cc_calls_history_from_number_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_from_number_idx ON call_center.cc_calls_history USING gin (domain_id, from_number gin_trgm_ops);
 
 
 --
--- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_member_id_index ON call_center.cc_calls_history USING btree (member_id);
 
 
 --
--- Name: cc_calls_history_parent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_parent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_parent_id_index ON call_center.cc_calls_history USING btree (parent_id);
 
 
 --
--- Name: cc_calls_history_queue_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_queue_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_queue_id_index ON call_center.cc_calls_history USING btree (queue_id);
 
 
 --
--- Name: cc_calls_history_team_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_team_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_team_id_index ON call_center.cc_calls_history USING btree (team_id);
 
 
 --
--- Name: cc_calls_history_to_number_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_to_number_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_to_number_idx ON call_center.cc_calls_history USING gin (domain_id, to_number gin_trgm_ops);
 
 
 --
--- Name: cc_calls_history_user_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_calls_history_user_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_calls_history_user_id_index ON call_center.cc_calls_history USING btree (user_id);
 
 
 --
--- Name: cc_cluster_node_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_cluster_node_name_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_cluster_node_name_uindex ON call_center.cc_cluster USING btree (node_name);
 
 
 --
--- Name: cc_communication_code_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_communication_code_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_communication_code_domain_id_uindex ON call_center.cc_communication USING btree (code, domain_id);
 
 
 --
--- Name: cc_communication_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_communication_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_communication_domain_id_index ON call_center.cc_communication USING btree (domain_id);
 
 
 --
--- Name: cc_email_profile_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_email_profile_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_email_profile_domain_id_index ON call_center.cc_email_profile USING btree (domain_id);
 
 
 --
--- Name: cc_list_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_list_acl_grantor_idx ON call_center.cc_list_acl USING btree (grantor);
 
 
 --
--- Name: cc_list_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_list_acl_object_subject_udx ON call_center.cc_list_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_list_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_list_acl_subject_object_udx ON call_center.cc_list_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_list_communications_list_id_number_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_communications_list_id_number_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_list_communications_list_id_number_uindex ON call_center.cc_list_communications USING btree (list_id, number);
 
 
 --
--- Name: cc_list_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_list_created_by_index ON call_center.cc_list USING btree (created_by);
 
 
 --
--- Name: cc_list_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_list_domain_id_index ON call_center.cc_list USING btree (domain_id);
 
 
 --
--- Name: cc_list_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_list_domain_udx ON call_center.cc_list USING btree (id, domain_id);
 
 
 --
--- Name: cc_list_statistics_list_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_statistics_list_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_list_statistics_list_id_uindex ON call_center.cc_list_statistics USING btree (list_id);
 
 
 --
--- Name: cc_list_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_list_updated_by_index ON call_center.cc_list USING btree (updated_by);
 
 
 --
--- Name: cc_member_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_agent_id_index ON call_center.cc_member USING btree (agent_id);
 
 
 --
--- Name: cc_member_attempt_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_attempt_history USING btree (agent_id);
 
 
 --
--- Name: cc_member_attempt_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history_member_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_history_member_id_index ON call_center.cc_member_attempt_history USING btree (member_id);
 
 
 --
--- Name: cc_member_attempt_history_queue_id_leaving_at_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history_queue_id_leaving_at_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_history_queue_id_leaving_at_index ON call_center.cc_member_attempt_history USING btree (queue_id, leaving_at DESC);
 
 
 --
--- Name: cc_member_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_member_attempt_id_uindex ON call_center.cc_member_attempt USING btree (id);
 
 
 --
--- Name: cc_member_attempt_log_created_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_created_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_log_created_at_agent_id_index ON call_center.cc_member_attempt_log USING btree (created_at DESC, agent_id) WHERE (agent_id IS NOT NULL);
 
 
 --
--- Name: cc_member_attempt_log_created_at_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_created_at_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_member_attempt_log_created_at_agent_id_uindex ON call_center.cc_member_attempt_log USING btree (created_at DESC, agent_id);
 
 
 --
--- Name: cc_member_attempt_log_created_at_queue_id_bucket_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_created_at_queue_id_bucket_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_log_created_at_queue_id_bucket_id_index ON call_center.cc_member_attempt_log USING btree (queue_id, COALESCE(bucket_id, (0)::bigint), created_at DESC);
 
 
 --
--- Name: cc_member_attempt_log_hangup_at_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_hangup_at_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_log_hangup_at_index ON call_center.cc_member_attempt_log USING btree (hangup_at DESC);
 
 
 --
--- Name: cc_member_attempt_log_member_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_member_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_log_member_id_index ON call_center.cc_member_attempt_log USING btree (member_id);
 
 
 --
--- Name: cc_member_attempt_log_queue_id_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log_queue_id_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_log_queue_id_idx ON call_center.cc_member_attempt_log USING btree (queue_id);
 
 
 --
--- Name: cc_member_attempt_member_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_member_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_member_id_index ON call_center.cc_member_attempt USING btree (member_id);
 
 
 --
--- Name: cc_member_attempt_queue_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_queue_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt USING btree (queue_id);
 
 
 --
--- Name: cc_member_distribute_check_sys_offset_id; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_distribute_check_sys_offset_id; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_distribute_check_sys_offset_id ON call_center.cc_member USING btree (queue_id, bucket_id, sys_offset_id);
 
 
 --
--- Name: cc_member_messages_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_messages_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_member_messages_id_uindex ON call_center.cc_member_messages USING btree (id);
 
 
 --
--- Name: cc_member_queue_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_queue_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_queue_id_index ON call_center.cc_member USING btree (queue_id);
 
 
 --
--- Name: cc_member_search_destination_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_search_destination_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_search_destination_idx ON call_center.cc_member USING gin (domain_id, communications jsonb_path_ops);
 
 
 --
--- Name: cc_member_sens_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_sens_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_member_sens_idx ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id) WHERE (stop_at = 0);
 
 
 --
--- Name: cc_msg_conversation_activity_at_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_activity_at_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_msg_conversation_activity_at_index ON call_center.cc_msg_conversation USING btree (activity_at DESC);
 
 
 --
--- Name: cc_msg_conversation_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_msg_conversation_domain_id_index ON call_center.cc_msg_conversation USING btree (domain_id);
 
 
 --
--- Name: cc_msg_participants_channel_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_participants_channel_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_msg_participants_channel_id_uindex ON call_center.cc_msg_participants USING btree (channel_id);
 
 
 --
--- Name: cc_msg_participants_conversation_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_participants_conversation_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_msg_participants_conversation_id_index ON call_center.cc_msg_participants USING btree (conversation_id);
 
 
 --
--- Name: cc_msg_post_conversation_id_posted_at_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_post_conversation_id_posted_at_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_msg_post_conversation_id_posted_at_index ON call_center.cc_msg_post USING btree (conversation_id, posted_at DESC);
 
 
 --
--- Name: cc_msg_profiles_secret_key_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_msg_profiles_secret_key_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_msg_profiles_secret_key_uindex ON call_center.cc_msg_profiles USING btree (secret_key);
 
 
 --
--- Name: cc_outbound_resource_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_acl_grantor_idx ON call_center.cc_outbound_resource_acl USING btree (grantor);
 
 
 --
--- Name: cc_outbound_resource_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_acl_object_subject_udx ON call_center.cc_outbound_resource_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_outbound_resource_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_acl_subject_object_udx ON call_center.cc_outbound_resource_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_outbound_resource_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_created_by_index ON call_center.cc_outbound_resource USING btree (created_by);
 
 
 --
--- Name: cc_outbound_resource_display_resource_id_display_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display_resource_id_display_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_display_resource_id_display_uindex ON call_center.cc_outbound_resource_display USING btree (resource_id, display);
 
 
 --
--- Name: cc_outbound_resource_display_resource_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display_resource_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_display_resource_id_index ON call_center.cc_outbound_resource_display USING btree (resource_id);
 
 
 --
--- Name: cc_outbound_resource_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_domain_id_index ON call_center.cc_outbound_resource USING btree (domain_id);
 
 
 --
--- Name: cc_outbound_resource_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_domain_udx ON call_center.cc_outbound_resource USING btree (id, domain_id);
 
 
 --
--- Name: cc_outbound_resource_gateway_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_gateway_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_gateway_id_uindex ON call_center.cc_outbound_resource USING btree (gateway_id);
 
 
 --
--- Name: cc_outbound_resource_group_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_group_acl_grantor_idx ON call_center.cc_outbound_resource_group_acl USING btree (grantor);
 
 
 --
--- Name: cc_outbound_resource_group_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_acl_object_subject_udx ON call_center.cc_outbound_resource_group_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_outbound_resource_group_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_acl_subject_object_udx ON call_center.cc_outbound_resource_group_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_outbound_resource_group_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_group_created_by_index ON call_center.cc_outbound_resource_group USING btree (created_by);
 
 
 --
--- Name: cc_outbound_resource_group_distr_res_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_distr_res_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_distr_res_idx ON call_center.cc_outbound_resource_group USING btree (id, domain_id) INCLUDE (name);
 
 
 --
--- Name: cc_outbound_resource_group_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_group_domain_id_index ON call_center.cc_outbound_resource_group USING btree (domain_id);
 
 
 --
--- Name: cc_outbound_resource_group_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_domain_udx ON call_center.cc_outbound_resource_group USING btree (id, domain_id);
 
 
 --
--- Name: cc_outbound_resource_group_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_group_updated_by_index ON call_center.cc_outbound_resource_group USING btree (updated_by);
 
 
 --
--- Name: cc_outbound_resource_in_group_group_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group_group_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_in_group_group_id_index ON call_center.cc_outbound_resource_in_group USING btree (group_id);
 
 
 --
--- Name: cc_outbound_resource_in_group_resource_id_group_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group_resource_id_group_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_in_group_resource_id_group_id_uindex ON call_center.cc_outbound_resource_in_group USING btree (resource_id, group_id);
 
 
 --
--- Name: cc_outbound_resource_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_outbound_resource_updated_by_index ON call_center.cc_outbound_resource USING btree (updated_by);
 
 
 --
--- Name: cc_queue_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_queue_acl_grantor_idx ON call_center.cc_queue_acl USING btree (grantor);
 
 
 --
--- Name: cc_queue_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_queue_acl_object_subject_udx ON call_center.cc_queue_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_queue_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_queue_acl_subject_object_udx ON call_center.cc_queue_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_queue_distribute_res_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_distribute_res_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_queue_distribute_res_idx ON call_center.cc_queue USING btree (domain_id, priority DESC) INCLUDE (id, name, calendar_id, type) WHERE (enabled IS TRUE);
 
 
 --
--- Name: cc_queue_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_queue_domain_udx ON call_center.cc_queue USING btree (id, domain_id);
 
 
 --
--- Name: cc_queue_enabled_priority_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_enabled_priority_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_queue_enabled_priority_index ON call_center.cc_queue USING btree (enabled, priority DESC);
 
 
 --
--- Name: cc_queue_id_priority_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_id_priority_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_queue_id_priority_uindex ON call_center.cc_queue USING btree (priority, sec_locate_agent, updated_at);
 
 
 --
--- Name: cc_queue_resource_queue_id_resource_group_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_queue_id_resource_group_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_queue_resource_queue_id_resource_group_id_uindex ON call_center.cc_queue_resource USING btree (queue_id, resource_group_id);
 
 
 --
--- Name: cc_queue_resource_resource_group_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_resource_resource_group_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_queue_resource_resource_group_id_index ON call_center.cc_queue_resource USING btree (resource_group_id);
 
 
 --
--- Name: cc_queue_statistics_queue_id_bucket_id_skill_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_statistics_queue_id_bucket_id_skill_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON call_center.cc_queue_statistics USING btree (queue_id, COALESCE(bucket_id, (0)::bigint), COALESCE(skill_id, 0));
 
 
 --
--- Name: cc_skill_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_domain_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_skill_domain_id_index ON call_center.cc_skill USING btree (domain_id);
 
 
 --
--- Name: cc_skill_in_agent_agent_id_skill_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_agent_id_skill_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_skill_in_agent_agent_id_skill_id_uindex ON call_center.cc_skill_in_agent USING btree (agent_id, skill_id);
 
 
 --
--- Name: cc_skill_in_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_skill_in_agent_created_by_index ON call_center.cc_skill_in_agent USING btree (created_by);
 
 
 --
--- Name: cc_skill_in_agent_skill_id_agent_id_capacity_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_skill_id_agent_id_capacity_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_center.cc_skill_in_agent USING btree (skill_id, agent_id, capacity DESC);
 
 
 --
--- Name: cc_skill_in_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_skill_in_agent_updated_by_index ON call_center.cc_skill_in_agent USING btree (updated_by);
 
 
 --
--- Name: cc_supervisor_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_supervisor_in_team_agent_id_index ON call_center.cc_supervisor_in_team USING btree (agent_id);
 
 
 --
--- Name: cc_supervisor_in_team_team_id_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team_team_id_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_supervisor_in_team_team_id_agent_id_uindex ON call_center.cc_supervisor_in_team USING btree (team_id, agent_id);
 
 
 --
--- Name: cc_team_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_team_acl_grantor_idx ON call_center.cc_team_acl USING btree (grantor);
 
 
 --
--- Name: cc_team_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_team_acl_object_subject_udx ON call_center.cc_team_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
--- Name: cc_team_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_team_acl_subject_object_udx ON call_center.cc_team_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
--- Name: cc_team_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_created_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_team_created_by_index ON call_center.cc_team USING btree (created_by);
 
 
 --
--- Name: cc_team_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_team_domain_id_name_uindex ON call_center.cc_team USING btree (domain_id, name);
 
 
 --
--- Name: cc_team_domain_udx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_domain_udx; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE UNIQUE INDEX cc_team_domain_udx ON call_center.cc_team USING btree (id, domain_id);
 
 
 --
--- Name: cc_team_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_updated_by_index; Type: INDEX; Schema: call_center; Owner: opensips
 --
 
 CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (updated_by);
 
 
 --
--- Name: cc_member_timezone_stats; Type: STATISTICS; Schema: call_center; Owner: -
+-- Name: cc_member_timezone_stats; Type: STATISTICS; Schema: call_center; Owner: opensips
 --
 
 CREATE STATISTICS call_center.cc_member_timezone_stats (dependencies) ON queue_id, "offset" FROM call_center.cc_member;
 
 
+ALTER STATISTICS call_center.cc_member_timezone_stats OWNER TO opensips;
+
 --
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: opensips
 --
 
 CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
@@ -6302,320 +5969,161 @@ CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
 
 
 --
--- Name: calendar calendar_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
---
-
-CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON call_center.calendar FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('calendar_acl');
-
-
---
--- Name: cc_agent cc_agent_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_agent_set_rbac_acl AFTER INSERT ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_agent_acl');
 
 
 --
--- Name: cc_bucket cc_bucket_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_bucket_set_rbac_acl AFTER INSERT ON call_center.cc_bucket FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_bucket_acl');
 
 
 --
--- Name: cc_calls cc_calls_set_timing_trigger_updated; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_calls cc_calls_set_timing_trigger_updated; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_calls_set_timing_trigger_updated BEFORE INSERT OR UPDATE ON call_center.cc_calls FOR EACH ROW EXECUTE FUNCTION call_center.cc_calls_set_timing();
 
 
 --
--- Name: cc_list cc_list_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_list cc_list_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_list_set_rbac_acl AFTER INSERT ON call_center.cc_list FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_list_acl');
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_dev_tg; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_dev_tg; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_attempt_dev_tg AFTER DELETE ON call_center.cc_member_attempt FOR EACH ROW EXECUTE FUNCTION call_center.cc_member_attempt_dev_tgf();
 
 
 --
--- Name: cc_member cc_member_set_sys_destinations_insert; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_set_sys_destinations_insert; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_set_sys_destinations_insert BEFORE INSERT ON call_center.cc_member FOR EACH ROW EXECUTE FUNCTION call_center.cc_member_set_sys_destinations_tg();
 
 
 --
--- Name: cc_member cc_member_set_sys_destinations_update; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_set_sys_destinations_update; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_set_sys_destinations_update BEFORE UPDATE ON call_center.cc_member FOR EACH ROW WHEN ((new.communications <> old.communications)) EXECUTE FUNCTION call_center.cc_member_set_sys_destinations_tg();
 
 
 --
--- Name: cc_member cc_member_statistic_trigger_deleted; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_statistic_trigger_deleted; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_statistic_trigger_deleted AFTER DELETE ON call_center.cc_member REFERENCING OLD TABLE AS deleted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_trigger_deleted();
 
 
 --
--- Name: cc_member cc_member_statistic_trigger_inserted; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_statistic_trigger_inserted; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_statistic_trigger_inserted AFTER INSERT ON call_center.cc_member REFERENCING NEW TABLE AS inserted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_trigger_inserted();
 
 
 --
--- Name: cc_member cc_member_statistic_trigger_updated; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_statistic_trigger_updated; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_statistic_trigger_updated AFTER UPDATE ON call_center.cc_member REFERENCING OLD TABLE AS old_data NEW TABLE AS new_data FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_trigger_updated();
 
 
 --
--- Name: cc_member cc_member_sys_offset_id_trigger_inserted; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_sys_offset_id_trigger_inserted; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_sys_offset_id_trigger_inserted BEFORE INSERT ON call_center.cc_member FOR EACH ROW EXECUTE FUNCTION call_center.cc_member_sys_offset_id_trigger_inserted();
 
 
 --
--- Name: cc_member cc_member_sys_offset_id_trigger_update; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_sys_offset_id_trigger_update; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_member_sys_offset_id_trigger_update BEFORE UPDATE ON call_center.cc_member FOR EACH ROW WHEN ((new.timezone_id <> old.timezone_id)) EXECUTE FUNCTION call_center.cc_member_sys_offset_id_trigger_update();
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_outbound_resource_group_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource_group FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_outbound_resource_group_acl');
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_outbound_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_outbound_resource_acl');
 
 
 --
--- Name: cc_queue cc_queue_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_queue FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_queue_acl');
 
 
 --
--- Name: cc_team cc_team_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_team cc_team_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_team_acl');
 
 
 --
--- Name: cc_list_communications tg_cc_list_statistics_deleted; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_list_communications tg_cc_list_statistics_deleted; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER tg_cc_list_statistics_deleted AFTER DELETE ON call_center.cc_list_communications REFERENCING OLD TABLE AS deleted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_list_statistics_trigger_deleted();
 
 
 --
--- Name: cc_list_communications tg_cc_list_statistics_inserted; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_list_communications tg_cc_list_statistics_inserted; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER tg_cc_list_statistics_inserted AFTER INSERT ON call_center.cc_list_communications REFERENCING NEW TABLE AS inserted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_list_statistics_trigger_inserted();
 
 
 --
--- Name: cc_agent tg_cc_set_agent_change_status_i; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_agent tg_cc_set_agent_change_status_i; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER tg_cc_set_agent_change_status_i AFTER INSERT ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_agent_change_status();
 
 
 --
--- Name: cc_agent tg_cc_set_agent_change_status_u; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_agent tg_cc_set_agent_change_status_u; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
-CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN (((old.state)::text <> (new.state)::text)) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
+CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN (((old.status)::text <> (new.status)::text)) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
 
 
 --
--- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_i; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_i; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
 CREATE TRIGGER tg_cc_set_agent_channel_change_status_i AFTER INSERT ON call_center.cc_agent_channel FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
 
 
 --
--- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_u; Type: TRIGGER; Schema: call_center; Owner: -
+-- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_u; Type: TRIGGER; Schema: call_center; Owner: opensips
 --
 
-CREATE TRIGGER tg_cc_set_agent_channel_change_status_u AFTER UPDATE ON call_center.cc_agent_channel FOR EACH ROW WHEN (((old.state)::text <> (new.state)::text)) EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
-
-
---
--- Name: acr_jobs acr_jobs_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_jobs
-    ADD CONSTRAINT acr_jobs_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES call_center.acr_routing_scheme(id);
+CREATE TRIGGER tg_cc_set_agent_channel_change_status_u BEFORE UPDATE ON call_center.cc_agent_channel FOR EACH ROW WHEN ((((old.state)::text <> (new.state)::text) OR (old.online <> new.online))) EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_acr_routing_scheme_id_fk FOREIGN KEY (scheme_id) REFERENCES call_center.acr_routing_scheme(id);
-
-
---
--- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_acr_routing_scheme_id_fk_2 FOREIGN KEY (scheme_id) REFERENCES call_center.acr_routing_scheme(id);
-
-
---
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
-
-
---
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: acr_routing_scheme acr_routing_scheme_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
-
-
---
--- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: acr_routing_variables acr_routing_variables_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.acr_routing_variables
-    ADD CONSTRAINT acr_routing_variables_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
-
-
---
--- Name: calendar_acl calendar_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_acl
-    ADD CONSTRAINT calendar_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
-
-
---
--- Name: calendar_acl calendar_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_acl
-    ADD CONSTRAINT calendar_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
-
-
---
--- Name: calendar_acl calendar_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_acl
-    ADD CONSTRAINT calendar_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
-
-
---
--- Name: calendar_acl calendar_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_acl
-    ADD CONSTRAINT calendar_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.calendar(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
-
-
---
--- Name: calendar_acl calendar_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar_acl
-    ADD CONSTRAINT calendar_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
-
-
---
--- Name: calendar calendar_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar
-    ADD CONSTRAINT calendar_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES call_center.calendar_timezones(id);
-
-
---
--- Name: calendar calendar_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar
-    ADD CONSTRAINT calendar_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
-
-
---
--- Name: calendar calendar_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar
-    ADD CONSTRAINT calendar_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: calendar calendar_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.calendar
-    ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: cc_agent_acl cc_agent_acl_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6623,7 +6131,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_acl cc_agent_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6631,7 +6139,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_acl cc_agent_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6639,7 +6147,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_acl cc_agent_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6647,7 +6155,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_acl cc_agent_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6655,7 +6163,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_acl cc_agent_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_acl cc_agent_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
@@ -6663,7 +6171,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_attempt cc_agent_attempt_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_attempt cc_agent_attempt_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_attempt
@@ -6671,7 +6179,7 @@ ALTER TABLE ONLY call_center.cc_agent_attempt
 
 
 --
--- Name: cc_agent_channel cc_agent_channels_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_channel cc_agent_channels_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_channel
@@ -6679,7 +6187,7 @@ ALTER TABLE ONLY call_center.cc_agent_channel
 
 
 --
--- Name: cc_agent_in_team cc_agent_in_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team cc_agent_in_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
@@ -6687,7 +6195,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 
 
 --
--- Name: cc_agent_in_team cc_agent_in_team_cc_skils_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team cc_agent_in_team_cc_skils_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
@@ -6695,7 +6203,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 
 
 --
--- Name: cc_agent_in_team cc_agent_in_team_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team cc_agent_in_team_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
@@ -6703,7 +6211,7 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 
 
 --
--- Name: cc_agent_activity cc_agent_statistic_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_activity cc_agent_statistic_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_activity
@@ -6711,7 +6219,7 @@ ALTER TABLE ONLY call_center.cc_agent_activity
 
 
 --
--- Name: cc_agent_state_history cc_agent_status_history_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent_state_history cc_agent_status_history_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent_state_history
@@ -6719,7 +6227,7 @@ ALTER TABLE ONLY call_center.cc_agent_state_history
 
 
 --
--- Name: cc_agent cc_agent_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent
@@ -6727,7 +6235,7 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
--- Name: cc_agent cc_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent
@@ -6735,7 +6243,7 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
--- Name: cc_agent cc_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent
@@ -6743,7 +6251,7 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
--- Name: cc_agent cc_agent_wbt_user_id_fk_3; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_agent cc_agent_wbt_user_id_fk_3; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_agent
@@ -6751,7 +6259,7 @@ ALTER TABLE ONLY call_center.cc_agent
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6759,7 +6267,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6767,7 +6275,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6775,7 +6283,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6783,7 +6291,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6791,7 +6299,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_acl cc_bucket_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_acl cc_bucket_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
@@ -6799,7 +6307,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 
 
 --
--- Name: cc_bucket_in_queue cc_bucket_in_queue_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue cc_bucket_in_queue_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_in_queue
@@ -6807,7 +6315,7 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue
 
 
 --
--- Name: cc_bucket_in_queue cc_bucket_in_queue_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket_in_queue cc_bucket_in_queue_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_in_queue
@@ -6815,7 +6323,7 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue
 
 
 --
--- Name: cc_bucket cc_bucket_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
@@ -6823,7 +6331,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 
 --
--- Name: cc_bucket cc_bucket_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
@@ -6831,7 +6339,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 
 --
--- Name: cc_bucket cc_bucket_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_bucket cc_bucket_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
@@ -6839,7 +6347,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 
 --
--- Name: cc_calls_history cc_calls_history_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls_history cc_calls_history_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
@@ -6847,7 +6355,7 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_calls_history cc_calls_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls_history cc_calls_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
@@ -6855,7 +6363,7 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_calls_history cc_calls_history_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls_history cc_calls_history_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
@@ -6863,7 +6371,7 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_calls_history cc_calls_history_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_calls_history cc_calls_history_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
@@ -6871,7 +6379,7 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_communication cc_communication_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_communication cc_communication_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_communication
@@ -6879,7 +6387,7 @@ ALTER TABLE ONLY call_center.cc_communication
 
 
 --
--- Name: cc_email cc_email_cc_email_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email cc_email_cc_email_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email
@@ -6887,7 +6395,7 @@ ALTER TABLE ONLY call_center.cc_email
 
 
 --
--- Name: cc_email cc_email_cc_email_profiles_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email cc_email_cc_email_profiles_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email
@@ -6895,15 +6403,15 @@ ALTER TABLE ONLY call_center.cc_email
 
 
 --
--- Name: cc_email_profile cc_email_profile_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email_profile cc_email_profile_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile
-    ADD CONSTRAINT cc_email_profile_acr_routing_scheme_id_fk FOREIGN KEY (flow_id) REFERENCES call_center.acr_routing_scheme(id);
+    ADD CONSTRAINT cc_email_profile_acr_routing_scheme_id_fk FOREIGN KEY (flow_id) REFERENCES flow.acr_routing_scheme(id);
 
 
 --
--- Name: cc_email_profile cc_email_profile_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email_profile cc_email_profile_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile
@@ -6911,7 +6419,7 @@ ALTER TABLE ONLY call_center.cc_email_profile
 
 
 --
--- Name: cc_email_profile cc_email_profile_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email_profile cc_email_profile_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile
@@ -6919,7 +6427,7 @@ ALTER TABLE ONLY call_center.cc_email_profile
 
 
 --
--- Name: cc_email_profile cc_email_profile_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_email_profile cc_email_profile_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_email_profile
@@ -6927,7 +6435,7 @@ ALTER TABLE ONLY call_center.cc_email_profile
 
 
 --
--- Name: cc_list_acl cc_list_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -6935,7 +6443,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_acl cc_list_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -6943,7 +6451,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_acl cc_list_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -6951,7 +6459,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_acl cc_list_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -6959,7 +6467,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_acl cc_list_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_acl cc_list_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
@@ -6967,7 +6475,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 
 
 --
--- Name: cc_list_communications cc_list_communications_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_communications cc_list_communications_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_communications
@@ -6975,7 +6483,7 @@ ALTER TABLE ONLY call_center.cc_list_communications
 
 
 --
--- Name: cc_list_statistics cc_list_statistics_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list_statistics cc_list_statistics_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list_statistics
@@ -6983,7 +6491,7 @@ ALTER TABLE ONLY call_center.cc_list_statistics
 
 
 --
--- Name: cc_list cc_list_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list cc_list_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list
@@ -6991,7 +6499,7 @@ ALTER TABLE ONLY call_center.cc_list
 
 
 --
--- Name: cc_list cc_list_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list cc_list_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list
@@ -6999,7 +6507,7 @@ ALTER TABLE ONLY call_center.cc_list
 
 
 --
--- Name: cc_list cc_list_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_list cc_list_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_list
@@ -7007,7 +6515,7 @@ ALTER TABLE ONLY call_center.cc_list
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
@@ -7015,7 +6523,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
@@ -7023,7 +6531,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
@@ -7031,7 +6539,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
--- Name: cc_member_attempt cc_member_attempt_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt cc_member_attempt_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
@@ -7039,7 +6547,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 
 --
--- Name: cc_member_attempt_history cc_member_attempt_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_history cc_member_attempt_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_history
@@ -7047,7 +6555,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt_history
 
 
 --
--- Name: cc_member_attempt_log cc_member_attempt_log_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log cc_member_attempt_log_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_log
@@ -7055,7 +6563,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt_log
 
 
 --
--- Name: cc_member_attempt_log cc_member_attempt_log_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_attempt_log cc_member_attempt_log_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_log
@@ -7063,7 +6571,15 @@ ALTER TABLE ONLY call_center.cc_member_attempt_log
 
 
 --
--- Name: cc_member cc_member_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member cc_member_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
+--
+
+ALTER TABLE ONLY call_center.cc_member
+    ADD CONSTRAINT cc_member_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES flow.calendar_timezones(id);
+
+
+--
+-- Name: cc_member cc_member_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member
@@ -7071,7 +6587,7 @@ ALTER TABLE ONLY call_center.cc_member
 
 
 --
--- Name: cc_member_messages cc_member_messages_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_member_messages cc_member_messages_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_member_messages
@@ -7079,7 +6595,7 @@ ALTER TABLE ONLY call_center.cc_member_messages
 
 
 --
--- Name: cc_msg_attachment cc_msg_attachment_cc_msg_post_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_attachment cc_msg_attachment_cc_msg_post_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_attachment
@@ -7087,7 +6603,7 @@ ALTER TABLE ONLY call_center.cc_msg_attachment
 
 
 --
--- Name: cc_msg_conversation cc_msg_conversation_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_conversation cc_msg_conversation_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_conversation
@@ -7095,7 +6611,7 @@ ALTER TABLE ONLY call_center.cc_msg_conversation
 
 
 --
--- Name: cc_msg_participants cc_msg_participants_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_participants cc_msg_participants_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_participants
@@ -7103,7 +6619,7 @@ ALTER TABLE ONLY call_center.cc_msg_participants
 
 
 --
--- Name: cc_msg_post cc_msg_post_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_msg_post cc_msg_post_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_msg_post
@@ -7111,7 +6627,7 @@ ALTER TABLE ONLY call_center.cc_msg_post
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7119,7 +6635,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7127,7 +6643,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7135,7 +6651,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7143,7 +6659,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7151,7 +6667,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource_acl cc_outbound_resource_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_acl cc_outbound_resource_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
@@ -7159,7 +6675,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_cc_email_profile_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_cc_email_profile_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -7167,7 +6683,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_outbound_resource_display cc_outbound_resource_display_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_display cc_outbound_resource_display_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_display
@@ -7175,7 +6691,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_display
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7183,7 +6699,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7191,7 +6707,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7199,7 +6715,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7207,7 +6723,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7215,7 +6731,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7223,7 +6739,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7231,7 +6747,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
@@ -7239,7 +6755,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_cc_communication_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_cc_communication_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group
@@ -7247,7 +6763,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group
@@ -7255,7 +6771,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group
@@ -7263,7 +6779,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
--- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_group cc_outbound_resource_group_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group
@@ -7271,7 +6787,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 
 --
--- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
@@ -7279,7 +6795,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 
 --
--- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
@@ -7287,7 +6803,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_sip_gateway_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_sip_gateway_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -7295,7 +6811,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -7303,7 +6819,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -7311,7 +6827,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource cc_outbound_resource_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
@@ -7319,7 +6835,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7327,7 +6843,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7335,7 +6851,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7343,7 +6859,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7351,7 +6867,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7359,7 +6875,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue_acl cc_queue_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_acl cc_queue_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
@@ -7367,15 +6883,15 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 
 --
--- Name: cc_queue cc_queue_calendar_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_calendar_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
-    ADD CONSTRAINT cc_queue_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES call_center.calendar(id);
+    ADD CONSTRAINT cc_queue_calendar_id_fk FOREIGN KEY (calendar_id) REFERENCES flow.calendar(id);
 
 
 --
--- Name: cc_queue cc_queue_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_cc_list_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -7383,7 +6899,7 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_queue cc_queue_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -7391,7 +6907,15 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_queue_resource cc_queue_resource_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_media_files_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_media_files_id_fk FOREIGN KEY (ringtone_id) REFERENCES storage.media_files(id);
+
+
+--
+-- Name: cc_queue_resource cc_queue_resource_cc_outbound_resource_group_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource
@@ -7399,7 +6923,7 @@ ALTER TABLE ONLY call_center.cc_queue_resource
 
 
 --
--- Name: cc_queue_resource cc_queue_resource_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_resource cc_queue_resource_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource
@@ -7407,7 +6931,7 @@ ALTER TABLE ONLY call_center.cc_queue_resource
 
 
 --
--- Name: cc_queue_resource cc_queue_resource_cc_queue_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_resource cc_queue_resource_cc_queue_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_resource
@@ -7415,7 +6939,7 @@ ALTER TABLE ONLY call_center.cc_queue_resource
 
 
 --
--- Name: cc_queue_statistics cc_queue_statistics_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_statistics cc_queue_statistics_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_statistics
@@ -7423,7 +6947,7 @@ ALTER TABLE ONLY call_center.cc_queue_statistics
 
 
 --
--- Name: cc_queue_statistics cc_queue_statistics_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue_statistics cc_queue_statistics_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue_statistics
@@ -7431,7 +6955,7 @@ ALTER TABLE ONLY call_center.cc_queue_statistics
 
 
 --
--- Name: cc_queue cc_queue_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -7439,7 +6963,7 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_queue cc_queue_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -7447,7 +6971,7 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_queue cc_queue_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_queue cc_queue_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_queue
@@ -7455,7 +6979,7 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
--- Name: cc_skill_in_agent cc_skill_in_agent_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent cc_skill_in_agent_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
@@ -7463,7 +6987,7 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skill_in_agent cc_skill_in_agent_cc_skils_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent cc_skill_in_agent_cc_skils_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
@@ -7471,7 +6995,7 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
@@ -7479,7 +7003,7 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill_in_agent cc_skill_in_agent_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill_in_agent
@@ -7487,7 +7011,7 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 
 --
--- Name: cc_skill cc_skill_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_skill cc_skill_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_skill
@@ -7495,7 +7019,7 @@ ALTER TABLE ONLY call_center.cc_skill
 
 
 --
--- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_supervisor_in_team
@@ -7503,7 +7027,7 @@ ALTER TABLE ONLY call_center.cc_supervisor_in_team
 
 
 --
--- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_supervisor_in_team cc_supervisor_in_team_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_supervisor_in_team
@@ -7511,7 +7035,7 @@ ALTER TABLE ONLY call_center.cc_supervisor_in_team
 
 
 --
--- Name: cc_team_acl cc_team_acl_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7519,7 +7043,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team_acl cc_team_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7527,7 +7051,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team_acl cc_team_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7535,7 +7059,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team_acl cc_team_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7543,7 +7067,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team_acl cc_team_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7551,7 +7075,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team_acl cc_team_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team_acl cc_team_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
@@ -7559,7 +7083,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 
 --
--- Name: cc_team cc_team_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team cc_team_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team
@@ -7567,7 +7091,7 @@ ALTER TABLE ONLY call_center.cc_team
 
 
 --
--- Name: cc_team cc_team_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team cc_team_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team
@@ -7575,7 +7099,7 @@ ALTER TABLE ONLY call_center.cc_team
 
 
 --
--- Name: cc_team cc_team_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_team cc_team_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: opensips
 --
 
 ALTER TABLE ONLY call_center.cc_team

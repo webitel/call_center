@@ -15,15 +15,14 @@ const (
 )
 
 const (
-	MEMBER_STATE_END          = -1
-	MEMBER_STATE_IDLE         = 0 // ~Reserved resource
-	MEMBER_STATE_RESERVED     = 1
-	MEMBER_STATE_ORIGINATE    = 2
-	MEMBER_STATE_FIND_AGENT   = 3
-	MEMBER_STATE_PROGRESS     = 4 // offering TODO
-	MEMBER_STATE_ACTIVE       = 5
-	MEMBER_STATE_POST_PROCESS = 6
-	MEMBER_STATE_CANCEL       = 7
+	MemberStateIdle       = "idle" // ~Reserved resource
+	MemberStateWaiing     = "waiting"
+	MemberStateWaitAgent  = "wait_agent"
+	MemberStateActive     = "active"
+	MemberStateBridged    = "bridged"
+	MemberStateProcessing = "processing"
+	MemberStateLeaving    = "leaving"
+	MemberStateCancel     = "cancel"
 )
 
 /*

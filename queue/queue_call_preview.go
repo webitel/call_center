@@ -108,7 +108,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Destination(), display),
+		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), display),
 	})
 
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))

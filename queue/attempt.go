@@ -26,7 +26,7 @@ const (
 
 type Attempt struct {
 	member        *model.MemberAttempt
-	state         int
+	state         string
 	communication model.MemberCommunication
 	resource      ResourceObject
 	agent         agent_manager.AgentObject
@@ -62,20 +62,20 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 	a.agent = agent
 }
 
-func (a *Attempt) SetState(state int) {
+func (a *Attempt) SetState(state string) {
 	a.Lock()
 	defer a.Unlock()
 	a.state = state
 }
 
-func (a *Attempt) GetState() int {
+func (a *Attempt) GetState() string {
 	a.RLock()
 	defer a.RUnlock()
 	return a.state
 }
 
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
-	if a.GetState() != model.MEMBER_STATE_FIND_AGENT {
+	if a.GetState() != model.MemberStateWaitAgent {
 		return
 	}
 
