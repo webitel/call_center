@@ -244,10 +244,10 @@ $_$;
 ALTER FUNCTION call_center.cc_arr_type_to_jsonb(anyarray) OWNER TO opensips;
 
 --
--- Name: cc_attempt_abandoned(bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
+-- Name: cc_attempt_abandoned(bigint, integer); Type: FUNCTION; Schema: call_center; Owner: opensips
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -279,7 +279,7 @@ end;
 $$;
 
 
-ALTER FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint) OWNER TO opensips;
+ALTER FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer) OWNER TO opensips;
 
 --
 -- Name: cc_attempt_bridged(bigint); Type: FUNCTION; Schema: call_center; Owner: opensips
@@ -409,10 +409,12 @@ begin
     returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
 
     update cc_member
-    set last_hangup_at  = extract(EPOCH from now())::int8, -- todo delete me
+    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000, -- todo delete me
         last_attempt_id = attempt_id_,
         last_agent      = coalesce(agent_id_, last_agent),
         ready_at        = now() + (hold_sec || ' sec')::interval,
+        stop_at = case when result_ = 'success' then extract(EPOCH from now())::int8 * 1000 else stop_at end,
+        pause_at = case when result_ = 'success' then now() else pause_at end,
         communications  = jsonb_set(
                 jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
             , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
@@ -2836,11 +2838,11 @@ CREATE VIEW call_center.cc_call_history_list AS
     COALESCE(c.hold_sec, 0) AS hold_sec,
     COALESCE(
         CASE
-            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.bridged_at - c.created_at)))::bigint
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
             ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
         END, (0)::bigint) AS wait_sec,
         CASE
-            WHEN (c.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.bridged_at)))::bigint
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.answered_at)))::bigint
             ELSE (0)::bigint
         END AS bill_sec,
     c.sip_code,
