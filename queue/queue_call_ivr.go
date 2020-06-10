@@ -50,6 +50,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Destination:  attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
+			attempt.resource.Variables(),
 			attempt.ExportVariables(),
 			map[string]string{
 				model.CallVariableDomainName:  queue.Domain(),
@@ -58,6 +59,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.CallVariableGatewayName: fmt.Sprintf("%v", attempt.resource.Gateway().Name),
 
 				"hangup_after_bridge": "true",
+				"ignore_early_media":  "true",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -88,23 +90,15 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
 
 				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_MEMBER,
-				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", *attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: "answer",
-				Args:    "",
-			},
-			{
-				AppName: "sleep",
-				Args:    "1000",
-			},
-			{
-				AppName: "hangup",
-				Args:    "",
+				AppName: "socket",
+				Args:    "$${acr_srv}",
 			},
 		},
 	}
@@ -125,7 +119,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
+				queue.queueManager.store.Member().SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()))
 			case call_manager.CALL_STATE_ACCEPT:
+				queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
 			case call_manager.CALL_STATE_BRIDGE:
 				fmt.Println(">>> ", state.String())
 
@@ -137,6 +133,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		}
 	}
 
-	queue.queueManager.Abandoned(attempt)
+	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > queue.params.MinCallDuration {
+		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 0,
+			"", 0)
+	} else {
+		queue.queueManager.Abandoned(attempt)
+	}
+
 	queue.queueManager.LeavingMember(attempt, queue)
 }
