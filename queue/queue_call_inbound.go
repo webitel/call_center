@@ -89,8 +89,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			cr := queue.AgentCallRequest(agent, team, attempt)
 			cr.Applications = []*model.CallRequestApplication{
 				{
-					AppName: "sleep",
-					Args:    "2000",
+					AppName: "park",
+					Args:    "",
 				},
 			}
 			cr.Variables["wbt_parent_id"] = mCall.Id()
