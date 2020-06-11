@@ -112,7 +112,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
 						team.Answered(attempt, agent)
-						//time.Sleep(time.Second)
+						time.Sleep(time.Millisecond * 500)
 						printfIfErr(agentCall.Bridge(mCall))
 					case call_manager.CALL_STATE_BRIDGE:
 						fmt.Println("TODO")
