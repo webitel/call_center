@@ -1672,7 +1672,7 @@ begin
         return;
     end if;
 
-    CREATE temp table cc_distribute_member_tmp ON COMMIT DROP as
+
     with dis as (
         select q.domain_id,
                row_number() over (partition by q.domain_id order by q.priority desc, csdqbs.bucket_id nulls last) pos,
@@ -1713,28 +1713,28 @@ begin
                       group by res.team_id, res.bucket_id
                   ) t
          )
-    select x.*, t.bucket_id, t.id as queue_id, case when t.type in (1, 6) then 'u' else 'i' end op,
+    , cc_distribute_member_tmp as (
+        select x.*, t.bucket_id, t.id as queue_id, case when t.type in (1, 6) then 'u' else 'i' end op,
              case when t.type in ( 6) then 'chat' else 'call' end channel, t.domain_id
-    from (
-             select res.*,
-                    ag.agents,
-                    row (res.id, res.bucket_id, res.type, (extract(epoch  from now()) * 1000)::int8 - (res.sec_between_retries * 1000)
-                        , res.ran, 100, res.member_waiting, 1)::cc_sys_distribute_request req
-             from res
-                      left join ag on res.type > 0 and res.team_id = ag.team_id and
-                                      coalesce(res.bucket_id, 0) = coalesce(ag.bucket_id, 0)
-             order by res.pos
-         ) t,
-         lateral cc_test_recursion(
-                 t.req,
-                 t.agents,
-                 t.resources,
-                 t.types
-             ) x (id bigint, destination_idx int4, resource_id int4, agent_id int4);
-
-    cnt = (select count(*) from cc_distribute_member_tmp);
-
-    insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
+        from (
+                 select res.*,
+                        ag.agents,
+                        row (res.id, res.bucket_id, res.type, (extract(epoch  from now()) * 1000)::int8 - (res.sec_between_retries * 1000)
+                            , res.ran, 100, res.member_waiting, 1)::cc_sys_distribute_request req
+                 from res
+                          left join ag on res.type > 0 and res.team_id = ag.team_id and
+                                          coalesce(res.bucket_id, 0) = coalesce(ag.bucket_id, 0)
+                 order by res.pos
+             ) t,
+             lateral cc_test_recursion(
+                     t.req,
+                     t.agents,
+                     t.resources,
+                     t.types
+                 ) x (id bigint, destination_idx int4, resource_id int4, agent_id int4)
+    )
+    , ins as (
+        insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
         select t.channel,
                t.id,
                t.queue_id,
@@ -1749,8 +1749,8 @@ begin
             inner join cc_member cm on t.id = cm.id
             inner join lateral jsonb_extract_path(cm.communications, (t.destination_idx - 1)::text) x on true
             left join cc_communication comm on comm.id = (x->'type'->'id')::int
-    where t.op = 'i';
-
+        where t.op = 'i'
+    )
     update cc_member_attempt a
     set agent_id = t.agent_id
     from (
@@ -5231,6 +5231,13 @@ CREATE INDEX cc_member_attempt_member_id_index ON call_center.cc_member_attempt 
 --
 
 CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt USING btree (queue_id);
+
+
+--
+-- Name: cc_member_dis_fifo_dev; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_dis_fifo_dev ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC) WHERE (stop_at = 0);
 
 
 --
