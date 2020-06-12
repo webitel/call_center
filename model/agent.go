@@ -51,6 +51,7 @@ type Agent struct {
 	Destination           string `json:"destination" db:"destination"`
 	Extension             string `json:"extension" db:"extension"`
 	SuccessivelyNoAnswers int    `json:"successively_no_answers" db:"successively_no_answers"`
+	OnDemand              bool   `json:"on_demand" db:"on_demand"`
 	AgentStatus
 }
 

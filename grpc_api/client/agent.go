@@ -15,7 +15,7 @@ func NewAgentApi(m *ccManager) AgentApi {
 	}
 }
 
-func (api *agentApi) Online(domainId, agentId int64) error {
+func (api *agentApi) Online(domainId, agentId int64, channels []string, onDemand bool) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
@@ -23,6 +23,8 @@ func (api *agentApi) Online(domainId, agentId int64) error {
 
 	_, err = cli.agent.Online(context.TODO(), &cc.OnlineRequest{
 		AgentId:  agentId,
+		Channels: channels,
+		OnDemand: onDemand,
 		DomainId: domainId,
 	})
 	return err

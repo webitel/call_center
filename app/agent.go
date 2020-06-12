@@ -21,7 +21,7 @@ func (app *App) SetAgentOnline(agentId int, channels []string, onDemand bool) (*
 		return nil, err
 	}
 
-	if agent.Status == model.AgentStatusOnline {
+	if agent.Status == model.AgentStatusOnline && agent.OnDemand == onDemand {
 		return nil, model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
 	}
 

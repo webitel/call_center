@@ -15,7 +15,7 @@ const (
 )
 
 type AgentApi interface {
-	Online(domainId, agentId int64) error
+	Online(domainId, agentId int64, channels []string, onDemand bool) error
 	Offline(domainId, agentId int64) error
 	Pause(domainId, agentId int64, payload string, timeout int) error
 
