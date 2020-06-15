@@ -243,6 +243,7 @@ begin
         last_agent      = coalesce(attempt.agent_id, last_agent),
         stop_at = extract(EPOCH from now())::int8, -- del me
         stop_cause = attempt.result,
+        -- fixme
         communications  = jsonb_set(
                 jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
             , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
@@ -2444,49 +2445,6 @@ ALTER SEQUENCE call_center.cc_bucket_in_queue_id_seq OWNED BY call_center.cc_buc
 
 
 --
--- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_calls_history (
-    id character varying NOT NULL,
-    direction character varying,
-    destination character varying,
-    parent_id character varying,
-    app_id character varying NOT NULL,
-    from_type character varying,
-    from_name character varying,
-    from_number character varying,
-    from_id character varying,
-    to_type character varying,
-    to_name character varying,
-    to_number character varying,
-    to_id character varying,
-    payload jsonb,
-    domain_id bigint NOT NULL,
-    hold_sec integer DEFAULT 0,
-    cause character varying,
-    sip_code integer,
-    bridged_id character varying,
-    gateway_id bigint,
-    user_id integer,
-    queue_id integer,
-    team_id integer,
-    agent_id integer,
-    attempt_id bigint,
-    member_id bigint,
-    duration integer DEFAULT 0 NOT NULL,
-    description character varying,
-    tags character varying[],
-    answered_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    hangup_at timestamp with time zone,
-    created_at timestamp with time zone NOT NULL,
-    hangup_by character varying,
-    stored_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: cc_member; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -2617,6 +2575,124 @@ CREATE TABLE call_center.cc_team (
     result_timeout integer DEFAULT 0 NOT NULL,
     post_processing boolean DEFAULT false NOT NULL,
     post_processing_timeout integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: cc_call_active_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_call_active_list AS
+ SELECT c.id,
+    c.app_id,
+    c.state,
+    c."timestamp",
+    'call'::character varying AS type,
+    c.parent_id,
+    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
+    u.extension,
+    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
+    c.direction,
+    c.destination,
+    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
+    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
+        CASE
+            WHEN (c.payload IS NULL) THEN '{}'::jsonb
+            ELSE c.payload
+        END AS variables,
+    c.created_at,
+    c.answered_at,
+    c.bridged_at,
+    (date_part('epoch'::text, (now() - c.created_at)))::bigint AS duration,
+    COALESCE(c.hold_sec, 0) AS hold_sec,
+    COALESCE(
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
+            ELSE (date_part('epoch'::text, (now() - c.created_at)))::bigint
+        END, (0)::bigint) AS wait_sec,
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (now() - c.answered_at)))::bigint
+            ELSE (0)::bigint
+        END AS bill_sec,
+    call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
+    call_center.cc_get_lookup((cm.id)::bigint, cm.name) AS member,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    call_center.cc_get_lookup((ca.id)::bigint, ca.name) AS agent,
+    cma.joined_at,
+    cma.leaving_at,
+    cma.reporting_at,
+    cma.bridged_at AS queue_bridged_at,
+        CASE
+            WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
+            ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
+        END AS queue_wait_sec,
+    (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
+    cma.result,
+        CASE
+            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - now())))::integer
+            ELSE 0
+        END AS reporting_sec,
+    c.agent_id,
+    c.team_id,
+    c.user_id,
+    c.queue_id,
+    c.member_id,
+    c.attempt_id,
+    c.domain_id,
+    c.gateway_id,
+    c.from_number,
+    c.to_number,
+    cma.display
+   FROM (((((((call_center.cc_calls c
+     LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
+     LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
+     LEFT JOIN call_center.cc_agent_list ca ON ((c.agent_id = ca.id)))
+     LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
+     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
+
+
+--
+-- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_history (
+    id character varying NOT NULL,
+    direction character varying,
+    destination character varying,
+    parent_id character varying,
+    app_id character varying NOT NULL,
+    from_type character varying,
+    from_name character varying,
+    from_number character varying,
+    from_id character varying,
+    to_type character varying,
+    to_name character varying,
+    to_number character varying,
+    to_id character varying,
+    payload jsonb,
+    domain_id bigint NOT NULL,
+    hold_sec integer DEFAULT 0,
+    cause character varying,
+    sip_code integer,
+    bridged_id character varying,
+    gateway_id bigint,
+    user_id integer,
+    queue_id integer,
+    team_id integer,
+    agent_id integer,
+    attempt_id bigint,
+    member_id bigint,
+    duration integer DEFAULT 0 NOT NULL,
+    description character varying,
+    tags character varying[],
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL,
+    hangup_by character varying,
+    stored_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
