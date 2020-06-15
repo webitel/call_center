@@ -554,8 +554,13 @@ BEGIN
             end if;
 
         else if old.state = 'hold' then
-            new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision; --((new.timestamp - old.timestamp) / 1000)::int4;
+            new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision;
+
+            if new.parent_id notnull then
+                update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
+            end if;
         end if;
+
         end if;
     else if (new.state = 'bridge' ) then
         new.bridged_at = new.timestamp;
