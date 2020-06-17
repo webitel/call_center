@@ -2283,6 +2283,7 @@ CREATE VIEW call_center.cc_agent_list AS
     a.status,
     a.description,
     ((date_part('epoch'::text, a.last_state_change) * (1000)::double precision))::bigint AS last_status_change,
+    (date_part('epoch'::text, (now() - a.last_state_change)))::bigint AS status_duration,
     a.progressive_count,
     ch.x AS channels,
     (json_build_object('id', ct.id, 'name', COALESCE(((ct.name)::character varying)::name, ct.username)))::jsonb AS "user"
@@ -2553,7 +2554,8 @@ CREATE TABLE call_center.cc_queue (
     schema_id integer,
     callback_timeout integer DEFAULT 0 NOT NULL,
     description character varying DEFAULT ''::character varying,
-    ringtone_id integer
+    ringtone_id integer,
+    distribute_schema_id integer
 );
 
 
@@ -4955,6 +4957,13 @@ CREATE UNIQUE INDEX cc_agent_missed_attempt_id_uindex ON call_center.cc_agent_mi
 --
 
 CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_agent_state_history USING btree (channel, joined_at DESC) INCLUDE (agent_id, state);
+
+
+--
+-- Name: cc_agent_state_history_joined_at_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id);
 
 
 --
