@@ -65,5 +65,9 @@ func (agent *Agent) Offline() *model.AppError {
 }
 
 func (agent *Agent) SetOnBreak() *model.AppError {
-	return agent.manager.SetAgentOnBreak(agent.Id())
+	return agent.manager.SetPause(agent, nil, nil)
+}
+
+func (agent *Agent) IsOnDemand() bool {
+	return agent.info.OnDemand
 }

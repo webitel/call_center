@@ -62,6 +62,11 @@ type AgentChannel struct {
 	Online   bool   `json:"online"`
 }
 
+type MissedAgent struct {
+	Timestamp int64   `json:"timestamp" db:"timestamp"`
+	NoAnswers *uint16 `json:"no_answers" db:"no_answers"`
+}
+
 type AgentOnlineData struct {
 	Timestamp int64          `json:"timestamp" db:"timestamp"`
 	Channels  []AgentChannel `json:"channels" db:"channels"`

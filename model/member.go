@@ -70,11 +70,14 @@ type MemberAttempt struct {
 	MemberCallId        *string   `json:"member_call_id" db:"member_call_id"`
 }
 
-type AttemptTimeout struct {
-	Id        int64  `json:"id" db:"id"`
-	Timestamp int64  `json:"timestamp" db:"timestamp"`
-	AttemptId *int64 `json:"attempt_id" db:"attempt_id"`
-	Result    string `json:"result" db:"result"`
+type AttemptReportingTimeout struct {
+	AttemptId      int64  `json:"attempt_id" db:"attempt_id"`
+	Timestamp      int64  `json:"timestamp" db:"timestamp"`
+	AgentId        int    `json:"agent_id" db:"agent_id"`
+	AgentUpdatedAt int64  `json:"agent_updated_at" db:"agent_updated_at"`
+	UserId         int64  `json:"user_id" db:"user_id"`
+	Channel        string `json:"channel" db:"channel"`
+	DomainId       int64  `json:"domain_id" db:"domain_id"`
 }
 
 type EventAttempt struct {

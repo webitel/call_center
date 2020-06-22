@@ -192,13 +192,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		team.Cancel(attempt, agent)
 	} else {
 		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
-			// FIXME
-			if team.PostProcessing() && agentCall.ReportingAt() > 0 {
-				team.WrapTime(attempt, agent, agentCall.ReportingAt())
-			} else {
-				wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-				team.Reporting(attempt, agent)
-			}
+			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+			team.Reporting(attempt, agent, agentCall.ReportingAt() > 0)
 		} else {
 			team.Missed(attempt, queue.WaitBetweenRetries, agent)
 		}

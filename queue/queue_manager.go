@@ -385,6 +385,7 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 }
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
+	attempt.SetResult(AttemptResultAbandoned)
 	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())
@@ -394,7 +395,7 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 }
 
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
-	res, err := queueManager.store.Member().Reporting(attemptId, result.Status)
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status)
 	if err != nil {
 		return err
 	}
@@ -407,15 +408,12 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		// FIXME
 	}
 	if res.UserId != nil && res.DomainId != nil {
-		e := WrapTimeEvent{
-			WrapTime: WrapTime{
-				Timeout: *res.AgentTimeout,
-			},
+		e := WaitingChannelEvent{
 			ChannelEvent: ChannelEvent{
 				Timestamp: res.Timestamp,
 				Channel:   *res.Channel,
 				AttemptId: model.NewInt64(attemptId),
-				Status:    model.ChannelStateWrapTime,
+				Status:    model.ChannelStateWaiting,
 			},
 		}
 

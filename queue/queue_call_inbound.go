@@ -63,7 +63,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	ags := attempt.On(AttemptHookDistributeAgent)
 
 	//TODO
-	timeout := time.NewTimer(time.Second * 360)
+	timeout := time.NewTimer(time.Second * time.Duration(queue.timeout))
 
 	for calling {
 		select {
@@ -71,9 +71,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			calling = false
 		case <-attempt.Context.Done():
 			calling = false
-		case <-mCall.HangupChan():
-			calling = false
-			break
+		case c := <-mCall.State():
+			if c == call_manager.CALL_STATE_HANGUP {
+				calling = false
+				break
+			} else {
+				wlog.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+			}
 
 		case <-ags:
 			agent = attempt.Agent()
@@ -99,8 +103,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			// fixme new function
 			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, mCall, agentCall))
-			agentCall.Invite()
 			team.Offering(attempt, agent, agentCall, mCall)
+			agentCall.Invite()
 
 			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
@@ -111,8 +115,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
+						time.Sleep(time.Millisecond * 250)
 						team.Answered(attempt, agent)
-						time.Sleep(time.Millisecond * 500)
 						printfIfErr(agentCall.Bridge(mCall))
 					case call_manager.CALL_STATE_BRIDGE:
 						fmt.Println("TODO")
@@ -122,30 +126,31 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						break top
 					}
 				case s := <-mCall.State():
-					if s == call_manager.CALL_STATE_BRIDGE {
+					switch s {
+					case call_manager.CALL_STATE_BRIDGE:
 						timeout.Stop()
 						team.Bridged(attempt, agent)
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
-					}
-				case <-mCall.HangupChan():
-					attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
-					if agentCall.HangupAt() == 0 {
-						if mCall.BridgeAt() > 0 {
-							agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
-						} else {
-							agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+					case call_manager.CALL_STATE_HANGUP:
+						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+						if agentCall.HangupAt() == 0 {
+							if mCall.BridgeAt() > 0 {
+								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
+							} else {
+								agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+							}
+
+							agentCall.WaitForHangup()
 						}
 
-						agentCall.WaitForHangup()
+						attempt.Log(fmt.Sprintf("[%s] agent call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
+						break top // FIXME
 					}
-
-					attempt.Log(fmt.Sprintf("[%s] agent call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
-					break top // FIXME
 				}
 			}
 
 			if agentCall.BridgeAt() == 0 {
-				team.MissedAndWaitingAttempt(attempt, agent)
+				team.MissedAgentAndWaitingAttempt(attempt, agent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
 					//TODO WaitForHangup
 					//panic(agentCall.Id())
@@ -162,16 +167,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		//panic(agentCall.Id())
 	}
 
-	if agentCall != nil && agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
-
-		// FIXME
-		if team.PostProcessing() && agentCall.ReportingAt() > 0 {
-			team.WrapTime(attempt, agent, agentCall.ReportingAt())
-		} else {
-			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-			// fixme error go leak
-			team.Reporting(attempt, agent)
-		}
+	if agentCall != nil && agentCall.BridgeAt() > 0 {
+		team.Reporting(attempt, agent, agentCall.ReportingAt() > 0)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

@@ -108,6 +108,7 @@ message CallJoinToQueueRequest {
     int32 timeout = 4;
     int32 priority = 5;
     map<string,string> variables= 6;
+    int32 bucket_id = 7;
 
     int64 domain_id = 100;
 }

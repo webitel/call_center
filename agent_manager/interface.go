@@ -31,4 +31,5 @@ type AgentObject interface {
 	Online(channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
+	IsOnDemand() bool
 }

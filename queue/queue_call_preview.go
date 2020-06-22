@@ -113,6 +113,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))
 
+	team.Offering(attempt, agent, call, nil)
 	printfIfErr(call.Invite())
 	var calling = true
 
@@ -121,7 +122,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
-				team.Offering(attempt, agent, call, nil)
+
 			case call_manager.CALL_STATE_ACCEPT:
 				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
@@ -132,17 +133,10 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		}
 	}
 
-	if call.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
-
-		// FIXME
-		if team.PostProcessing() && call.ReportingAt() > 0 {
-			team.WrapTime(attempt, agent, call.ReportingAt())
-		} else {
-			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-			team.Reporting(attempt, agent)
-		}
+	if call.AcceptAt() > 0 {
+		team.Reporting(attempt, agent, call.ReportingAt() > 0)
 	} else {
-		team.Missed(attempt, queue.WaitBetweenRetries, agent)
+		team.Missed(attempt, int(team.NoAnswerDelayTime()), agent)
 	}
 
 	close(attempt.distributeAgent)

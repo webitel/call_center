@@ -122,6 +122,39 @@ CREATE TYPE call_center.cc_type AS ENUM (
 
 
 --
+-- Name: cc_agent_set_channel_waiting(integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_agent_set_channel_waiting(agent_id_ integer, channel_ character varying) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+    declare attempt_id_ int8;
+        state_ varchar;
+        joined_at_ timestamptz;
+begin
+    select a.id, a.state
+    into attempt_id_, state_
+    from cc_member_attempt a
+    where a.agent_id = agent_id_ and a.state != 'leaving' and a.channel = 'call';
+
+    if attempt_id_ notnull then
+        raise exception 'agent % has task % in the status of %', agent_id_, attempt_id_, state_;
+    end if;
+
+    update cc_agent_channel c
+    set state = 'waiting',
+        joined_at = now(),
+        queue_id = null,
+        timeout = null
+    where (c.agent_id, c.channel) = (agent_id_, channel_) and c.state in ('wrap_time', 'missed')
+    returning joined_at into joined_at_;
+
+    return row(joined_at_);
+end;
+$$;
+
+
+--
 -- Name: cc_agent_set_login(integer, character varying[], boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -135,6 +168,7 @@ begin
     set status            = 'online', -- enum added
         status_payload = null,
         on_demand = on_demand_,
+        updated_at = cc_view_timestamp(now()), -- todo
         last_state_change = now()     -- todo rename to status
     where cc_agent.id = agent_id_;
 
@@ -146,6 +180,7 @@ begin
             where a.id = agent_id_
             on conflict (agent_id, channel) do update
                 set online = excluded.online,
+                    no_answers = 0,
                     timeout = case when excluded.state = 'waiting' then null else excluded.timeout end,
 --                     joined_at = case when excluded.state = 'waiting' then now() else excluded.timeout end,
                     state = case
@@ -279,7 +314,8 @@ begin
         update cc_agent_channel ch
         set state = attempt.state,
             joined_at = now(),
-            no_answers = 0
+            no_answers = 0,
+            last_bridged_at = now()
         where  (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
 
@@ -304,8 +340,8 @@ declare
 begin
     update cc_member_attempt
         set state  =  'leaving',
-            leaving_at = now(),
             reporting_at = now(),
+            leaving_at = case when leaving_at isnull then now() else leaving_at end,
             result = status_,
             description = description_
     where id = attempt_id_ and state != 'leaving'
@@ -322,7 +358,6 @@ begin
         expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
         min_offering_at = case when next_offering_at_ isnull then min_offering_at else next_offering_at_ end,
         last_agent      = coalesce(attempt.agent_id, last_agent),
-        reporting_at    = cc_view_timestamp(now()), --FIXME
 --         stop_at         = case when status_ isnull then null else (extract(EPOCH from now()) * 1000)::int8 end, --TODO
         stop_cause      = status_,
         communications = jsonb_set(
@@ -341,15 +376,9 @@ begin
         where a.id = attempt.agent_id;
 
         update cc_agent_channel c
-        set state = 'wrap_time',
+        set state = 'waiting',
             joined_at = now(),
-            timeout = (now() + (x.wrap_up_time::varchar || ' sec')::interval)
-        from (
-            select ct.wrap_up_time
-            from cc_queue q
-                inner join cc_team ct on q.team_id = ct.id
-            where q.id = attempt.queue_id
-        ) x
+            queue_id = null
         where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
         returning timeout into agent_timeout_;
     end if;
@@ -396,12 +425,9 @@ begin
         update cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
+            no_answers = no_answers + 1,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
         where (c.agent_id, c.channel) = (agent_id_, channel_);
-
---         raise exception '% %', agent_id_, channel_;
---         insert into cc_agent_missed_attempt (attempt_id, agent_id, cause, missed_at, call_id)
---         values (attempt_id, agent_id, 'TODO', now(), 'TODO');
 
     end if;
 
@@ -421,8 +447,8 @@ declare
     last_state_change_ timestamptz;
     channel_ varchar;
     agent_id_ int4;
+    no_answers_ int4;
 begin
-
     update cc_member_attempt  n
     set state = 'wait_agent',
         last_state_change = now(),
@@ -434,13 +460,16 @@ begin
 
     if agent_id_ notnull then
         update cc_agent_channel c
-        set state = 'missed', --TODO
+        set state = 'missed',
             joined_at = last_state_change_,
-            timeout  = now() + (agent_hold_::varchar || ' sec')::interval
-        where (c.agent_id, c.channel) = (agent_id_, channel_);
+            timeout  = now() + (agent_hold_::varchar || ' sec')::interval,
+            no_answers = (no_answers + 1),
+            last_missed_at = now()
+        where (c.agent_id, c.channel) = (agent_id_, channel_)
+        returning no_answers into no_answers_;
     end if;
 
-    return row(last_state_change_);
+    return row(last_state_change_, no_answers_);
 end;
 $$;
 
@@ -472,12 +501,59 @@ begin
         update cc_agent_channel ch
         set state = attempt.state,
             joined_at = now(),
-            no_answers = 0,
+            last_offering_at = now(),
             queue_id = attempt.queue_id
         where  (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
 
     return row(attempt.last_state_change::timestamptz);
+end;
+$$;
+
+
+--
+-- Name: cc_attempt_timeout(bigint, integer, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS timestamp with time zone
+    LANGUAGE plpgsql
+    AS $$
+declare
+    agent_id_  int;
+    member_id_ int8;
+    queue_id_ int;
+    channel_ varchar;
+begin
+    update cc_member_attempt
+        set reporting_at = now(),
+            result = 'timeout',
+            state = 'leaving'
+    where id = attempt_id_
+    returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
+
+    update cc_member
+    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000, -- todo delete me
+        last_attempt_id = attempt_id_,
+        last_agent      = coalesce(agent_id_, last_agent),
+        ready_at        = now() + (hold_sec || ' sec')::interval,
+        stop_at = case when result_ = 'success' then extract(EPOCH from now())::int8 * 1000 else stop_at end,
+        pause_at = case when result_ = 'success' then now() else pause_at end,
+        communications  = jsonb_set(
+                jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
+            , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
+        attempts        = attempts + 1                     --TODO
+    where id = member_id_;
+
+    if agent_id_ notnull then
+        update cc_agent_channel c
+        set state = agent_status_,
+            joined_at = now(),
+            timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
+        where (c.agent_id, c.channel) = (agent_id_, channel_);
+
+    end if;
+
+    return now();
 end;
 $$;
 
@@ -556,9 +632,9 @@ BEGIN
         else if old.state = 'hold' then
             new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision;
 
-            if new.parent_id notnull then
-                update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
-            end if;
+--             if new.parent_id notnull then
+--                 update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
+--             end if;
         end if;
 
         end if;
@@ -747,9 +823,9 @@ BEGIN
         into _weight;
   end if;
 
-  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
+  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, display, list_communication_id)
   values ('waiting', _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
-              _node_name, (select clc.id
+              _node_name,_call.destination, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
   returning * into _attempt;
@@ -1480,7 +1556,7 @@ BEGIN
                      left join cc_agent ca on c.agent_id = ca.id
                      left join cc_queue_statistics cqs on cq.id = cqs.queue_id
             where c.state = 'idle'
-              and c.hangup_at isnull
+              and c.leaving_at isnull
             order by cq.priority desc, c.weight desc
                 for update of c skip locked
         ) c
@@ -1923,7 +1999,10 @@ CREATE TABLE call_center.cc_agent_channel (
     online boolean DEFAULT true NOT NULL,
     max_opened integer DEFAULT 1 NOT NULL,
     no_answers integer DEFAULT 0 NOT NULL,
-    queue_id integer
+    queue_id integer,
+    last_offering_at timestamp with time zone,
+    last_bridged_at timestamp with time zone,
+    last_missed_at timestamp with time zone
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -1971,8 +2050,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     timeout timestamp with time zone,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
     communication_idx integer DEFAULT 1 NOT NULL,
-    conversation_id bigint,
-    hangup_at timestamp with time zone
+    conversation_id bigint
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2351,7 +2429,11 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     bridged_at timestamp with time zone,
     hangup_at timestamp with time zone,
     created_at timestamp with time zone,
-    hangup_by character varying
+    hangup_by character varying,
+    transfer_from character varying,
+    transfer_to character varying,
+    amd_result character varying,
+    amd_duration interval
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2466,7 +2548,6 @@ CREATE TABLE call_center.cc_member (
     last_hangup_at bigint DEFAULT 0 NOT NULL,
     attempts integer DEFAULT 0 NOT NULL,
     agent_id bigint,
-    "offset" interval,
     communications jsonb NOT NULL,
     bucket_id bigint,
     timezone_id integer,
@@ -2476,14 +2557,12 @@ CREATE TABLE call_center.cc_member (
     created_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint,
     domain_id bigint NOT NULL,
     skill_id integer,
-    reporting_at bigint,
     ready_at timestamp with time zone DEFAULT now() NOT NULL,
     last_attempt_id bigint,
     sys_destinations call_center.cc_destination[],
     pause_at timestamp with time zone
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
-ALTER TABLE ONLY call_center.cc_member ALTER COLUMN "offset" SET STATISTICS 100;
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
 
 
@@ -2513,8 +2592,7 @@ CREATE TABLE call_center.cc_member_attempt_history (
     reporting_at timestamp with time zone,
     bridged_at timestamp with time zone,
     channel character varying,
-    domain_id bigint,
-    hangup_at timestamp with time zone
+    domain_id bigint NOT NULL
 );
 
 
@@ -2661,132 +2739,6 @@ CREATE VIEW call_center.cc_call_active_list AS
 
 
 --
--- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_calls_history (
-    id character varying NOT NULL,
-    direction character varying,
-    destination character varying,
-    parent_id character varying,
-    app_id character varying NOT NULL,
-    from_type character varying,
-    from_name character varying,
-    from_number character varying,
-    from_id character varying,
-    to_type character varying,
-    to_name character varying,
-    to_number character varying,
-    to_id character varying,
-    payload jsonb,
-    domain_id bigint NOT NULL,
-    hold_sec integer DEFAULT 0,
-    cause character varying,
-    sip_code integer,
-    bridged_id character varying,
-    gateway_id bigint,
-    user_id integer,
-    queue_id integer,
-    team_id integer,
-    agent_id integer,
-    attempt_id bigint,
-    member_id bigint,
-    duration integer DEFAULT 0 NOT NULL,
-    description character varying,
-    tags character varying[],
-    answered_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    hangup_at timestamp with time zone,
-    created_at timestamp with time zone NOT NULL,
-    hangup_by character varying,
-    stored_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: cc_call_history_list; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_call_history_list AS
- SELECT c.id,
-    c.app_id,
-    'call'::character varying AS type,
-    c.parent_id,
-    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
-    u.extension,
-    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
-    c.direction,
-    c.destination,
-    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
-    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
-        CASE
-            WHEN (c.payload IS NULL) THEN '{}'::jsonb
-            ELSE c.payload
-        END AS variables,
-    c.created_at,
-    c.answered_at,
-    c.bridged_at,
-    c.hangup_at,
-    c.stored_at,
-    COALESCE(c.hangup_by, ''::character varying) AS hangup_by,
-    c.cause,
-    (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint AS duration,
-    COALESCE(c.hold_sec, 0) AS hold_sec,
-    COALESCE(
-        CASE
-            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
-            ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
-        END, (0)::bigint) AS wait_sec,
-        CASE
-            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.answered_at)))::bigint
-            ELSE (0)::bigint
-        END AS bill_sec,
-    c.sip_code,
-    f.files,
-    call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
-    call_center.cc_get_lookup((cm.id)::bigint, cm.name) AS member,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    call_center.cc_get_lookup((ca.id)::bigint, ca.name) AS agent,
-    cma.joined_at,
-    cma.leaving_at,
-    cma.reporting_at,
-    cma.bridged_at AS queue_bridged_at,
-        CASE
-            WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
-            ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
-        END AS queue_wait_sec,
-    (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
-    cma.result,
-        CASE
-            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - c.hangup_at)))::integer
-            ELSE 0
-        END AS reporting_sec,
-    c.agent_id,
-    c.team_id,
-    c.user_id,
-    c.queue_id,
-    c.member_id,
-    c.attempt_id,
-    c.domain_id,
-    c.gateway_id,
-    c.from_number,
-    c.to_number,
-    c.tags,
-    cma.display
-   FROM ((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
-           FROM storage.files f_1
-          WHERE ((f_1.domain_id = c.domain_id) AND ((f_1.uuid)::text = (c.id)::text))) f ON (true))
-     LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
-     LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
-     LEFT JOIN call_center.cc_agent_list ca ON ((c.agent_id = ca.id)))
-     LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
-     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
-     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
-     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
-
-
---
 -- Name: cc_list; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -2861,6 +2813,143 @@ CREATE VIEW call_center.cc_calls_all_a AS
      JOIN call_center.cc_calls c ON (((c.id)::text = (a.id)::text)))
      LEFT JOIN call_center.cc_calls cch ON (((c.bridged_id)::text = (cch.id)::text)))
   ORDER BY a.rn, a.c DESC;
+
+
+--
+-- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_history (
+    id character varying NOT NULL,
+    direction character varying,
+    destination character varying,
+    parent_id character varying,
+    app_id character varying NOT NULL,
+    from_type character varying,
+    from_name character varying,
+    from_number character varying,
+    from_id character varying,
+    to_type character varying,
+    to_name character varying,
+    to_number character varying,
+    to_id character varying,
+    payload jsonb,
+    domain_id bigint NOT NULL,
+    hold_sec integer DEFAULT 0,
+    cause character varying,
+    sip_code integer,
+    bridged_id character varying,
+    gateway_id bigint,
+    user_id integer,
+    queue_id integer,
+    team_id integer,
+    agent_id integer,
+    attempt_id bigint,
+    member_id bigint,
+    duration integer DEFAULT 0 NOT NULL,
+    description character varying,
+    tags character varying[],
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL,
+    hangup_by character varying,
+    stored_at timestamp with time zone DEFAULT now() NOT NULL,
+    rating smallint,
+    notes text,
+    transfer_from character varying,
+    transfer_to character varying,
+    amd_result character varying,
+    amd_duration interval
+);
+
+
+--
+-- Name: cc_calls_history_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_calls_history_list AS
+ SELECT c.id,
+    c.app_id,
+    'call'::character varying AS type,
+    c.parent_id,
+    c.transfer_from,
+    c.transfer_to,
+    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
+    u.extension,
+    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
+    c.direction,
+    c.destination,
+    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
+    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
+        CASE
+            WHEN (c.payload IS NULL) THEN '{}'::jsonb
+            ELSE c.payload
+        END AS variables,
+    c.created_at,
+    c.answered_at,
+    c.bridged_at,
+    c.hangup_at,
+    c.stored_at,
+    COALESCE(c.hangup_by, ''::character varying) AS hangup_by,
+    c.cause,
+    (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint AS duration,
+    COALESCE(c.hold_sec, 0) AS hold_sec,
+    COALESCE(
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
+            ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
+        END, (0)::bigint) AS wait_sec,
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.answered_at)))::bigint
+            ELSE (0)::bigint
+        END AS bill_sec,
+    c.sip_code,
+    f.files,
+    call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
+    call_center.cc_get_lookup((cm.id)::bigint, cm.name) AS member,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    call_center.cc_get_lookup((ca.id)::bigint, ca.name) AS agent,
+    cma.joined_at,
+    cma.leaving_at,
+    cma.reporting_at,
+    cma.bridged_at AS queue_bridged_at,
+        CASE
+            WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
+            ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
+        END AS queue_wait_sec,
+    (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
+    cma.result,
+        CASE
+            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - cma.leaving_at)))::integer
+            ELSE 0
+        END AS reporting_sec,
+    c.agent_id,
+    c.team_id,
+    c.user_id,
+    c.queue_id,
+    c.member_id,
+    c.attempt_id,
+    c.domain_id,
+    c.gateway_id,
+    c.from_number,
+    c.to_number,
+    c.tags,
+    cma.display,
+    (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history hp
+          WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children
+   FROM ((((((((call_center.cc_calls_history c
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
+           FROM storage.files f_1
+          WHERE ((f_1.domain_id = c.domain_id) AND ((f_1.uuid)::text = (c.id)::text))) f ON (true))
+     LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
+     LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
+     LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
+     LEFT JOIN call_center.cc_member_attempt_history cma ON (((cma.member_call_id)::text = (c.id)::text)))
+     LEFT JOIN call_center.cc_agent_list ca ON ((cma.agent_id = ca.id)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
 
 
 --
@@ -4956,14 +5045,14 @@ CREATE UNIQUE INDEX cc_agent_missed_attempt_id_uindex ON call_center.cc_agent_mi
 -- Name: cc_agent_state_history_joined_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_agent_state_history USING btree (channel, joined_at DESC) INCLUDE (agent_id, state);
+CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_agent_state_history USING btree (channel, joined_at DESC, agent_id, state DESC) INCLUDE (duration);
 
 
 --
 -- Name: cc_agent_state_history_joined_at_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id);
+CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id DESC) INCLUDE (state, duration);
 
 
 --
@@ -5244,6 +5333,13 @@ CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_a
 --
 
 CREATE INDEX cc_member_attempt_history_domain_id_joined_at_index ON call_center.cc_member_attempt_history USING btree (domain_id, joined_at DESC);
+
+
+--
+-- Name: cc_member_attempt_history_member_call_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_member_call_id_index ON call_center.cc_member_attempt_history USING btree (member_call_id);
 
 
 --
@@ -5713,13 +5809,6 @@ CREATE UNIQUE INDEX cc_team_domain_udx ON call_center.cc_team USING btree (id, d
 --
 
 CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (updated_by);
-
-
---
--- Name: cc_member_timezone_stats; Type: STATISTICS; Schema: call_center; Owner: -
---
-
-CREATE STATISTICS call_center.cc_member_timezone_stats (dependencies) ON queue_id, "offset" FROM call_center.cc_member;
 
 
 --

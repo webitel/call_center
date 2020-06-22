@@ -47,14 +47,6 @@ func (at *agentTeam) WrapUpTime() uint16 {
 	return at.data.WrapUpTime
 }
 
-func (at *agentTeam) RejectDelayTime() uint16 {
-	return at.data.RejectDelayTime
-}
-
-func (at *agentTeam) BusyDelayTime() uint16 {
-	return at.data.BusyDelayTime
-}
-
 func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
 }
@@ -63,8 +55,8 @@ func (at *agentTeam) PostProcessing() bool {
 	return at.data.PostProcessing
 }
 
-func (at *agentTeam) PostProcessingTimeout() int {
-	return at.data.PostProcessingTimeout
+func (at *agentTeam) PostProcessingTimeout() uint16 {
+	return at.data.WrapUpTime
 }
 
 func NewTeamManager(s store.Store, m mq.MQ) *teamManager {

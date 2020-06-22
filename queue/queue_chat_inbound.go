@@ -105,13 +105,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam) {
 
 end:
 	if agent != nil {
-		// FIXME
-		if team.PostProcessing() {
-			team.WrapTime(attempt, agent, model.GetMillis()) // TODO
-		} else {
-			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-			team.Reporting(attempt, agent)
-		}
+		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+		team.Reporting(attempt, agent, true)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

@@ -130,7 +130,6 @@ type QueueInboundSettings struct {
 	QueueDialingSettings
 	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`
 	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
-	MaxWait               int    `json:"timeout"`
 	MaxWaitWithNoAgent    int    `json:"timeout_with_no_agents"`
 	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
 	MaxCallPerAgent int `json:"max_call_per_agent"`

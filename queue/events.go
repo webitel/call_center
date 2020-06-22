@@ -64,7 +64,8 @@ type ReportingEvent struct {
 }
 
 type WrapTime struct {
-	Timeout int64 `json:"timeout"`
+	Timeout        int64 `json:"timeout"`
+	PostProcessing bool  `json:"post_processing"`
 }
 
 type MissedEvent struct {
@@ -162,7 +163,7 @@ func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewReportingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec int) model.Event {
+func NewReportingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint16) model.Event {
 	e := ReportingEvent{
 		Reporting: Reporting{
 			Timeout: timestamp + (int64(deadlineSec) * 1000),
@@ -194,10 +195,11 @@ func NewMissedEventEvent(a *Attempt, userId int64, timestamp int64, timeout int6
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewWrapTimeEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64) model.Event {
+func NewWrapTimeEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64, postProcessing bool) model.Event {
 	e := WrapTimeEvent{
 		WrapTime: WrapTime{
-			Timeout: timeout,
+			Timeout:        timeout,
+			PostProcessing: postProcessing,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,

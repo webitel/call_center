@@ -6,7 +6,7 @@ const (
 	ChannelStateDistribute = "distribute"
 	ChannelStateOffering   = "offering"
 	ChannelStateAnswered   = "answered"
-	ChannelStateBridged    = "active"
+	ChannelStateBridged    = "bridged"
 	ChannelStateHold       = "hold" //TODO
 	ChannelStateReporting  = "reporting"
 	ChannelStateMissed     = "missed"

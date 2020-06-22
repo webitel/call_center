@@ -21,7 +21,15 @@ const (
 	AttemptHookDistributeAgent  = "agent"
 	AttemptHookBridgedAgent     = "bridged"
 	AttemptHookLeaving          = "leaving"
-	AttemptHookReportingTimeout = "timeout_reporting"
+	AttemptHookReportingTimeout = "timeout"
+)
+
+const (
+	AttemptResultAbandoned      = "abandoned"
+	AttemptResultSuccess        = "success"
+	AttemptResultTimeout        = "timeout"
+	AttemptResultPostProcessing = "processing"
+	AttemptResultBlockList      = "block" // FIXME
 )
 
 type Attempt struct {
@@ -188,17 +196,8 @@ func (a *Attempt) IsTimeout() bool {
 	return a.member.IsTimeout()
 }
 
-func (a *Attempt) WaitTimeout() *model.AttemptTimeout {
-	e := <-a.On(AttemptHookReportingTimeout)
-	return e.Args[0].(*model.AttemptTimeout)
-}
-
-func (a *Attempt) SetTimeout(v *model.AttemptTimeout) {
-	a.Emit(AttemptHookReportingTimeout, v)
-}
-
-func (a *Attempt) SetResult(result *string) {
-	a.member.Result = result
+func (a *Attempt) SetResult(result string) {
+	a.member.Result = &result
 }
 
 func (a *Attempt) Log(info string) {

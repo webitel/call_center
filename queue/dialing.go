@@ -97,18 +97,11 @@ func (d *DialingImpl) routeIdleAgents() {
 		return
 	}
 
-	// FIXME engine
+	//// FIXME engine
 	if attempts, err := d.store.Member().GetTimeouts(d.app.GetInstanceId()); err == nil {
 		for _, v := range attempts {
-			if attempt, ok := d.queueManager.membersCache.Get(v.Id); ok {
-				if _, err := d.queueManager.GetQueue(attempt.(*Attempt).QueueId(), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
-					attempt.(*Attempt).SetTimeout(v)
-				} else {
-					wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d", v.Id))
-				}
-			} else {
-				wlog.Error(fmt.Sprintf("Not found active attempt Id=%d", v.Id))
-			}
+			waiting := NewWaitingChannelEvent(v.Channel, v.UserId, &v.AttemptId, v.Timestamp)
+			err = d.queueManager.mq.AgentChannelEvent(v.Channel, v.DomainId, 0, v.UserId, waiting)
 		}
 	} else {
 		wlog.Error(err.Error()) ///TODO return ?
@@ -118,6 +111,8 @@ func (d *DialingImpl) routeIdleAgents() {
 		for _, h := range hists {
 			wlog.Debug(fmt.Sprintf("Attempt=%d result %s", h.Id, h.Result))
 		}
+	} else {
+		wlog.Error(err.Error())
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())

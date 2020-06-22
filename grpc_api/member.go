@@ -59,7 +59,7 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 			out.Send(&cc.QueueEvent{
 				Data: &cc.QueueEvent_Leaving{
 					Leaving: &cc.QueueEvent_LeavingData{
-						Result: "abandoned",
+						Result: attempt.Result(),
 					},
 				},
 			})

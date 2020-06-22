@@ -173,13 +173,8 @@ where ag.id = c.agent_id`, map[string]interface{}{
 }
 
 func (s SqlAgentStore) WaitingChannel(agentId int, channel string) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`update cc_agent_channel c
-set state = :State,
-    joined_at = now(),
-    timeout = null
-where (c.agent_id, c.channel) = (:AgentId::int, :Channel::varchar) and c.state in ('wrap_time', 'missed')
-returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
-		"State":   model.ChannelStateWaiting,
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(joined_at) as timestamp
+from cc_agent_set_channel_waiting(:AgentId, :Channel) as (joined_at timestamptz)`, map[string]interface{}{
 		"AgentId": agentId,
 		"Channel": channel,
 	})
