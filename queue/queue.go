@@ -251,14 +251,6 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 	}
 }
 
-func (tm *agentTeam) WrapTime1(attempt *Attempt, agent agent_manager.AgentObject, timestamp int64) {
-	e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)), false)
-	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-	}
-}
-
 func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
 	if agentSendReporting {
 		// FIXME
