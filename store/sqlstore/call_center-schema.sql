@@ -558,56 +558,140 @@ end;
 $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: cc_calls; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE UNLOGGED TABLE call_center.cc_calls (
+    id character varying NOT NULL,
+    direction character varying,
+    destination character varying,
+    parent_id character varying,
+    state character varying NOT NULL,
+    app_id character varying NOT NULL,
+    from_type character varying,
+    from_name character varying,
+    from_number character varying,
+    from_id character varying,
+    to_type character varying,
+    to_name character varying,
+    to_number character varying,
+    to_id character varying,
+    payload jsonb,
+    domain_id bigint NOT NULL,
+    hold_sec integer DEFAULT 0 NOT NULL,
+    cause character varying,
+    sip_code smallint,
+    bridged_id character varying,
+    user_id integer,
+    gateway_id integer,
+    queue_id integer,
+    agent_id integer,
+    team_id integer,
+    attempt_id integer,
+    member_id bigint,
+    type character varying DEFAULT 'call'::character varying,
+    "timestamp" timestamp with time zone,
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone,
+    hangup_by character varying,
+    transfer_from character varying,
+    transfer_to character varying,
+    amd_result character varying,
+    amd_duration interval
+)
+WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
+
+
+--
+-- Name: cc_call_get_owner_leg(call_center.cc_calls); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_call_get_owner_leg(c_ call_center.cc_calls, OUT number_ character varying, OUT name_ character varying, OUT type_ character varying, OUT id_ character varying) RETURNS record
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+begin
+    if c_.direction = 'inbound' then
+        number_ := c_.to_number;
+        name_ := c_.to_name;
+        type_ := c_.to_type;
+        id_ := c_.to_id;
+    else
+        number_ := c_.from_number;
+        name_ := c_.from_name;
+        type_ := c_.from_type;
+        id_ := c_.from_id;
+
+    end if;
+end;
+$$;
+
+
 --
 -- Name: cc_call_set_bridged(character varying, character varying, timestamp with time zone, character varying, bigint, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_call_set_bridged(id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, bridged_id_ character varying)
+CREATE PROCEDURE call_center.cc_call_set_bridged(call_id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, call_bridged_id_ character varying)
     LANGUAGE plpgsql
     AS $$
-declare r record;
 begin
---     insert into cc_calls (id, state, timestamp, app_id, domain_id, bridged_id)
---     values (id_, state_, timestamp_, app_id_, domain_id_, bridged_id_)
---     on conflict (id) where timestamp < timestamp_
---         do update set
---           state = EXCLUDED.state,
---           bridged_id = EXCLUDED.bridged_id,
---           timestamp = EXCLUDED.timestamp
---     returning * into r;
-
-    update cc_calls
-        set state = state_,
-            bridged_id = id_,
-            timestamp = timestamp_
-    where cc_calls.id = bridged_id_
-    returning * into r;
-
-    update cc_calls
-        set state = state_,
-            bridged_id = bridged_id_,
+    update cc_calls cc
+        set bridged_id = c.bridged_id,
+            state = state_,
             timestamp = timestamp_,
-            to_number = r.to_number,
-            to_name = r.to_name,
-            to_id = r.to_id,
-            to_type = r.to_type,
-            user_id = coalesce(user_id, r.user_id),
-            gateway_id = coalesce(gateway_id, r.gateway_id)
-    where cc_calls.id = id_;
+            to_number = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.number_ else to_number end,
+            to_name = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.name_ else to_name end,
+            to_type = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.type_ else to_type end,
+            to_id = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.id_ else to_id end
+        from (
+            select b.id,
+                   b2.id parent_id,
+                   b2.id bridged_id,
+                   b2o.*
+            from cc_calls b
+                left join cc_calls b2 on b2.id = call_id_
+                left join lateral cc_call_get_owner_leg(b2) b2o on true
+        where b.id = call_bridged_id_
+    ) c
+    where c.id = cc.id;
 
 
---     insert into cc_calls (id, state, timestamp, app_id, domain_id, bridged_id , to_number, to_name, to_id)
---     values (bridged_id_, state_, timestamp_, app_id_, domain_id_, id_ , r.to_number, r.to_name, r.to_id )
---     on conflict (id) where timestamp < timestamp_
---         do update set
---           state = excluded.state,
---           bridged_id = excluded.bridged_id,
---           timestamp = excluded.timestamp,
---           to_number = excluded.to_number,
---           to_name = excluded.to_name,
---           to_id = excluded.to_id--,
---           user_id = case when excluded.user_id isnull then r.user_id end
---           ;
+    update cc_calls cc
+        set bridged_id = c.bridged_id,
+            state = state_,
+            timestamp = timestamp_,
+            parent_id = case when cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id else cc.parent_id end,
+            transfer_from = case when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id else cc.transfer_from end,
+            to_number = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.number_ else to_number end,
+            to_name = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.name_ else to_name end,
+            to_type = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.type_ else to_type end,
+            to_id = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                then c.id_ else to_id end
+        from (
+                select b.id,
+                       b2.id parent_id,
+                       b2.id bridged_id,
+                       b2o.*
+                from cc_calls b
+                    left join cc_calls b2 on b2.id = call_bridged_id_
+                    left join lateral cc_call_get_owner_leg(b2) b2o on true
+            where b.id = call_id_
+        ) c
+    where c.id = cc.id;
+
 end;
 $$;
 
@@ -625,7 +709,7 @@ BEGIN
         if new.answered_at isnull then
             new.answered_at = new.timestamp;
 
-            if new.direction = 'inbound' and new.parent_id notnull then
+            if new.direction = 'inbound' and new.parent_id notnull and new.bridged_at isnull then
                 new.bridged_at = new.answered_at;
             end if;
 
@@ -639,7 +723,7 @@ BEGIN
 
         end if;
     else if (new.state = 'bridge' ) then
-        new.bridged_at = new.timestamp;
+        new.bridged_at = coalesce(new.bridged_at, new.timestamp);
     else if new.state = 'hangup' then
         new.hangup_at = new.timestamp;
     end if;
@@ -823,9 +907,9 @@ BEGIN
         into _weight;
   end if;
 
-  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, display, list_communication_id)
+  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
   values ('waiting', _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
-              _node_name,_call.destination, (select clc.id
+              _node_name, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
   returning * into _attempt;
@@ -1854,10 +1938,6 @@ $$;
 CREATE OPERATOR FAMILY call_center.gin_cc_pair_test2_ops USING gin;
 
 
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
 --
 -- Name: cc_agent_activity; Type: TABLE; Schema: call_center; Owner: -
 --
@@ -2392,53 +2472,6 @@ ALTER SEQUENCE call_center.cc_agent_missed_attempt_id_seq OWNED BY call_center.c
 
 
 --
--- Name: cc_calls; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE UNLOGGED TABLE call_center.cc_calls (
-    id character varying NOT NULL,
-    direction character varying,
-    destination character varying,
-    parent_id character varying,
-    state character varying NOT NULL,
-    app_id character varying NOT NULL,
-    from_type character varying,
-    from_name character varying,
-    from_number character varying,
-    from_id character varying,
-    to_type character varying,
-    to_name character varying,
-    to_number character varying,
-    to_id character varying,
-    payload jsonb,
-    domain_id bigint NOT NULL,
-    hold_sec integer DEFAULT 0 NOT NULL,
-    cause character varying,
-    sip_code smallint,
-    bridged_id character varying,
-    user_id integer,
-    gateway_id integer,
-    queue_id integer,
-    agent_id integer,
-    team_id integer,
-    attempt_id integer,
-    member_id bigint,
-    type character varying DEFAULT 'call'::character varying,
-    "timestamp" timestamp with time zone,
-    answered_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    hangup_at timestamp with time zone,
-    created_at timestamp with time zone,
-    hangup_by character varying,
-    transfer_from character varying,
-    transfer_to character varying,
-    amd_result character varying,
-    amd_duration interval
-)
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
-
-
---
 -- Name: cc_agent_waiting; Type: VIEW; Schema: call_center; Owner: -
 --
 
@@ -2645,11 +2678,10 @@ CREATE TABLE call_center.cc_team (
     id bigint NOT NULL,
     domain_id bigint NOT NULL,
     name character varying(50) NOT NULL,
-    description character varying(500) DEFAULT ''::character varying NOT NULL,
-    strategy character varying(20) NOT NULL,
+    description character varying DEFAULT ''::character varying NOT NULL,
+    strategy character varying NOT NULL,
     max_no_answer smallint DEFAULT 0 NOT NULL,
     wrap_up_time smallint DEFAULT 0 NOT NULL,
-    reject_delay_time smallint DEFAULT 0 NOT NULL,
     busy_delay_time smallint DEFAULT 0 NOT NULL,
     no_answer_delay_time smallint DEFAULT 0 NOT NULL,
     call_timeout smallint DEFAULT 0 NOT NULL,
@@ -2657,9 +2689,7 @@ CREATE TABLE call_center.cc_team (
     created_at bigint,
     created_by bigint,
     updated_by bigint,
-    result_timeout integer DEFAULT 0 NOT NULL,
-    post_processing boolean DEFAULT false NOT NULL,
-    post_processing_timeout integer DEFAULT 0 NOT NULL
+    post_processing boolean DEFAULT false NOT NULL
 );
 
 
@@ -4979,10 +5009,17 @@ CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id,
 
 
 --
--- Name: cc_agent_in_team_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_agent_in_team_agent_id_team_id_lvl_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_agent_in_team_agent_id_index ON call_center.cc_agent_in_team USING btree (agent_id);
+CREATE UNIQUE INDEX cc_agent_in_team_agent_id_team_id_lvl_uindex ON call_center.cc_agent_in_team USING btree (agent_id, team_id, lvl DESC);
+
+
+--
+-- Name: cc_agent_in_team_skill_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_in_team_skill_id_index ON call_center.cc_agent_in_team USING btree (skill_id);
 
 
 --
@@ -4997,13 +5034,6 @@ CREATE UNIQUE INDEX cc_agent_in_team_skill_id_team_id_uindex ON call_center.cc_a
 --
 
 CREATE UNIQUE INDEX cc_agent_in_team_team_id_agent_id_skill_id_lvl_uindex ON call_center.cc_agent_in_team USING btree (team_id, agent_id, skill_id, lvl DESC);
-
-
---
--- Name: cc_agent_in_team_team_id_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_in_team_team_id_agent_id_uindex ON call_center.cc_agent_in_team USING btree (team_id, agent_id);
 
 
 --
@@ -5718,6 +5748,13 @@ CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON ca
 --
 
 CREATE INDEX cc_skill_domain_id_index ON call_center.cc_skill USING btree (domain_id);
+
+
+--
+-- Name: cc_skill_in_agent_agent_id_capacity_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_skill_in_agent_agent_id_capacity_index ON call_center.cc_skill_in_agent USING btree (agent_id, capacity);
 
 
 --

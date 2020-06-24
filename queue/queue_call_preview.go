@@ -62,8 +62,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
-
-				"cc_reporting": fmt.Sprintf("%v", team.PostProcessing()),
+				"absolute_codec_string":      "opus,pcmu,pcma",
+				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
 
 				"hangup_after_bridge": "true",
 
