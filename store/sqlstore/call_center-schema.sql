@@ -6015,7 +6015,7 @@ CREATE TRIGGER tg_cc_set_agent_change_status_i AFTER INSERT ON call_center.cc_ag
 -- Name: cc_agent tg_cc_set_agent_change_status_u; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN (((old.status)::text <> (new.status)::text)) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
+CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN ((((old.status)::text <> (new.status)::text) OR ((old.status_payload)::text <> (new.status_payload)::text))) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
 
 
 --
