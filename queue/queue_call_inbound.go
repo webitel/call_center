@@ -117,20 +117,16 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					case call_manager.CALL_STATE_ACCEPT:
 						time.Sleep(time.Millisecond * 250)
 						team.Answered(attempt, agent)
-						printfIfErr(agentCall.Bridge(mCall))
+						printfIfErr(mCall.Bridge(agentCall))
 					case call_manager.CALL_STATE_BRIDGE:
-						fmt.Println("TODO")
-						//team.Bridged(attempt, agent)
-						//attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
+						timeout.Stop()
+						team.Bridged(attempt, agent)
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						break top
 					}
 				case s := <-mCall.State():
 					switch s {
-					case call_manager.CALL_STATE_BRIDGE:
-						timeout.Stop()
-						team.Bridged(attempt, agent)
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 						if agentCall.HangupAt() == 0 {
