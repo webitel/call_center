@@ -39,6 +39,8 @@ type BaseQueue struct {
 	teamId          *int
 	schemaId        *int
 	ringtone        *model.RingtoneFile
+	doSchema        *int
+	afterSchemaId   *int
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -315,7 +317,6 @@ func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.A
 func (tm *agentTeam) MissedAgent(missed *model.MissedAgent, attempt *Attempt, agent agent_manager.AgentObject) {
 	if missed.NoAnswers != nil && *missed.NoAnswers >= tm.MaxNoAnswer() {
 		tm.SetAgentMaxNoAnswer(agent)
-		return
 	}
 
 	e := NewMissedEventEvent(attempt, agent.UserId(), missed.Timestamp, missed.Timestamp+(int64(tm.NoAnswerDelayTime())*1000))
