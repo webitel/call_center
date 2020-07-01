@@ -29,8 +29,8 @@ func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultReques
 		result.ExpireAt = model.NewInt64(in.GetExpireAt())
 	}
 
-	if in.MinOfferingAt > 0 {
-		result.NextCall = model.NewInt64(in.MinOfferingAt)
+	if in.NextDistributeAt > 0 {
+		result.NextCall = model.NewInt64(in.NextDistributeAt)
 	}
 
 	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result)

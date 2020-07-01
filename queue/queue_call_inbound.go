@@ -160,7 +160,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		//panic(agentCall.Id())
+		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {

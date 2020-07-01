@@ -59,21 +59,23 @@ func RingtoneUri(domainId int64, id int, mimeType string) string {
 }
 
 type Queue struct {
-	Id           int               `json:"id" db:"id"`
-	DomainId     int64             `json:"domain_id" db:"domain_id"`
-	DomainName   string            `json:"domain_name" db:"domain_name"`
-	Type         uint8             `json:"type" db:"type"`
-	Name         string            `json:"name" db:"name"`
-	Strategy     string            `json:"strategy" db:"strategy"`
-	Payload      []byte            `json:"payload" db:"payload"`
-	UpdatedAt    int64             `json:"updated_at" db:"updated_at"`
-	MaxCalls     uint16            `json:"max_calls" db:"max_calls"`
-	Variables    map[string]string `json:"variables" db:"variables"`
-	TeamId       *int              `json:"team_id" db:"team_id"`
-	Timeout      uint16            `json:"timeout" db:"timeout"`
-	RingtoneId   *int              `json:"ringtone_id" db:"ringtone_id"`
-	RingtoneType *string           `json:"ringtone_type" db:"ringtone_type"`
-	SchemaId     *int              `json:"schema_id" db:"schema_id"`
+	Id            int               `json:"id" db:"id"`
+	DomainId      int64             `json:"domain_id" db:"domain_id"`
+	DomainName    string            `json:"domain_name" db:"domain_name"`
+	Type          uint8             `json:"type" db:"type"`
+	Name          string            `json:"name" db:"name"`
+	Strategy      string            `json:"strategy" db:"strategy"`
+	Payload       []byte            `json:"payload" db:"payload"`
+	UpdatedAt     int64             `json:"updated_at" db:"updated_at"`
+	MaxCalls      uint16            `json:"max_calls" db:"max_calls"`
+	Variables     map[string]string `json:"variables" db:"variables"`
+	TeamId        *int              `json:"team_id" db:"team_id"`
+	Timeout       uint16            `json:"timeout" db:"timeout"`
+	RingtoneId    *int              `json:"ringtone_id" db:"ringtone_id"`
+	RingtoneType  *string           `json:"ringtone_type" db:"ringtone_type"`
+	SchemaId      *int              `json:"schema_id" db:"schema_id"`
+	DoSchemaId    *int              `json:"do_schema_id" db:"do_schema_id"`
+	AfterSchemaId *int              `json:"after_schema_id" db:"after_schema_id"`
 }
 
 //FIXME  enum & queue_type

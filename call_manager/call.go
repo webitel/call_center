@@ -132,6 +132,8 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
+	//DUMP(callRequest)
+
 	call := &CallImpl{
 		callRequest: callRequest,
 		direction:   direction,
@@ -283,6 +285,7 @@ func (call *CallImpl) FromName() string {
 }
 
 func (call *CallImpl) NodeName() string {
+	// FIXME крешиться коли сфвіч падає
 	return call.api.Name()
 }
 

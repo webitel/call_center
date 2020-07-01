@@ -23,7 +23,8 @@ type AgentApi interface {
 }
 
 type MemberApi interface {
-	AttemptResult(attemptId int64, status string) error
+	AttemptResult(attemptId int64, status, description string, nextOffering *int64, expireAt *int64, vars map[string]string,
+		stickyDisplay bool) error
 	JoinCallToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (cc.MemberService_CallJoinToQueueClient, error)
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 	JoinChatToQueue(domainId int64, channelId string, queueId int64, name, number string) (string, error)

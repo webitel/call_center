@@ -12,13 +12,7 @@ service MemberService {
     }
 
     rpc CallJoinToQueue(CallJoinToQueueRequest) returns (stream QueueEvent) {}
-
-//    rpc CallJoinToQueueStream(CallJoinToQueueRequest) returns (stream QueueEvent) {}
-
-
     rpc ChatJoinToQueue(ChatJoinToQueueRequest) returns (ChatJoinToQueueResponse) {}
-
-//    rpc Conversation(AnswerConversationRequest) returns (AnswerConversationResponse) {}
 
     rpc EmailJoinToQueue(EmailJoinToQueueRequest) returns (EmailJoinToQueueResponse) {}
     rpc DirectAgentToMember(DirectAgentToMemberRequest) returns (DirectAgentToMemberResponse) {}
@@ -117,27 +111,16 @@ message CallJoinToQueueResponse {
     string status = 1;
 }
 
-/*
-1. Завершити обдзвын, тобто на нього быльше не буде розприділятися
-2. Час від коли він знову попаде в розподіл
-3. Коментар
-4. Можливість задати варіблу (змінити поки хз:( )
-5. Перекинути у іншу чергу(теж хз чи потрібно)
-6. Привязати номер який показувати при наступному дзвінку(display number)
-*/
-
 message AttemptResultRequest {
-    int64 attempt_id = 1; // ід спроби
+    int64 attempt_id = 1;
     string status = 2; // SUCCESS / CANCEL - абонент виключається з черги з цим статусом, якщо пусто то: якщо остання спроба то ABANDONED або буде очікувати наступний дзвінок
 
-
-
-    int64 min_offering_at = 3; // - змінити час відколи можна знову дзвонити абоненту, не обовязкове timestamp
-    int64 expire_at = 4; // встановити новий дедлайн
-    map<string, string> variables = 5; // змінити варібли
-    bool display = 6; // якщо true тоді за цим номером прикріпляється ресурс + номер який відображається абоненту
-    string description = 7; // опис...
-    int64 transfer_queue_id = 8; // перекинути в іншу чергу
+    int64 next_distribute_at = 3;
+    int64 expire_at = 4;
+    map<string, string> variables = 5;
+    bool display = 6;
+    string description = 7;
+    int64 transfer_queue_id = 8;
 }
 
 message AttemptResultResponse {
