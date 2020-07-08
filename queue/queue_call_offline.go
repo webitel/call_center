@@ -123,6 +123,5 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		team.Missed(attempt, 5, agent)
 	}
 
-	close(attempt.distributeAgent)
 	queue.queueManager.LeavingMember(attempt, queue)
 }

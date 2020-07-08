@@ -51,23 +51,23 @@ type MemberAttempt struct {
 	QueueActiveCount  int `json:"queue_active_count" db:"queue_active_count"`
 	QueueWaitingCount int `json:"queue_waiting_count" db:"queue_waiting_count"`
 
-	State               uint8     `json:"state" db:"state"`
-	MemberId            *int64    `json:"member_id" db:"member_id"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at"`
-	HangupAt            int64     `json:"hangup_at" db:"hangup_at"`
-	BridgedAt           int64     `json:"bridged_at" db:"bridged_at"`
-	ResourceId          *int64    `json:"resource_id" db:"resource_id"`
-	ResourceUpdatedAt   *int64    `json:"resource_updated_at" db:"resource_updated_at"`
-	GatewayUpdatedAt    *int64    `json:"gateway_updated_at" db:"gateway_updated_at"`
-	Result              *string   `json:"result" db:"result"`
-	Destination         []byte    `json:"destination" db:"destination"`
-	ListCommunicationId *int64    `json:"list_communication_id" db:"list_communication_id"`
-	AgentId             *int      `json:"agent_id" db:"agent_id"`
-	AgentUpdatedAt      *int64    `json:"agent_updated_at" db:"agent_updated_at"`
-	TeamUpdatedAt       *int64    `json:"team_updated_at" db:"team_updated_at"`
-	Variables           []byte    `json:"variables" db:"variables"`
-	Name                string    `json:"name" db:"name"`
-	MemberCallId        *string   `json:"member_call_id" db:"member_call_id"`
+	State               uint8             `json:"state" db:"state"`
+	MemberId            *int64            `json:"member_id" db:"member_id"`
+	CreatedAt           time.Time         `json:"created_at" db:"created_at"`
+	HangupAt            int64             `json:"hangup_at" db:"hangup_at"`
+	BridgedAt           int64             `json:"bridged_at" db:"bridged_at"`
+	ResourceId          *int64            `json:"resource_id" db:"resource_id"`
+	ResourceUpdatedAt   *int64            `json:"resource_updated_at" db:"resource_updated_at"`
+	GatewayUpdatedAt    *int64            `json:"gateway_updated_at" db:"gateway_updated_at"`
+	Result              *string           `json:"result" db:"result"`
+	Destination         []byte            `json:"destination" db:"destination"`
+	ListCommunicationId *int64            `json:"list_communication_id" db:"list_communication_id"`
+	AgentId             *int              `json:"agent_id" db:"agent_id"`
+	AgentUpdatedAt      *int64            `json:"agent_updated_at" db:"agent_updated_at"`
+	TeamUpdatedAt       *int64            `json:"team_updated_at" db:"team_updated_at"`
+	Variables           map[string]string `json:"variables" db:"variables"`
+	Name                string            `json:"name" db:"name"`
+	MemberCallId        *string           `json:"member_call_id" db:"member_call_id"`
 }
 
 type AttemptReportingTimeout struct {

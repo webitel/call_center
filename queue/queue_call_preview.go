@@ -15,9 +15,8 @@ type PreviewCallQueue struct {
 }
 
 type PreviewSettings struct {
-	DoCallFlowId       *int `json:"do_call_flow_id"`
-	MemberCallTimeout  int  `json:"member_call_timeout"`
-	WaitBetweenRetries int  `json:"wait_between_retries"`
+	MemberCallTimeout  int `json:"member_call_timeout"`
+	WaitBetweenRetries int `json:"wait_between_retries"`
 }
 
 func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
@@ -46,6 +45,11 @@ func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 }
 
 func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject, destination string) {
+
+	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
+		queue.queueManager.LeavingMember(attempt, queue)
+		return
+	}
 
 	display := attempt.Display()
 
@@ -139,7 +143,6 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		team.Missed(attempt, int(team.NoAnswerDelayTime()), agent)
 	}
 
-	close(attempt.distributeAgent)
 	queue.queueManager.LeavingMember(attempt, queue)
 }
 

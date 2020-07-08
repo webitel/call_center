@@ -41,6 +41,11 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 
 func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent agent_manager.AgentObject) {
 
+	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
+		queue.queueManager.LeavingMember(attempt, queue)
+		return
+	}
+
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	var callerIdNumber string
 

@@ -43,22 +43,26 @@ type MemberStore interface {
 
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)
 
-	//Reporting(attemptId int64, result string) *model.AppError
 	DistributeChatToQueue(node string, queueId int64, callId string, number string, name string, priority int) (*model.MemberAttempt, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
 
+	/*
+		Flow control
+	*/
+	SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError
+
 	SetAttemptFindAgent(id int64) *model.AppError
 
-	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string) (int64, *model.AppError)
+	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec uint16) (int64, *model.AppError)
 	SetAttemptAbandoned(attemptId int64) (int64, *model.AppError)
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
 	SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError)
 	SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
-	CallbackReporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError)
+	CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64) (*model.AttemptReportingResult, *model.AppError)
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError)

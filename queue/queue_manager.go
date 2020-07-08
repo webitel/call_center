@@ -395,7 +395,13 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 }
 
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
-	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status)
+
+	// TODO
+	if !result.Success && result.Status == "" {
+		result.Status = "abandoned"
+	}
+
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status, result.Description, result.ExpireAt, result.NextCall)
 	if err != nil {
 		return err
 	}

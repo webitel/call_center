@@ -37,6 +37,8 @@ select q.id,
        q.team_id,
        q.schema_id,
        q.ringtone_id,
+       q.do_schema_id,
+       q.after_schema_id,
        f.mime_type ringtone_type
 from cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc

@@ -28,8 +28,6 @@ const (
 	QUEUE_AGENT_ID_FIELD   = "cc_agent_id"
 	QUEUE_UPDATED_AT_FIELD = "cc_queue_updated_at"
 
-	QUEUE_MEMBER_PRIORITY = "cc_queue_member_priority"
-
 	QUEUE_NAME_FIELD        = "cc_queue_name"
 	QUEUE_TYPE_NAME_FIELD   = "cc_queue_type"
 	QUEUE_MEMBER_ID_FIELD   = "cc_member_id"
@@ -74,8 +72,8 @@ type Queue struct {
 	RingtoneId    *int              `json:"ringtone_id" db:"ringtone_id"`
 	RingtoneType  *string           `json:"ringtone_type" db:"ringtone_type"`
 	SchemaId      *int              `json:"schema_id" db:"schema_id"`
-	DoSchemaId    *int              `json:"do_schema_id" db:"do_schema_id"`
-	AfterSchemaId *int              `json:"after_schema_id" db:"after_schema_id"`
+	DoSchemaId    *int32            `json:"do_schema_id" db:"do_schema_id"`
+	AfterSchemaId *int32            `json:"after_schema_id" db:"after_schema_id"`
 }
 
 //FIXME  enum & queue_type
@@ -117,9 +115,6 @@ type QueueCallbackSettings struct {
 	Timeout int32 `json:"timeout"`
 }
 
-type QueueAgentsSettings struct {
-}
-
 /* TODO
 Max wait - not hangup
 Max wait time with no agent - offline + onbreak
@@ -145,20 +140,17 @@ type QueueIVRSettings struct {
 type QueuePreviewSettings struct {
 	QueueDialingSettings
 	Callback *QueueCallbackSettings `json:"callback"`
-	Agents   *QueueAgentsSettings   `json:"agents"`
 }
 
 type QueueProgressiveSettings struct {
 	QueueDialingSettings
 	Callback *QueueCallbackSettings `json:"callback"`
-	Agents   *QueueAgentsSettings   `json:"agents"`
 	Amd      *QueueAmdSettings      `json:"amd"`
 }
 
 type QueuePredictiveSettings struct {
 	QueueDialingSettings
 	Callback *QueueCallbackSettings `json:"callback"`
-	Agents   *QueueAgentsSettings   `json:"agents"`
 	Amd      *QueueAmdSettings      `json:"amd"`
 }
 

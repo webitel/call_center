@@ -76,13 +76,13 @@ const (
 )
 
 type InboundCallQueue struct {
-	AttemptId      int64  `json:"attempt_id" db:"attempt_id"`
-	QueueId        int    `json:"queue_id" db:"queue_id"`
-	QueueUpdatedAt int64  `json:"queue_updated_at" db:"queue_updated_at"`
-	Destination    []byte `json:"destination" db:"destination"`
-	Variables      []byte `json:"variables" db:"variables"`
-	Name           string `json:"name" db:"name"`
-	TeamUpdatedAt  int64  `json:"team_updated_at" db:"team_updated_at"`
+	AttemptId      int64             `json:"attempt_id" db:"attempt_id"`
+	QueueId        int               `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt int64             `json:"queue_updated_at" db:"queue_updated_at"`
+	Destination    []byte            `json:"destination" db:"destination"`
+	Variables      map[string]string `json:"variables" db:"variables"`
+	Name           string            `json:"name" db:"name"`
+	TeamUpdatedAt  int64             `json:"team_updated_at" db:"team_updated_at"`
 	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
 
 	CallId          string  `json:"call_id" db:"call_id"`
@@ -169,7 +169,7 @@ func (e *CallEndpoint) GetName() *string {
 }
 
 type CallActionInfo struct {
-	GatewayId   *int           `json:"gateway_id,string"` // FIXME
+	GatewayId   *int           `json:"gateway_id"` // FIXME
 	UserId      *int           `json:"user_id"`
 	Direction   string         `json:"direction"`
 	Destination string         `json:"destination"`

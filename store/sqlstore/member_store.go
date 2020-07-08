@@ -74,6 +74,24 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
+func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError {
+	_, err := s.GetMaster().Exec(`call cc_attempt_distribute_cancel(:Id::int8, :Desc::varchar, :NextSec::int4, :Stop::bool, :Vars::jsonb)`,
+		map[string]interface{}{
+			"Id":      id,
+			"Desc":    description,
+			"NextSec": nextDistributeSec,
+			"Stop":    stop,
+			"Vars":    nil,
+		})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.SetDistributeCancel", "store.sql_member.set_distribute_cancel.app_error", nil,
+			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, priority int) (*model.InboundCallQueue, *model.AppError) {
 	var att *model.InboundCallQueue
 	err := s.GetMaster().SelectOne(&att, `select *
@@ -182,15 +200,17 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string) (int64, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
-from cc_attempt_offering(:AttemptId, :AgentId, :AgentCallId, :MemberCallId)
+from cc_attempt_offering(:AttemptId, :AgentId, :AgentCallId, :MemberCallId, :Dest::varchar, :Displ::varchar)
     as x (last_state_change timestamptz)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":    attemptId,
 		"AgentId":      agentId,
 		"AgentCallId":  agentCallId,
 		"MemberCallId": memberCallId,
+		"Dest":         destination,
+		"Displ":        display,
 	})
 
 	if err != nil {
@@ -342,13 +362,16 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 	return attempts, nil
 }
 
-func (s *SqlMemberStore) CallbackReporting(attemptId int64, status string) (*model.AttemptReportingResult, *model.AppError) {
+func (s *SqlMemberStore) CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status) as
+from cc_attempt_end_reporting(:AttemptId::int8, :Status, :Description, :ExpireAt, :NextDistributeAt) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)`, map[string]interface{}{
-		"AttemptId": attemptId,
-		"Status":    "success", //FIXME
+		"AttemptId":        attemptId,
+		"Status":           status,
+		"Description":      description,
+		"ExpireAt":         expireAt,
+		"NextDistributeAt": nextDistributeAt,
 	})
 
 	if err != nil {

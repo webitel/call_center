@@ -32,10 +32,14 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 func (queue *IVRQueue) run(attempt *Attempt) {
 	info := queue.GetCallInfoFromAttempt(attempt)
 
+	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
+		queue.queueManager.LeavingMember(attempt, queue)
+		return
+	}
+
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	var callerIdNumber string
 
-	// FIXME display
 	if attempt.communication.Display != nil && *attempt.communication.Display != "" {
 		callerIdNumber = *attempt.communication.Display
 	} else {
@@ -120,7 +124,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
-				queue.queueManager.store.Member().SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()))
+				queue.queueManager.store.Member().SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()), &dst, &callerIdNumber)
 			case call_manager.CALL_STATE_ACCEPT:
 				queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
 			case call_manager.CALL_STATE_BRIDGE:

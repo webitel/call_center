@@ -255,6 +255,22 @@ $_$;
 
 
 --
+-- Name: cc_array_merge(anyarray, anyarray); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_array_merge(arr1 anyarray, arr2 anyarray) RETURNS anyarray
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    select array_agg(distinct elem order by elem)
+    from (
+        select unnest(arr1) elem
+        union
+        select unnest(arr2)
+    ) s
+$$;
+
+
+--
 -- Name: cc_attempt_abandoned(bigint, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -273,15 +289,14 @@ begin
     returning * into attempt;
 
     update cc_member
-    set last_hangup_at  = extract(EPOCH from now())::int8, -- todo delete me
-        last_attempt_id = attempt_id_,
+    set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
         last_agent      = coalesce(attempt.agent_id, last_agent),
-        stop_at = extract(EPOCH from now())::int8, -- del me
+        stop_at = attempt.leaving_at,
         stop_cause = attempt.result,
         -- fixme
         communications  = jsonb_set(
-                jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
-            , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
+                jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
+            , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
         attempts        = attempts + 1                     --TODO
     where id = attempt.member_id;
 
@@ -325,6 +340,38 @@ $$;
 
 
 --
+-- Name: cc_attempt_distribute_cancel(bigint, character varying, integer, boolean, jsonb); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.cc_attempt_distribute_cancel(attempt_id_ bigint, description_ character varying, next_distribute_sec_ integer, stop_ boolean, vars_ jsonb)
+    LANGUAGE plpgsql
+    AS $$
+declare
+    attempt  cc_member_attempt%rowtype;
+begin
+    update cc_member_attempt
+        set leaving_at = now(),
+            description = description_,
+            last_state_change = now(),
+            result = 'cancel', --TODO
+            state = 'leaving'
+    where id = attempt_id_
+    returning * into attempt;
+
+    update cc_member
+    set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
+        last_agent      = coalesce(attempt.agent_id, last_agent),
+        variables = case when vars_ notnull  then coalesce(variables, '{}'::jsonb) || vars_ else variables end,
+        ready_at = case when next_distribute_sec_ > 0 then now() + (next_distribute_sec_::text || ' sec')::interval else now() end,
+        stop_at = case when stop_ is true then attempt.leaving_at end,
+        stop_cause = case when stop_ is true then attempt.result end
+    where id = attempt.member_id;
+
+end;
+$$;
+
+
+--
 -- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -352,8 +399,7 @@ begin
     end if;
 
     update cc_member
-    set last_hangup_at  = time_, -- todo delete me
-        last_attempt_id = attempt_id_,
+    set last_hangup_at  = time_,
         variables = case when variables_ isnull then variables else variables_ end,
         expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
         min_offering_at = case when next_offering_at_ isnull then min_offering_at else next_offering_at_ end,
@@ -409,12 +455,10 @@ begin
     returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
 
     update cc_member
-    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000, -- todo delete me
-        last_attempt_id = attempt_id_,
+    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
         last_agent      = coalesce(agent_id_, last_agent),
         ready_at        = now() + (hold_sec || ' sec')::interval,
-        stop_at = case when result_ = 'success' then extract(EPOCH from now())::int8 * 1000 else stop_at end,
-        pause_at = case when result_ = 'success' then now() else pause_at end,
+        stop_at = case when result_ = 'success' then now() else stop_at end,
         communications  = jsonb_set(
                 jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
             , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
@@ -475,10 +519,10 @@ $$;
 
 
 --
--- Name: cc_attempt_offering(bigint, integer, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_offering(bigint, integer, character varying, character varying, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ integer, agent_call_id_ character varying, member_call_id_ character varying) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ integer, agent_call_id_ character varying, member_call_id_ character varying, dest_ character varying, displ_ character varying) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -486,27 +530,33 @@ declare
 begin
 
     update cc_member_attempt
-    set state = 'offering',
+    set state             = 'offering',
         last_state_change = now(),
-        offering_at = coalesce(offering_at, now()),
-        agent_id = case when agent_id isnull and agent_id_::int notnull then agent_id_ else agent_id end,
-        agent_call_id = case when agent_call_id isnull  and agent_call_id_::varchar notnull then agent_call_id_ else agent_call_id end,
+--         destination = dest_,
+        display = displ_,
+        offering_at       = coalesce(offering_at, now()),
+        agent_id          = case when agent_id isnull and agent_id_::int notnull then agent_id_ else agent_id end,
+        agent_call_id     = case
+                                when agent_call_id isnull and agent_call_id_::varchar notnull then agent_call_id_
+                                else agent_call_id end,
         -- todo for queue preview
-        member_call_id = case when member_call_id isnull  and member_call_id_ notnull then member_call_id_ else member_call_id end
+        member_call_id    = case
+                                when member_call_id isnull and member_call_id_ notnull then member_call_id_
+                                else member_call_id end
     where id = attempt_id_
     returning * into attempt;
 
 
     if attempt.agent_id notnull then
         update cc_agent_channel ch
-        set state = attempt.state,
-            joined_at = now(),
+        set state            = attempt.state,
+            joined_at        = now(),
             last_offering_at = now(),
-            queue_id = attempt.queue_id
-        where  (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
+            queue_id         = attempt.queue_id
+        where (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
 
-    return row(attempt.last_state_change::timestamptz);
+    return row (attempt.last_state_change::timestamptz);
 end;
 $$;
 
@@ -532,12 +582,10 @@ begin
     returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
 
     update cc_member
-    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000, -- todo delete me
-        last_attempt_id = attempt_id_,
+    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
         last_agent      = coalesce(agent_id_, last_agent),
         ready_at        = now() + (hold_sec || ' sec')::interval,
-        stop_at = case when result_ = 'success' then extract(EPOCH from now())::int8 * 1000 else stop_at end,
-        pause_at = case when result_ = 'success' then now() else pause_at end,
+        stop_at = case when result_ = 'success' then now() else stop_at end,
         communications  = jsonb_set(
                 jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
             , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
@@ -1234,19 +1282,6 @@ $$;
 
 
 --
--- Name: cc_member_statistic_trigger(); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_member_statistic_trigger() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN NULL;
-END;
-$$;
-
-
---
 -- Name: cc_member_statistic_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -1259,7 +1294,7 @@ BEGIN
     insert into cc_queue_statistics (bucket_id, skill_id, queue_id, member_count, member_waiting)
     select t.bucket_id, skill_id, t.queue_id, t.cnt, t.cntwait
     from (
-             select queue_id, bucket_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at = 0 ) cntwait
+             select queue_id, bucket_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
              from deleted m
                 inner join cc_queue q on q.id = m.queue_id
              group by queue_id, bucket_id, skill_id
@@ -1285,7 +1320,7 @@ BEGIN
     insert into cc_queue_statistics (queue_id, bucket_id, skill_id, member_count, member_waiting)
     select t.queue_id, t.bucket_id, t.skill_id, t.cnt, t.cntwait
     from (
-             select queue_id, bucket_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at = 0 ) cntwait
+             select queue_id, bucket_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
              from inserted m
              group by queue_id, bucket_id, skill_id
          ) t
@@ -1319,7 +1354,7 @@ BEGIN
                     m.bucket_id,
                     m.skill_id,
                     -1 * count(*) cnt,
-                    -1 * count(*) filter ( where m.stop_at = 0 ) cntwait
+                    -1 * count(*) filter ( where m.stop_at isnull ) cntwait
              from old_data m
              group by m.queue_id, m.bucket_id, m.skill_id
 
@@ -1328,7 +1363,7 @@ BEGIN
                     m.bucket_id   bucket_id ,
                     m.skill_id   skill_id ,
                     count(*) cnt,
-                    count(*) filter ( where m.stop_at = 0 ) cntwait
+                    count(*) filter ( where m.stop_at isnull ) cntwait
              from new_data m
              group by m.queue_id, m.bucket_id, m.skill_id
         ) o
@@ -1620,7 +1655,7 @@ BEGIN
                    cq.updated_at                      as queue_updated_at,
                    r.updated_at                       as resource_updated_at,
                    0                      as gateway_updated_at, --fixme!!!
-                   c.destination                      as destination,
+                   cm.communications->(c.communication_idx::int)                      as destination,
                    cm.variables                       as variables,
                    cm.name                            as member_name,
                    c.state                            as state,
@@ -1797,10 +1832,10 @@ DECLARE
     count integer;
 BEGIN
     update cc_member_attempt
-      set state  = -1,
-          hangup_at = ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint,
+      set state  =  'leaving',
+          leaving_at = now(),
           result = res
-    where hangup_at = 0 and node_id = node and state = 0;
+    where leaving_at isnull and node_id = node and state = 'idle';
 
     get diagnostics count = row_count;
     return count;
@@ -1839,96 +1874,174 @@ begin
     end if;
 
 
-    with dis as (
-        select q.domain_id,
-               row_number() over (partition by q.domain_id order by q.priority desc, csdqbs.bucket_id nulls last) pos,
-               q.id,
-               q.team_id,
-
-               q.calendar_id,
-               q.type,
-               csdqbs.bucket_id,
-               q.sec_between_retries,
-               case
-                   when q.type in  (1, 6) then (select count(*) --fixme
-                                         from cc_member_attempt a
-                                         where a.queue_id = q.id
-                                           and (a.state = 'wait_agent')
-                                           and a.agent_id isnull)
-                   else csdqbs.member_waiting end                                                                 member_waiting
-        from cc_queue q
-                 left join cc_sys_distribute_queue_bucket_seg csdqbs on q.id = csdqbs.queue_id and q.type in (1,2,3,4,5) -- FIXME
-        where q.enabled
-          and (q.type in (1, 6) or csdqbs.member_waiting > 0)
-    )
-            ,
-         res as (
-             select dis.*, r.resources, r.types, r.ran
-             from dis
-                      left join cc_sys_queue_distribute_resources r on r.queue_id = dis.id and dis.type != 1
-             where dis.member_waiting > 0
-               and (dis.type in (1, 6) or r.queue_id notnull)
-         ),
-         ag as (
-             --FIXME channel in C
-             select t.*, cc_team_agents_by_bucket('call',t.team_id::int, t.bucket_id::int) agents
-             from (
-                      select res.team_id, res.bucket_id
-                      from res
-                      where res.team_id notnull
-                      group by res.team_id, res.bucket_id
-                  ) t
-         )
-    , cc_distribute_member_tmp as (
-        select x.*, t.bucket_id, t.id as queue_id, case when t.type in (1, 6) then 'u' else 'i' end op,
-             case when t.type in ( 6) then 'chat' else 'call' end channel, t.domain_id
-        from (
-                 select res.*,
-                        ag.agents,
-                        row (res.id, res.bucket_id, res.type, (extract(epoch  from now()) * 1000)::int8 - (res.sec_between_retries * 1000)
-                            , res.ran, 100, res.member_waiting, 1)::cc_sys_distribute_request req
-                 from res
-                          left join ag on res.type > 0 and res.team_id = ag.team_id and
-                                          coalesce(res.bucket_id, 0) = coalesce(ag.bucket_id, 0)
-                 order by res.pos
-             ) t,
-             lateral cc_test_recursion(
-                     t.req,
-                     t.agents,
-                     t.resources,
-                     t.types
-                 ) x (id bigint, destination_idx int4, resource_id int4, agent_id int4)
-    )
-    , ins as (
-        insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
-        select t.channel,
-               t.id,
-               t.queue_id,
-               t.resource_id,
-               t.agent_id,
-               t.bucket_id,
-               json_build_object('id', x->'id', 'destination', x->'destination',
-        'priority', x->'priority',
-        'type', json_build_object('id', x->'type'->'id', 'name', comm.name)) as destination,
-               t.destination_idx - 1
-        from cc_distribute_member_tmp t
-            inner join cc_member cm on t.id = cm.id
-            inner join lateral jsonb_extract_path(cm.communications, (t.destination_idx - 1)::text) x on true
-            left join cc_communication comm on comm.id = (x->'type'->'id')::int
-        where t.op = 'i'
-    )
-    update cc_member_attempt a
-    set agent_id = t.agent_id
+    with queues as (
+    select q.name, q.calendar_id, q.max_calls, q.sec_between_retries, q.id, q.type, q.team_id, m.*, q.priority, q.domain_id,
+           row_number() over (order by q.domain_id, q.priority desc, q.id, m.bucket_id nulls last) pos
     from (
-             select t.id, t.agent_id
-             from cc_distribute_member_tmp t
-             where t.op = 'u'
-         ) t
-    where t.id = a.id
-      and a.agent_id isnull;
+             select q.queue_id, q.bucket_id, q.member_waiting, 'i' op
+             from cc_queue_statistics q
+
+             union all
+
+             select a.queue_id, a.bucket_id, count(*), 'u'
+             from cc_member_attempt a
+             where a.bridged_at isnull
+               and a.leaving_at isnull
+               and a.state = 'wait_agent'
+             group by 1, 2
+         ) m
+         inner join cc_queue q on q.id = m.queue_id
+    where  m.member_waiting > 0  and q.enabled
+           and q.type > 0
+    order by q.domain_id, q.priority desc, q.id, m.bucket_id nulls last
+    limit 1024 -- TODO
+),
+resources as (
+  SELECT cqr.queue_id,
+        array_agg(DISTINCT
+            ROW (corg.communication_id, cor.id::bigint, l.l & l2.x, corg.id)::call_center.cc_sys_distribute_type)           AS types,
+        array_agg(DISTINCT
+            ROW (cor.id::bigint, (cor."limit" - used.cnt)::integer)::call_center.cc_sys_distribute_resource) AS resources,
+        cc_array_merge_agg(l.l & l2.x) offset_ids
+  FROM call_center.cc_queue_resource cqr
+             inner join (
+               select queues.id, queues.calendar_id
+               from queues
+               group by queues.id, queues.calendar_id
+             ) q on q.id = cqr.queue_id
+             JOIN call_center.cc_outbound_resource_group corg ON cqr.resource_group_id = corg.id
+             JOIN call_center.cc_outbound_resource_in_group corig ON corg.id = corig.group_id
+             JOIN call_center.cc_outbound_resource cor ON corig.resource_id = cor.id
+             inner join lateral (
+                select c.id, array_agg(distinct o1.id) l
+                from flow.calendar c
+                    inner join lateral unnest(c.accepts) a on true
+                    inner join flow.calendar_timezone_offsets o1 on  a.day + 1 = extract(isodow from now() AT TIME ZONE o1.names[1])::int
+                        and (to_char(now() AT TIME ZONE o1.names[1], 'SSSS') :: int / 60) between a.start_time_of_day and a.end_time_of_day
+                where  not a.disabled is true
+                group by 1
+             ) l on l.id = q.calendar_id
+             inner join LATERAL (
+                with times as (
+                    select (e->'start_time_of_day')::int as start, (e->'end_time_of_day')::int as end
+                    from jsonb_array_elements(corg.time) e
+                )
+                select array_agg(distinct t.id) x
+                from flow.calendar_timezone_offsets t,
+                     times,
+                     lateral (select current_timestamp AT TIME ZONE t.names[1] t) with_timezone
+                where  (to_char(with_timezone.t, 'SSSS') :: int / 60) between times.start and times.end
+             ) l2 on l2 notnull
+             left join lateral (
+                select count(*) cnt
+                from (
+                    select 1 cnt
+                    from cc_member_attempt c
+                    where c.resource_id = cor.id
+                    for update -- FIXME maybe no lock ?
+                ) c
+             ) used on true
+    WHERE
+      cor.enabled
+      and NOT cor.reserve
+      and (cor."limit" - used.cnt) > 0
+    GROUP BY cqr.queue_id
+),
+     agents as (
+         with a as (
+             select distinct on (t.team_id, ab, a.id) a.id  agent_id,
+                                                      t.team_id,
+                                                      ab,
+                                                      a.progressive_count,
+                                                      row_number()
+                                                      over (partition by q.team_id, ab order by t.lvl asc,
+                                                          cac.last_offering_at asc nulls first --TODO strategy field must order
+                                                          ) pos
+             from cc_agent_in_team t
+                      left join cc_skill_in_agent sa
+                                on sa.skill_id = t.skill_id and sa.capacity between t.min_capacity and t.max_capacity
+                      inner join cc_agent a on a.id = coalesce(sa.agent_id, t.agent_id)
+                      inner join cc_agent_channel cac on cac.agent_id = a.id
+                      inner join cc_queue q on q.team_id = t.team_id
+                      inner join lateral unnest(array_cat(t.bucket_ids, array [null::int8])) ab on true
+             where cac.channel = 'call' and cac.state = 'waiting' and a.status = 'online'
+               and t.team_id in (
+                 select distinct queues.team_id
+                 from queues
+               )
+               and not a.id in (
+                 select distinct aa.agent_id
+                 from cc_member_attempt aa
+                 where aa.agent_id notnull
+               )
+               and not exists(select 1 from cc_calls c where c.hangup_at isnull and c.user_id = a.user_id for update) -- TODO maybe no lock ?
+                   and exists (select 1 from directory.wbt_user_presence where user_id = a.user_id and status = 'sip' and open > 0)
+             order by t.team_id, ab nulls last, a.id, t.lvl asc,
+                      cac.last_offering_at asc nulls first --FIXME must row_number strategy field
+         )
+         select a.team_id, a.ab, array_agg(array [a.agent_id, a.progressive_count] order by a.pos) as agents,
+                array_agg(a.agent_id order by a.pos) as agent_ids
+         from a
+         group by 1, 2
+     )
+, cc_distribute_member_tmp as (
+    select
+        x.*,
+        queues.bucket_id,
+        queues.id as queue_id,
+        queues.op,
+        case when queues.type in ( 6) then 'chat' else 'call' end channel,
+        queues.domain_id
+    from queues
+        left join resources r on r.queue_id = queues.queue_id
+        left join agents on (queues.team_id = agents.team_id and coalesce(queues.bucket_id, 0) = coalesce(agents.ab, 0)) --TODO rename ab
+        inner join lateral cc_test_recursion(
+             row (queues.id, queues.bucket_id, queues.type, (extract(epoch  from now()) * 1000)::int8
+                                , r.offset_ids, 100, queues.member_waiting, 1)::cc_sys_distribute_request,
+             agents.agent_ids::int[],
+             r.resources,
+             r.types
+         ) x (id bigint, destination_idx int4, resource_id int4, agent_id int4)  on true
+    where queues.type > 0
+    order by queues.pos
+), ins as (
+    insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
+    select t.channel,
+           t.id,
+           t.queue_id,
+           t.resource_id,
+           t.agent_id,
+           t.bucket_id,
+           x as destination,
+           t.destination_idx - 1
+    from cc_distribute_member_tmp t
+        inner join cc_member cm on t.id = cm.id
+        inner join lateral jsonb_extract_path(cm.communications, (t.destination_idx - 1)::text) x on true
+        left join cc_communication comm on comm.id = (x->'type'->'id')::int
+    where t.op = 'i'
+)
+update cc_member_attempt a
+set agent_id = t.agent_id
+from (
+         select t.id, t.agent_id
+         from cc_distribute_member_tmp t
+         where t.op = 'u'
+     ) t
+where t.id = a.id
+  and a.agent_id isnull;
 
 end;
 $$;
+
+
+--
+-- Name: cc_array_merge_agg(anyarray); Type: AGGREGATE; Schema: call_center; Owner: -
+--
+
+CREATE AGGREGATE call_center.cc_array_merge_agg(anyarray) (
+    SFUNC = call_center.cc_array_merge,
+    STYPE = anyarray
+);
 
 
 --
@@ -2114,7 +2227,6 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     result character varying(200),
     agent_id integer,
     bucket_id bigint,
-    destination jsonb,
     display character varying(50),
     description character varying,
     list_communication_id bigint,
@@ -2130,7 +2242,9 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     timeout timestamp with time zone,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
     communication_idx integer DEFAULT 1 NOT NULL,
-    conversation_id bigint
+    conversation_id bigint,
+    resource_group_id integer,
+    destination jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2577,8 +2691,6 @@ CREATE TABLE call_center.cc_member (
     variables jsonb DEFAULT '{}'::jsonb,
     name character varying(50) DEFAULT ''::character varying NOT NULL,
     stop_cause character varying(50),
-    stop_at bigint DEFAULT 0 NOT NULL,
-    last_hangup_at bigint DEFAULT 0 NOT NULL,
     attempts integer DEFAULT 0 NOT NULL,
     agent_id bigint,
     communications jsonb NOT NULL,
@@ -2591,9 +2703,9 @@ CREATE TABLE call_center.cc_member (
     domain_id bigint NOT NULL,
     skill_id integer,
     ready_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_attempt_id bigint,
     sys_destinations call_center.cc_destination[],
-    pause_at timestamp with time zone
+    stop_at timestamp with time zone,
+    last_hangup_at bigint DEFAULT 0 NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
@@ -2613,7 +2725,6 @@ CREATE TABLE call_center.cc_member_attempt_history (
     result character varying(25) NOT NULL,
     agent_id integer,
     bucket_id bigint,
-    destination jsonb,
     display character varying(50),
     description character varying,
     list_communication_id bigint,
@@ -2625,7 +2736,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     reporting_at timestamp with time zone,
     bridged_at timestamp with time zone,
     channel character varying,
-    domain_id bigint NOT NULL
+    domain_id bigint NOT NULL,
+    destination jsonb
 );
 
 
@@ -2648,9 +2760,9 @@ CREATE TABLE call_center.cc_queue (
     calendar_id integer NOT NULL,
     priority integer DEFAULT 0 NOT NULL,
     max_calls integer DEFAULT 0 NOT NULL,
-    sec_between_retries integer DEFAULT 10 NOT NULL,
+    sec_between_retries integer DEFAULT 60 NOT NULL,
     updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
-    name character varying(50) NOT NULL,
+    name character varying NOT NULL,
     max_of_retry smallint DEFAULT 0 NOT NULL,
     variables jsonb DEFAULT '{}'::jsonb NOT NULL,
     timeout integer DEFAULT 60 NOT NULL,
@@ -2666,7 +2778,8 @@ CREATE TABLE call_center.cc_queue (
     callback_timeout integer DEFAULT 0 NOT NULL,
     description character varying DEFAULT ''::character varying,
     ringtone_id integer,
-    distribute_schema_id integer
+    do_schema_id integer,
+    after_schema_id integer
 );
 
 
@@ -2802,47 +2915,6 @@ CREATE SEQUENCE call_center.cc_call_list_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_call_list_id_seq OWNED BY call_center.cc_list.id;
-
-
---
--- Name: cc_calls_all_a; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_calls_all_a AS
- WITH RECURSIVE a AS (
-         SELECT c_1.id,
-            c_1.parent_id,
-            '+'::text AS c,
-            row_number() OVER (ORDER BY c_1.created_at DESC) AS rn
-           FROM call_center.cc_calls c_1
-          WHERE (c_1.parent_id IS NULL)
-        UNION ALL
-         SELECT c2.id,
-            c2.parent_id,
-            ' '::text AS text,
-            a_1.rn
-           FROM (call_center.cc_calls c2
-             JOIN a a_1 ON (((c2.parent_id)::text = (a_1.id)::text)))
-        )
- SELECT a.rn,
-    a.c,
-    call_center.cc_view_timestamp(c.created_at) AS created_at,
-    c.state,
-    c.direction,
-    c.destination,
-    to_char((now() - c.created_at), 'MM:SS'::text) AS duration,
-    c.from_name,
-    c.from_number,
-    c.to_name,
-    c.to_number,
-        CASE cch.direction
-            WHEN 'inbound'::text THEN cch.to_name
-            ELSE cch.from_name
-        END AS br
-   FROM ((a
-     JOIN call_center.cc_calls c ON (((c.id)::text = (a.id)::text)))
-     LEFT JOIN call_center.cc_calls cch ON (((c.bridged_id)::text = (cch.id)::text)))
-  ORDER BY a.rn, a.c DESC;
 
 
 --
@@ -3432,7 +3504,7 @@ CREATE VIEW call_center.cc_member_view_attempt AS
     call_center.cc_get_lookup(t.bucket_id, (cb.name)::character varying) AS bucket,
     call_center.cc_get_lookup(t.list_communication_id, l.name) AS list,
     COALESCE(t.display, ''::character varying) AS display,
-    t.destination,
+    (cm.communications -> t.communication_idx) AS destination,
     t.result,
     cq.domain_id,
     t.queue_id,
@@ -4240,7 +4312,7 @@ CREATE VIEW call_center.cc_sys_queue_distribute_resources AS
           GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
         )
  SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, NULL)::call_center.cc_sys_distribute_type) AS types,
     array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer)::call_center.cc_sys_distribute_resource) AS resources,
     array_agg(DISTINCT f.f) AS ran
    FROM res,
@@ -5450,10 +5522,17 @@ CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt U
 
 
 --
--- Name: cc_member_dis_fifo_dev; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_dis_fifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_fifo_dev ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC) WHERE (stop_at = 0);
+CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC, id) INCLUDE (ready_at, sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
+
+
+--
+-- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC, id DESC) INCLUDE (ready_at, sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
 
 
 --
@@ -5482,13 +5561,6 @@ CREATE INDEX cc_member_queue_id_index ON call_center.cc_member USING btree (queu
 --
 
 CREATE INDEX cc_member_search_destination_idx ON call_center.cc_member USING gin (domain_id, communications jsonb_path_ops);
-
-
---
--- Name: cc_member_sens_idx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_member_sens_idx ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id) WHERE (stop_at = 0);
 
 
 --
@@ -5615,6 +5687,13 @@ CREATE UNIQUE INDEX cc_outbound_resource_group_acl_object_subject_udx ON call_ce
 --
 
 CREATE UNIQUE INDEX cc_outbound_resource_group_acl_subject_object_udx ON call_center.cc_outbound_resource_group_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_outbound_resource_group_communication_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_group_communication_id_index ON call_center.cc_outbound_resource_group USING btree (communication_id);
 
 
 --

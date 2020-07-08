@@ -39,8 +39,8 @@ type BaseQueue struct {
 	teamId          *int
 	schemaId        *int
 	ringtone        *model.RingtoneFile
-	doSchema        *int
-	afterSchemaId   *int
+	doSchema        *int32
+	afterSchemaId   *int32
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -58,6 +58,8 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		timeout:         settings.Timeout,
 		teamId:          settings.TeamId,
 		schemaId:        settings.SchemaId,
+		doSchema:        settings.DoSchemaId,
+		afterSchemaId:   settings.AfterSchemaId,
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -198,7 +200,7 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 		mCallId = model.NewString(mChannel.Id())
 	}
 
-	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId, agentCallId, mCallId)
+	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId, agentCallId, mCallId, &attempt.communication.Destination, attempt.communication.Display)
 	if err != nil {
 		wlog.Error(err.Error())
 		return
