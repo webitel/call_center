@@ -688,57 +688,89 @@ $$;
 CREATE PROCEDURE call_center.cc_call_set_bridged(call_id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, call_bridged_id_ character varying)
     LANGUAGE plpgsql
     AS $$
+    declare
+        transfer_to_ varchar;
+        transfer_from_ varchar;
 begin
     update cc_calls cc
-        set bridged_id = c.bridged_id,
-            state = state_,
-            timestamp = timestamp_,
-            to_number = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.number_ else to_number end,
-            to_name = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.name_ else to_name end,
-            to_type = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.type_ else to_type end,
-            to_id = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.id_ else to_id end
-        from (
-            select b.id,
-                   b2.id parent_id,
-                   b2.id bridged_id,
-                   b2o.*
-            from cc_calls b
-                left join cc_calls b2 on b2.id = call_id_
-                left join lateral cc_call_get_owner_leg(b2) b2o on true
-        where b.id = call_bridged_id_
-    ) c
-    where c.id = cc.id;
+    set bridged_id = c.bridged_id,
+        state      = state_,
+        timestamp  = timestamp_,
+        to_number  = case
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                             then c.number_
+                         else to_number end,
+        to_name    = case
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                             then c.name_
+                         else to_name end,
+        to_type    = case
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                             then c.type_
+                         else to_type end,
+        to_id      = case
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                             then c.id_
+                         else to_id end
+    from (
+             select b.id,
+                    b.bridged_id as transfer_to,
+                    b2.id parent_id,
+                    b2.id bridged_id,
+                    b2o.*
+             from cc_calls b
+                      left join cc_calls b2 on b2.id = call_id_
+                      left join lateral cc_call_get_owner_leg(b2) b2o on true
+             where b.id = call_bridged_id_
+         ) c
+    where c.id = cc.id
+    returning c.transfer_to into transfer_to_;
 
 
     update cc_calls cc
-        set bridged_id = c.bridged_id,
-            state = state_,
-            timestamp = timestamp_,
-            parent_id = case when cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id else cc.parent_id end,
-            transfer_from = case when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id else cc.transfer_from end,
-            to_number = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.number_ else to_number end,
-            to_name = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.name_ else to_name end,
-            to_type = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.type_ else to_type end,
-            to_id = case when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                then c.id_ else to_id end
-        from (
-                select b.id,
-                       b2.id parent_id,
-                       b2.id bridged_id,
-                       b2o.*
-                from cc_calls b
-                    left join cc_calls b2 on b2.id = call_bridged_id_
-                    left join lateral cc_call_get_owner_leg(b2) b2o on true
-            where b.id = call_id_
-        ) c
-    where c.id = cc.id;
+    set bridged_id    = c.bridged_id,
+        state         = state_,
+        timestamp     = timestamp_,
+        parent_id     = case
+                            when cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
+                            else cc.parent_id end,
+        transfer_from = case
+                            when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id
+                            else cc.transfer_from end,
+        transfer_to = transfer_to_,
+        to_number     = case
+                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                                then c.number_
+                            else to_number end,
+        to_name       = case
+                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                                then c.name_
+                            else to_name end,
+        to_type       = case
+                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                                then c.type_
+                            else to_type end,
+        to_id         = case
+                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                                then c.id_
+                            else to_id end
+    from (
+             select b.id,
+                    b2.id parent_id,
+                    b2.id bridged_id,
+                    b2o.*
+             from cc_calls b
+                      left join cc_calls b2 on b2.id = call_bridged_id_
+                      left join lateral cc_call_get_owner_leg(b2) b2o on true
+             where b.id = call_id_
+         ) c
+    where c.id = cc.id
+    returning cc.transfer_from into transfer_from_;
+
+    update cc_calls set
+     transfer_from =  case when id = transfer_from_ then transfer_to_ end,
+     transfer_to =  case when id = transfer_to_ then transfer_from_ end
+    where id in (transfer_from_, transfer_to_);
 
 end;
 $$;
@@ -5316,6 +5348,20 @@ CREATE INDEX cc_calls_history_team_id_index ON call_center.cc_calls_history USIN
 --
 
 CREATE INDEX cc_calls_history_to_number_idx ON call_center.cc_calls_history USING gin (domain_id, to_number gin_trgm_ops);
+
+
+--
+-- Name: cc_calls_history_transfer_from_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_transfer_from_index ON call_center.cc_calls_history USING btree (transfer_from) WHERE (transfer_from IS NOT NULL);
+
+
+--
+-- Name: cc_calls_history_transfer_to_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_transfer_to_index ON call_center.cc_calls_history USING btree (transfer_to) WHERE (transfer_to IS NOT NULL);
 
 
 --
