@@ -95,6 +95,7 @@ CREATE TYPE call_center.cc_communication_type_l AS (
 --
 
 CREATE TYPE call_center.cc_member_destination_view AS (
+	id smallint,
 	destination character varying,
 	resource jsonb,
 	type jsonb,
@@ -917,6 +918,7 @@ declare
     _team_updated_at int8;
     _team_id_ int;
     _list_comm_id int8;
+    _enabled bool;
 
     _call record;
     _attempt record;
@@ -928,13 +930,19 @@ BEGIN
          q.calendar_id,
          q.updated_at,
          ct.updated_at,
-         q.team_id
+         q.team_id,
+         q.enabled
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     inner join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_;
+      _team_updated_at, _team_id_, _enabled;
+
+
+  if not _enabled = true then
+      raise exception 'queue disabled';
+  end if;
 
   select *
   from cc_calls c
@@ -3536,7 +3544,7 @@ CREATE VIEW call_center.cc_member_view_attempt AS
     call_center.cc_get_lookup(t.bucket_id, (cb.name)::character varying) AS bucket,
     call_center.cc_get_lookup(t.list_communication_id, l.name) AS list,
     COALESCE(t.display, ''::character varying) AS display,
-    (cm.communications -> t.communication_idx) AS destination,
+    t.destination,
     t.result,
     cq.domain_id,
     t.queue_id,
