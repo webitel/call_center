@@ -202,7 +202,7 @@ func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *str
 
 func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
-from cc_attempt_offering(:AttemptId, :AgentId, :AgentCallId, :MemberCallId, :Dest::varchar, :Displ::varchar)
+from cc_attempt_offering(:AttemptId::int8, :AgentId::int4, :AgentCallId::varchar, :MemberCallId::varchar, :Dest::varchar, :Displ::varchar)
     as x (last_state_change timestamptz)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":    attemptId,
