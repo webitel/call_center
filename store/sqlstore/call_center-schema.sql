@@ -901,10 +901,10 @@ $_$;
 
 
 --
--- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, _priority integer DEFAULT 0) RETURNS record
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -995,8 +995,8 @@ BEGIN
         into _weight;
   end if;
 
-  insert into call_center.cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id, list_communication_id)
-  values ('waiting', _queue_id, null, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
+  insert into call_center.cc_member_attempt (state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, list_communication_id)
+  values ('waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
               _node_name, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))

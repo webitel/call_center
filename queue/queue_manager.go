@@ -237,6 +237,11 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 
 func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.CallJoinToQueueRequest) (*Attempt, *model.AppError) {
 	//var member *model.MemberAttempt
+	var bucketId *int32
+
+	if in.BucketId != 0 {
+		bucketId = &in.BucketId
+	}
 
 	// FIXME add domain
 	res, err := queueManager.store.Member().DistributeCallToQueue(
@@ -244,6 +249,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		int64(in.GetQueue().GetId()),
 		in.GetMemberCallId(),
 		in.GetVariables(),
+		bucketId,
 		int(in.GetPriority()),
 	)
 
