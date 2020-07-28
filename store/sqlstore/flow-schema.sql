@@ -17,16 +17,14 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: flow; Type: SCHEMA; Schema: -; Owner: opensips
+-- Name: flow; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA flow;
 
 
-ALTER SCHEMA flow OWNER TO opensips;
-
 --
--- Name: calendar_accept_time; Type: TYPE; Schema: flow; Owner: opensips
+-- Name: calendar_accept_time; Type: TYPE; Schema: flow; Owner: -
 --
 
 CREATE TYPE flow.calendar_accept_time AS (
@@ -37,10 +35,8 @@ CREATE TYPE flow.calendar_accept_time AS (
 );
 
 
-ALTER TYPE flow.calendar_accept_time OWNER TO opensips;
-
 --
--- Name: calendar_except_date; Type: TYPE; Schema: flow; Owner: opensips
+-- Name: calendar_except_date; Type: TYPE; Schema: flow; Owner: -
 --
 
 CREATE TYPE flow.calendar_except_date AS (
@@ -51,10 +47,8 @@ CREATE TYPE flow.calendar_except_date AS (
 );
 
 
-ALTER TYPE flow.calendar_except_date OWNER TO opensips;
-
 --
--- Name: calendar_accepts_to_jsonb(flow.calendar_accept_time[]); Type: FUNCTION; Schema: flow; Owner: opensips
+-- Name: calendar_accepts_to_jsonb(flow.calendar_accept_time[]); Type: FUNCTION; Schema: flow; Owner: -
 --
 
 CREATE FUNCTION flow.calendar_accepts_to_jsonb(flow.calendar_accept_time[]) RETURNS jsonb
@@ -68,14 +62,12 @@ select jsonb_agg(x.r)
 $_$;
 
 
-ALTER FUNCTION flow.calendar_accepts_to_jsonb(flow.calendar_accept_time[]) OWNER TO opensips;
-
 --
--- Name: calendar_check_timing(bigint, integer, character varying); Type: FUNCTION; Schema: flow; Owner: opensips
+-- Name: calendar_check_timing(bigint, integer, character varying); Type: FUNCTION; Schema: flow; Owner: -
 --
 
 CREATE FUNCTION flow.calendar_check_timing(domain_id_ bigint, calendar_id_ integer, name_ character varying) RETURNS record
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql IMMUTABLE
     AS $$
 declare
         res record;
@@ -120,10 +112,8 @@ end;
 $$;
 
 
-ALTER FUNCTION flow.calendar_check_timing(domain_id_ bigint, calendar_id_ integer, name_ character varying) OWNER TO opensips;
-
 --
--- Name: calendar_json_to_accepts(jsonb); Type: FUNCTION; Schema: flow; Owner: opensips
+-- Name: calendar_json_to_accepts(jsonb); Type: FUNCTION; Schema: flow; Owner: -
 --
 
 CREATE FUNCTION flow.calendar_json_to_accepts(jsonb) RETURNS flow.calendar_accept_time[]
@@ -137,10 +127,8 @@ select array(
 $_$;
 
 
-ALTER FUNCTION flow.calendar_json_to_accepts(jsonb) OWNER TO opensips;
-
 --
--- Name: calendar_json_to_excepts(jsonb); Type: FUNCTION; Schema: flow; Owner: opensips
+-- Name: calendar_json_to_excepts(jsonb); Type: FUNCTION; Schema: flow; Owner: -
 --
 
 CREATE FUNCTION flow.calendar_json_to_excepts(jsonb) RETURNS flow.calendar_except_date[]
@@ -154,10 +142,8 @@ select array(
 $_$;
 
 
-ALTER FUNCTION flow.calendar_json_to_excepts(jsonb) OWNER TO opensips;
-
 --
--- Name: set_rbac_rec(); Type: FUNCTION; Schema: flow; Owner: opensips
+-- Name: set_rbac_rec(); Type: FUNCTION; Schema: flow; Owner: -
 --
 
 CREATE FUNCTION flow.set_rbac_rec() RETURNS trigger
@@ -181,14 +167,12 @@ BEGIN
 $_$;
 
 
-ALTER FUNCTION flow.set_rbac_rec() OWNER TO opensips;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: acr_routing_scheme; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.acr_routing_scheme (
@@ -208,17 +192,15 @@ CREATE TABLE flow.acr_routing_scheme (
 );
 
 
-ALTER TABLE flow.acr_routing_scheme OWNER TO opensips;
-
 --
--- Name: COLUMN acr_routing_scheme.state; Type: COMMENT; Schema: flow; Owner: opensips
+-- Name: COLUMN acr_routing_scheme.state; Type: COMMENT; Schema: flow; Owner: -
 --
 
 COMMENT ON COLUMN flow.acr_routing_scheme.state IS 'draft / new / used';
 
 
 --
--- Name: calendar; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: calendar; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.calendar (
@@ -238,10 +220,8 @@ CREATE TABLE flow.calendar (
 );
 
 
-ALTER TABLE flow.calendar OWNER TO opensips;
-
 --
--- Name: acr_routing_outbound_call; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.acr_routing_outbound_call (
@@ -261,10 +241,8 @@ CREATE TABLE flow.acr_routing_outbound_call (
 );
 
 
-ALTER TABLE flow.acr_routing_outbound_call OWNER TO opensips;
-
 --
--- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.acr_routing_outbound_call_id_seq
@@ -275,17 +253,15 @@ CREATE SEQUENCE flow.acr_routing_outbound_call_id_seq
     CACHE 1;
 
 
-ALTER TABLE flow.acr_routing_outbound_call_id_seq OWNER TO opensips;
-
 --
--- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.acr_routing_outbound_call_id_seq OWNED BY flow.acr_routing_outbound_call.id;
 
 
 --
--- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.acr_routing_outbound_call_pos_seq
@@ -297,17 +273,15 @@ CREATE SEQUENCE flow.acr_routing_outbound_call_pos_seq
     CACHE 1;
 
 
-ALTER TABLE flow.acr_routing_outbound_call_pos_seq OWNER TO opensips;
-
 --
--- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_pos_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.acr_routing_outbound_call_pos_seq OWNED BY flow.acr_routing_outbound_call.pos;
 
 
 --
--- Name: acr_routing_scheme_id_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.acr_routing_scheme_id_seq
@@ -318,17 +292,15 @@ CREATE SEQUENCE flow.acr_routing_scheme_id_seq
     CACHE 1;
 
 
-ALTER TABLE flow.acr_routing_scheme_id_seq OWNER TO opensips;
-
 --
--- Name: acr_routing_scheme_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.acr_routing_scheme_id_seq OWNED BY flow.acr_routing_scheme.id;
 
 
 --
--- Name: acr_routing_variables; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.acr_routing_variables (
@@ -339,10 +311,8 @@ CREATE TABLE flow.acr_routing_variables (
 );
 
 
-ALTER TABLE flow.acr_routing_variables OWNER TO opensips;
-
 --
--- Name: acr_routing_variables_id_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.acr_routing_variables_id_seq
@@ -353,17 +323,15 @@ CREATE SEQUENCE flow.acr_routing_variables_id_seq
     CACHE 1;
 
 
-ALTER TABLE flow.acr_routing_variables_id_seq OWNER TO opensips;
-
 --
--- Name: acr_routing_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.acr_routing_variables_id_seq OWNED BY flow.acr_routing_variables.id;
 
 
 --
--- Name: calendar_acl; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: calendar_acl; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.calendar_acl (
@@ -375,10 +343,8 @@ CREATE TABLE flow.calendar_acl (
 );
 
 
-ALTER TABLE flow.calendar_acl OWNER TO opensips;
-
 --
--- Name: calendar_id_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: calendar_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.calendar_id_seq
@@ -390,17 +356,15 @@ CREATE SEQUENCE flow.calendar_id_seq
     CACHE 1;
 
 
-ALTER TABLE flow.calendar_id_seq OWNER TO opensips;
-
 --
--- Name: calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: calendar_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.calendar_id_seq OWNED BY flow.calendar.id;
 
 
 --
--- Name: calendar_timezones; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: calendar_timezones; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.calendar_timezones (
@@ -411,10 +375,8 @@ CREATE TABLE flow.calendar_timezones (
 );
 
 
-ALTER TABLE flow.calendar_timezones OWNER TO opensips;
-
 --
--- Name: calendar_intervals; Type: MATERIALIZED VIEW; Schema: flow; Owner: opensips
+-- Name: calendar_intervals; Type: MATERIALIZED VIEW; Schema: flow; Owner: -
 --
 
 CREATE MATERIALIZED VIEW flow.calendar_intervals AS
@@ -426,23 +388,19 @@ CREATE MATERIALIZED VIEW flow.calendar_intervals AS
   WITH NO DATA;
 
 
-ALTER TABLE flow.calendar_intervals OWNER TO opensips;
-
 --
--- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.calendar_timezone_offsets (
-    id bigint,
+    id smallint NOT NULL,
     utc_offset interval,
     names text[]
 );
 
 
-ALTER TABLE flow.calendar_timezone_offsets OWNER TO opensips;
-
 --
--- Name: calendar_timezones_by_interval; Type: TABLE; Schema: flow; Owner: opensips
+-- Name: calendar_timezones_by_interval; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.calendar_timezones_by_interval (
@@ -452,10 +410,8 @@ CREATE TABLE flow.calendar_timezones_by_interval (
 );
 
 
-ALTER TABLE flow.calendar_timezones_by_interval OWNER TO opensips;
-
 --
--- Name: calendar_timezones_id_seq; Type: SEQUENCE; Schema: flow; Owner: opensips
+-- Name: calendar_timezones_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
 CREATE SEQUENCE flow.calendar_timezones_id_seq
@@ -467,59 +423,57 @@ CREATE SEQUENCE flow.calendar_timezones_id_seq
     CACHE 1;
 
 
-ALTER TABLE flow.calendar_timezones_id_seq OWNER TO opensips;
-
 --
--- Name: calendar_timezones_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: opensips
+-- Name: calendar_timezones_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
 --
 
 ALTER SEQUENCE flow.calendar_timezones_id_seq OWNED BY flow.calendar_timezones.id;
 
 
 --
--- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call ALTER COLUMN id SET DEFAULT nextval('flow.acr_routing_outbound_call_id_seq'::regclass);
 
 
 --
--- Name: acr_routing_outbound_call pos; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call pos; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call ALTER COLUMN pos SET DEFAULT nextval('flow.acr_routing_outbound_call_pos_seq'::regclass);
 
 
 --
--- Name: acr_routing_scheme id; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme ALTER COLUMN id SET DEFAULT nextval('flow.acr_routing_scheme_id_seq'::regclass);
 
 
 --
--- Name: acr_routing_variables id; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_variables ALTER COLUMN id SET DEFAULT nextval('flow.acr_routing_variables_id_seq'::regclass);
 
 
 --
--- Name: calendar id; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: calendar id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar ALTER COLUMN id SET DEFAULT nextval('flow.calendar_id_seq'::regclass);
 
 
 --
--- Name: calendar_timezones id; Type: DEFAULT; Schema: flow; Owner: opensips
+-- Name: calendar_timezones id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_timezones ALTER COLUMN id SET DEFAULT nextval('flow.calendar_timezones_id_seq'::regclass);
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -527,7 +481,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_scheme acr_routing_scheme_pk; Type: CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme acr_routing_scheme_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
@@ -535,7 +489,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 
 
 --
--- Name: acr_routing_variables acr_routing_variables_pk; Type: CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables acr_routing_variables_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_variables
@@ -543,7 +497,7 @@ ALTER TABLE ONLY flow.acr_routing_variables
 
 
 --
--- Name: calendar calendar_pkey; Type: CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar calendar_pkey; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar
@@ -551,7 +505,7 @@ ALTER TABLE ONLY flow.calendar
 
 
 --
--- Name: calendar_timezones calendar_timezones_pk; Type: CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_timezones calendar_timezones_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_timezones
@@ -559,147 +513,154 @@ ALTER TABLE ONLY flow.calendar_timezones
 
 
 --
--- Name: acr_routing_outbound_call_created_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_created_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX acr_routing_outbound_call_created_by_index ON flow.acr_routing_outbound_call USING btree (created_by);
 
 
 --
--- Name: acr_routing_outbound_call_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX acr_routing_outbound_call_domain_id_name_uindex ON flow.acr_routing_outbound_call USING btree (domain_id, name);
 
 
 --
--- Name: acr_routing_outbound_call_pattern; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_pattern; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX acr_routing_outbound_call_pattern ON flow.acr_routing_outbound_call USING btree (domain_id, pos DESC, id, name, pattern, scheme_id) WHERE (NOT disabled);
 
 
 --
--- Name: acr_routing_outbound_call_updated_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call_updated_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX acr_routing_outbound_call_updated_by_index ON flow.acr_routing_outbound_call USING btree (updated_by);
 
 
 --
--- Name: acr_routing_scheme_created_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_created_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX acr_routing_scheme_created_by_index ON flow.acr_routing_scheme USING btree (created_by);
 
 
 --
--- Name: acr_routing_scheme_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX acr_routing_scheme_domain_id_name_uindex ON flow.acr_routing_scheme USING btree (domain_id, name);
 
 
 --
--- Name: acr_routing_scheme_domain_id_udx; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_domain_id_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX acr_routing_scheme_domain_id_udx ON flow.acr_routing_scheme USING btree (id, domain_id);
 
 
 --
--- Name: acr_routing_scheme_updated_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme_updated_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX acr_routing_scheme_updated_by_index ON flow.acr_routing_scheme USING btree (updated_by);
 
 
 --
--- Name: acr_routing_variables_domain_id_key_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables_domain_id_key_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX acr_routing_variables_domain_id_key_uindex ON flow.acr_routing_variables USING btree (domain_id, key);
 
 
 --
--- Name: calendar_acl_grantor_idx; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_acl_grantor_idx; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX calendar_acl_grantor_idx ON flow.calendar_acl USING btree (grantor);
 
 
 --
--- Name: calendar_acl_object_subject_udx; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_acl_object_subject_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_acl_object_subject_udx ON flow.calendar_acl USING btree (object, subject, access);
 
 
 --
--- Name: calendar_acl_subject_object_udx; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_acl_subject_object_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_acl_subject_object_udx ON flow.calendar_acl USING btree (subject, object, access);
 
 
 --
--- Name: calendar_created_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_created_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX calendar_created_by_index ON flow.calendar USING btree (created_by);
 
 
 --
--- Name: calendar_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_domain_id_name_uindex ON flow.calendar USING btree (domain_id, name);
 
 
 --
--- Name: calendar_domain_udx; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_domain_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_domain_udx ON flow.calendar USING btree (id, domain_id);
 
 
 --
--- Name: calendar_timezones_id_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_timezone_offsets_id_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX calendar_timezone_offsets_id_uindex ON flow.calendar_timezone_offsets USING btree (id);
+
+
+--
+-- Name: calendar_timezones_id_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_timezones_id_uindex ON flow.calendar_timezones USING btree (id);
 
 
 --
--- Name: calendar_timezones_name_uindex; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_timezones_name_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_timezones_name_uindex ON flow.calendar_timezones USING btree (name);
 
 
 --
--- Name: calendar_timezones_utc_offset_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_timezones_utc_offset_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX calendar_timezones_utc_offset_index ON flow.calendar_timezones USING btree (id, utc_offset, name);
 
 
 --
--- Name: calendar_updated_by_index; Type: INDEX; Schema: flow; Owner: opensips
+-- Name: calendar_updated_by_index; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE INDEX calendar_updated_by_index ON flow.calendar USING btree (updated_by);
 
 
 --
--- Name: calendar calendar_set_rbac_acl; Type: TRIGGER; Schema: flow; Owner: opensips
+-- Name: calendar calendar_set_rbac_acl; Type: TRIGGER; Schema: flow; Owner: -
 --
 
 CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON flow.calendar FOR EACH ROW EXECUTE FUNCTION flow.set_rbac_rec('flow.calendar_acl');
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -707,7 +668,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_acr_routing_scheme_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -715,7 +676,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -723,7 +684,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -731,7 +692,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_outbound_call acr_routing_outbound_call_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
@@ -739,7 +700,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 
 
 --
--- Name: acr_routing_scheme acr_routing_scheme_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme acr_routing_scheme_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
@@ -747,7 +708,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 
 
 --
--- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
@@ -755,7 +716,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 
 
 --
--- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_scheme acr_routing_scheme_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
@@ -763,7 +724,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 
 
 --
--- Name: acr_routing_variables acr_routing_variables_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: acr_routing_variables acr_routing_variables_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.acr_routing_variables
@@ -771,7 +732,7 @@ ALTER TABLE ONLY flow.acr_routing_variables
 
 
 --
--- Name: calendar_acl calendar_acl_domain_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_acl calendar_acl_domain_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_acl
@@ -779,7 +740,7 @@ ALTER TABLE ONLY flow.calendar_acl
 
 
 --
--- Name: calendar_acl calendar_acl_grantor_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_acl calendar_acl_grantor_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_acl
@@ -787,7 +748,7 @@ ALTER TABLE ONLY flow.calendar_acl
 
 
 --
--- Name: calendar_acl calendar_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_acl calendar_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_acl
@@ -795,7 +756,7 @@ ALTER TABLE ONLY flow.calendar_acl
 
 
 --
--- Name: calendar_acl calendar_acl_object_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_acl calendar_acl_object_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_acl
@@ -803,7 +764,7 @@ ALTER TABLE ONLY flow.calendar_acl
 
 
 --
--- Name: calendar_acl calendar_acl_subject_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar_acl calendar_acl_subject_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar_acl
@@ -811,7 +772,7 @@ ALTER TABLE ONLY flow.calendar_acl
 
 
 --
--- Name: calendar calendar_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar calendar_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar
@@ -819,7 +780,7 @@ ALTER TABLE ONLY flow.calendar
 
 
 --
--- Name: calendar calendar_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar calendar_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar
@@ -827,7 +788,7 @@ ALTER TABLE ONLY flow.calendar
 
 
 --
--- Name: calendar calendar_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar calendar_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar
@@ -835,7 +796,7 @@ ALTER TABLE ONLY flow.calendar
 
 
 --
--- Name: calendar calendar_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: opensips
+-- Name: calendar calendar_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.calendar
