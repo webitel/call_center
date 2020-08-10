@@ -52,7 +52,8 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
 
-				"hangup_after_bridge": "true",
+				"hangup_after_bridge":   "true",
+				"absolute_codec_string": "opus,pcmu,pcma",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -62,7 +63,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"wbt_from_name":                     agent.Name(),
 				"wbt_from_type":                     "user", //todo agent ?
 
-				"wbt_to_id":     fmt.Sprintf("%d", attempt.MemberId()),
+				"wbt_to_id":     fmt.Sprintf("%d", *attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
 				"wbt_to_type":   "member",
 				"wbt_to_number": attempt.Destination(),
@@ -82,7 +83,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_NAME_FIELD:      queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
 
-				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", attempt.MemberId()),
+				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", *attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
@@ -90,12 +91,13 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Applications: make([]*model.CallRequestApplication, 0, 1),
 	}
 
+	call := queue.NewCall(callRequest)
+
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "sleep",
-		Args:    "10000",
+		AppName: "bridge",
+		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display()),
 	})
 
-	call := queue.NewCall(callRequest)
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))
 	call.Invite()
 

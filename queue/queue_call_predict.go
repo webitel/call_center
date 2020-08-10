@@ -9,8 +9,7 @@ func NewPredictCallQueue(callQueue CallingQueue) QueueObject {
 	return &PredictCallQueue{
 		CallingQueue: callQueue,
 		ProgressiveCallQueue: ProgressiveCallQueue{
-			CallingQueue:       callQueue,
-			WaitBetweenRetries: 10,
+			CallingQueue: callQueue,
 		},
 	}
 }

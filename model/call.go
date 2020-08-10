@@ -73,6 +73,7 @@ const (
 	CallActionHoldName    = "hold"
 	CallActionDtmfName    = "dtmf"
 	CallActionHangupName  = "hangup"
+	CallActionAmdName     = "amd"
 )
 
 type InboundCallQueue struct {
@@ -219,6 +220,12 @@ type CallActionHangup struct {
 	ReportingAt   *int64 `json:"reporting_at,string"`
 }
 
+type CallActionAMD struct {
+	CallAction
+	Result string `json:"result"`
+	Cause  string `json:"cause"`
+}
+
 type CallVariables map[string]interface{}
 
 func (c *CallActionData) GetEvent() interface{} {
@@ -245,6 +252,12 @@ func (c *CallActionData) GetEvent() interface{} {
 		c.parsed = &CallActionBridge{
 			CallAction: c.CallAction,
 		}
+
+	case CallActionAmdName:
+		c.parsed = &CallActionAMD{
+			CallAction: c.CallAction,
+		}
+
 	case CallActionHangupName:
 		c.parsed = &CallActionHangup{
 			CallAction: c.CallAction,

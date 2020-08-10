@@ -19,6 +19,10 @@ const (
 	CONNECTION_TIMEOUT = 2 * time.Second
 )
 
+const (
+	SocketVariable = "acr_srv"
+)
+
 var patternSps = regexp.MustCompile(`\D+`)
 var patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
 
@@ -90,6 +94,30 @@ func (c *CallConnection) SetConnectionSps(sps int) (int, *model.AppError) {
 		c.rateLimiter = ratelimit.New(sps)
 	}
 	return sps, nil
+}
+
+func (c *CallConnection) GetSocketUri() (string, *model.AppError) {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "global_getvar",
+		Args:    SocketVariable,
+	})
+
+	if err != nil {
+		return "", model.NewAppError("GetSocketUri", "external.get_flow_socket.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return "", model.NewAppError("GetSocketUri", "external.get_flow_socket.app_error", nil, res.Error.String(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Data == "" {
+		return "", model.NewAppError("GetSocketUri", "external.get_flow_socket.not_found", nil, fmt.Sprintf("global '%s' not found", SocketVariable),
+			http.StatusInternalServerError)
+	}
+
+	return res.Data, nil
 }
 
 func (c *CallConnection) GetRemoteSps() (int, *model.AppError) {

@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -10,13 +11,27 @@ import (
 
 type ProgressiveCallQueue struct {
 	CallingQueue
-	WaitBetweenRetries int `json:"wait_between_retries"`
+	ProgressiveCallQueueSettings
 }
 
-func NewProgressiveCallQueue(callQueue CallingQueue) QueueObject {
+type ProgressiveCallQueueSettings struct {
+	WaitBetweenRetries int `json:"wait_between_retries"`
+	MinDuration        int `json:"min_duration"`
+	MaxAttempts        int `json:"max_attempts"`
+	OriginateTimeout   int `json:"originate_timeout"`
+	Amd                *model.QueueAmdSettings
+}
+
+func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {
+	var settings ProgressiveCallQueueSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewProgressiveCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSettings) QueueObject {
 	return &ProgressiveCallQueue{
-		CallingQueue:       callQueue,
-		WaitBetweenRetries: 10,
+		CallingQueue:                 callQueue,
+		ProgressiveCallQueueSettings: settings,
 	}
 }
 
@@ -107,13 +122,14 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{
-			{
-				AppName: "park",
-			},
-		},
+		Applications: []*model.CallRequestApplication{},
 	}
-	//todo fire event
+
+	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "park",
+		})
+	}
 
 	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
 	var agentCall call_manager.Call
@@ -127,7 +143,11 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		select {
 		case state := <-mCall.State():
 			switch state {
-			case call_manager.CALL_STATE_ACCEPT:
+			case call_manager.CALL_STATE_ACCEPT, call_manager.CALL_STATE_DETECT_AMD:
+				if state == call_manager.CALL_STATE_ACCEPT && queue.Amd.Enabled {
+					continue
+				}
+
 				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil {
 					mCall.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED, false) // TODO
 					//FIXME FIRE EVENT ABANDONED
@@ -170,20 +190,23 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								}
 								break top
 							}
-						case <-mCall.HangupChan():
-							attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
-							if agentCall.HangupAt() == 0 {
-								if mCall.BridgeAt() > 0 {
-									agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
-								} else {
-									agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+
+						case mState := <-mCall.State():
+							if mState == call_manager.CALL_STATE_HANGUP {
+								attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+								if agentCall.HangupAt() == 0 {
+									if mCall.BridgeAt() > 0 {
+										agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
+									} else {
+										agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+									}
 								}
+
+								agentCall.WaitForHangup()
+
+								attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
+								break top
 							}
-
-							agentCall.WaitForHangup()
-
-							attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
-							break top
 						}
 					}
 				}
@@ -196,7 +219,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	if agentCall == nil {
 		team.Cancel(attempt, agent)
 	} else {
-		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
+		if agentCall.AnswerSeconds() > 0 && false { //FIXME Accept or Bridge ?
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(attempt, agent, agentCall.ReportingAt() > 0)
 		} else {

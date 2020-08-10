@@ -44,6 +44,7 @@ type SipGateway struct {
 	UserName  *string `json:"username" db:"username"`
 	Account   *string `json:"account" db:"account"`
 	Password  *string `json:"password" db:"password"`
+	DomainId  int64   `json:"domain_id" db:"domain_id"`
 	//SipVariables map[string]interface{} `json:"envar,omitempty" db:"envar"`
 }
 
@@ -73,9 +74,16 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 	res := []string{
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
 		fmt.Sprintf("origination_caller_id_number=%s", display),
+
+		"wbt_from_number=FIXME",
+		"wbt_from_name=FIXME",
+		"wbt_to_type=dest",
+		fmt.Sprintf("wbt_to_number='%s'", destination),
+		fmt.Sprintf("wbt_to_name='%s'", name),
+
 		fmt.Sprintf("effective_callee_id_name='%s'", name),
 		//fmt.Sprintf("origination_callee_id_name='%s'", name),
-		fmt.Sprintf("%s=%v", CallVariableDomainId, 1), //FIXME DOMAIN ID
+		fmt.Sprintf("%s=%v", CallVariableDomainId, g.DomainId),
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
 		fmt.Sprintf("%s='%v'", CallVariableGatewayName, g.Name),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",

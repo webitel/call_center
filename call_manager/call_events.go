@@ -50,6 +50,12 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		}
 		call.setHangup(action.(*model.CallActionHangup))
 
+	case *model.CallActionAMD:
+		if call == nil {
+			return
+		}
+		call.setAmd(action.(*model.CallActionAMD))
+
 	default:
 		wlog.Warn(fmt.Sprintf("call %s not have handler action %s", data.Id, data.Event))
 	}

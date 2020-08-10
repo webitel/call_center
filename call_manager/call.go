@@ -43,6 +43,8 @@ type Call interface {
 	AnswerSeconds() int
 	WaitSeconds() int
 
+	AmdResult() string
+
 	WaitForHangup()
 	HangupChan() <-chan struct{}
 
@@ -90,6 +92,9 @@ type CallImpl struct {
 
 	queueId *int //FIXME
 
+	amdResult string
+	amdCause  string
+
 	sync.RWMutex
 }
 
@@ -105,6 +110,7 @@ const (
 	CALL_STATE_LEAVING
 	CALL_STATE_BRIDGE
 	CALL_STATE_HOLD
+	CALL_STATE_DETECT_AMD
 	CALL_STATE_HANGUP
 )
 
@@ -114,7 +120,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "hold", "hangup"}[s]
+	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "hold", "amd", "hangup"}[s]
 }
 
 var (
@@ -132,7 +138,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	//DUMP(callRequest)
+	DUMP(callRequest)
 
 	call := &CallImpl{
 		callRequest: callRequest,
@@ -178,6 +184,21 @@ func (call *CallImpl) setBridge(e *model.CallActionBridge) {
 	call.Unlock()
 
 	call.setState(CALL_STATE_BRIDGE)
+}
+
+func (call *CallImpl) setAmd(e *model.CallActionAMD) {
+	call.Lock()
+	call.amdResult = e.Result
+	call.amdCause = e.Cause
+	call.Unlock()
+
+	call.setState(CALL_STATE_DETECT_AMD)
+}
+
+func (call *CallImpl) AmdResult() string {
+	call.RLock()
+	defer call.RUnlock()
+	return call.amdResult
 }
 
 func (call *CallImpl) BridgeId() *string {

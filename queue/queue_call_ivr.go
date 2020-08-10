@@ -64,7 +64,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 				"hangup_after_bridge":   "true",
 				"ignore_early_media":    "true",
-				"absolute_codec_string": "opus,pcmu,pcma",
+				"absolute_codec_string": "pcma,pcmu",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -100,12 +100,14 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{
-			{
-				AppName: "socket",
-				Args:    "$${acr_srv}",
-			},
-		},
+		Applications: []*model.CallRequestApplication{},
+	}
+
+	if !queue.SetAmdCall(callRequest, queue.amd, queue.CallManager().GetFlowUri()) {
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "socket",
+			Args:    "$${acr_srv}",
+		})
 	}
 
 	call := queue.NewCallUseResource(callRequest, attempt.resource)
@@ -124,17 +126,27 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
-				queue.queueManager.store.Member().SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()), &dst, &callerIdNumber)
-			case call_manager.CALL_STATE_ACCEPT:
-				queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
-			case call_manager.CALL_STATE_BRIDGE:
-				fmt.Println(">>> ", state.String())
+				_, err := queue.queueManager.store.Member().
+					SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()), &dst, &callerIdNumber)
+				if err != nil {
+					wlog.Error(err.Error())
+				}
 
+			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
+				if state == call_manager.CALL_STATE_ACCEPT && queue.amd.Enabled {
+					continue
+				}
+
+				_, err := queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
+				if err != nil {
+					wlog.Error(err.Error())
+				}
+
+			case call_manager.CALL_STATE_HANGUP:
+				calling = false
 			default:
-				fmt.Println(state.String())
+				attempt.Log(fmt.Sprintf("set state %s", state))
 			}
-		case <-call.HangupChan():
-			calling = false
 		}
 	}
 

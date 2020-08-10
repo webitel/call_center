@@ -334,7 +334,8 @@ func (queueManager *QueueManager) DistributeChatToQueue(queueId int, channelId s
 }
 
 func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
-	member, err := queueManager.store.Member().DistributeDirect(queueManager.app.GetInstanceId(), memberId, communicationId, agentId)
+	// FIXME -1
+	member, err := queueManager.store.Member().DistributeDirect(queueManager.app.GetInstanceId(), memberId, communicationId-1, agentId)
 
 	if err != nil {
 		wlog.Error(fmt.Sprintf("member %v to agent %v distribute error: %s", memberId, agentId, err.Error()))
@@ -419,6 +420,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	} else {
 		// FIXME
 	}
+
 	if res.UserId != nil && res.DomainId != nil {
 		e := WaitingChannelEvent{
 			ChannelEvent: ChannelEvent{

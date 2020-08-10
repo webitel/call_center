@@ -7,6 +7,10 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
+const (
+	amdMachineApplication = "hangup::NORMAL_UNSPECIFIED"
+)
+
 type CallingQueueObject interface {
 }
 
@@ -27,10 +31,18 @@ func (queue *CallingQueue) RecordCallEnabled() bool {
 	return queue.params.Recordings
 }
 
-func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman, onMachine, onNotSure string) {
+func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {
+	if amd == nil || !amd.Enabled {
+		return false
+	}
+
+	if !amd.AllowNotSure {
+		callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = amdMachineApplication
+	} else {
+		callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = onHuman
+	}
+	callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = amdMachineApplication
 	callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
-	callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = onMachine
-	callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = onNotSure
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: model.CALL_AMD_APPLICATION_NAME,
@@ -62,6 +74,8 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 			Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime+100),
 		})
 	}
+
+	return true
 }
 
 func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) call_manager.Call {

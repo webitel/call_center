@@ -29,6 +29,7 @@ type CallManager interface {
 	GetCall(id string) (Call, bool)
 	InboundCall(call *model.Call, ringtone string) (Call, *model.AppError)
 	CountConnection() int
+	GetFlowUri() string
 }
 
 type CallManagerImpl struct {
@@ -36,6 +37,8 @@ type CallManagerImpl struct {
 
 	serviceDiscovery discovery.ServiceDiscovery
 	poolConnections  discovery.Pool
+
+	flowSocketUri string
 
 	mq        mq.MQ
 	calls     utils.ObjectCache
@@ -186,6 +189,10 @@ func (cm *CallManagerImpl) GetCall(id string) (Call, bool) {
 	return nil, false
 }
 
+func (cm *CallManagerImpl) GetFlowUri() string {
+	return "socket " + cm.flowSocketUri
+}
+
 func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 	var version string
 	var sps int
@@ -211,6 +218,13 @@ func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 	if err != nil {
 		wlog.Error(fmt.Sprintf("connection %s get proxy error: %s", v.Id, err.Error()))
 		return
+	}
+
+	if cm.flowSocketUri == "" {
+		if cm.flowSocketUri, err = client.GetSocketUri(); err != nil {
+			wlog.Error(fmt.Sprintf("connection %s get flow uri error: %s", v.Id, err.Error()))
+			return
+		}
 	}
 
 	cm.poolConnections.Append(client)
