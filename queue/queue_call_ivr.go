@@ -133,7 +133,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				}
 
 			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
-				if state == call_manager.CALL_STATE_ACCEPT && queue.amd.Enabled {
+				if (state == call_manager.CALL_STATE_ACCEPT && queue.amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !call.IsHuman()) {
 					continue
 				}
 

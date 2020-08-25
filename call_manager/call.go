@@ -44,6 +44,7 @@ type Call interface {
 	WaitSeconds() int
 
 	AmdResult() string
+	IsHuman() bool
 
 	WaitForHangup()
 	HangupChan() <-chan struct{}
@@ -117,6 +118,10 @@ const (
 const (
 	CALL_DIRECTION_INBOUND  CallDirection = "inbound"
 	CALL_DIRECTION_OUTBOUND               = "outbound"
+)
+
+const (
+	AmdHuman = "HUMAN"
 )
 
 func (s CallState) String() string {
@@ -380,6 +385,10 @@ func (call *CallImpl) HangupAt() int64 {
 	call.RLock()
 	defer call.RUnlock()
 	return call.hangupAt
+}
+
+func (call *CallImpl) IsHuman() bool {
+	return call.amdResult == AmdHuman
 }
 
 func (call *CallImpl) DurationSeconds() int {
