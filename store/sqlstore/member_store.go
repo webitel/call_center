@@ -254,6 +254,24 @@ where x.last_state_change notnull `, map[string]interface{}{
 	return timestamp, nil
 }
 
+func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep)
+    as x (last_state_change timestamptz)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId":   attemptId,
+		"MaxAttempts": maxAttempts,
+		"Sleep":       sleep,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.SetAttemptAbandonedWithParams", "store.sql_member.set_attempt_abandoned.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return timestamp, nil
+}
+
 func (s *SqlMemberStore) SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError) {
 	var res *model.MissedAgent
 	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers

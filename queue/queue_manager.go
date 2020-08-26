@@ -401,6 +401,16 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	}
 }
 
+func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64) {
+	attempt.SetResult(AttemptResultAbandoned)
+	_, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
+	if err != nil {
+		wlog.Error(err.Error())
+
+		return
+	}
+}
+
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
 
 	// TODO

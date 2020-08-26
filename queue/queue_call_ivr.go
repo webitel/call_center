@@ -9,13 +9,18 @@ import (
 
 type IVRQueue struct {
 	CallingQueue
-	amd *model.QueueAmdSettings
+	amd                *model.QueueAmdSettings
+	maxOfRetry         uint
+	waitBetweenRetries uint64
 }
 
-func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings) QueueObject {
+func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings, maxOfRetry uint, waitBetweenRetries uint64) QueueObject {
 	return &IVRQueue{
 		CallingQueue: callQueue,
 		amd:          amd,
+
+		maxOfRetry:         maxOfRetry,
+		waitBetweenRetries: waitBetweenRetries,
 	}
 }
 
@@ -154,7 +159,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 0,
 			"", 0)
 	} else {
-		queue.queueManager.Abandoned(attempt)
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.maxOfRetry, queue.waitBetweenRetries)
 	}
 
 	queue.queueManager.LeavingMember(attempt, queue)

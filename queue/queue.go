@@ -85,7 +85,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
 			params:    ivrSettings.QueueDialingSettings,
-		}, ivrSettings.Amd), nil
+		}, ivrSettings.Amd, ivrSettings.MaxOfRetry, ivrSettings.WaitBetweenRetries), nil
 
 	case model.QUEUE_TYPE_PREVIEW:
 		return NewPreviewCallQueue(CallingQueue{

@@ -121,7 +121,6 @@ type QueueCallbackSettings struct {
 Max wait - not hangup
 Max wait time with no agent - offline + onbreak
 Agent stickli
-
 */
 
 //{"time_base_score": "system", "timeout_with_no_agents": "12", "discard_abandoned_after": "1000"}
@@ -136,7 +135,9 @@ type QueueInboundSettings struct {
 
 type QueueIVRSettings struct {
 	QueueDialingSettings
-	Amd *QueueAmdSettings `json:"amd"`
+	Amd                *QueueAmdSettings `json:"amd"`
+	MaxOfRetry         uint              `json:"max_of_retry"`
+	WaitBetweenRetries uint64            `json:"sec_between_retries"`
 }
 
 type QueuePreviewSettings struct {
