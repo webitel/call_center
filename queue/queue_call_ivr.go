@@ -57,10 +57,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 			attempt.resource.Variables(),
 			attempt.ExportVariables(),
 			map[string]string{
-				model.CallVariableDomainName:  queue.Domain(),
-				model.CallVariableDomainId:    fmt.Sprintf("%v", queue.DomainId()),
-				model.CallVariableGatewayId:   fmt.Sprintf("%v", attempt.resource.Gateway().Id),
-				model.CallVariableGatewayName: fmt.Sprintf("%v", attempt.resource.Gateway().Name),
+				model.CallVariableDomainName: queue.Domain(),
+				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
+				model.CallVariableGatewayId:  fmt.Sprintf("%v", attempt.resource.Gateway().Id),
 
 				"hangup_after_bridge":   "true",
 				"ignore_early_media":    "true",

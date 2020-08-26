@@ -85,7 +85,6 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		//fmt.Sprintf("origination_callee_id_name='%s'", name),
 		fmt.Sprintf("%s=%v", CallVariableDomainId, g.DomainId),
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
-		fmt.Sprintf("%s='%v'", CallVariableGatewayName, g.Name),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",
 		"sip_copy_custom_headers=false",
 	}

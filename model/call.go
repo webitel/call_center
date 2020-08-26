@@ -33,12 +33,11 @@ const (
 )
 
 const (
-	CallVariableDomainId    = "sip_h_X-Webitel-Domain-Id"
-	CallVariableUserId      = "sip_h_X-Webitel-User-Id"
-	CallVariableDirection   = "sip_h_X-Webitel-Direction"
-	CallVariableGatewayId   = "sip_h_X-Webitel-Gateway-Id"
-	CallVariableGatewayName = "sip_h_X-Webitel-Gateway"
-	CallVariableDomainName  = "domain_name"
+	CallVariableDomainId   = "sip_h_X-Webitel-Domain-Id"
+	CallVariableUserId     = "sip_h_X-Webitel-User-Id"
+	CallVariableDirection  = "sip_h_X-Webitel-Direction"
+	CallVariableGatewayId  = "sip_h_X-Webitel-Gateway-Id"
+	CallVariableDomainName = "domain_name"
 )
 
 const (
