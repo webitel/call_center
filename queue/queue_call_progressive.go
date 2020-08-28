@@ -7,6 +7,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"time"
 )
 
 type ProgressiveCallQueue struct {
@@ -179,6 +180,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							attempt.Log(fmt.Sprintf("agent call state %d", state))
 							switch state {
 							case call_manager.CALL_STATE_ACCEPT:
+								time.Sleep(time.Millisecond * 250)
 								printfIfErr(mCall.Bridge(agentCall)) // TODO
 								team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_BRIDGE:
