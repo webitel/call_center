@@ -46,6 +46,7 @@ type MemberAttempt struct {
 	Id             int64 `json:"id" db:"id"`
 	QueueId        int   `json:"queue_id" db:"queue_id"`
 	QueueUpdatedAt int64 `json:"queue_updated_at" db:"queue_updated_at"`
+	Seq            *int  `json:"seq" db:"seq"`
 
 	QueueCount        int `json:"queue_count" db:"queue_count"`
 	QueueActiveCount  int `json:"queue_active_count" db:"queue_active_count"`

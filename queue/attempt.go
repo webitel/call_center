@@ -165,12 +165,15 @@ func (a *Attempt) Destination() string {
 	return a.communication.Destination
 }
 
-//FIXME
 func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
 		res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
 	}
+	if a.member.Seq != nil {
+		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
+	}
+
 	return res
 }
 

@@ -35,6 +35,7 @@ const (
 	QUEUE_ATTEMPT_ID_FIELD  = "cc_attempt_id"
 	QUEUE_RESOURCE_ID_FIELD = "cc_resource_id"
 	QUEUE_NODE_ID_FIELD     = "cc_app_id"
+	QUEUE_ATTEMPT_SEQ       = "cc_attempt_seq"
 )
 
 type RingtoneFile struct {
