@@ -113,6 +113,7 @@ func (d *DialingImpl) routeIdleAgents() {
 		}
 	} else {
 		wlog.Error(err.Error())
+		time.Sleep(time.Second)
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())

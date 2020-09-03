@@ -143,7 +143,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	DUMP(callRequest)
+	//DUMP(callRequest)
 
 	call := &CallImpl{
 		callRequest: callRequest,

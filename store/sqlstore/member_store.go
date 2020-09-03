@@ -20,7 +20,7 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 }
 
 func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppError) {
-	if i, err := s.GetMaster().SelectNullInt(`call test_sp(null)`); err != nil {
+	if i, err := s.GetMaster().SelectNullInt(`call cc_distribute(null)`); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
@@ -414,10 +414,10 @@ insert
 into cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, resource_id, result,
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
-                                bridged_at, channel)
+                                bridged_at, channel, seq)
 select a.id, domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
        a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
-       a.offering_at, a.reporting_at, a.bridged_at, a.channel
+       a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq
 from del a
     inner join cc_queue q on q.id = a.queue_id
 returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
