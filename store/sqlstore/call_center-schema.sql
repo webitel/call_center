@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.3 (Debian 12.3-1.pgdg100+1)
--- Dumped by pg_dump version 12.3 (Debian 12.3-1.pgdg100+1)
+-- Dumped from database version 12.4 (Debian 12.4-1.pgdg100+1)
+-- Dumped by pg_dump version 12.4 (Debian 12.4-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -58,29 +58,6 @@ CREATE TYPE call_center.cc_agent_in_attempt AS (
 
 
 --
--- Name: cc_communication_t; Type: TYPE; Schema: call_center; Owner: -
---
-
-CREATE TYPE call_center.cc_communication_t AS (
-	number character varying(50),
-	priority integer,
-	state integer,
-	routing_ids integer[]
-);
-
-
---
--- Name: cc_communication_type_in_member; Type: TYPE; Schema: call_center; Owner: -
---
-
-CREATE TYPE call_center.cc_communication_type_in_member AS (
-	id integer,
-	type_id integer,
-	last_activity bigint
-);
-
-
---
 -- Name: cc_communication_type_l; Type: TYPE; Schema: call_center; Owner: -
 --
 
@@ -106,19 +83,6 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 	attempts integer,
 	last_cause character varying,
 	display character varying
-);
-
-
---
--- Name: cc_type; Type: TYPE; Schema: call_center; Owner: -
---
-
-CREATE TYPE call_center.cc_type AS ENUM (
-    'inbound',
-    'ivr',
-    'preview',
-    'progressive',
-    'predictive'
 );
 
 
@@ -272,10 +236,10 @@ $$;
 
 
 --
--- Name: cc_attempt_abandoned(bigint, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -284,7 +248,7 @@ begin
     update cc_member_attempt
         set leaving_at = now(),
             last_state_change = now(),
-            result = 'abandoned', --TODO
+            result = 'abandoned',
             state = 'leaving'
     where id = attempt_id_
     returning * into attempt;
@@ -292,8 +256,9 @@ begin
     update cc_member
     set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
         last_agent      = coalesce(attempt.agent_id, last_agent),
-        stop_at = attempt.leaving_at,
-        stop_cause = attempt.result,
+        stop_at = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else  attempt.leaving_at end,
+        stop_cause = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else attempt.result end,
+        ready_at = now() + (_next_after || ' sec')::interval,
         -- fixme
         communications  = jsonb_set(
                 jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
@@ -553,7 +518,8 @@ begin
         set state            = attempt.state,
             joined_at        = now(),
             last_offering_at = now(),
-            queue_id         = attempt.queue_id
+            queue_id         = attempt.queue_id,
+            last_bucket_id   = coalesce(attempt.bucket_id, last_bucket_id)
         where (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
 
@@ -666,7 +632,7 @@ CREATE FUNCTION call_center.cc_call_get_owner_leg(c_ call_center.cc_calls, OUT n
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 begin
-    if c_.direction = 'inbound' then
+    if c_.direction = 'inbound' or (c_.direction = 'outbound' and c_.gateway_id notnull ) then
         number_ := c_.to_number;
         name_ := c_.to_name;
         type_ := c_.to_type;
@@ -689,7 +655,7 @@ $$;
 CREATE PROCEDURE call_center.cc_call_set_bridged(call_id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, call_bridged_id_ character varying)
     LANGUAGE plpgsql
     AS $$
-    declare
+declare
         transfer_to_ varchar;
         transfer_from_ varchar;
 begin
@@ -698,19 +664,19 @@ begin
         state      = state_,
         timestamp  = timestamp_,
         to_number  = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
                              then c.number_
                          else to_number end,
         to_name    = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
                              then c.name_
                          else to_name end,
         to_type    = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
                              then c.type_
                          else to_type end,
         to_id      = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound'  and cc.gateway_id isnull )
                              then c.id_
                          else to_id end
     from (
@@ -826,11 +792,12 @@ CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_
 declare cnt int;
 BEGIN
     update cc_member_attempt
-    set result = case id when _attempt_id then null else 'ABANDONED' end
+    set result = case id when _attempt_id then null else 'abandoned' end,
+        leaving_at = case id when _attempt_id then null else now() end
     where agent_id = _agent_id and not exists(
        select 1
        from cc_member_attempt a
-       where a.agent_id = _agent_id and a.result notnull
+       where a.agent_id = _agent_id and a.result notnull and a.leaving_at isnull
        for update
     );
     get diagnostics cnt = row_count;
@@ -840,64 +807,123 @@ $$;
 
 
 --
+-- Name: cc_distribute(integer); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.cc_distribute(INOUT cnt integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+    if NOT pg_try_advisory_xact_lock(132132117) then
+        raise exception 'LOCK';
+    end if;
+
+    with dis as MATERIALIZED (
+        select *
+        from cc_sys_distribute() x (agent_id int, queue_id int, bucket_id int, ins bool, id int8, resource_id int,
+                                    resource_group_id int, comm_idx int)
+    )
+       , ins as (
+        insert into cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
+                                       communication_idx)
+            select 'call',
+                   dis.id,
+                   dis.queue_id,
+                   dis.resource_id,
+                   dis.agent_id,
+                   dis.bucket_id,
+                   x,
+                   dis.comm_idx
+            from dis
+                     inner join cc_member m on m.id = dis.id
+                     inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx - 1)::text) x on true
+            where dis.ins
+    )
+    update cc_member_attempt a
+    set agent_id = t.agent_id
+    from (
+             select dis.id, dis.agent_id
+             from dis
+             where not dis.ins is true
+         ) t
+    where t.id = a.id
+      and a.agent_id isnull;
+
+end;
+$$;
+
+
+--
 -- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
+CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, seq integer)
     LANGUAGE plpgsql
-    AS $_$
+    AS $$
 declare
-    _weight int4;
+    _weight      int4;
     _destination jsonb;
 BEGIN
 
-  return query with attempts as (
-      insert into cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id, bucket_id)
-        select 1, m.queue_id, m.id, x, _node_name, _agent_id, r.resource_id, m.bucket_id
-        from cc_member m
-            inner join lateral jsonb_path_query_first(communications, '$[*] ? (@.id == $id)', vars => jsonb_build_object('id', _communication_id)) x on x notnull
-            inner join cc_queue q on q.id = m.queue_id
-            inner join lateral (
+    return query with attempts as (
+        insert into cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id,
+                                       bucket_id, seq)
+            select 1,
+                   m.queue_id,
+                   m.id,
+                   m.communications -> (_communication_id::int2),
+                   _node_name,
+                   _agent_id,
+                   r.resource_id,
+                   m.bucket_id,
+                   m.attempts + 1
+            from cc_member m
+                     inner join cc_queue q on q.id = m.queue_id
+                     inner join lateral (
                 select (t::cc_sys_distribute_type).resource_id
                 from cc_sys_queue_distribute_resources r,
                      unnest(r.types) t
-                where r.queue_id = m.queue_id and (t::cc_sys_distribute_type).type_id = (x->'type'->'id')::int4
+                where r.queue_id = m.queue_id
+                  and (t::cc_sys_distribute_type).type_id =
+                      (m.communications -> (_communication_id::int2) -> 'type' -> 'id')::int4
                 limit 1
-            ) r on true
-            inner join cc_team ct on q.team_id = ct.id
-            left join cc_outbound_resource cor on cor.id = r.resource_id
-        where m.id = _member_id
-      returning cc_member_attempt.*
-  )
-  select a.id,
-         a.member_id,
-         null::varchar    result,
-         a.queue_id,
-         cq.updated_at as queue_updated_at,
-         0::integer       queue_count,
-         0::integer       queue_active_count,
-         0::integer       queue_waiting_count,
-         a.resource_id::integer    resource_id,
-         r.updated_at::bigint     resource_updated_at,
-         null::bigint     gateway_updated_at,
-         a.destination    destination,
-         cm.variables,
-         cm.name,
-         null::varchar,
-         a.agent_id::bigint     agent_id,
-         ag.updated_at::bigint     agent_updated_at,
-         t.updated_at::bigint     team_updated_at
-  from attempts a
-           left join cc_member cm on a.member_id = cm.id
-           inner join cc_queue cq on a.queue_id = cq.id
-           inner join cc_team t on t.id = cq.team_id
-           left join cc_outbound_resource r on r.id = a.resource_id
-           left join cc_agent ag on ag.id = a.agent_id;
+                ) r on true
+                     inner join cc_team ct on q.team_id = ct.id
+                     left join cc_outbound_resource cor on cor.id = r.resource_id
+            where m.id = _member_id
+              and m.communications -> (_communication_id::int2) notnull
+            returning cc_member_attempt.*
+    )
+                 select a.id,
+                        a.member_id,
+                        null::varchar          result,
+                        a.queue_id,
+                        cq.updated_at as       queue_updated_at,
+                        0::integer             queue_count,
+                        0::integer             queue_active_count,
+                        0::integer             queue_waiting_count,
+                        a.resource_id::integer resource_id,
+                        r.updated_at::bigint   resource_updated_at,
+                        null::bigint           gateway_updated_at,
+                        a.destination          destination,
+                        cm.variables,
+                        cm.name,
+                        null::varchar,
+                        a.agent_id::bigint     agent_id,
+                        ag.updated_at::bigint  agent_updated_at,
+                        t.updated_at::bigint   team_updated_at,
+                        a.seq::int seq
+                 from attempts a
+                          left join cc_member cm on a.member_id = cm.id
+                          inner join cc_queue cq on a.queue_id = cq.id
+                          inner join cc_team t on t.id = cq.team_id
+                          left join cc_outbound_resource r on r.id = a.resource_id
+                          left join cc_agent ag on ag.id = a.agent_id;
 
-  --raise notice '%', _attempt_id;
+    --raise notice '%', _attempt_id;
 
 END;
-$_$;
+$$;
 
 
 --
@@ -1466,124 +1492,6 @@ $$;
 
 
 --
--- Name: cc_msg_create_conversation(character varying, character varying, character varying, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_msg_create_conversation(key_ character varying, title_ character varying, name_ character varying, body_ jsonb) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-    declare conversation_id_ int8;
-    channel_id_ varchar;
-    posted_at_ timestamptz;
-begin
-    insert into cc_msg_conversation (title, domain_id)
-    values (title_, (select p.domain_id
-			from cc_msg_profiles p
-			where p.secret_key = key_))
-    returning id into conversation_id_;
-
-    insert into cc_msg_participants (name, conversation_id)
-    values (name_, conversation_id_)
-    returning channel_id into channel_id_;
-
-    insert into cc_msg_post(conversation_id, body, posted_by)
-    values (conversation_id_, body_, name_)
-    returning posted_at into posted_at_;
-
-    return row(posted_at_, conversation_id_, channel_id_::text);
-end;
-$$;
-
-
---
--- Name: cc_msg_history(uuid, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_msg_history(channel_id_ uuid, limit_ integer, offset_ integer) RETURNS SETOF record
-    LANGUAGE plpgsql
-    AS $$
-    declare conversation_id_ int8;
-begin
-    select o.conversation_id
-    into conversation_id_
-    from cc_msg_participants o
-        inner join cc_msg_conversation cmc on o.conversation_id = cmc.id
-    where o.channel_id = channel_id_ and cmc.closed_at isnull;
-
-    if conversation_id_ isnull then
-        raise exception 'not found'; -- todo
-    end if;
-
-    return query select msg.posted_by, (extract(epoch from msg.posted_at) * 1000)::int8 posted_at, msg.body
-    from cc_msg_post msg
-    where msg.conversation_id = conversation_id_
-    order by msg.posted_at desc
-    limit limit_
-    offset offset_;
-end;
-$$;
-
-
---
--- Name: cc_msg_post(uuid, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_msg_post(channel_id_ uuid, body_ jsonb) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-    declare last_ timestamptz;
-        posted_by_ varchar;
-begin
-    update cc_msg_participants n
-        set activity_at  = now()
-    from cc_msg_participants o
-    where n.channel_id = channel_id_ and n.channel_id = o.channel_id
-    returning o.activity_at into last_;
-
-    insert into cc_msg_post (body, conversation_id, posted_by)
-    select body_, p.conversation_id, p.name
-    from cc_msg_participants p
-    where p.channel_id = channel_id_
-    returning posted_by into posted_by_;
-
-    return row( (extract(epoch from now()) )::int8 , posted_by_, body_ );
-
-end;
-$$;
-
-
---
--- Name: cc_msg_unread(uuid, integer); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_msg_unread(channel_id_ uuid, limit_ integer) RETURNS SETOF record
-    LANGUAGE plpgsql
-    AS $$
-    declare activity_at_ timestamptz;
-        conversation_id_ int8;
-begin
-    update cc_msg_participants n
-        set activity_at  = now()
-    from cc_msg_participants o
-        inner join cc_msg_conversation cmc on o.conversation_id = cmc.id
-    where n.channel_id = channel_id_ and n.channel_id = o.channel_id and cmc.closed_at isnull
-    returning o.conversation_id, o.activity_at into conversation_id_, activity_at_;
-
-    if conversation_id_ isnull then
-        raise exception 'not found'; -- todo
-    end if;
-
-    return query select msg.posted_by, (extract(epoch from msg.posted_at) * 1000)::int8 posted_at, msg.body
-    from cc_msg_post msg
-    where msg.conversation_id = conversation_id_
-        and msg.posted_at > activity_at_
-    order by msg.posted_at desc
-    limit limit_;
-end;
-$$;
-
-
---
 -- Name: cc_outbound_resource_timing(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -1681,7 +1589,7 @@ $$;
 -- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint)
+CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint, seq integer)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1690,22 +1598,24 @@ BEGIN
             ,node_id = node
             ,last_state_change = now()
             ,list_communication_id = lc.id
+            ,seq = c.attempts + 1
         from (
             select c.id,
-                   cq.updated_at                      as queue_updated_at,
-                   r.updated_at                       as resource_updated_at,
-                   0                      as gateway_updated_at, --fixme!!!
-                   cm.communications->(c.communication_idx::int)                      as destination,
-                   cm.variables                       as variables,
-                   cm.name                            as member_name,
-                   c.state                            as state,
+                   cq.updated_at                                   as queue_updated_at,
+                   r.updated_at                                    as resource_updated_at,
+                   0                                               as gateway_updated_at, --fixme!!!
+                   cm.communications -> (c.communication_idx::int) as destination,
+                   cm.variables                                    as variables,
+                   cm.name                                         as member_name,
+                   c.state                                         as state,
                    cq.sec_locate_agent,
-                   cqs.member_count                   as queue_cnt,
-                   0                                  as queue_active_cnt,
-                   cqs.member_waiting                 as queue_waiting_cnt,
-                   ca.updated_at                      as agent_updated_at,
-                   tm.updated_at                      as team_updated_at,
-                   cq.dnc_list_id
+                   cqs.member_count                                as queue_cnt,
+                   0                                               as queue_active_cnt,
+                   cqs.member_waiting                              as queue_waiting_cnt,
+                   ca.updated_at                                   as agent_updated_at,
+                   tm.updated_at                                   as team_updated_at,
+                   cq.dnc_list_id,
+                   cm.attempts
             from cc_member_attempt c
                      inner join cc_member cm on c.member_id = cm.id
                      inner join cc_queue cq on cm.queue_id = cq.id
@@ -1719,7 +1629,8 @@ BEGIN
             order by cq.priority desc, c.weight desc
                 for update of c skip locked
         ) c
-        left join cc_list_communications lc on lc.list_id = c.dnc_list_id and lc.number = c.destination->>'destination'
+            left join cc_list_communications lc on lc.list_id = c.dnc_list_id and
+                                                   lc.number = c.destination ->> 'destination'
         where a.id = c.id --and node = 'call_center-igor'
         returning
             a.id::bigint as id,
@@ -1740,7 +1651,8 @@ BEGIN
             a.agent_id,
             c.agent_updated_at,
             c.team_updated_at,
-            a.list_communication_id;
+            a.list_communication_id,
+            a.seq;
 END;
 $$;
 
@@ -1786,8 +1698,14 @@ BEGIN
       end if;
   end if;
 
+  --
   if new.state = 'waiting' then
       new.queue_id := null;
+  end if;
+
+  --fixme
+  if new.joined_at - old.joined_at = interval '0' then
+        return new;
   end if;
 
   insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
@@ -1896,180 +1814,6 @@ begin
     else
         return (extract(EPOCH from t) * 1000)::int8;
     end if;
-end;
-$$;
-
-
---
--- Name: test_sp(integer); Type: PROCEDURE; Schema: call_center; Owner: -
---
-
-CREATE PROCEDURE call_center.test_sp(INOUT cnt integer)
-    LANGUAGE plpgsql
-    AS $$
-begin
-    if NOT pg_try_advisory_xact_lock(13213211) then
-        raise notice 'LOCK';
-        return;
-    end if;
-
-
-    with queues as (
-    select q.name, q.calendar_id, q.max_calls, q.sec_between_retries, q.id, q.type, q.team_id, m.*, q.priority, q.domain_id,
-           row_number() over (order by q.domain_id, q.priority desc, q.id, m.bucket_id nulls last) pos
-    from (
-             select q.queue_id, q.bucket_id, q.member_waiting, 'i' op
-             from cc_queue_statistics q
-
-             union all
-
-             select a.queue_id, a.bucket_id, count(*), 'u'
-             from cc_member_attempt a
-             where a.bridged_at isnull
-               and a.leaving_at isnull
-               and a.state = 'wait_agent'
-             group by 1, 2
-         ) m
-         inner join cc_queue q on q.id = m.queue_id
-    where  m.member_waiting > 0  and q.enabled
-           and q.type > 0
-    order by q.domain_id, q.priority desc, q.id, m.bucket_id nulls last
-    limit 1024 -- TODO
-),
-resources as (
-  SELECT cqr.queue_id,
-        array_agg(DISTINCT
-            ROW (corg.communication_id, cor.id::bigint, l.l & l2.x, corg.id)::call_center.cc_sys_distribute_type)           AS types,
-        array_agg(DISTINCT
-            ROW (cor.id::bigint, (cor."limit" - used.cnt)::integer)::call_center.cc_sys_distribute_resource) AS resources,
-        cc_array_merge_agg(l.l & l2.x) offset_ids
-  FROM call_center.cc_queue_resource cqr
-             inner join (
-               select queues.id, queues.calendar_id
-               from queues
-               group by queues.id, queues.calendar_id
-             ) q on q.id = cqr.queue_id
-             JOIN call_center.cc_outbound_resource_group corg ON cqr.resource_group_id = corg.id
-             JOIN call_center.cc_outbound_resource_in_group corig ON corg.id = corig.group_id
-             JOIN call_center.cc_outbound_resource cor ON corig.resource_id = cor.id
-             inner join lateral (
-                select c.id, array_agg(distinct o1.id) l
-                from flow.calendar c
-                    inner join lateral unnest(c.accepts) a on true
-                    inner join flow.calendar_timezone_offsets o1 on  a.day + 1 = extract(isodow from now() AT TIME ZONE o1.names[1])::int
-                        and (to_char(now() AT TIME ZONE o1.names[1], 'SSSS') :: int / 60) between a.start_time_of_day and a.end_time_of_day
-                where  not a.disabled is true
-                group by 1
-             ) l on l.id = q.calendar_id
-             inner join LATERAL (
-                with times as (
-                    select (e->'start_time_of_day')::int as start, (e->'end_time_of_day')::int as end
-                    from jsonb_array_elements(corg.time) e
-                )
-                select array_agg(distinct t.id) x
-                from flow.calendar_timezone_offsets t,
-                     times,
-                     lateral (select current_timestamp AT TIME ZONE t.names[1] t) with_timezone
-                where  (to_char(with_timezone.t, 'SSSS') :: int / 60) between times.start and times.end
-             ) l2 on l2 notnull
-             left join lateral (
-                select count(*) cnt
-                from (
-                    select 1 cnt
-                    from cc_member_attempt c
-                    where c.resource_id = cor.id
-                    for update -- FIXME maybe no lock ?
-                ) c
-             ) used on true
-    WHERE
-      cor.enabled
-      and NOT cor.reserve
-      and (cor."limit" - used.cnt) > 0
-    GROUP BY cqr.queue_id
-),
-     agents as (
-         with a as (
-             select distinct on (t.team_id, ab, a.id) a.id  agent_id,
-                                                      t.team_id,
-                                                      ab,
-                                                      a.progressive_count,
-                                                      row_number()
-                                                      over (partition by q.team_id, ab order by t.lvl asc,
-                                                          cac.last_offering_at asc nulls first --TODO strategy field must order
-                                                          ) pos
-             from cc_agent_in_team t
-                      left join cc_skill_in_agent sa
-                                on sa.skill_id = t.skill_id and sa.capacity between t.min_capacity and t.max_capacity
-                      inner join cc_agent a on a.id = coalesce(sa.agent_id, t.agent_id)
-                      inner join cc_agent_channel cac on cac.agent_id = a.id
-                      inner join cc_queue q on q.team_id = t.team_id
-                      inner join lateral unnest(array_cat(t.bucket_ids, array [null::int8])) ab on true
-             where cac.channel = 'call' and cac.state = 'waiting' and a.status = 'online'
-               and t.team_id in (
-                 select distinct queues.team_id
-                 from queues
-               )
-               and not a.id in (
-                 select distinct aa.agent_id
-                 from cc_member_attempt aa
-                 where aa.agent_id notnull
-               )
-               and not exists(select 1 from cc_calls c where c.hangup_at isnull and c.user_id = a.user_id for update) -- TODO maybe no lock ?
-                   and exists (select 1 from directory.wbt_user_presence where user_id = a.user_id and status = 'sip' and open > 0)
-             order by t.team_id, ab nulls last, a.id, t.lvl asc,
-                      cac.last_offering_at asc nulls first --FIXME must row_number strategy field
-         )
-         select a.team_id, a.ab, array_agg(array [a.agent_id, a.progressive_count] order by a.pos) as agents,
-                array_agg(a.agent_id order by a.pos) as agent_ids
-         from a
-         group by 1, 2
-     )
-, cc_distribute_member_tmp as (
-    select
-        x.*,
-        queues.bucket_id,
-        queues.id as queue_id,
-        queues.op,
-        case when queues.type in ( 6) then 'chat' else 'call' end channel,
-        queues.domain_id
-    from queues
-        left join resources r on r.queue_id = queues.queue_id
-        left join agents on (queues.team_id = agents.team_id and coalesce(queues.bucket_id, 0) = coalesce(agents.ab, 0)) --TODO rename ab
-        inner join lateral cc_test_recursion(
-             row (queues.id, queues.bucket_id, queues.type, (extract(epoch  from now()) * 1000)::int8
-                                , r.offset_ids, 100, queues.member_waiting, 1)::cc_sys_distribute_request,
-             agents.agent_ids::int[],
-             r.resources,
-             r.types
-         ) x (id bigint, destination_idx int4, resource_id int4, agent_id int4)  on true
-    where queues.type > 0
-    order by queues.pos
-), ins as (
-    insert into cc_member_attempt(channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination, communication_idx)
-    select t.channel,
-           t.id,
-           t.queue_id,
-           t.resource_id,
-           t.agent_id,
-           t.bucket_id,
-           x as destination,
-           t.destination_idx - 1
-    from cc_distribute_member_tmp t
-        inner join cc_member cm on t.id = cm.id
-        inner join lateral jsonb_extract_path(cm.communications, (t.destination_idx - 1)::text) x on true
-        left join cc_communication comm on comm.id = (x->'type'->'id')::int
-    where t.op = 'i'
-)
-update cc_member_attempt a
-set agent_id = t.agent_id
-from (
-         select t.id, t.agent_id
-         from cc_distribute_member_tmp t
-         where t.op = 'u'
-     ) t
-where t.id = a.id
-  and a.agent_id isnull;
-
 end;
 $$;
 
@@ -2235,7 +1979,8 @@ CREATE TABLE call_center.cc_agent_channel (
     queue_id integer,
     last_offering_at timestamp with time zone,
     last_bridged_at timestamp with time zone,
-    last_missed_at timestamp with time zone
+    last_missed_at timestamp with time zone,
+    last_bucket_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2284,7 +2029,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     communication_idx integer DEFAULT 1 NOT NULL,
     conversation_id bigint,
     resource_group_id integer,
-    destination jsonb
+    destination jsonb,
+    seq integer DEFAULT 0 NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2732,9 +2478,9 @@ CREATE TABLE call_center.cc_member (
     name character varying(50) DEFAULT ''::character varying NOT NULL,
     stop_cause character varying(50),
     attempts integer DEFAULT 0 NOT NULL,
-    agent_id bigint,
+    agent_id integer,
     communications jsonb NOT NULL,
-    bucket_id bigint,
+    bucket_id integer,
     timezone_id integer,
     last_agent integer,
     sys_offset_id smallint,
@@ -2743,9 +2489,9 @@ CREATE TABLE call_center.cc_member (
     domain_id bigint NOT NULL,
     skill_id integer,
     ready_at timestamp with time zone DEFAULT now() NOT NULL,
-    sys_destinations call_center.cc_destination[],
     stop_at timestamp with time zone,
-    last_hangup_at bigint DEFAULT 0 NOT NULL
+    last_hangup_at bigint DEFAULT 0 NOT NULL,
+    sys_destinations call_center.cc_destination[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
@@ -2768,7 +2514,7 @@ CREATE TABLE call_center.cc_member_attempt_history (
     display character varying(50),
     description character varying,
     list_communication_id bigint,
-    joined_at timestamp with time zone,
+    joined_at timestamp with time zone NOT NULL,
     leaving_at timestamp with time zone,
     agent_call_id character varying,
     member_call_id character varying,
@@ -2777,7 +2523,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     bridged_at timestamp with time zone,
     channel character varying,
     domain_id bigint NOT NULL,
-    destination jsonb
+    destination jsonb,
+    seq integer DEFAULT 0 NOT NULL
 );
 
 
@@ -3084,7 +2831,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM storage.files f_1
-          WHERE ((f_1.domain_id = c.domain_id) AND ((f_1.uuid)::text = (c.id)::text))) f ON (true))
+          WHERE ((f_1.domain_id = c.domain_id) AND (((f_1.uuid)::text = (c.id)::text) OR ((f_1.uuid)::text = (c.parent_id)::text)))) f ON (true))
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -3092,6 +2839,37 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_agent_list ca ON ((cma.agent_id = ca.id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
+
+
+--
+-- Name: cc_calls_transcribe; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_transcribe (
+    id bigint NOT NULL,
+    call_id character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    transcribe character varying
+);
+
+
+--
+-- Name: cc_calls_transcribe_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_calls_transcribe_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_calls_transcribe_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_calls_transcribe_id_seq OWNED BY call_center.cc_calls_transcribe.id;
 
 
 --
@@ -3158,6 +2936,23 @@ CREATE SEQUENCE call_center.cc_communication_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_communication_id_seq OWNED BY call_center.cc_communication.id;
+
+
+--
+-- Name: cc_distribute_stage_1; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_distribute_stage_1 AS
+SELECT
+    NULL::integer AS id,
+    NULL::smallint AS type,
+    NULL::smallint AS strategy,
+    NULL::bigint AS team_id,
+    NULL::call_center.cc_sys_distribute_bucket[] AS buckets,
+    NULL::call_center.cc_sys_distribute_type[] AS types,
+    NULL::call_center.cc_sys_distribute_resource[] AS resources,
+    NULL::integer[] AS offset_ids,
+    NULL::integer AS lim;
 
 
 --
@@ -3411,33 +3206,6 @@ CREATE VIEW call_center.cc_member_attempt_log_day AS
 
 
 --
--- Name: cc_member_attempt_log_day_tmp; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_member_attempt_log_day_tmp (
-    id bigint,
-    queue_id bigint,
-    state integer,
-    member_id bigint,
-    weight integer,
-    hangup_at bigint,
-    bridged_at bigint,
-    resource_id integer,
-    leg_a_id character varying(36),
-    leg_b_id character varying(36),
-    node_id character varying(20),
-    result character varying(200),
-    originate_at bigint,
-    answered_at bigint,
-    logs jsonb,
-    agent_id bigint,
-    bucket_id bigint,
-    created_at timestamp without time zone,
-    success boolean
-);
-
-
---
 -- Name: cc_member_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
 --
 
@@ -3600,200 +3368,6 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
      LEFT JOIN call_center.cc_outbound_resource r ON ((r.id = t.resource_id)))
      LEFT JOIN call_center.cc_bucket cb ON ((cb.id = t.bucket_id)))
      LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)));
-
-
---
--- Name: cc_msg_attachment; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_msg_attachment (
-    id bigint NOT NULL,
-    post_id bigint NOT NULL,
-    file_name character varying NOT NULL,
-    file_type character varying NOT NULL
-);
-
-
---
--- Name: cc_msg_attachment_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_attachment_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_attachment_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_attachment_id_seq OWNED BY call_center.cc_msg_attachment.id;
-
-
---
--- Name: cc_msg_conversation; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_msg_conversation (
-    title character varying NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    domain_id bigint NOT NULL,
-    id bigint NOT NULL,
-    closed_at timestamp with time zone,
-    activity_at timestamp without time zone DEFAULT now() NOT NULL,
-    profile_id integer NOT NULL,
-    variables jsonb,
-    closed_by bigint
-);
-
-
---
--- Name: cc_msg_conversation_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_conversation_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_conversation_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_conversation_id_seq OWNED BY call_center.cc_msg_conversation.id;
-
-
---
--- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_conversation_profile_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_conversation_profile_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_conversation_profile_id_seq OWNED BY call_center.cc_msg_conversation.profile_id;
-
-
---
--- Name: cc_msg_participants; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_msg_participants (
-    id bigint NOT NULL,
-    type_id integer DEFAULT 0 NOT NULL,
-    name character varying,
-    conversation_id bigint NOT NULL,
-    channel_id uuid DEFAULT uuid_generate_v4() NOT NULL,
-    activity_at timestamp with time zone DEFAULT now() NOT NULL,
-    attempt_id bigint
-);
-
-
---
--- Name: COLUMN cc_msg_participants.type_id; Type: COMMENT; Schema: call_center; Owner: -
---
-
-COMMENT ON COLUMN call_center.cc_msg_participants.type_id IS 'group/single';
-
-
---
--- Name: cc_msg_participants_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_participants_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_participants_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_participants_id_seq OWNED BY call_center.cc_msg_participants.id;
-
-
---
--- Name: cc_msg_post; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_msg_post (
-    id bigint NOT NULL,
-    posted_at timestamp with time zone DEFAULT now() NOT NULL,
-    posted_by character varying,
-    body jsonb NOT NULL,
-    conversation_id bigint NOT NULL,
-    schema_idx integer DEFAULT 0 NOT NULL,
-    participant_id bigint
-);
-
-
---
--- Name: cc_msg_post_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_post_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_post_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_post_id_seq OWNED BY call_center.cc_msg_post.id;
-
-
---
--- Name: cc_msg_profiles; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_msg_profiles (
-    id bigint NOT NULL,
-    secret_key character varying NOT NULL,
-    domain_id bigint NOT NULL,
-    schema_id integer,
-    conversation_max_time integer DEFAULT 360 NOT NULL
-);
-
-
---
--- Name: cc_msg_profiles_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_msg_profiles_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_msg_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_msg_profiles_id_seq OWNED BY call_center.cc_msg_profiles.id;
 
 
 --
@@ -4152,9 +3726,9 @@ ALTER SEQUENCE call_center.cc_queue_resource_id_seq1 OWNED BY call_center.cc_que
 
 CREATE TABLE call_center.cc_skill (
     id integer NOT NULL,
-    name character varying(20) NOT NULL,
+    name character varying NOT NULL,
     domain_id bigint NOT NULL,
-    description character varying(100) DEFAULT ''::character varying NOT NULL
+    description character varying DEFAULT ''::character varying NOT NULL
 );
 
 
@@ -4334,38 +3908,6 @@ CREATE VIEW call_center.cc_sys_distribute_queue AS
 
 
 --
--- Name: cc_sys_queue_distribute_resources; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, NULL)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
-
-
---
 -- Name: cc_team_acl; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -4481,6 +4023,13 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: cc_calls_transcribe id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_transcribe ALTER COLUMN id SET DEFAULT nextval('call_center.cc_calls_transcribe_id_seq'::regclass);
+
+
+--
 -- Name: cc_cluster id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -4548,48 +4097,6 @@ ALTER TABLE ONLY call_center.cc_member_attempt ALTER COLUMN id SET DEFAULT nextv
 --
 
 ALTER TABLE ONLY call_center.cc_member_messages ALTER COLUMN id SET DEFAULT nextval('call_center.cc_member_messages_id_seq'::regclass);
-
-
---
--- Name: cc_msg_attachment id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_attachment ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_attachment_id_seq'::regclass);
-
-
---
--- Name: cc_msg_conversation id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_conversation_id_seq'::regclass);
-
-
---
--- Name: cc_msg_conversation profile_id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_conversation ALTER COLUMN profile_id SET DEFAULT nextval('call_center.cc_msg_conversation_profile_id_seq'::regclass);
-
-
---
--- Name: cc_msg_participants id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_participants ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_participants_id_seq'::regclass);
-
-
---
--- Name: cc_msg_post id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_post ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_post_id_seq'::regclass);
-
-
---
--- Name: cc_msg_profiles id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_profiles ALTER COLUMN id SET DEFAULT nextval('call_center.cc_msg_profiles_id_seq'::regclass);
 
 
 --
@@ -4795,6 +4302,14 @@ ALTER TABLE ONLY call_center.cc_calls
 
 
 --
+-- Name: cc_calls_transcribe cc_calls_transcribe_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_transcribe
+    ADD CONSTRAINT cc_calls_transcribe_pk PRIMARY KEY (id);
+
+
+--
 -- Name: cc_cluster cc_cluster_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -4888,46 +4403,6 @@ ALTER TABLE ONLY call_center.cc_member_messages
 
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_pkey PRIMARY KEY (id);
-
-
---
--- Name: cc_msg_attachment cc_msg_attachment_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_attachment
-    ADD CONSTRAINT cc_msg_attachment_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_msg_conversation cc_msg_conversation_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_conversation
-    ADD CONSTRAINT cc_msg_conversation_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_msg_participants cc_msg_participants_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_participants
-    ADD CONSTRAINT cc_msg_participants_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_msg_post cc_msg_post_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_post
-    ADD CONSTRAINT cc_msg_post_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_msg_profiles cc_msg_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_profiles
-    ADD CONSTRAINT cc_msg_profiles_pk PRIMARY KEY (id);
 
 
 --
@@ -5198,17 +4673,17 @@ CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_
 
 
 --
+-- Name: cc_agent_status_distribute_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_status_distribute_index ON call_center.cc_agent USING btree (status) INCLUDE (user_id, id);
+
+
+--
 -- Name: cc_agent_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_agent_updated_by_index ON call_center.cc_agent USING btree (updated_by);
-
-
---
--- Name: cc_agent_user_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_user_id_uindex ON call_center.cc_agent USING btree (user_id);
 
 
 --
@@ -5308,6 +4783,8 @@ CREATE INDEX cc_calls_history_dev_idx ON call_center.cc_calls_history USING btre
 
 CREATE INDEX cc_calls_history_domain_id_created_at_index ON call_center.cc_calls_history USING btree (domain_id, created_at DESC);
 
+ALTER TABLE call_center.cc_calls_history CLUSTER ON cc_calls_history_domain_id_created_at_index;
+
 
 --
 -- Name: cc_calls_history_domain_id_store_at_index; Type: INDEX; Schema: call_center; Owner: -
@@ -5380,6 +4857,27 @@ CREATE INDEX cc_calls_history_user_id_index ON call_center.cc_calls_history USIN
 
 
 --
+-- Name: cc_calls_transcribe_call_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_transcribe_call_id_index ON call_center.cc_calls_transcribe USING btree (call_id);
+
+
+--
+-- Name: cc_calls_transcribe_created_at_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_transcribe_created_at_index ON call_center.cc_calls_transcribe USING btree (created_at DESC);
+
+
+--
+-- Name: cc_calls_transcribe_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_calls_transcribe_id_uindex ON call_center.cc_calls_transcribe USING btree (id);
+
+
+--
 -- Name: cc_cluster_node_name_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5387,17 +4885,10 @@ CREATE UNIQUE INDEX cc_cluster_node_name_uindex ON call_center.cc_cluster USING 
 
 
 --
--- Name: cc_communication_code_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_communication_domain_id_code_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_communication_code_domain_id_uindex ON call_center.cc_communication USING btree (code, domain_id);
-
-
---
--- Name: cc_communication_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_communication_domain_id_index ON call_center.cc_communication USING btree (domain_id);
+CREATE UNIQUE INDEX cc_communication_domain_id_code_uindex ON call_center.cc_communication USING btree (domain_id, code);
 
 
 --
@@ -5443,10 +4934,10 @@ CREATE INDEX cc_list_created_by_index ON call_center.cc_list USING btree (create
 
 
 --
--- Name: cc_list_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_list_domain_id_index ON call_center.cc_list USING btree (domain_id);
+CREATE UNIQUE INDEX cc_list_domain_id_name_uindex ON call_center.cc_list USING btree (domain_id, name);
 
 
 --
@@ -5489,6 +4980,13 @@ CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_a
 --
 
 CREATE INDEX cc_member_attempt_history_domain_id_joined_at_index ON call_center.cc_member_attempt_history USING btree (domain_id, joined_at DESC);
+
+
+--
+-- Name: cc_member_attempt_history_joined_at_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_joined_at_agent_id_index ON call_center.cc_member_attempt_history USING btree (joined_at DESC, agent_id);
 
 
 --
@@ -5576,20 +5074,6 @@ CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt U
 
 
 --
--- Name: cc_member_dis_fifo; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC, id) INCLUDE (ready_at, sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
-
-
---
--- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, last_hangup_at, priority DESC, id DESC) INCLUDE (ready_at, sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
-
-
---
 -- Name: cc_member_distribute_check_sys_offset_id; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5615,48 +5099,6 @@ CREATE INDEX cc_member_queue_id_index ON call_center.cc_member USING btree (queu
 --
 
 CREATE INDEX cc_member_search_destination_idx ON call_center.cc_member USING gin (domain_id, communications jsonb_path_ops);
-
-
---
--- Name: cc_msg_conversation_activity_at_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_msg_conversation_activity_at_index ON call_center.cc_msg_conversation USING btree (activity_at DESC);
-
-
---
--- Name: cc_msg_conversation_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_msg_conversation_domain_id_index ON call_center.cc_msg_conversation USING btree (domain_id);
-
-
---
--- Name: cc_msg_participants_channel_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_msg_participants_channel_id_uindex ON call_center.cc_msg_participants USING btree (channel_id);
-
-
---
--- Name: cc_msg_participants_conversation_id_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_msg_participants_conversation_id_index ON call_center.cc_msg_participants USING btree (conversation_id);
-
-
---
--- Name: cc_msg_post_conversation_id_posted_at_index; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_msg_post_conversation_id_posted_at_index ON call_center.cc_msg_post USING btree (conversation_id, posted_at DESC);
-
-
---
--- Name: cc_msg_profiles_secret_key_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_msg_profiles_secret_key_uindex ON call_center.cc_msg_profiles USING btree (secret_key);
 
 
 --
@@ -5706,6 +5148,13 @@ CREATE INDEX cc_outbound_resource_display_resource_id_index ON call_center.cc_ou
 --
 
 CREATE INDEX cc_outbound_resource_domain_id_index ON call_center.cc_outbound_resource USING btree (domain_id);
+
+
+--
+-- Name: cc_outbound_resource_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_outbound_resource_domain_id_name_uindex ON call_center.cc_outbound_resource USING btree (domain_id, name);
 
 
 --
@@ -5772,6 +5221,13 @@ CREATE INDEX cc_outbound_resource_group_domain_id_index ON call_center.cc_outbou
 
 
 --
+-- Name: cc_outbound_resource_group_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_outbound_resource_group_domain_id_name_uindex ON call_center.cc_outbound_resource_group USING btree (domain_id, name);
+
+
+--
 -- Name: cc_outbound_resource_group_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5835,6 +5291,13 @@ CREATE INDEX cc_queue_distribute_res_idx ON call_center.cc_queue USING btree (do
 
 
 --
+-- Name: cc_queue_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_queue_domain_id_name_uindex ON call_center.cc_queue USING btree (domain_id, name);
+
+
+--
 -- Name: cc_queue_domain_udx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5877,10 +5340,10 @@ CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON ca
 
 
 --
--- Name: cc_skill_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_skill_domain_id_index ON call_center.cc_skill USING btree (domain_id);
+CREATE UNIQUE INDEX cc_skill_domain_id_name_uindex ON call_center.cc_skill USING btree (domain_id, name);
 
 
 --
@@ -6009,6 +5472,102 @@ CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
      JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
      LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
   GROUP BY q.id, ct.id;
+
+
+--
+-- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
+ WITH queues AS MATERIALIZED (
+         SELECT q_1.domain_id,
+            q_1.id,
+            q_1.calendar_id,
+            q_1.type,
+                CASE
+                    WHEN ((q_1.strategy)::text = 'lifo'::text) THEN 1
+                    ELSE 0
+                END AS strategy,
+            q_1.priority,
+            q_1.team_id,
+            ((q_1.payload -> 'max_calls'::text))::integer AS lim,
+            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets
+           FROM ((( SELECT a.queue_id,
+                    a.bucket_id,
+                    count(*) AS member_waiting,
+                    false AS op
+                   FROM call_center.cc_member_attempt a
+                  WHERE ((a.bridged_at IS NULL) AND (a.leaving_at IS NULL) AND ((a.state)::text = 'wait_agent'::text))
+                  GROUP BY a.queue_id, a.bucket_id
+                UNION ALL
+                 SELECT q_2.queue_id,
+                    q_2.bucket_id,
+                    sum(q_2.member_waiting) AS sum,
+                    true AS op
+                   FROM call_center.cc_queue_statistics q_2
+                  GROUP BY q_2.queue_id, q_2.bucket_id) m
+             JOIN call_center.cc_queue q_1 ON ((q_1.id = m.queue_id)))
+             LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((cbiq.queue_id = m.queue_id) AND (cbiq.bucket_id = m.bucket_id))))
+          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0))
+          GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type
+         LIMIT 1024
+        ), resources AS (
+         SELECT cqr.queue_id,
+            array_agg(DISTINCT ROW(corg.communication_id, (cor.id)::bigint, (((l_1.l)::integer[] & (l2.x)::integer[]))::smallint[], (corg.id)::integer)::call_center.cc_sys_distribute_type) AS types,
+            array_agg(DISTINCT ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer)::call_center.cc_sys_distribute_resource) AS resources,
+            call_center.cc_array_merge_agg(((l_1.l)::integer[] & (l2.x)::integer[])) AS offset_ids
+           FROM (((((((call_center.cc_queue_resource cqr
+             JOIN ( SELECT queues.id,
+                    queues.calendar_id
+                   FROM queues
+                  GROUP BY queues.id, queues.calendar_id) q_1 ON ((q_1.id = cqr.queue_id)))
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+             JOIN LATERAL ( SELECT c.id,
+                    array_agg(DISTINCT o1.id) AS l
+                   FROM ((flow.calendar c
+                     JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
+                     JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
+                  WHERE (NOT (a.disabled IS TRUE))
+                  GROUP BY c.id) l_1 ON ((l_1.id = q_1.calendar_id)))
+             JOIN LATERAL ( WITH times AS (
+                         SELECT ((e.value -> 'start_time_of_day'::text))::integer AS start,
+                            ((e.value -> 'end_time_of_day'::text))::integer AS "end"
+                           FROM jsonb_array_elements(corg."time") e(value)
+                        )
+                 SELECT array_agg(DISTINCT t.id) AS x
+                   FROM flow.calendar_timezone_offsets t,
+                    times,
+                    LATERAL ( SELECT timezone(t.names[1], CURRENT_TIMESTAMP) AS t) with_timezone
+                  WHERE ((((to_char(with_timezone.t, 'SSSS'::text))::integer / 60) >= times.start) AND (((to_char(with_timezone.t, 'SSSS'::text))::integer / 60) <= times."end"))) l2 ON ((l2.* IS NOT NULL)))
+             LEFT JOIN LATERAL ( SELECT count(*) AS cnt
+                   FROM ( SELECT 1 AS cnt
+                           FROM call_center.cc_member_attempt c_1
+                          WHERE (c_1.resource_id = cor.id)) c) used ON (true))
+          WHERE (cor.enabled AND (NOT cor.reserve) AND ((cor."limit" - used.cnt) > 0))
+          GROUP BY cqr.queue_id
+        )
+ SELECT q.id,
+    q.type,
+    (q.strategy)::smallint AS strategy,
+    q.team_id,
+    q.buckets,
+    r.types,
+    r.resources,
+    r.offset_ids,
+    ((q.lim - l.usage))::integer AS lim
+   FROM ((queues q
+     LEFT JOIN resources r ON ((r.queue_id = q.id)))
+     LEFT JOIN LATERAL ( SELECT count(*) AS usage
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) l ON ((q.lim > 0)))
+  WHERE ((q.type = 1) OR ((q.type > 1) AND (r.* IS NOT NULL)))
+  ORDER BY q.domain_id,
+        CASE
+            WHEN (q.type = 2) THEN 1
+            ELSE 0
+        END, q.priority DESC;
 
 
 --
@@ -6635,38 +6194,6 @@ ALTER TABLE ONLY call_center.cc_member
 
 ALTER TABLE ONLY call_center.cc_member_messages
     ADD CONSTRAINT cc_member_messages_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: cc_msg_attachment cc_msg_attachment_cc_msg_post_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_attachment
-    ADD CONSTRAINT cc_msg_attachment_cc_msg_post_id_fk FOREIGN KEY (post_id) REFERENCES call_center.cc_msg_post(id) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: cc_msg_conversation cc_msg_conversation_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_conversation
-    ADD CONSTRAINT cc_msg_conversation_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: cc_msg_participants cc_msg_participants_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_participants
-    ADD CONSTRAINT cc_msg_participants_cc_msg_conversation_id_fk FOREIGN KEY (conversation_id) REFERENCES call_center.cc_msg_conversation(id) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: cc_msg_post cc_msg_post_cc_msg_conversation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_msg_post
-    ADD CONSTRAINT cc_msg_post_cc_msg_conversation_id_fk FOREIGN KEY (conversation_id) REFERENCES call_center.cc_msg_conversation(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
