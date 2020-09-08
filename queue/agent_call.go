@@ -19,6 +19,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				//"ignore_early_media": "true",
 				"absolute_codec_string":     "opus,pcmu,pcma",
 				"hangup_after_bridge":       "true",
+				"ignore_display_updates":    "true",
 				"cc_reporting":              fmt.Sprintf("%v", at.PostProcessing()),
 				model.CallVariableDomainId:  fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableUserId:    fmt.Sprintf("%v", agent.UserId()),

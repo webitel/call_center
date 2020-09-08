@@ -1604,7 +1604,7 @@ BEGIN
                    cq.updated_at                                   as queue_updated_at,
                    r.updated_at                                    as resource_updated_at,
                    0                                               as gateway_updated_at, --fixme!!!
-                   cm.communications -> (c.communication_idx::int) as destination,
+                   c.destination as destination,
                    cm.variables                                    as variables,
                    cm.name                                         as member_name,
                    c.state                                         as state,
@@ -1894,7 +1894,8 @@ CREATE TABLE call_center.cc_agent (
     progressive_count integer DEFAULT 1,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
     on_demand boolean DEFAULT false NOT NULL,
-    allow_channels character varying[] DEFAULT '{call}'::character varying[] NOT NULL
+    allow_channels character varying[] DEFAULT '{call}'::character varying[] NOT NULL,
+    greeting_media_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2344,9 +2345,11 @@ CREATE VIEW call_center.cc_agent_list AS
     (date_part('epoch'::text, (now() - a.last_state_change)))::bigint AS status_duration,
     a.progressive_count,
     ch.x AS channels,
-    (json_build_object('id', ct.id, 'name', COALESCE(((ct.name)::character varying)::name, ct.username)))::jsonb AS "user"
-   FROM ((call_center.cc_agent a
+    (json_build_object('id', ct.id, 'name', COALESCE(((ct.name)::character varying)::name, ct.username)))::jsonb AS "user",
+    call_center.cc_get_lookup((a.greeting_media_id)::bigint, g.name) AS greeting_media
+   FROM (((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
+     LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
      LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('channel', c.channel, 'online', c.online, 'state', c.state, 'joined_at', ((date_part('epoch'::text, c.joined_at) * (1000)::double precision))::bigint)) AS x
            FROM call_center.cc_agent_channel c
           WHERE (c.agent_id = a.id)) ch ON (true));
@@ -5810,6 +5813,14 @@ ALTER TABLE ONLY call_center.cc_agent_in_team
 
 ALTER TABLE ONLY call_center.cc_agent_in_team
     ADD CONSTRAINT cc_agent_in_team_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_agent cc_agent_media_files_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_agent
+    ADD CONSTRAINT cc_agent_media_files_id_fk FOREIGN KEY (greeting_media_id) REFERENCES storage.media_files(id);
 
 
 --
