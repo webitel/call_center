@@ -86,7 +86,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableGatewayId:  fmt.Sprintf("%v", attempt.resource.Gateway().Id),
 
-				"hangup_after_bridge": "true",
+				"hangup_after_bridge":    "true",
+				"ignore_display_updates": "true",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -181,7 +182,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							switch state {
 							case call_manager.CALL_STATE_ACCEPT:
 								time.Sleep(time.Millisecond * 250)
-								printfIfErr(mCall.Bridge(agentCall)) // TODO
+								printfIfErr(agentCall.Bridge(mCall)) // TODO
 								team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_BRIDGE:
 								team.Bridged(attempt, agent)
