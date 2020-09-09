@@ -105,10 +105,17 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: make([]*model.CallRequestApplication, 0, 1),
+		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
 	call := queue.NewCall(callRequest)
+
+	//FIXME config
+	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		AppName: "record_session",
+		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", queue.DomainId(),
+			call.Id(), call.Id(), "recordFile", "mp3"),
+	})
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
