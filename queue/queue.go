@@ -100,7 +100,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	case model.QUEUE_TYPE_PREDICT:
 		return NewPredictCallQueue(CallingQueue{
 			BaseQueue: base,
-		}), nil
+		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeChat:
 		return NewInboundChatQueue(base), nil

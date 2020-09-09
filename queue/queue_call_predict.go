@@ -5,11 +5,12 @@ type PredictCallQueue struct {
 	CallingQueue
 }
 
-func NewPredictCallQueue(callQueue CallingQueue) QueueObject {
+func NewPredictCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSettings) QueueObject {
 	return &PredictCallQueue{
 		CallingQueue: callQueue,
 		ProgressiveCallQueue: ProgressiveCallQueue{
-			CallingQueue: callQueue,
+			CallingQueue:                 callQueue,
+			ProgressiveCallQueueSettings: settings,
 		},
 	}
 }
