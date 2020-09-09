@@ -43,15 +43,16 @@ const (
 )
 
 type Agent struct {
-	Id                    int    `json:"id" db:"id"`
-	DomainId              int64  `json:"domain_id" db:"domain_id"`
-	UserId                *int64 `json:"user_id" db:"user_id"`
-	Name                  string `json:"name" db:"name"`
-	UpdatedAt             int64  `json:"updated_at" db:"updated_at"`
-	Destination           string `json:"destination" db:"destination"`
-	Extension             string `json:"extension" db:"extension"`
-	SuccessivelyNoAnswers int    `json:"successively_no_answers" db:"successively_no_answers"`
-	OnDemand              bool   `json:"on_demand" db:"on_demand"`
+	Id                    int           `json:"id" db:"id"`
+	DomainId              int64         `json:"domain_id" db:"domain_id"`
+	UserId                *int64        `json:"user_id" db:"user_id"`
+	Name                  string        `json:"name" db:"name"`
+	UpdatedAt             int64         `json:"updated_at" db:"updated_at"`
+	Destination           string        `json:"destination" db:"destination"`
+	Extension             string        `json:"extension" db:"extension"`
+	SuccessivelyNoAnswers int           `json:"successively_no_answers" db:"successively_no_answers"`
+	OnDemand              bool          `json:"on_demand" db:"on_demand"`
+	GreetingMedia         *RingtoneFile `json:"greeting_media" db:"greeting_media"`
 	AgentStatus
 }
 

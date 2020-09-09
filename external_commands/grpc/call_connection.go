@@ -311,6 +311,19 @@ func (c *CallConnection) JoinQueue(ctx context.Context, id string, filePath stri
 	return nil
 }
 
+func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppError {
+	_, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "uuid_broadcast",
+		Args:    fmt.Sprintf("%s playback::%s %s", id, path, leg),
+	})
+
+	if err != nil {
+		return model.NewAppError("BroadcastPlaybackFile", "external.broadcast_playback.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (c *CallConnection) close() {
 	c.client.Close()
 }

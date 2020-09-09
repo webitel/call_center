@@ -32,4 +32,5 @@ type AgentObject interface {
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
 	IsOnDemand() bool
+	GreetingMedia() *model.RingtoneFile
 }

@@ -71,3 +71,7 @@ func (agent *Agent) SetOnBreak() *model.AppError {
 func (agent *Agent) IsOnDemand() bool {
 	return agent.info.OnDemand
 }
+
+func (agent *Agent) GreetingMedia() *model.RingtoneFile {
+	return agent.info.GreetingMedia
+}

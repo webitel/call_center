@@ -55,6 +55,7 @@ type Call interface {
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
+	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
 }
 
 type CallAction struct {
@@ -143,7 +144,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	//DUMP(callRequest)
+	DUMP(callRequest)
 
 	call := &CallImpl{
 		callRequest: callRequest,
@@ -502,6 +503,14 @@ func (call *CallImpl) Bridge(other Call) *model.AppError {
 
 func (call *CallImpl) DTMF(val rune) *model.AppError {
 	return call.api.DTMF(call.id, val)
+}
+
+func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError {
+	if file == nil {
+
+		return nil
+	}
+	return call.api.BroadcastPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
 }
 
 // FIXME

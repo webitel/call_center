@@ -27,6 +27,7 @@ type CallCommands interface {
 	BridgeCall(legAId, legBId, legBReserveId string) (string, *AppError)
 	DTMF(id string, ch rune) *AppError
 	JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *AppError
+	BroadcastPlaybackFile(id, path, leg string) *AppError
 
 	Close() error
 }

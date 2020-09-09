@@ -16,10 +16,11 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
-	WaitBetweenRetries int `json:"sec_between_retries"` // fixme rename to wait_between_retries
-	MinDuration        int `json:"min_duration"`
-	MaxAttempts        int `json:"max_of_retry"` // fixme rename to max_attempts
-	OriginateTimeout   int `json:"originate_timeout"`
+	WaitBetweenRetries int  `json:"sec_between_retries"` // fixme rename to wait_between_retries
+	MinDuration        int  `json:"min_duration"`
+	MaxAttempts        int  `json:"max_of_retry"` // fixme rename to max_attempts
+	OriginateTimeout   int  `json:"originate_timeout"`
+	AllowGreetingAgent bool `json:"allow_greeting_agent"`
 	Amd                *model.QueueAmdSettings
 }
 
@@ -162,11 +163,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					mCall.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED, false) // TODO
 					//FIXME FIRE EVENT ABANDONED
 				} else if cnt > 0 {
-					cr := queue.AgentCallRequest(agent, team, attempt)
-					cr.Applications = []*model.CallRequestApplication{
-						{
-							AppName: "pre_answer", // TODO test
-						},
+					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
 						{
 							AppName: "set",
 							Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
@@ -174,7 +171,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 						{
 							AppName: "park",
 						},
-					}
+					})
 					cr.Variables["wbt_parent_id"] = mCall.Id()
 					agentCall = mCall.NewCall(cr)
 					team.Offering(attempt, agent, agentCall, mCall)
@@ -191,6 +188,11 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							case call_manager.CALL_STATE_ACCEPT:
 								time.Sleep(time.Millisecond * 250)
 								printfIfErr(agentCall.Bridge(mCall)) // TODO
+								//fixme refactor
+								if queue.AllowGreetingAgent {
+									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+								}
+
 								team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_BRIDGE:
 								team.Bridged(attempt, agent)

@@ -90,13 +90,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-			cr := queue.AgentCallRequest(agent, team, attempt)
-			cr.Applications = []*model.CallRequestApplication{
+			cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
 				{
 					AppName: "park",
 					Args:    "",
 				},
-			}
+			})
+
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 
 			agentCall = mCall.NewCall(cr)
@@ -117,7 +117,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					case call_manager.CALL_STATE_ACCEPT:
 						time.Sleep(time.Millisecond * 250)
 						team.Answered(attempt, agent)
+
 						printfIfErr(mCall.Bridge(agentCall))
+						//fixme refactor
+						if queue.props.AllowGreetingAgent {
+							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+						}
+
 					case call_manager.CALL_STATE_BRIDGE:
 						timeout.Stop()
 						team.Bridged(attempt, agent)

@@ -7,7 +7,7 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt) *model.CallRequest {
+func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, apps []*model.CallRequestApplication) *model.CallRequest {
 	cr := &model.CallRequest{
 		Endpoints:   agent.GetCallEndpoints(),
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
@@ -59,6 +59,17 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 	if attempt.MemberId() != nil {
 		cr.Variables["wbt_from_id"] = fmt.Sprintf("%d", *attempt.MemberId())
 		cr.Variables[model.QUEUE_MEMBER_ID_FIELD] = cr.Variables["wbt_from_id"]
+	}
+
+	if agent.GreetingMedia() != nil {
+		cr.Applications = append([]*model.CallRequestApplication{
+			{
+				AppName: "playback",
+				Args:    model.RingtoneUri(agent.DomainId(), agent.GreetingMedia().Id, agent.GreetingMedia().Type),
+			},
+		}, apps...)
+	} else {
+		cr.Applications = apps
 	}
 
 	return cr
