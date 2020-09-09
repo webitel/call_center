@@ -142,6 +142,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		})
 	}
 
+	//FIXME update member call id
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, mCall))
 	mCall.Invite()
 
@@ -227,7 +228,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	}
 
 	if agentCall == nil {
-		team.Cancel(attempt, agent)
+		team.Cancel(attempt, agent, uint(queue.MaxAttempts), uint64(queue.WaitBetweenRetries))
 	} else {
 		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))

@@ -213,8 +213,10 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 	}
 }
 
-func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
-	timestamp, err := tm.teamManager.store.Member().SetAttemptAbandoned(attempt.Id())
+func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject, maxAttempts uint, sleep uint64) {
+	//SetAttemptAbandonedWithParams
+	//timestamp, err := tm.teamManager.store.Member().SetAttemptAbandoned(attempt.Id())
+	timestamp, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
 	if err != nil {
 		wlog.Error(err.Error())
 
