@@ -369,9 +369,12 @@ begin
         variables = case when variables_ isnull then variables else variables_ end,
         expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
         min_offering_at = case when next_offering_at_ isnull then min_offering_at else next_offering_at_ end,
+
+        stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
+        stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+        ready_at = now() + (q._next_after || ' sec')::interval,
+
         last_agent      = coalesce(attempt.agent_id, last_agent),
---         stop_at         = case when status_ isnull then null else (extract(EPOCH from now()) * 1000)::int8 end, --TODO
-        stop_cause      = status_,
         communications = jsonb_set(
                 jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
                           attempt_id_::text::jsonb, true)
@@ -379,6 +382,11 @@ begin
                 time_::text::jsonb
             ),
         attempts        = attempts + 1                     --TODO
+    from (
+        select cast((q.payload->>'max_of_retry') as int) as _max_count, cast((q.payload->>'sec_between_retries') as int) as _next_after
+        from cc_queue q
+        where q.id = attempt.queue_id
+    ) q
     where id = attempt.member_id;
 
     if attempt.agent_id notnull then
@@ -390,6 +398,7 @@ begin
         update cc_agent_channel c
         set state = 'waiting',
             joined_at = now(),
+            last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
             queue_id = null
         where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
         returning timeout into agent_timeout_;
