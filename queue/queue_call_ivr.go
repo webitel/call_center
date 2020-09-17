@@ -1,26 +1,35 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 )
 
-type IVRQueue struct {
-	CallingQueue
-	amd                *model.QueueAmdSettings
-	maxOfRetry         uint
-	waitBetweenRetries uint64
+type QueueIVRSettings struct {
+	Amd                *model.QueueAmdSettings `json:"amd"`
+	MaxAttempts        uint                    `json:"max_attempts"`
+	OriginateTimeout   int                     `json:"originate_timeout"`
+	WaitBetweenRetries uint64                  `json:"wait_between_retries"`
 }
 
-func NewIVRQueue(callQueue CallingQueue, amd *model.QueueAmdSettings, maxOfRetry uint, waitBetweenRetries uint64) QueueObject {
-	return &IVRQueue{
-		CallingQueue: callQueue,
-		amd:          amd,
+type IVRQueue struct {
+	CallingQueue
+	QueueIVRSettings
+}
 
-		maxOfRetry:         maxOfRetry,
-		waitBetweenRetries: waitBetweenRetries,
+func QueueIVRSettingsFromBytes(data []byte) QueueIVRSettings {
+	var settings QueueIVRSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewIVRQueue(callQueue CallingQueue, settings QueueIVRSettings) QueueObject {
+	return &IVRQueue{
+		CallingQueue:     callQueue,
+		QueueIVRSettings: settings,
 	}
 }
 
@@ -107,7 +116,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Applications: []*model.CallRequestApplication{},
 	}
 
-	if !queue.SetAmdCall(callRequest, queue.amd, queue.CallManager().GetFlowUri()) {
+	if !queue.SetAmdCall(callRequest, queue.Amd, queue.CallManager().GetFlowUri()) {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "socket",
 			Args:    "$${acr_srv}",
@@ -138,7 +147,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
 				// FIXME
-				if (state == call_manager.CALL_STATE_ACCEPT && queue.amd != nil && queue.amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !call.IsHuman()) {
+				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !call.IsHuman()) {
 					continue
 				}
 
@@ -159,7 +168,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 0,
 			"", 0)
 	} else {
-		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.maxOfRetry, queue.waitBetweenRetries)
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries)
 	}
 
 	queue.queueManager.LeavingMember(attempt, queue)

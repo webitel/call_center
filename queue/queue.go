@@ -81,16 +81,14 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		}, inboundSettings), nil
 
 	case model.QUEUE_TYPE_IVR:
-		ivrSettings := model.QueueIVRSettingsFromBytes(settings.Payload)
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
-			params:    ivrSettings.QueueDialingSettings,
-		}, ivrSettings.Amd, ivrSettings.MaxOfRetry, ivrSettings.WaitBetweenRetries), nil
+		}, QueueIVRSettingsFromBytes(settings.Payload)), nil
 
 	case model.QUEUE_TYPE_PREVIEW:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
-		}), nil
+		}, PreviewSettingsFromBytes(settings.Payload)), nil
 
 	case model.QUEUE_TYPE_PROGRESSIVE:
 		return NewProgressiveCallQueue(CallingQueue{

@@ -16,9 +16,9 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
-	WaitBetweenRetries int  `json:"sec_between_retries"` // fixme rename to wait_between_retries
+	WaitBetweenRetries int  `json:"wait_between_retries"`
 	MinDuration        int  `json:"min_duration"`
-	MaxAttempts        int  `json:"max_of_retry"` // fixme rename to max_attempts
+	MaxAttempts        int  `json:"max_attempts"`
 	OriginateTimeout   int  `json:"originate_timeout"`
 	AllowGreetingAgent bool `json:"allow_greeting_agent"`
 	Amd                *model.QueueAmdSettings

@@ -383,7 +383,8 @@ begin
             ),
         attempts        = attempts + 1                     --TODO
     from (
-        select cast((q.payload->>'max_of_retry') as int) as _max_count, cast((q.payload->>'sec_between_retries') as int) as _next_after
+        -- fixme
+        select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
         from cc_queue q
         where q.id = attempt.queue_id
     ) q
@@ -417,36 +418,48 @@ CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, hold_sec inte
     LANGUAGE plpgsql
     AS $$
 declare
-    agent_id_  int;
-    member_id_ int8;
-    queue_id_ int;
-    channel_ varchar;
+    attempt cc_member_attempt%rowtype;
 begin
+    /*
+     FIXME
+     */
     update cc_member_attempt
         set leaving_at = now(),
             result = result_,
             state = 'leaving'
     where id = attempt_id_
-    returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
+    returning * into attempt;
 
-    update cc_member
+    update cc_member m
     set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
-        last_agent      = coalesce(agent_id_, last_agent),
-        ready_at        = now() + (hold_sec || ' sec')::interval,
-        stop_at = case when result_ = 'success' then now() else stop_at end,
-        communications  = jsonb_set(
-                jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
-            , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
-        attempts        = attempts + 1                     --TODO
-    where id = member_id_;
+        last_agent      = coalesce(attempt.agent_id, last_agent),
 
-    if agent_id_ notnull then
+        stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
+        stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+        ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
+
+        communications = jsonb_set(
+                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                          attempt_id_::text::jsonb, true)
+            , array [attempt.communication_idx, 'last_activity_at']::text[],
+                ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
+            ),
+        attempts        = attempts + 1
+    from (
+        -- fixme
+        select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
+        from cc_queue q
+        where q.id = attempt.queue_id
+    ) q
+    where id = attempt.member_id;
+
+    if attempt.agent_id notnull then
         update cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
             no_answers = no_answers + 1,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
-        where (c.agent_id, c.channel) = (agent_id_, channel_);
+        where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel);
 
     end if;
 
@@ -545,35 +558,45 @@ CREATE FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, hold_sec inte
     LANGUAGE plpgsql
     AS $$
 declare
-    agent_id_  int;
-    member_id_ int8;
-    queue_id_ int;
-    channel_ varchar;
+    attempt cc_member_attempt%rowtype;
 begin
     update cc_member_attempt
         set reporting_at = now(),
             result = 'timeout',
             state = 'leaving'
     where id = attempt_id_
-    returning queue_id, agent_id, member_id, channel into queue_id_, agent_id_, member_id_, channel_;
+    returning * into attempt;
 
     update cc_member
     set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
-        last_agent      = coalesce(agent_id_, last_agent),
-        ready_at        = now() + (hold_sec || ' sec')::interval,
-        stop_at = case when result_ = 'success' then now() else stop_at end,
-        communications  = jsonb_set(
-                jsonb_set(communications, '{0,attempt_id}'::text[], attempt_id_::text::jsonb, true)
-            , '{0,last_activity_at}'::text[], (extract(EPOCH from now())::int8)::text::jsonb),
-        attempts        = attempts + 1                     --TODO
-    where id = member_id_;
+        last_agent      = coalesce(attempt.agent_id, last_agent),
 
-    if agent_id_ notnull then
+
+        stop_at = case when  q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
+        stop_cause = case when q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+        ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
+
+        communications = jsonb_set(
+                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                          attempt_id_::text::jsonb, true)
+            , array [attempt.communication_idx, 'last_activity_at']::text[],
+                ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
+            ),
+        attempts        = attempts + 1
+    from (
+        -- fixme
+        select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
+        from cc_queue q
+        where q.id = attempt.queue_id
+    ) q
+    where id = attempt.member_id;
+
+    if attempt.agent_id notnull then
         update cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
-        where (c.agent_id, c.channel) = (agent_id_, channel_);
+        where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel);
 
     end if;
 

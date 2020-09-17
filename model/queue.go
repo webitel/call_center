@@ -195,12 +195,6 @@ func (queueSettings *QueueDialingSettings) InCauseError(id string) bool {
 	return false
 }
 
-func QueueIVRSettingsFromBytes(data []byte) QueueIVRSettings {
-	var settings QueueIVRSettings
-	json.Unmarshal(data, &settings)
-	return settings
-}
-
 func QueueInboundSettingsFromBytes(data []byte) QueueInboundSettings {
 	var settings QueueInboundSettings
 	json.Unmarshal(data, &settings)

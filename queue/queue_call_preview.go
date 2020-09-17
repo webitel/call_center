@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -15,13 +16,20 @@ type PreviewCallQueue struct {
 }
 
 type PreviewSettings struct {
-	MemberCallTimeout  int `json:"member_call_timeout"`
+	OriginateTimeout   int `json:"originate_timeout"`
 	WaitBetweenRetries int `json:"wait_between_retries"`
 }
 
-func NewPreviewCallQueue(callQueue CallingQueue) QueueObject {
+func PreviewSettingsFromBytes(data []byte) PreviewSettings {
+	var settings PreviewSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewPreviewCallQueue(callQueue CallingQueue, settings PreviewSettings) QueueObject {
 	return &PreviewCallQueue{
-		CallingQueue: callQueue,
+		CallingQueue:    callQueue,
+		PreviewSettings: settings,
 	}
 }
 
