@@ -351,6 +351,13 @@ declare
     user_id_ int8 = null;
     domain_id_ int8;
 begin
+
+    if next_offering_at_ notnull and not attempt.result = 'success' and next_offering_at_ < (extract(epoch from now()) * 1000)::int8 then
+        -- todo move to application
+        raise exception 'bad parameter: next distribute at';
+    end if;
+
+
     update cc_member_attempt
         set state  =  'leaving',
             reporting_at = now(),
@@ -368,11 +375,13 @@ begin
     set last_hangup_at  = time_,
         variables = case when variables_ isnull then variables else variables_ end,
         expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
-        min_offering_at = case when next_offering_at_ isnull then min_offering_at else next_offering_at_ end,
 
-        stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
-        stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
-        ready_at = now() + (q._next_after || ' sec')::interval,
+        stop_at = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
+        stop_cause = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
+--         ready_at = now() + (q._next_after || ' sec')::interval,
+
+        ready_at = case when next_offering_at_ notnull then to_timestamp((next_offering_at_/1000)::double precision)
+            else now() + (q._next_after || ' sec')::interval end,
 
         last_agent      = coalesce(attempt.agent_id, last_agent),
         communications = jsonb_set(
