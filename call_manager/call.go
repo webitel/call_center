@@ -56,6 +56,7 @@ type Call interface {
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
 	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
+	SerVariables(vars map[string]string) *model.AppError
 }
 
 type CallAction struct {
@@ -144,7 +145,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	DUMP(callRequest)
+	//DUMP(callRequest)
 
 	call := &CallImpl{
 		callRequest: callRequest,
@@ -266,7 +267,7 @@ func (cm *CallManagerImpl) Proxy() string {
 
 func (call *CallImpl) Invite() *model.AppError {
 	call.cm.saveToCacheCall(call)
-	//DUMP(call.callRequest)
+	DUMP(call.callRequest)
 
 	if call.direction != CALL_DIRECTION_OUTBOUND {
 		return errInviteDirection
@@ -516,4 +517,8 @@ func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.Ringtone
 // FIXME
 func (call *CallImpl) JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *model.AppError {
 	return call.api.JoinQueue(ctx, id, filePath, vars)
+}
+
+func (call *CallImpl) SerVariables(vars map[string]string) *model.AppError {
+	return call.api.SetCallVariables(call.id, vars)
 }

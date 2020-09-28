@@ -115,9 +115,18 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
+
+						//FIXME
+						result := "success"
+						if team.PostProcessing() {
+							result = "processing"
+						}
+						mCall.SerVariables(map[string]string{
+							"cc_result": result,
+						})
+						//
 						time.Sleep(time.Millisecond * 250)
 						team.Answered(attempt, agent)
-
 						printfIfErr(mCall.Bridge(agentCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
