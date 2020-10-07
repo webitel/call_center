@@ -127,21 +127,21 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						//
 						time.Sleep(time.Millisecond * 250)
 						team.Answered(attempt, agent)
-						printfIfErr(mCall.Bridge(agentCall))
+						printfIfErr(agentCall.Bridge(mCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						}
 
-					case call_manager.CALL_STATE_BRIDGE:
-						timeout.Stop()
-						team.Bridged(attempt, agent)
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						break top
 					}
 				case s := <-mCall.State():
 					switch s {
+					case call_manager.CALL_STATE_BRIDGE:
+						timeout.Stop()
+						team.Bridged(attempt, agent)
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 						if agentCall.HangupAt() == 0 {
