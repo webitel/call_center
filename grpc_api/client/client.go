@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/discovery"
+	"github.com/webitel/protos/cc"
 	"github.com/webitel/wlog"
 	"sync"
 )

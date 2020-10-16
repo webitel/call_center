@@ -2654,7 +2654,10 @@ CREATE VIEW call_center.cc_call_active_list AS
     c.direction,
     c.destination,
     json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
-    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
+        CASE
+            WHEN ((c.to_number)::text <> ''::text) THEN json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying))
+            ELSE NULL::json
+        END AS "to",
         CASE
             WHEN (c.payload IS NULL) THEN '{}'::jsonb
             ELSE c.payload
@@ -2662,6 +2665,7 @@ CREATE VIEW call_center.cc_call_active_list AS
     c.created_at,
     c.answered_at,
     c.bridged_at,
+    c.hangup_at,
     (date_part('epoch'::text, (now() - c.created_at)))::bigint AS duration,
     COALESCE(c.hold_sec, 0) AS hold_sec,
     COALESCE(

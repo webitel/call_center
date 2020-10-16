@@ -2,7 +2,7 @@ package client
 
 import (
 	"context"
-	"github.com/webitel/call_center/grpc_api/cc"
+	"github.com/webitel/protos/cc"
 )
 
 type agentApi struct {

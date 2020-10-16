@@ -3,8 +3,8 @@ package grpc_api
 import (
 	"context"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/protos/cc"
 )
 
 type agent struct {

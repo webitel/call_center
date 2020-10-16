@@ -2,7 +2,7 @@ package grpc_api
 
 import (
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/grpc_api/cc"
+	"github.com/webitel/protos/cc"
 	"google.golang.org/grpc"
 )
 

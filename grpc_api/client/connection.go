@@ -1,7 +1,7 @@
 package client
 
 import (
-	proto "github.com/webitel/call_center/grpc_api/cc"
+	proto "github.com/webitel/protos/cc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"time"

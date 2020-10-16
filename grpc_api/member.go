@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/call_center/grpc_api/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/queue"
+	"github.com/webitel/protos/cc"
 )
 
 type member struct {

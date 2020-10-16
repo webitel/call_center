@@ -59,6 +59,10 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		return err
 	}
 
+	if agent.Status == model.AgentStatusPause && getString(agent.StatusPayload) == getString(payload) {
+		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "", http.StatusBadRequest)
+	}
+
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
@@ -79,4 +83,12 @@ func (app *App) WaitingAgentChannel(agentId int, channel string) (int64, *model.
 	} else {
 		return app.dialing.Manager().SetAgentWaitingChannel(agentObj, channel)
 	}
+}
+
+func getString(p *string) string {
+	if p == nil {
+		return ""
+	}
+
+	return *p
 }
