@@ -4826,6 +4826,13 @@ CREATE INDEX cc_calls_history_dev_idx ON call_center.cc_calls_history USING btre
 
 
 --
+-- Name: cc_calls_history_direction_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_direction_index ON call_center.cc_calls_history USING btree (direction);
+
+
+--
 -- Name: cc_calls_history_domain_id_created_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
