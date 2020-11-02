@@ -3,7 +3,7 @@ package queue
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
-	flow "github.com/webitel/flow_manager/providers/grpc/workflow"
+	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
 )
 
