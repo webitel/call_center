@@ -167,47 +167,6 @@ $$;
 
 
 --
--- Name: cc_agent_state_timeout(); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_agent_state_timeout() RETURNS SETOF record
-    LANGUAGE plpgsql
-    AS $$
-    declare rec record;
-        curr_time int8 = cc_view_timestamp(now());
-begin
-        for rec in select curr_time, a.agent_id, ca.updated_at as agent_updated_at, ca.status
-        from cc_member_attempt a
-            inner join cc_queue cq on a.queue_id = cq.id
-            inner join cc_team ct on cq.team_id = ct.id
-            inner join lateral cc_attempt_leaving(a.id, cq.sec_between_retries, 'ABANDONED'::varchar) x on true
-            inner join cc_agent ca on a.agent_id = ca.id
-        where a.state_str = 'reporting'  and (not ct.post_processing or a.leaving_at < now() - (ct.post_processing_timeout || ' sec')::interval)
-        loop
-            return next rec;
-        end loop;
-
-
-        for rec in with u as (
-        update cc_agent a
-        set state = a.status,
-            state_timeout = null,
-            attempt_id = null,
-            active_queue_id = null,
-            last_state_change = now()
-        where a.state_timeout < now()
-        returning curr_time, a.id, a.updated_at, a.state
-        )
-        select *
-        from u
-        loop
-            return next rec;
-        end loop;
-end;
-$$;
-
-
---
 -- Name: cc_arr_type_to_jsonb(anyarray); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -827,22 +786,20 @@ $$;
 -- Name: cc_confirm_agent_attempt(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) RETURNS integer
+CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_id bigint) RETURNS SETOF character varying
     LANGUAGE plpgsql
     AS $$
-declare cnt int;
 BEGIN
-    update cc_member_attempt
-    set result = case id when _attempt_id then null else 'abandoned' end,
-        leaving_at = case id when _attempt_id then null else now() end
+    return query update cc_member_attempt
+    set result = case when id = _attempt_id then null else 'cancel' end,
+        leaving_at = case when id = _attempt_id then null else now() end
     where agent_id = _agent_id and not exists(
        select 1
        from cc_member_attempt a
-       where a.agent_id = _agent_id and a.result notnull and a.leaving_at isnull
+       where a.agent_id = _agent_id and a.leaving_at notnull and a.result = 'cancel'
        for update
-    );
-    get diagnostics cnt = row_count;
-    return cnt::int;
+    )
+    returning member_call_id;
 END;
 $$;
 
@@ -866,7 +823,7 @@ begin
     )
        , ins as (
         insert into cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                       communication_idx)
+                                       communication_idx, member_call_id)
             select 'call',
                    dis.id,
                    dis.queue_id,
@@ -874,7 +831,8 @@ begin
                    dis.agent_id,
                    dis.bucket_id,
                    x,
-                   dis.comm_idx
+                   dis.comm_idx,
+                   uuid_generate_v4()
             from dis
                      inner join cc_member m on m.id = dis.id
                      inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx - 1)::text) x on true
@@ -3953,6 +3911,38 @@ CREATE VIEW call_center.cc_sys_distribute_queue AS
      JOIN call_center.cc_sys_distribute_queue_bucket_seg cqs ON ((q.id = cqs.queue_id)))
   WHERE (q.enabled AND (cqs.member_waiting > 0) AND (cqs.lim > 0) AND (q.type > 1))
   ORDER BY q.domain_id, q.priority DESC, cqs.ratio DESC NULLS LAST;
+
+
+--
+-- Name: cc_sys_queue_distribute_resources; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
 
 
 --

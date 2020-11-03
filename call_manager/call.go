@@ -136,7 +136,13 @@ var (
 )
 
 func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
-	id := model.NewUuid()
+	var id string
+	if callRequest.Id != nil {
+		id = *callRequest.Id
+	} else {
+		id = model.NewUuid()
+	}
+
 	if callRequest.Variables == nil {
 		callRequest.Variables = make(map[string]string)
 	}

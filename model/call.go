@@ -277,6 +277,7 @@ type CallRequestApplication struct {
 }
 
 type CallRequest struct {
+	Id           *string
 	Endpoints    []string
 	Strategy     uint8
 	Destination  string

@@ -184,6 +184,10 @@ func (a *Attempt) MemberId() *int64 {
 	return nil
 }
 
+func (a *Attempt) MemberCallId() *string {
+	return a.member.MemberCallId
+}
+
 func (a *Attempt) IsBarred() bool {
 	if a.member.Result != nil && *a.member.Result == model.CALL_HANGUP_OUTGOING_CALL_BARRED {
 		return true

@@ -74,6 +74,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	}
 
 	callRequest := &model.CallRequest{
+		Id:           attempt.MemberCallId(),
 		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
@@ -159,10 +160,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					continue
 				}
 
-				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil {
-					mCall.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED, false) // TODO
-					//FIXME FIRE EVENT ABANDONED
-				} else if cnt > 0 {
+				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil || len(cnt) == 0 {
+					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+				} else if len(cnt) > 0 {
+
+					go queue.HangupManyCall(mCall.Id(), model.CALL_HANGUP_ORIGINATOR_CANCEL, cnt...)
+
 					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
 						{
 							AppName: "set",

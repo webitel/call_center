@@ -30,6 +30,7 @@ type CallManager interface {
 	InboundCall(call *model.Call, ringtone string) (Call, *model.AppError)
 	CountConnection() int
 	GetFlowUri() string
+	HangupManyCall(cause string, ids ...string)
 }
 
 type CallManagerImpl struct {
@@ -121,6 +122,17 @@ func DUMP(i interface{}) string {
 func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
 	api, _ := cm.getApiConnection() //FIXME!!! check error
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
+}
+
+func (cm *CallManagerImpl) HangupManyCall(cause string, ids ...string) {
+	var ok bool
+	var call interface{}
+
+	for _, id := range ids {
+		if call, ok = cm.calls.Get(id); ok {
+			call.(Call).Hangup(cause, false)
+		}
+	}
 }
 
 func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call, *model.AppError) {

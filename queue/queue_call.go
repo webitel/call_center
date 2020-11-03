@@ -82,6 +82,24 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) call_manager.
 	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
+func (queue *CallingQueue) HangupManyCall(skipId, cause string, ids ...string) {
+	if len(ids) == 1 {
+
+		return
+	}
+
+	res := make([]string, 0, len(ids)-1)
+	for _, v := range ids {
+		if v != skipId {
+			res = append(res, v)
+		}
+	}
+
+	if len(res) > 0 {
+		queue.queueManager.callManager.HangupManyCall(cause, res...)
+	}
+}
+
 func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, resource ResourceObject) call_manager.Call {
 	resource.Take() // rps
 

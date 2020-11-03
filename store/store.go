@@ -89,7 +89,7 @@ type AgentStore interface {
 	ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError)
 
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
-	ConfirmAttempt(agentId int, attemptId int64) (int, *model.AppError)
+	ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError)
 
 	RefreshEndStateDay5Min() *model.AppError
 }

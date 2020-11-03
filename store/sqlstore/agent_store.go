@@ -96,16 +96,19 @@ returning case when :NoAnswer and ag.max_no_answer > 0 and ag.next_call is false
 	}
 }
 
-func (s SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) (int, *model.AppError) {
-	cnt, err := s.GetMaster().SelectInt(`select cnt from cc_confirm_agent_attempt(:AgentId, :AttemptId) cnt`,
+func (s SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError) {
+
+	var res []string
+
+	_, err := s.GetMaster().Select(&res, `select cnt from cc_confirm_agent_attempt(:AgentId, :AttemptId) cnt`,
 		map[string]interface{}{"AgentId": agentId, "AttemptId": attemptId})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlAgentStore.ConfirmAttempt", "store.sql_agent.confirm_attempt.app_error", nil,
+		return nil, model.NewAppError("SqlAgentStore.ConfirmAttempt", "store.sql_agent.confirm_attempt.app_error", nil,
 			fmt.Sprintf("AgenetId=%v, AttemptId=%v, %s", agentId, attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
-	return int(cnt), nil
+	return res, nil
 }
 
 func (s SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
