@@ -16,8 +16,9 @@ type PreviewCallQueue struct {
 }
 
 type PreviewSettings struct {
-	OriginateTimeout   int `json:"originate_timeout"`
-	WaitBetweenRetries int `json:"wait_between_retries"`
+	Recordings         bool `json:"recordings"`
+	OriginateTimeout   int  `json:"originate_timeout"`
+	WaitBetweenRetries int  `json:"wait_between_retries"`
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -118,12 +119,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	call := queue.NewCall(callRequest)
 
-	//FIXME config
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "record_session",
-		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", queue.DomainId(),
-			call.Id(), call.Id(), "recordFile", "mp3"),
-	})
+	if queue.Recordings {
+		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(call))
+	}
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",

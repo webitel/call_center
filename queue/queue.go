@@ -73,7 +73,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	case model.QUEUE_TYPE_OFFLINE:
 		return NewOfflineCallQueue(CallingQueue{
 			BaseQueue: base,
-		}), nil
+		}, QueueOfflineSettingsFromBytes(settings.Payload)), nil
 	case model.QUEUE_TYPE_INBOUND:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{

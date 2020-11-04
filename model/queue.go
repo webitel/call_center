@@ -89,7 +89,6 @@ func (q *Queue) Channel() string {
 
 type QueueDialingSettings struct {
 	MinCallDuration      int      `json:"min_call_duration"`
-	Recordings           bool     `json:"recordings"`
 	CauseErrorIds        []string `json:"cause_error_ids"`
 	CauseRetryIds        []string `json:"cause_retry_ids"`
 	CauseSuccessIds      []string `json:"cause_success_ids"`

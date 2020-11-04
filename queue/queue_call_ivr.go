@@ -9,6 +9,7 @@ import (
 )
 
 type QueueIVRSettings struct {
+	Recordings         bool                    `json:"recordings"`
 	Amd                *model.QueueAmdSettings `json:"amd"`
 	MaxAttempts        uint                    `json:"max_attempts"`
 	OriginateTimeout   int                     `json:"originate_timeout"`
@@ -113,7 +114,13 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{},
+		Applications: make([]*model.CallRequestApplication, 0, 1),
+	}
+
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
+
+	if queue.Recordings {
+		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(call))
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, queue.CallManager().GetFlowUri()) {
@@ -123,7 +130,6 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		})
 	}
 
-	call := queue.NewCallUseResource(callRequest, attempt.resource)
 	info.fromCall = call
 	call.Invite()
 	if call.Err() != nil {

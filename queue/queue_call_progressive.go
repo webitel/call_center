@@ -16,6 +16,7 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
+	Recordings         bool `json:"recordings"`
 	WaitBetweenRetries int  `json:"wait_between_retries"`
 	MinDuration        int  `json:"min_duration"`
 	MaxAttempts        int  `json:"max_attempts"`
@@ -125,18 +126,15 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: []*model.CallRequestApplication{},
+		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
 	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
 	var agentCall call_manager.Call
 
-	//FIXME config
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "record_session",
-		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", queue.DomainId(),
-			mCall.Id(), mCall.Id(), "recordFile", "mp3"),
-	})
+	if queue.Recordings {
+		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(mCall))
+	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{

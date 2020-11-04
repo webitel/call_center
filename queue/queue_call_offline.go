@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -8,13 +9,25 @@ import (
 	"github.com/webitel/wlog"
 )
 
-type OfflineCallQueue struct {
-	CallingQueue
+type OfflineQueueSettings struct {
+	Recordings bool `json:"recordings"`
 }
 
-func NewOfflineCallQueue(callQueue CallingQueue) QueueObject {
+type OfflineCallQueue struct {
+	CallingQueue
+	OfflineQueueSettings
+}
+
+func QueueOfflineSettingsFromBytes(data []byte) OfflineQueueSettings {
+	var settings OfflineQueueSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewOfflineCallQueue(callQueue CallingQueue, settings OfflineQueueSettings) QueueObject {
 	return &OfflineCallQueue{
-		CallingQueue: callQueue,
+		CallingQueue:         callQueue,
+		OfflineQueueSettings: settings,
 	}
 }
 
@@ -92,6 +105,10 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	call := queue.NewCall(callRequest)
+
+	if queue.Recordings {
+		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(call))
+	}
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
