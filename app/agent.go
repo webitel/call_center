@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 	"net/http"
 )
 
@@ -63,10 +64,22 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "", http.StatusBadRequest)
 	}
 
+	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId); chs != nil {
+		app.hangupNoAnswerChannels(chs)
+	}
+
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
 		return app.agentManager.SetPause(agentObj, payload, timeout)
+	}
+}
+
+func (app *App) hangupNoAnswerChannels(chs []*model.CallNoAnswer) {
+	for _, ch := range chs {
+		if err := app.callManager.HangupById(ch.Id, ch.AppId); err != nil {
+			wlog.Error(err.Error())
+		}
 	}
 }
 

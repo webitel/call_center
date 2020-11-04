@@ -92,6 +92,7 @@ type AgentStore interface {
 	ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError)
 
 	RefreshEndStateDay5Min() *model.AppError
+	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
 }
 
 type TeamStore interface {

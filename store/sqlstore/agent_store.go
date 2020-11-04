@@ -177,6 +177,23 @@ where ag.id = c.agent_id`, map[string]interface{}{
 	return nil
 }
 
+func (s SqlAgentStore) GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError) {
+	var res []*model.CallNoAnswer
+	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
+from cc_member_attempt at
+    inner join cc_calls c on c.id = at.agent_call_id
+where at.agent_id = :AgentId and c.answered_at isnull`, map[string]interface{}{
+		"AgentId": agentId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.GetNoAnswerChannels", "store.sql_agent.get_no_answer.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}
+
 func (s SqlAgentStore) WaitingChannel(agentId int, channel string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(joined_at) as timestamp
 from cc_agent_set_channel_waiting(:AgentId, :Channel) as (joined_at timestamptz)`, map[string]interface{}{

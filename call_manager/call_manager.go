@@ -31,6 +31,7 @@ type CallManager interface {
 	CountConnection() int
 	GetFlowUri() string
 	HangupManyCall(cause string, ids ...string)
+	HangupById(id, node string) *model.AppError
 }
 
 type CallManagerImpl struct {
@@ -133,6 +134,16 @@ func (cm *CallManagerImpl) HangupManyCall(cause string, ids ...string) {
 			call.(Call).Hangup(cause, false)
 		}
 	}
+}
+
+func (cm *CallManagerImpl) HangupById(id, node string) *model.AppError {
+	cli, err := cm.getApiConnectionById(node)
+
+	if err != nil {
+		return err
+	}
+
+	return cli.HangupCall(id, model.CALL_HANGUP_LOSE_RACE, false)
 }
 
 func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call, *model.AppError) {

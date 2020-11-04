@@ -219,6 +219,11 @@ type CallActionHangup struct {
 	ReportingAt   *int64 `json:"reporting_at,string"`
 }
 
+type CallNoAnswer struct {
+	Id    string `json:"id" db:"id"`
+	AppId string `json:"app_id" db:"app_id"`
+}
+
 type CallActionAMD struct {
 	CallAction
 	Result string `json:"result"`
