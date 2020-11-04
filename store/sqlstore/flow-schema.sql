@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.3 (Debian 12.3-1.pgdg100+1)
--- Dumped by pg_dump version 12.3 (Debian 12.3-1.pgdg100+1)
+-- Dumped from database version 12.4 (Debian 12.4-1.pgdg100+1)
+-- Dumped by pg_dump version 12.4 (Debian 12.4-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -172,6 +172,38 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: calendar; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.calendar (
+    id integer NOT NULL,
+    start_at bigint,
+    end_at bigint,
+    name character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    description character varying(200),
+    timezone_id integer NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_at bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    excepts flow.calendar_except_date[],
+    accepts flow.calendar_accept_time[]
+);
+
+
+--
+-- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.calendar_timezone_offsets (
+    id smallint NOT NULL,
+    utc_offset interval,
+    names text[]
+);
+
+
+--
 -- Name: acr_routing_scheme; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -197,27 +229,6 @@ CREATE TABLE flow.acr_routing_scheme (
 --
 
 COMMENT ON COLUMN flow.acr_routing_scheme.state IS 'draft / new / used';
-
-
---
--- Name: calendar; Type: TABLE; Schema: flow; Owner: -
---
-
-CREATE TABLE flow.calendar (
-    id integer NOT NULL,
-    start_at bigint,
-    end_at bigint,
-    name character varying(20) NOT NULL,
-    domain_id bigint NOT NULL,
-    description character varying(200),
-    timezone_id integer NOT NULL,
-    created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
-    excepts flow.calendar_except_date[],
-    accepts flow.calendar_accept_time[]
-);
 
 
 --
@@ -386,17 +397,6 @@ CREATE MATERIALIZED VIEW flow.calendar_intervals AS
   GROUP BY calendar_timezones.utc_offset
   ORDER BY calendar_timezones.utc_offset
   WITH NO DATA;
-
-
---
--- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: -
---
-
-CREATE TABLE flow.calendar_timezone_offsets (
-    id smallint NOT NULL,
-    utc_offset interval,
-    names text[]
-);
 
 
 --
