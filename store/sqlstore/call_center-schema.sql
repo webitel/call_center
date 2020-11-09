@@ -619,7 +619,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     transfer_from character varying,
     transfer_to character varying,
     amd_result character varying,
-    amd_duration interval
+    amd_duration interval,
+    tags character varying[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
