@@ -452,7 +452,19 @@ func (call *CallImpl) Hangup(cause string, reporting bool) *model.AppError {
 	}
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
-	return call.api.HangupCall(call.id, cause, reporting)
+	err := call.api.HangupCall(call.id, cause, reporting)
+	if err != nil && call.HangupCause() == "" {
+		call.setHangup(&model.CallActionHangup{
+			CallAction: model.CallAction{
+				Id:        call.Id(),
+				Timestamp: model.GetMillis(),
+				Event:     model.CALL_HANGUP_APPLICATION,
+			},
+			Cause:   model.CALL_HANGUP_NORMAL_UNSPECIFIED,
+			SipCode: model.NewInt(500),
+		})
+	}
+	return err
 }
 
 //func (call *CallImpl) ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError {
