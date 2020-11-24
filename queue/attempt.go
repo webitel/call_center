@@ -177,6 +177,27 @@ func (a *Attempt) ExportVariables() map[string]string {
 	return res
 }
 
+// TODO
+func (a *Attempt) ExportSchemaVariables() map[string]string {
+	res := make(map[string]string)
+	for k, v := range a.member.Variables {
+		res[k] = fmt.Sprintf("%v", v)
+	}
+	if a.member.Seq != nil {
+		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
+	}
+
+	if a.agent != nil {
+		// fixme add to model
+		res["agent_name"] = a.agent.Name()
+		res["agent_id"] = fmt.Sprintf("%v", a.agent.Id())
+		res["user_id"] = fmt.Sprintf("%v", a.agent.UserId())
+		res["agent_extension"] = a.agent.CallNumber()
+	}
+
+	return res
+}
+
 func (a *Attempt) MemberId() *int64 {
 	if a.member.MemberId != nil && *a.member.MemberId != 0 {
 		return a.member.MemberId

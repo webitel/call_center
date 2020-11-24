@@ -2478,7 +2478,7 @@ CREATE TABLE call_center.cc_member (
     priority smallint DEFAULT 0 NOT NULL,
     expire_at bigint,
     variables jsonb DEFAULT '{}'::jsonb,
-    name character varying(50) DEFAULT ''::character varying NOT NULL,
+    name character varying(250) DEFAULT ''::character varying NOT NULL,
     stop_cause character varying(50),
     attempts integer DEFAULT 0 NOT NULL,
     agent_id integer,
@@ -3634,14 +3634,18 @@ CREATE VIEW call_center.cc_queue_list AS
     call_center.cc_get_lookup((q.ringtone_id)::bigint, mf.name) AS ringtone,
     q.description,
     call_center.cc_get_lookup(s.id, s.name) AS schema,
+    call_center.cc_get_lookup(ds.id, ds.name) AS do_schema,
+    call_center.cc_get_lookup(afs.id, afs.name) AS after_schema,
     COALESCE(ss.member_count, (0)::bigint) AS count,
     COALESCE(ss.member_waiting, (0)::bigint) AS waiting,
     COALESCE(act.cnt, (0)::bigint) AS active
-   FROM (((((((((call_center.cc_queue q
+   FROM (((((((((((call_center.cc_queue q
      JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = q.updated_by)))
      LEFT JOIN flow.acr_routing_scheme s ON ((q.schema_id = s.id)))
+     LEFT JOIN flow.acr_routing_scheme ds ON ((q.do_schema_id = ds.id)))
+     LEFT JOIN flow.acr_routing_scheme afs ON ((q.after_schema_id = afs.id)))
      LEFT JOIN call_center.cc_list cl ON ((q.dnc_list_id = cl.id)))
      LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
      LEFT JOIN storage.media_files mf ON ((q.ringtone_id = mf.id)))

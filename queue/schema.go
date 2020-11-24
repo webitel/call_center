@@ -23,7 +23,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	res, err := qm.app.FlowManager().Queue().DoDistributeAttempt(&flow.DistributeAttemptRequest{
 		DomainId:  queue.domainId,
 		SchemaId:  *queue.doSchema,
-		Variables: att.ExportVariables(),
+		Variables: att.ExportSchemaVariables(),
 	})
 
 	if err != nil {
