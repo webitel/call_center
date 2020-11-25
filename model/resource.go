@@ -41,6 +41,7 @@ type SipGateway struct {
 	UpdatedAt int64   `json:"updated_at" db:"updated_at"`
 	Register  bool    `json:"register" db:"register"`
 	Proxy     string  `json:"proxy" db:"proxy"`
+	HostName  *string `json:"host_name" db:"host_name"`
 	UserName  *string `json:"username" db:"username"`
 	Account   *string `json:"account" db:"account"`
 	Password  *string `json:"password" db:"password"`
@@ -60,6 +61,8 @@ func (g *SipGateway) Variables() map[string]string {
 		vars["sip_auth_username"] = *g.UserName
 		vars["sip_auth_password"] = *g.Password
 		vars["sip_from_uri"] = *g.Account
+	} else if g.HostName != nil {
+		vars["sip_invite_domain"] = *g.HostName
 	}
 
 	return vars
