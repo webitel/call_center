@@ -347,7 +347,7 @@ begin
                 jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
                           attempt_id_::text::jsonb, true)
             , array [attempt.communication_idx, 'last_activity_at']::text[],
-                time_::text::jsonb
+                case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
             ),
         attempts        = attempts + 1                     --TODO
     from (
@@ -836,7 +836,7 @@ begin
                    uuid_generate_v4()
             from dis
                      inner join cc_member m on m.id = dis.id
-                     inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx - 1)::text) x on true
+                     inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx)::text) x on true
             where dis.ins
     )
     update cc_member_attempt a
@@ -1333,7 +1333,7 @@ CREATE FUNCTION call_center.cc_member_set_sys_destinations_tg() RETURNS trigger
     AS $$
 BEGIN
     if new.communications notnull and jsonb_typeof(new.communications) = 'array' then
-        new.sys_destinations = (select array(select cc_destination_in(idx::int4, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
+        new.sys_destinations = (select array(select cc_destination_in(idx::int4 - 1, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
          from jsonb_array_elements(new.communications) with ordinality as x(x, idx)
          where coalesce((x.x -> 'stopped_at')::int8, 0) = 0
          and idx > -1));
@@ -4730,6 +4730,13 @@ CREATE INDEX cc_agent_updated_by_index ON call_center.cc_agent USING btree (upda
 
 
 --
+-- Name: cc_agent_user_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_agent_user_id_uindex ON call_center.cc_agent USING btree (user_id);
+
+
+--
 -- Name: cc_bucket_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6004,6 +6011,14 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 ALTER TABLE ONLY call_center.cc_bucket
     ADD CONSTRAINT cc_bucket_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_calls cc_calls_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls
+    ADD CONSTRAINT cc_calls_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
