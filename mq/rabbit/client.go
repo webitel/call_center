@@ -92,7 +92,7 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 		var ev model.CallActionData
 		err := json.Unmarshal(msg.Body, &ev)
 		if err != nil {
-			wlog.Error(err.Error())
+			wlog.Error(fmt.Sprintf("%s :\n%s", err.Error(), string(msg.Body)))
 			return
 		}
 		a.callEvent <- ev
