@@ -2,7 +2,7 @@ package grpc_api
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/queue"
@@ -83,16 +83,8 @@ stop:
 	return nil
 }
 
-func (api *member) ChatJoinToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*cc.ChatJoinToQueueResponse, error) {
-	queue, err := api.app.Queue().Manager().DistributeChatToQueue(int(in.QueueId), in.ChannelId, in.Name, in.Number, int(in.Priority))
-	if err != nil {
-		return nil, err
-	}
-	return &cc.ChatJoinToQueueResponse{
-		Status:      "joined", // TODO
-		QueueName:   queue.Name(),
-		WelcomeText: fmt.Sprintf("Welcome to queue \"%s\"", queue.Name()),
-	}, nil
+func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
+	return errors.New("TODO")
 }
 
 func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {

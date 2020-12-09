@@ -317,6 +317,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 }
 
 func (queueManager *QueueManager) DistributeChatToQueue(queueId int, channelId string, number, name string, priority int) (QueueObject, *model.AppError) {
+	// FIXME CHAT INBOUND
 	member, err := queueManager.store.Member().DistributeChatToQueue(queueManager.app.GetInstanceId(), int64(queueId),
 		channelId, number, name, priority)
 

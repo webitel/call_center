@@ -24,26 +24,13 @@ func (api *memberApi) JoinCallToQueue(ctx context.Context, in *proto.CallJoinToQ
 	return cli.member.CallJoinToQueue(ctx, in)
 }
 
-func (api *memberApi) JoinChatToQueue(domainId int64, channelId string, queueId int64, name, number string) (string, error) {
+func (api *memberApi) JoinChatToQueue(ctx context.Context, in *proto.ChatJoinToQueueRequest) (proto.MemberService_ChatJoinToQueueClient, error) {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
-		return "", err
-	}
-	res, err := cli.member.ChatJoinToQueue(context.Background(), &proto.ChatJoinToQueueRequest{
-		ChannelId: channelId,
-		QueueName: "",
-		QueueId:   queueId,
-		Priority:  int32(10),
-		Name:      name,
-		Number:    number,
-		DomainId:  domainId,
-	})
-
-	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return res.WelcomeText, nil
+	return cli.member.ChatJoinToQueue(ctx, in)
 }
 
 func (api *memberApi) DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error) {

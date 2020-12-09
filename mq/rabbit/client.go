@@ -9,6 +9,8 @@ import (
 	"github.com/webitel/wlog"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -35,6 +37,7 @@ type AMQP struct {
 	nodeName           string
 	connectionAttempts int
 	callEvent          chan model.CallActionData
+	chatEvent          chan model.ChatEvent
 	queueEvent         mq.QueueEvent
 }
 
@@ -45,6 +48,7 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string) mq.Layere
 		stop:      make(chan struct{}),
 		stopped:   make(chan struct{}),
 		callEvent: make(chan model.CallActionData),
+		chatEvent: make(chan model.ChatEvent),
 		nodeName:  nodeName,
 	}
 	mq_.queueEvent = NewQueueMQ(mq_)
@@ -93,9 +97,47 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 		}
 		a.callEvent <- ev
 
+	case model.ChatExchange:
+		a.readChatEvent(msg.Body, msg.RoutingKey)
+
 	default:
 		wlog.Error(fmt.Sprintf("no handler for message %s", string(msg.Body)))
 
+	}
+}
+
+func (a *AMQP) readChatEvent(data []byte, rk string) {
+	rks := strings.Split(rk, ".")
+	if len(rks) != 4 {
+		wlog.Error(fmt.Sprintf("event %s: bad rk format", rk))
+		return
+	}
+
+	domainId, err := strconv.Atoi(rks[2])
+	if err != nil {
+		wlog.Error(fmt.Sprintf("event %s: bad domainId", rk))
+		return
+	}
+
+	userId, err := strconv.Atoi(rks[3])
+	if err != nil {
+		wlog.Error(fmt.Sprintf("event %s: bad userId", rk))
+		return
+	}
+
+	var body map[string]interface{}
+
+	if err = json.Unmarshal(data, &body); err != nil {
+		wlog.Error(fmt.Sprintf("event %s: error json unmarshal %s", rk, err.Error()))
+		return
+	}
+
+	a.chatEvent <- model.ChatEvent{
+		Name:     rks[1],
+		DomainId: int64(domainId),
+		UserId:   int64(userId),
+
+		Data: body,
 	}
 }
 
@@ -161,6 +203,11 @@ func (a *AMQP) connect() error {
 		return err
 	}
 
+	//err = a.channel.QueueBind(a.queue.Name, "#", model.ChatExchange, true, nil)
+	//if err != nil {
+	//	return err
+	//}
+
 	return a.channel.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
 }
 
@@ -219,4 +266,8 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 
 func (a *AMQP) ConsumeCallEvent() <-chan model.CallActionData {
 	return a.callEvent
+}
+
+func (a *AMQP) ConsumeChatEvent() <-chan model.ChatEvent {
+	return a.chatEvent
 }
