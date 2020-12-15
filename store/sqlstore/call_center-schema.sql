@@ -232,6 +232,40 @@ $$;
 
 
 --
+-- Name: cc_attempt_agent_cancel(bigint, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_agent_cancel(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+    attempt cc_member_attempt%rowtype;
+    no_answers_ int4;
+begin
+    update cc_member_attempt
+        set leaving_at = now(),
+            result = result_,
+            state = 'leaving'
+    where id = attempt_id_
+    returning * into attempt;
+
+    if attempt.agent_id notnull then
+        update cc_agent_channel c
+        set state = agent_status_,
+            joined_at = attempt.leaving_at,
+            no_answers = no_answers + 1,
+            timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
+        where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
+        returning no_answers into no_answers_;
+
+    end if;
+
+    return row(attempt.leaving_at, no_answers_);
+end;
+$$;
+
+
+--
 -- Name: cc_attempt_bridged(bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -945,7 +979,7 @@ declare
     _team_id_ int;
     _list_comm_id int8;
     _enabled bool;
-
+    _q_type smallint;
     _call record;
     _attempt record;
 BEGIN
@@ -957,14 +991,18 @@ BEGIN
          q.updated_at,
          ct.updated_at,
          q.team_id,
-         q.enabled
+         q.enabled,
+         q.type
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     inner join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled;
+      _team_updated_at, _team_id_, _enabled, _q_type;
 
+  if not _q_type = 1 then
+      raise exception 'queue not inbound';
+  end if;
 
   if not _enabled = true then
       raise exception 'queue disabled';

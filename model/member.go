@@ -170,7 +170,7 @@ type AttemptResult struct {
 	AgentId    *int    `json:"agent_id" db:"agent_id"`
 	Result     string  `json:"result" db:"result"`
 	LegAId     *string `json:"leg_a_id" db:"leg_a_id"`
-	LegBId     *string `json:"leg_a_id" db:"leg_a_id"`
+	LegBId     *string `json:"leg_b_id" db:"leg_b_id"`
 }
 
 type InboundMember struct {

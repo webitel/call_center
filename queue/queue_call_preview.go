@@ -153,7 +153,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	if call.AcceptAt() > 0 {
 		team.Reporting(attempt, agent, call.ReportingAt() > 0)
 	} else {
-		team.Missed(attempt, int(team.NoAnswerDelayTime()), agent)
+		team.CancelAgentAttempt(attempt, agent)
 	}
 
 	queue.queueManager.LeavingMember(attempt, queue)

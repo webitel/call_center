@@ -9,6 +9,7 @@ import (
 )
 
 type InboundChatQueueSettings struct {
+	HelloMessage string `json:"hello_message"`
 }
 
 type InboundChatQueue struct {

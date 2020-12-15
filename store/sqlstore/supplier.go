@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	DB_PING_ATTEMPTS     = 18
+	DB_PING_ATTEMPTS     = 150 // todo
 	DB_PING_TIMEOUT_SECS = 10
 )
 

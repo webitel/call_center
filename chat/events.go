@@ -73,10 +73,11 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 		}
 
 	case ChatEventJoined:
+
 	case ChatEventDecline, ChatEventLeave, ChatEventClose:
 		if chat, err := m.GetChat(e.ConversationId()); err != nil {
 			wlog.Error(err.Error())
-		} else {
+		} else if chat != nil {
 			m.RemoveStore(chat)
 		}
 	default:

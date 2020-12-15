@@ -208,14 +208,17 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 	attempt.channel = queue.Channel()
 
 	if attempt.IsBarred() {
-		//TODO fixme
-		panic("AAAA")
-		//queueManager.attemptBarred(attempt, queue)
+		err = queueManager.Barred(attempt)
+		if err != nil {
+			wlog.Error(err.Error())
+		} else {
+			attempt.Log("this destination is barred")
+		}
 		return nil, nil
 	}
 
 	if attempt.IsTimeout() {
-		panic("CHANGE TO SET MEMBER FUNCTION")
+		//panic("CHANGE TO SET MEMBER FUNCTION")
 		return nil, nil
 	}
 
@@ -402,6 +405,11 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	}
 }
 
+func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
+	//todo hook
+	return queueManager.teamManager.store.Member().SetBarred(attempt.Id())
+}
+
 func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64) {
 	attempt.SetResult(AttemptResultAbandoned)
 	_, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
@@ -418,6 +426,8 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	if !result.Success && result.Status == "" {
 		result.Status = "abandoned"
 	}
+
+	wlog.Debug(fmt.Sprintf("attempt[%d] callback: %v", attemptId, result))
 
 	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status, result.Description, result.ExpireAt, result.NextCall)
 	if err != nil {

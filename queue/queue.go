@@ -316,6 +316,18 @@ func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.A
 	}
 }
 
+func (tm *agentTeam) CancelAgentAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
+	// todo missed or waiting ?
+
+	missed, err := tm.teamManager.store.Member().CancelAgentAttempt(attempt.Id(), int(tm.NoAnswerDelayTime()))
+	if err != nil {
+		wlog.Error(err.Error())
+		return
+	}
+
+	tm.MissedAgent(missed, attempt, agent)
+}
+
 func (tm *agentTeam) MissedAgent(missed *model.MissedAgent, attempt *Attempt, agent agent_manager.AgentObject) {
 	if missed.NoAnswers != nil && *missed.NoAnswers >= tm.MaxNoAnswer() {
 		tm.SetAgentMaxNoAnswer(agent)

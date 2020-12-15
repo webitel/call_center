@@ -210,7 +210,7 @@ func (a *Attempt) MemberCallId() *string {
 }
 
 func (a *Attempt) IsBarred() bool {
-	if a.member.Result != nil && *a.member.Result == model.CALL_HANGUP_OUTGOING_CALL_BARRED {
+	if a.member.ListCommunicationId != nil {
 		return true
 	}
 	return false

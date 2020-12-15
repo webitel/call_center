@@ -337,6 +337,52 @@ func (s *SqlMemberStore) SetAttemptMissed(id int64, holdSec, agentHoldTime int) 
 	return timestamp, nil
 }
 
+func (s *SqlMemberStore) CancelAgentAttempt(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
+	var missed *model.MissedAgent
+	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers
+from cc_attempt_agent_cancel(:AttemptId::int8, :Result::varchar, :AgentState::varchar, :AgentHoldSec::int4)
+    as x (last_state_change timestamptz, no_answers int)
+where x.last_state_change notnull `,
+		map[string]interface{}{
+			"AttemptId":    id,
+			"Result":       model.ChannelStateMissed,
+			"AgentState":   model.ChannelStateMissed,
+			"AgentHoldSec": agentHoldTime,
+		})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.CancelAgentAttempt", "store.sql_member.set_attempt_agent_cancel.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return missed, nil
+}
+
+func (s *SqlMemberStore) SetBarred(id int64) *model.AppError {
+	_, err := s.GetMaster().Exec(`with u as (
+    update cc_member_attempt
+        set leaving_at = now(),
+            result = 'barred',
+            state = 'leaving'
+    where id = :AttemptId
+    returning member_id, result
+)
+update cc_member m
+set stop_at = now(),
+    stop_cause = u.result
+from u
+where m.id = u.member_id`, map[string]interface{}{
+		"AttemptId": id,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.SetBarred", "store.sql_member.set_attempt_barred.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s *SqlMemberStore) SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, :Result::varchar, :State::varchar, :AgentHoldTime)) as timestamp`,
 		map[string]interface{}{
