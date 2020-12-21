@@ -115,7 +115,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_ACCEPT:
-
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						//FIXME
 						result := "success"
 						if team.PostProcessing() {
@@ -141,7 +141,6 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 					case call_manager.CALL_STATE_BRIDGE:
 						timeout.Stop()
 						team.Bridged(attempt, agent)
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 						if agentCall.HangupAt() == 0 {
