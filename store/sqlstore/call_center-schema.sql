@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.4 (Debian 12.4-1.pgdg100+1)
--- Dumped by pg_dump version 12.4 (Debian 12.4-1.pgdg100+1)
+-- Dumped from database version 12.5 (Debian 12.5-1.pgdg100+1)
+-- Dumped by pg_dump version 12.5 (Debian 12.5-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1107,101 +1107,123 @@ $$;
 
 
 --
--- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, _number character varying, _name character varying, _priority integer DEFAULT 0) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint)
+CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0) RETURNS record
     LANGUAGE plpgsql
-    AS $_$
+    AS $$
 declare
-    _attempt_id               bigint = null;
-    _member_id                bigint;
-    _timezone_id              int4;
-    _abandoned_resume_allowed bool;
-    _discard_abandoned_after  int4;
-    _weight                   int4;
-    _destination              jsonb;
-    _domain_id                int8;
+    _timezone_id int4;
+    _discard_abandoned_after int4;
+    _weight int4;
+    dnc_list_id_ int4;
+    _domain_id int8;
+    _calendar_id int4;
+    _queue_updated_at int8;
+    _team_updated_at int8;
+    _team_id_ int;
+    _list_comm_id int8;
+    _enabled bool;
+    _q_type smallint;
+    _attempt record;
+    _con_created timestamptz;
+    _con_name varchar;
+    _inviter_channel_id varchar;
+    _inviter_user_id varchar;
 BEGIN
+  select c.timezone_id,
+           (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
+         c.domain_id,
+         q.dnc_list_id,
+         q.calendar_id,
+         q.updated_at,
+         ct.updated_at,
+         q.team_id,
+         q.enabled,
+         q.type
+  from cc_queue q
+    inner join flow.calendar c on q.calendar_id = c.id
+    inner join cc_team ct on q.team_id = ct.id
+  where  q.id = _queue_id
+  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+      _team_updated_at, _team_id_, _enabled, _q_type;
 
-    select m.id,
-           jsonb_path_query_first(communications, '$[*] ? (@.destination == $destination)',
-                                  vars => jsonb_build_object('destination', _number))
-    from cc_member m
-    where m.queue_id = _queue_id
-      and m.communications @> (jsonb_build_array(jsonb_build_object('destination', _number)))::jsonb
-      and not exists(select 1 from cc_member_attempt a where a.member_id = m.id for update skip locked)
-    limit 1
-    into _member_id, _destination;
+  if not _q_type = 6 then
+      raise exception 'queue type not inbound chat';
+  end if;
 
-    select c.timezone_id,
-           (payload ->> 'abandoned_resume_allowed')::bool abandoned_resume_allowed,
-           (payload ->> 'discard_abandoned_after')::int   discard_abandoned_after,
-           c.domain_id
-    from cc_queue q
-             inner join flow.calendar c on q.calendar_id = c.id
-    where q.id = _queue_id
-    into _timezone_id, _abandoned_resume_allowed, _discard_abandoned_after, _domain_id;
+  if not _enabled = true then
+      raise exception 'queue disabled';
+  end if;
 
+  if not exists(select accept
+            from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+            as x (name varchar, excepted varchar, accept bool, expire bool)
+            where accept and excepted is null and not expire) then
+      raise exception 'conversation [%] calendar not working', _conversation_id;
+  end if;
 
-    if _abandoned_resume_allowed is true and _discard_abandoned_after > 0 then
-        select (case
-                    when log.result = 'ABANDONED'
-                        then ((((extract(EPOCH from now()) * 1000)::int8 - log.hangup_at) / 1000)) +
-                             coalesce(_priority, 0)
-                    else null end)::int
-        from cc_member_attempt_log log
-        where log.created_at >= (now() - (_discard_abandoned_after || ' sec')::interval)
-          and log.member_id = _member_id
-        order by log.created_at desc
+  select cli.external_id,
+         c.created_at,
+         c.id inviter_channel_id,
+         c.user_id
+  from chat.channel c
+           left join chat.client cli on cli.id = c.user_id
+  where c.closed_at isnull
+        and c.conversation_id = _conversation_id
+    and not c.internal
+  into _con_name, _con_created, _inviter_channel_id, _inviter_user_id;
+  --TODO
+--   select clc.id
+--     into _list_comm_id
+--     from cc_list_communications clc
+--     where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)
+--   limit 1;
+
+--   if _list_comm_id notnull then
+--           insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result, list_communication_id)
+--           values ('call', _queue_id, 'leaving', now(), _call_id, 'banned', _list_comm_id);
+--           raise exception 'number % banned', _call.from_number;
+--   end if;
+
+  if  _discard_abandoned_after > 0 then
+      select
+            case when log.result = 'abandoned' then
+                 extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+            else coalesce(_priority, 0) end
+        from cc_member_attempt_history log
+        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+            and log.queue_id = _queue_id
+            and log.destination->>'destination' = _con_name
+        order by log.leaving_at desc
         limit 1
         into _weight;
-    end if;
+  end if;
+
+  insert into call_center.cc_member_attempt (channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, list_communication_id)
+  values ('chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id, jsonb_build_object('destination', _con_name),
+              _node_name, (select clc.id
+                            from cc_list_communications clc
+                            where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)))
+  returning * into _attempt;
 
 
-    if _member_id isnull then
-        _destination = jsonb_build_object('destination', _number);
+  return row(
+      _attempt.id::int8,
+      _attempt.queue_id::int,
+      _queue_updated_at::int8,
+      _attempt.destination::jsonb,
+      variables_::jsonb || jsonb_build_object('inviter_channel_id', _inviter_channel_id)|| jsonb_build_object('inviter_user_id', _inviter_user_id),
+      _conversation_id::varchar,
+      _team_updated_at::int8,
 
-        insert into cc_member(domain_id, queue_id, name, priority, timezone_id, communications)
-        select _domain_id, _queue_id, _name, _priority, coalesce(_timezone_id, 344), (jsonb_build_array(_destination))::jsonb
-        returning cc_member.id into _member_id;
-    end if;
-
-    return query with attempts as (
-        insert into cc_member_attempt (state, queue_id, member_id, weight, member_call_id, destination, node_id,
-                                       channel)
-            values (1, _queue_id, _member_id, coalesce(_weight, _priority), _call_id, _destination, _node_name, 'chat')
-            returning *
-    )
-                 select a.id,
-                        a.member_id,
-                        null::varchar         result,
-                        a.queue_id,
-                        cq.updated_at as      queue_updated_at,
-                        0::integer            queue_count,
-                        0::integer            queue_active_count,
-                        0::integer            queue_waiting_count,
-                        null::integer         resource_id,
-                        null::bigint          resource_updated_at,
-                        null::bigint          gateway_updated_at,
-                        a.destination         destination,
-                        cm.variables,
-                        cm.name,
-                        a.member_call_id,
-                        null::bigint          agent_id,
-                        null::bigint          agent_updated_at,
-                        ct.updated_at::bigint team_updated_at
-                 from attempts a
-                          left join cc_member cm on a.member_id = cm.id
-                          inner join cc_queue cq on a.queue_id = cq.id
-                          left join cc_team ct on cq.team_id = ct.id
-                          left join cc_list_communications lc
-                                    on lc.list_id = cq.dnc_list_id and lc.number = a.destination ->> 'destination';
-
-    --raise notice '%', _attempt_id;
+      _conversation_id::varchar,
+      cc_view_timestamp(_con_created)::int8
+  );
 
 END;
-$_$;
+$$;
 
 
 --
@@ -2872,7 +2894,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
     cma.display,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
-          WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children
+          WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
+    cma.description AS agent_description
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM storage.files f_1
@@ -2880,7 +2903,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
-     LEFT JOIN call_center.cc_member_attempt_history cma ON (((cma.member_call_id)::text = (c.id)::text)))
+     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
      LEFT JOIN call_center.cc_agent_list ca ON ((cma.agent_id = ca.id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
