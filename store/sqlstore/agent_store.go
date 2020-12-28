@@ -161,6 +161,7 @@ func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *m
 			last_state_change = now(),
 			successively_no_answers = 0
     where id = :AgentId
+		and not exists(select 1 from cc_member_attempt att where att.agent_id = cc_agent.id and att.state = 'wait_agent' for update )
     returning id
 )
 update cc_agent_channel c
