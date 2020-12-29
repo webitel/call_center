@@ -50,7 +50,7 @@ func (m *ChatManager) Start() error {
 					if !ok {
 						return
 					}
-					// fixme crash
+
 					m.handleEvent(&e)
 				}
 			}

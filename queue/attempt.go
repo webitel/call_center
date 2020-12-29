@@ -198,6 +198,14 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	return res
 }
 
+func (a *Attempt) GetVariable(name string) (res string, ok bool) {
+	if a.member != nil && a.member.Variables != nil {
+		res, ok = a.member.Variables[name]
+	}
+
+	return
+}
+
 func (a *Attempt) MemberId() *int64 {
 	if a.member.MemberId != nil && *a.member.MemberId != 0 {
 		return a.member.MemberId

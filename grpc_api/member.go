@@ -2,7 +2,6 @@ package grpc_api
 
 import (
 	"context"
-	"errors"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/queue"
@@ -84,7 +83,43 @@ stop:
 }
 
 func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
-	return errors.New("TODO")
+	ctx := context.Background()
+	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(ctx, in)
+	if err != nil {
+		return err
+	}
+
+	bridged := attempt.On(queue.AttemptHookBridgedAgent)
+	leaving := attempt.On(queue.AttemptHookLeaving)
+
+	for {
+		select {
+		case <-leaving:
+			out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Leaving{
+					Leaving: &cc.QueueEvent_LeavingData{
+						Result: attempt.Result(),
+					},
+				},
+			})
+			goto stop
+		case _, ok := <-bridged:
+			if ok {
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Bridged{
+						Bridged: &cc.QueueEvent_BridgedData{
+							AgentId:     0, //TODO
+							AgentCallId: "",
+						},
+					},
+				})
+			}
+		}
+	}
+
+stop:
+
+	return nil
 }
 
 func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {

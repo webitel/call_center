@@ -1,17 +1,9 @@
 package chat
 
 import (
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/chat_manager"
 	"sync"
-)
-
-type ChatState uint8
-
-const (
-	ChatStateInit ChatState = iota
-	ChatStateInvite
-	ChatStateActive
-	ChatStateStopped
 )
 
 type ChatDirection string
@@ -22,7 +14,8 @@ const (
 )
 
 type ChatSession struct {
-	DomainId       int64
+	inviterId      string
+	inviterUserId  string
 	UserId         int64
 	Direction      ChatDirection
 	ConversationId string
@@ -32,21 +25,26 @@ type ChatSession struct {
 	CreatedAt      int64
 	AnsweredAt     int64
 	StopAt         int64
-	state          chan ChatState
-	api            chat_manager.Chat
+
+	cli       chat_manager.Chat
+	variables map[string]string
 
 	sync.RWMutex
 }
 
-func OutboundChat(domainId, userId int64) *ChatSession {
-	return &ChatSession{}
-}
-
-func (c *ChatSession) setInvite(inviteId string, timestamp int64) {
-	c.Lock()
-	c.InviteId = inviteId
-	c.InviteAt = timestamp
-	c.Unlock()
-
-	c.state <- ChatStateInvite
+func OutboundChat(cli chat_manager.Chat, userId int64, conversationId, inviterId, invUserId string) *ChatSession {
+	return &ChatSession{
+		inviterId:      inviterId,
+		inviterUserId:  invUserId,
+		UserId:         userId,
+		Direction:      ChatDirectionOutbound,
+		ConversationId: conversationId,
+		ChannelId:      "",
+		InviteId:       "",
+		InviteAt:       0,
+		CreatedAt:      model.GetMillis(),
+		AnsweredAt:     0,
+		StopAt:         0,
+		cli:            cli,
+	}
 }

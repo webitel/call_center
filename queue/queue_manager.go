@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
+	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
@@ -319,22 +320,52 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	return attempt, nil
 }
 
-func (queueManager *QueueManager) DistributeChatToQueue(queueId int, channelId string, number, name string, priority int) (QueueObject, *model.AppError) {
-	// FIXME CHAT INBOUND
-	member, err := queueManager.store.Member().DistributeChatToQueue(queueManager.app.GetInstanceId(), int64(queueId),
-		channelId, number, name, priority)
+func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*Attempt, *model.AppError) {
+	//var member *model.MemberAttempt
+	var bucketId *int32
+
+	if in.BucketId != 0 {
+		bucketId = &in.BucketId
+	}
+
+	// FIXME add domain
+	res, err := queueManager.store.Member().DistributeChatToQueue(
+		queueManager.app.GetInstanceId(),
+		int64(in.GetQueue().GetId()),
+		in.GetConversationId(),
+		in.GetVariables(),
+		bucketId,
+		int(in.GetPriority()),
+	)
 
 	if err != nil {
-		wlog.Error(fmt.Sprintf("chat %s distribute error: %s", channelId, err.Error()))
+		wlog.Error(err.Error())
 		return nil, err
 	}
 
-	attempt, err := queueManager.CreateAttemptIfNotExists(context.Background(), member)
-	if err != nil {
+	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+		Id:                  res.AttemptId,
+		QueueId:             res.QueueId,
+		QueueUpdatedAt:      res.QueueUpdatedAt,
+		QueueCount:          0,
+		QueueActiveCount:    0,
+		QueueWaitingCount:   0,
+		CreatedAt:           time.Time{},
+		HangupAt:            0,
+		BridgedAt:           0,
+		Destination:         res.Destination,
+		ListCommunicationId: nil,
+		TeamUpdatedAt:       model.NewInt64(res.TeamUpdatedAt),
+		Variables:           res.Variables,
+		Name:                res.Name,
+		MemberCallId:        &res.ConversationId,
+	})
+
+	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
+		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
 	}
-
-	return queueManager.DistributeAttempt(attempt)
+	return attempt, nil
 }
 
 func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
@@ -418,6 +449,10 @@ func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt
 
 		return
 	}
+}
+
+func (queueManager *QueueManager) GetChat(id string) (*chat.ChatSession, *model.AppError) {
+	return queueManager.app.GetChat(id)
 }
 
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {

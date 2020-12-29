@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
+	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/flow_manager/client"
 	"github.com/webitel/wlog"
@@ -151,6 +152,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "progressive"
 	case model.QUEUE_TYPE_PREDICT:
 		return "predictive"
+	case model.QueueTypeChat:
+		return "inbound chat"
 	default:
 		return "NOT_IMPLEMENT"
 	}
@@ -174,6 +177,10 @@ func (queue *BaseQueue) Id() int {
 
 func (queue *BaseQueue) CallManager() call_manager.CallManager {
 	return queue.queueManager.callManager
+}
+
+func (queue *BaseQueue) ChatManager() *chat.ChatManager {
+	return queue.queueManager.app.ChatManager()
 }
 
 func (queue *BaseQueue) AgentManager() agent_manager.AgentManager {

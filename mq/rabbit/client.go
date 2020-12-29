@@ -132,6 +132,8 @@ func (a *AMQP) readChatEvent(data []byte, rk string) {
 		return
 	}
 
+	//fmt.Println(string(data))
+
 	a.chatEvent <- model.ChatEvent{
 		Name:     rks[1],
 		DomainId: int64(domainId),
@@ -203,10 +205,10 @@ func (a *AMQP) connect() error {
 		return err
 	}
 
-	//err = a.channel.QueueBind(a.queue.Name, "#", model.ChatExchange, true, nil)
-	//if err != nil {
-	//	return err
-	//}
+	err = a.channel.QueueBind(a.queue.Name, "#", model.ChatExchange, true, nil)
+	if err != nil {
+		return err
+	}
 
 	return a.channel.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
 }

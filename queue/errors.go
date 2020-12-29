@@ -31,7 +31,17 @@ func NewErrorAgentRequired(queue QueueObject, attempt *Attempt) *model.AppError 
 		"queue.distribute.invalid_agent.error",
 		map[string]interface{}{"QueueId": queue.Id(), "AttemptId": attempt.Id()},
 		"",
-		http.StatusUnauthorized,
+		http.StatusBadRequest,
+	)
+}
+
+func NewErrorVariableRequired(queue QueueObject, attempt *Attempt, name string) *model.AppError {
+	return model.NewAppError(
+		"Queue",
+		"queue.distribute.invalid_variable.error",
+		map[string]interface{}{"QueueId": queue.Id(), "AttemptId": attempt.Id(), "Variable": name},
+		"",
+		http.StatusBadRequest,
 	)
 }
 

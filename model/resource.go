@@ -78,8 +78,8 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
 		fmt.Sprintf("origination_caller_id_number=%s", display),
 
-		"wbt_from_number=FIXME",
-		"wbt_from_name=FIXME",
+		fmt.Sprintf("wbt_from_number=%s", display),
+		fmt.Sprintf("wbt_from_name=%s", display),
 		"wbt_to_type=dest",
 		"ignore_display_updates=true",
 		fmt.Sprintf("wbt_to_number='%s'", destination),
