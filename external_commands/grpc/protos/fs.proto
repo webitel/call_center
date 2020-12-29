@@ -10,6 +10,15 @@ service Api {
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
     rpc Queue(QueueRequest) returns (QueueResponse) {}
+    rpc StopPlayback(StopPlaybackRequest) returns (StopPlaybackResponse) {}
+}
+
+message StopPlaybackRequest {
+    string id = 1;
+}
+
+message StopPlaybackResponse {
+
 }
 
 message QueueRequest {

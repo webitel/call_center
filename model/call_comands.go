@@ -28,6 +28,7 @@ type CallCommands interface {
 	DTMF(id string, ch rune) *AppError
 	JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *AppError
 	BroadcastPlaybackFile(id, path, leg string) *AppError
+	StopPlayback(id string) *AppError
 
 	Close() error
 }

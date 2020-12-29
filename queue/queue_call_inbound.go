@@ -188,6 +188,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		queue.queueManager.Abandoned(attempt)
 	}
 
+	if mCall.HangupAt() == 0 {
+		err = mCall.StopPlayback()
+		if err != nil {
+			wlog.Error(err.Error())
+		}
+	}
+
 	go attempt.Emit(AttemptHookLeaving)
 	go attempt.Off("*")
 	queue.queueManager.LeavingMember(attempt, queue)

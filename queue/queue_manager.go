@@ -284,7 +284,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	ringtone := ""
 	if in.WaitingMusic != nil {
 		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
-			ringtone = fmt.Sprintf("endless_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
+			ringtone = fmt.Sprintf("wbt_queue_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
 		}
 	}
 

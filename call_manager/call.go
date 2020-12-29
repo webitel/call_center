@@ -56,6 +56,7 @@ type Call interface {
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
 	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
+	StopPlayback() *model.AppError
 	SerVariables(vars map[string]string) *model.AppError
 }
 
@@ -206,6 +207,10 @@ func (call *CallImpl) setAmd(e *model.CallActionAMD) {
 	call.Unlock()
 
 	call.setState(CALL_STATE_DETECT_AMD)
+}
+
+func (call *CallImpl) StopPlayback() *model.AppError {
+	return call.api.StopPlayback(call.id)
 }
 
 func (call *CallImpl) AmdResult() string {

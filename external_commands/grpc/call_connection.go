@@ -227,6 +227,19 @@ func (c *CallConnection) HangupCall(id, cause string, reporting bool) *model.App
 	return nil
 }
 
+func (c *CallConnection) StopPlayback(id string) *model.AppError {
+	_, err := c.api.StopPlayback(context.Background(), &fs.StopPlaybackRequest{
+		Id: id,
+	})
+
+	if err != nil {
+		return model.NewAppError("StopPlayback", "external.break_playback.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (c *CallConnection) SetCallVariables(id string, variables map[string]string) *model.AppError {
 
 	res, err := c.api.SetVariables(context.Background(), &fs.SetVariablesRequest{
