@@ -130,8 +130,9 @@ type QueueInboundSettings struct {
 	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
 	MaxWaitWithNoAgent    int    `json:"timeout_with_no_agents"`
 	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
-	MaxCallPerAgent    int  `json:"max_call_per_agent"`
-	AllowGreetingAgent bool `json:"allow_greeting_agent"`
+	MaxCallPerAgent    int    `json:"max_call_per_agent"`
+	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
+	MaxWaitTime        uint16 `json:"max_wait_time"`
 }
 
 type QueueIVRSettings struct {

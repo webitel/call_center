@@ -20,6 +20,11 @@ type InboundQueue struct {
 }
 
 func NewInboundQueue(callQueue CallingQueue, settings model.QueueInboundSettings) QueueObject {
+	// todo timeout is deprecated
+	if settings.MaxWaitTime == 0 {
+		settings.MaxWaitTime = callQueue.timeout
+	}
+
 	return &InboundQueue{
 		CallingQueue: callQueue,
 		props:        settings,
@@ -63,7 +68,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	ags := attempt.On(AttemptHookDistributeAgent)
 
 	//TODO
-	timeout := time.NewTimer(time.Second * time.Duration(queue.timeout))
+	timeout := time.NewTimer(time.Second * time.Duration(queue.props.MaxWaitTime))
 
 	for calling {
 		select {
