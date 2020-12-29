@@ -11,6 +11,7 @@ import (
 type QueueIVRSettings struct {
 	Recordings         bool                    `json:"recordings"`
 	Amd                *model.QueueAmdSettings `json:"amd"`
+	MinCallDuration    uint                    `json:"min_call_duration"`
 	MaxAttempts        uint                    `json:"max_attempts"`
 	OriginateTimeout   int                     `json:"originate_timeout"`
 	WaitBetweenRetries uint64                  `json:"wait_between_retries"`
@@ -170,7 +171,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		}
 	}
 
-	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > queue.params.MinCallDuration {
+	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinCallDuration) {
 		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 0,
 			"", 0)
 	} else {
