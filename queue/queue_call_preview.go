@@ -16,9 +16,9 @@ type PreviewCallQueue struct {
 }
 
 type PreviewSettings struct {
-	Recordings         bool `json:"recordings"`
-	OriginateTimeout   int  `json:"originate_timeout"`
-	WaitBetweenRetries int  `json:"wait_between_retries"`
+	Recordings         bool   `json:"recordings"`
+	OriginateTimeout   uint16 `json:"originate_timeout"`
+	WaitBetweenRetries int    `json:"wait_between_retries"`
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -125,7 +125,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), display),
+		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), display, queue.OriginateTimeout),
 	})
 
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))

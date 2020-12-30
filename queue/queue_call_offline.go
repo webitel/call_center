@@ -10,7 +10,8 @@ import (
 )
 
 type OfflineQueueSettings struct {
-	Recordings bool `json:"recordings"`
+	Recordings       bool   `json:"recordings"`
+	OriginateTimeout uint16 `json:"originate_timeout"`
 }
 
 type OfflineCallQueue struct {
@@ -112,7 +113,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display()),
+		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
 	})
 
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, call))

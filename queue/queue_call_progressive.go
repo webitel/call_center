@@ -16,12 +16,11 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
-	Recordings         bool `json:"recordings"`
-	WaitBetweenRetries int  `json:"wait_between_retries"`
-	MinDuration        int  `json:"min_duration"`
-	MaxAttempts        int  `json:"max_attempts"`
-	OriginateTimeout   int  `json:"originate_timeout"`
-	AllowGreetingAgent bool `json:"allow_greeting_agent"`
+	Recordings         bool   `json:"recordings"`
+	WaitBetweenRetries int    `json:"wait_between_retries"`
+	MaxAttempts        int    `json:"max_attempts"`
+	OriginateTimeout   uint16 `json:"originate_timeout"`
+	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
 	Amd                *model.QueueAmdSettings
 }
 
@@ -79,7 +78,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		Timeout:      queue.Timeout(),
+		Timeout:      queue.OriginateTimeout,
 		Destination:  attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
