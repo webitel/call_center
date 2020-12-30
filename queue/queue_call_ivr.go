@@ -66,7 +66,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		Timeout:      queue.Timeout(),
+		Timeout:      uint16(queue.OriginateTimeout),
 		Destination:  attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
