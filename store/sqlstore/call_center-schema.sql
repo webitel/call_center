@@ -2561,44 +2561,6 @@ ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTIC
 
 
 --
--- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_member_attempt_history (
-    id bigint NOT NULL,
-    queue_id integer,
-    member_id bigint,
-    weight integer,
-    resource_id integer,
-    node_id character varying(20),
-    result character varying(25) NOT NULL,
-    agent_id integer,
-    bucket_id bigint,
-    display character varying(50),
-    description character varying,
-    list_communication_id bigint,
-    joined_at timestamp with time zone NOT NULL,
-    leaving_at timestamp with time zone,
-    agent_call_id character varying,
-    member_call_id character varying,
-    offering_at timestamp with time zone,
-    reporting_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    channel character varying,
-    domain_id bigint NOT NULL,
-    destination jsonb,
-    seq integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: -
---
-
-COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
-
-
---
 -- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -2728,9 +2690,9 @@ CREATE VIEW call_center.cc_call_active_list AS
    FROM (((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
-     LEFT JOIN call_center.cc_agent_list ca ON ((c.agent_id = ca.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
-     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
+     LEFT JOIN call_center.cc_member_attempt cma ON ((cma.id = c.attempt_id)))
+     LEFT JOIN call_center.cc_agent_list ca ON ((cma.agent_id = ca.id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
 
@@ -2818,6 +2780,44 @@ CREATE TABLE call_center.cc_calls_history (
     amd_result character varying,
     amd_duration interval
 );
+
+
+--
+-- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_member_attempt_history (
+    id bigint NOT NULL,
+    queue_id integer,
+    member_id bigint,
+    weight integer,
+    resource_id integer,
+    node_id character varying(20),
+    result character varying(25) NOT NULL,
+    agent_id integer,
+    bucket_id bigint,
+    display character varying(50),
+    description character varying,
+    list_communication_id bigint,
+    joined_at timestamp with time zone NOT NULL,
+    leaving_at timestamp with time zone,
+    agent_call_id character varying,
+    member_call_id character varying,
+    offering_at timestamp with time zone,
+    reporting_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    channel character varying,
+    domain_id bigint NOT NULL,
+    destination jsonb,
+    seq integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: -
+--
+
+COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
 
 
 --
