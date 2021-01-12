@@ -25,11 +25,6 @@ const (
 	MemberStateCancel     = "cancel"
 )
 
-/*
-
-{"id": 0, "type": {"id": 1, "name": ""}, "state": 0, "display": "", "attempts": 0, "priority": 0, "resource": null, "last_cause": "", "description": "912908.9643714452", "destination": "696232.3886641971", "last_activity_at": 0}
-*/
-
 type Communication struct {
 	Id   int    `json:"id"`
 	Name string `json:"name"` // TODO
@@ -152,7 +147,6 @@ type AttemptReportingResult struct {
 	DomainId     *int64  `json:"domain_id" db:"domain_id"`
 	QueueId      int     `json:"queue_id" db:"queue_id"`
 	AgentTimeout *int64  `json:"agent_timeout" db:"agent_timeout"`
-	//AgentCallAppId *string `json:"agent_call_app_id"`
 }
 
 type HistoryAttempt struct {

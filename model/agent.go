@@ -43,16 +43,15 @@ const (
 )
 
 type Agent struct {
-	Id                    int           `json:"id" db:"id"`
-	DomainId              int64         `json:"domain_id" db:"domain_id"`
-	UserId                *int64        `json:"user_id" db:"user_id"`
-	Name                  string        `json:"name" db:"name"`
-	UpdatedAt             int64         `json:"updated_at" db:"updated_at"`
-	Destination           string        `json:"destination" db:"destination"`
-	Extension             string        `json:"extension" db:"extension"`
-	SuccessivelyNoAnswers int           `json:"successively_no_answers" db:"successively_no_answers"`
-	OnDemand              bool          `json:"on_demand" db:"on_demand"`
-	GreetingMedia         *RingtoneFile `json:"greeting_media" db:"greeting_media"`
+	Id            int           `json:"id" db:"id"`
+	DomainId      int64         `json:"domain_id" db:"domain_id"`
+	UserId        *int64        `json:"user_id" db:"user_id"`
+	Name          string        `json:"name" db:"name"`
+	UpdatedAt     int64         `json:"updated_at" db:"updated_at"`
+	Destination   string        `json:"destination" db:"destination"`
+	Extension     string        `json:"extension" db:"extension"`
+	OnDemand      bool          `json:"on_demand" db:"on_demand"`
+	GreetingMedia *RingtoneFile `json:"greeting_media" db:"greeting_media"`
 	AgentStatus
 }
 
@@ -69,8 +68,8 @@ type MissedAgent struct {
 }
 
 type AgentOnlineData struct {
-	Timestamp int64          `json:"timestamp" db:"timestamp"`
-	Channels  []AgentChannel `json:"channels" db:"channels"`
+	Timestamp int64        `json:"timestamp" db:"timestamp"`
+	Channel   AgentChannel `json:"channel" db:"channel"`
 }
 
 type AgentEvent struct {
@@ -100,8 +99,8 @@ type AgentEventStatus struct {
 }
 
 type AgentEventOnlineStatus struct {
-	Channels []AgentChannel `json:"channels"`
-	OnDemand bool           `json:"on_demand"`
+	Channel  AgentChannel `json:"channel"`
+	OnDemand bool         `json:"on_demand"`
 	AgentEvent
 	AgentStatus
 }

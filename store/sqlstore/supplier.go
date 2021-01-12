@@ -239,7 +239,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	switch target.(type) {
 	case *model.Lookup,
 		*model.RingtoneFile,
-		*[]model.AgentChannel:
+		*model.AgentChannel:
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*string)
 			if !ok {

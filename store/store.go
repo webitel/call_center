@@ -79,7 +79,7 @@ type AgentStore interface {
 	Get(id int) (*model.Agent, *model.AppError)
 	GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError)
 
-	SetOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError)
+	SetOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	WaitingChannel(agentId int, channel string) (int64, *model.AppError)
 
 	SetOnBreak(agentId int) *model.AppError

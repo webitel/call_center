@@ -15,11 +15,14 @@ const (
 )
 
 type AgentApi interface {
-	Online(domainId, agentId int64, channels []string, onDemand bool) error
+	Online(domainId, agentId int64, onDemand bool) error
 	Offline(domainId, agentId int64) error
 	Pause(domainId, agentId int64, payload string, timeout int) error
 
 	WaitingChannel(agentId int, channel string) (int64, error)
+
+	AcceptTask(appId string, domainId, attemptId int64) error
+	CloseTask(appId string, domainId, attemptId int64) error
 }
 
 type MemberApi interface {
@@ -52,17 +55,17 @@ type ccManager struct {
 }
 
 func NewCCManager(serviceDiscovery discovery.ServiceDiscovery) CCManager {
-	cc := &ccManager{
+	cli := &ccManager{
 		stop:             make(chan struct{}),
 		stopped:          make(chan struct{}),
 		poolConnections:  discovery.NewPoolConnections(),
 		serviceDiscovery: serviceDiscovery,
 	}
 
-	cc.agent = NewAgentApi(cc)
-	cc.member = NewMemberApi(cc)
+	cli.agent = NewAgentApi(cli)
+	cli.member = NewMemberApi(cli)
 
-	return cc
+	return cli
 }
 
 func (cc *ccManager) Agent() AgentApi {
@@ -146,6 +149,15 @@ func (cc *ccManager) wakeUp() {
 
 func (cc *ccManager) getRandomClient() (*ccConnection, error) {
 	cli, err := cc.poolConnections.Get(discovery.StrategyRoundRobin)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.(*ccConnection), nil
+}
+
+func (cc *ccManager) getClient(appId string) (*ccConnection, error) {
+	cli, err := cc.poolConnections.GetById(appId)
 	if err != nil {
 		return nil, err
 	}

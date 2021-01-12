@@ -14,12 +14,19 @@ const (
 	QUEUE_TYPE_PROGRESSIVE // a + r
 	QUEUE_TYPE_PREDICT     // a +r
 	QueueTypeChat
+	QueueTypeAgentTask
 )
 
 const (
 	QUEUE_SIDE_FLOW   = "flow"
 	QUEUE_SIDE_MEMBER = "member"
 	QUEUE_SIDE_AGENT  = "agent"
+)
+
+const (
+	QueueChannelCall = "call"
+	QueueChannelChat = "chat"
+	QueueChannelTask = "task"
 )
 
 const (
@@ -81,9 +88,11 @@ type Queue struct {
 //FIXME  enum & queue_type
 func (q *Queue) Channel() string {
 	if q.Type == 6 {
-		return "chat"
+		return QueueChannelChat
+	} else if q.Type == 7 {
+		return QueueChannelTask
 	} else {
-		return "call"
+		return QueueChannelCall
 	}
 }
 

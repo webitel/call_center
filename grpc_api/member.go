@@ -68,8 +68,7 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 				out.Send(&cc.QueueEvent{
 					Data: &cc.QueueEvent_Bridged{
 						Bridged: &cc.QueueEvent_BridgedData{
-							AgentId:     0, //TODO
-							AgentCallId: "",
+							AgentId: 0, //TODO
 						},
 					},
 				})
@@ -91,6 +90,8 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 
 	bridged := attempt.On(queue.AttemptHookBridgedAgent)
 	leaving := attempt.On(queue.AttemptHookLeaving)
+	offering := attempt.On(queue.AttemptHookOfferingAgent)
+	missed := attempt.On(queue.AttemptHookMissedAgent)
 
 	for {
 		select {
@@ -103,13 +104,37 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 				},
 			})
 			goto stop
+
+		case _, ok := <-offering:
+			if ok {
+				a := attempt.Agent()
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Offering{
+						Offering: &cc.QueueEvent_OfferingData{
+							AgentId:   int32(a.Id()),
+							AgentName: a.Name(),
+						},
+					},
+				})
+			}
+
+		case _, ok := <-missed:
+			if ok {
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Missed{
+						Missed: &cc.QueueEvent_MissedAgent{
+							Timeout: 0,
+						},
+					},
+				})
+			}
+
 		case _, ok := <-bridged:
 			if ok {
 				out.Send(&cc.QueueEvent{
 					Data: &cc.QueueEvent_Bridged{
 						Bridged: &cc.QueueEvent_BridgedData{
-							AgentId:     0, //TODO
-							AgentCallId: "",
+							AgentId: 0, //TODO
 						},
 					},
 				})

@@ -15,7 +15,7 @@ func NewAgentApi(m *ccManager) AgentApi {
 	}
 }
 
-func (api *agentApi) Online(domainId, agentId int64, channels []string, onDemand bool) error {
+func (api *agentApi) Online(domainId, agentId int64, onDemand bool) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
@@ -23,7 +23,6 @@ func (api *agentApi) Online(domainId, agentId int64, channels []string, onDemand
 
 	_, err = cli.agent.Online(context.TODO(), &cc.OnlineRequest{
 		AgentId:  agentId,
-		Channels: channels,
 		OnDemand: onDemand,
 		DomainId: domainId,
 	})
@@ -73,4 +72,34 @@ func (api *agentApi) WaitingChannel(agentId int, channel string) (int64, error) 
 		return res.Timestamp, nil
 	}
 
+}
+
+func (api *agentApi) AcceptTask(appId string, domainId, attemptId int64) error {
+	cli, err := api.cli.getClient(appId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.agent.AcceptTask(context.Background(), &cc.AcceptTaskRequest{
+		Id:       attemptId,
+		AppId:    appId,
+		DomainId: domainId,
+	})
+
+	return err
+}
+
+func (api *agentApi) CloseTask(appId string, domainId, attemptId int64) error {
+	cli, err := api.cli.getClient(appId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.agent.CloseTask(context.Background(), &cc.CloseTaskRequest{
+		Id:       attemptId,
+		AppId:    appId,
+		DomainId: domainId,
+	})
+
+	return err
 }

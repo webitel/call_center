@@ -18,6 +18,7 @@ type ChannelEvent struct {
 
 //TODO refactoring call event to CC
 type Distribute struct {
+	AppId           string                    `json:"app_id"`
 	Channel         string                    `json:"channel"`
 	QueueId         int                       `json:"queue_id"`
 	MemberId        *int64                    `json:"member_id"`
@@ -25,6 +26,7 @@ type Distribute struct {
 	MemberChannelId *string                   `json:"member_channel_id"`
 	AgentChannelId  *string                   `json:"agent_channel_id"`
 	Communication   model.MemberCommunication `json:"communication"`
+	Variables       map[string]string         `json:"variables"`
 }
 
 type Offering struct {
@@ -90,11 +92,17 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			Status:    model.ChannelStateDistribute,
 		},
 		Distribute: Distribute{
+			AppId:         queue.AppId(),
 			Communication: a.communication,
 			Channel:       queue.Channel(),
 			QueueId:       queue.Id(),
 			MemberId:      a.MemberId(),
 		},
+	}
+
+	//todo: send all channel variables ?
+	if a.channel == model.QueueChannelTask {
+		e.Distribute.Variables = a.ExportVariables()
 	}
 
 	if agent != nil {
@@ -215,7 +223,7 @@ func NewWrapTimeEventEvent(a *Attempt, userId int64, timestamp int64, timeout in
 func NewWaitingChannelEvent(channel string, userId int64, attemptId *int64, timestamp int64) model.Event {
 	e := WaitingChannelEvent{
 		ChannelEvent: ChannelEvent{
-			Channel:   channel,
+			//Channel:   channel,
 			Timestamp: timestamp,
 			AttemptId: attemptId,
 			Status:    model.ChannelStateWaiting,

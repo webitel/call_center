@@ -2,14 +2,20 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 	"time"
 )
 
+const (
+	inviterChannelId = "inviter_channel_id"
+	inviterUserId    = "inviter_user_id"
+)
+
 type InboundChatQueueSettings struct {
-	HelloMessage           string `json:"hello_message"`
-	MaxNoMessageFromClient int    `json:"max_no_message_from"` // канал одлин, сесій багато
+	MaxNoMessageFromClient int `json:"max_no_message_from"` // канал одлин, сесій багато
 }
 
 type InboundChatQueue struct {
@@ -21,7 +27,6 @@ func NewInboundChatQueue(base BaseQueue) QueueObject {
 	return &InboundChatQueue{
 		BaseQueue: base,
 		settings: InboundChatQueueSettings{
-			HelloMessage:           "hello from queue",
 			MaxNoMessageFromClient: 10,
 		},
 	}
@@ -39,15 +44,17 @@ func (queue *InboundChatQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	}
 
 	//todo
-	inviterId, ok := attempt.GetVariable("inviter_channel_id")
+	inviterId, ok := attempt.GetVariable(inviterChannelId)
 	if !ok {
-		return NewErrorVariableRequired(queue, attempt, "inviter_channel_id")
+		return NewErrorVariableRequired(queue, attempt, inviterChannelId)
 	}
 	//todo
-	invUserId, ok := attempt.GetVariable("inviter_user_id")
+	invUserId, ok := attempt.GetVariable(inviterUserId)
 	if !ok {
-		return NewErrorVariableRequired(queue, attempt, "inviter_user_id")
+		return NewErrorVariableRequired(queue, attempt, inviterUserId)
 	}
+	attempt.RemoveVariable(inviterChannelId)
+	attempt.RemoveVariable(inviterUserId)
 
 	go queue.process(attempt, team, inviterId, invUserId)
 	return nil
@@ -64,13 +71,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 	}
 	attempt.SetState(model.MemberStateWaitAgent)
 
-	//var agent agent_manager.AgentObject
-	//
-	//ags := attempt.On(AttemptHookDistributeAgent)
-	//TODO
+	var agent agent_manager.AgentObject
+	ags := attempt.On(AttemptHookDistributeAgent)
 
-	var timeSec uint32 = 60
-	tstWaitAgg := time.NewTicker(time.Second * 20)
+	var timeSec uint32 = 2500
 	timeout := time.NewTimer(time.Second * time.Duration(timeSec))
 
 	var conv *chat.Conversation
@@ -81,82 +85,85 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		attempt.Log(err.Error())
 	}
 
-	if err = conv.SendText("Hello from queue " + queue.name); err != nil {
-		attempt.Log(err.Error())
-	}
-
 	loop := conv.Active()
-
-	go func() {
-		err = conv.InviteInternal(attempt.Context, 10, timeSec, "Q")
-		if err != nil {
-			//FIXME
-			attempt.Log(err.Error())
-		}
-	}()
 
 	for loop {
 		select {
-		case <-tstWaitAgg.C:
-			fmt.Println("SEND INVITE")
+		case <-ags:
+			agent = attempt.Agent()
+			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-			err = conv.InviteInternal(attempt.Context, 10, timeSec, "Q")
-			if err != nil {
-				//FIXME
-				attempt.Log(err.Error())
+			vars := map[string]string{
+				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
+				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", team.Id()),
+				model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
+				model.QUEUE_NAME_FIELD:       queue.Name(),
+				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
+				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
 			}
-			time.Sleep(time.Millisecond * 300)
+
+			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.CallTimeout(), queue.name, vars)
+			if err != nil {
+				// todo
+				attempt.Log(err.Error())
+				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				agent = nil
+				continue
+			}
+
+			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
+			// fixme new function
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, conv.MemberSession(), conv.LastSession()))
+			team.Offering(attempt, agent, conv.LastSession(), conv.MemberSession())
+
+			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
+
+		top:
+			for conv.Active() && conv.LastSession().StopAt == 0 {
+				select {
+				case state := <-conv.State():
+					switch state {
+					case chat.ChatStateInvite:
+						attempt.Log("invited")
+					case chat.ChatStateDeclined:
+						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
+						team.MissedAgentAndWaitingAttempt(attempt, agent)
+						attempt.Emit(AttemptHookMissedAgent, agent.Id())
+						agent = nil
+
+						break top
+					case chat.ChatStateBridge:
+						attempt.Log("bridged")
+						attempt.Emit(AttemptHookBridgedAgent, agent.Id())
+						timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
+						team.Bridged(attempt, agent)
+
+					default:
+						fmt.Println("QUEUE ERROR state ", state)
+					}
+				}
+			}
 
 		case <-timeout.C:
 			if conv.BridgedAt() > 0 {
 				timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
 				fmt.Println("TODO TIMEOUT NO MESSAGE CHECK LAST SEND FROM AGENT")
 			} else {
-				fmt.Println("TIMEOUT BREAK QUEUE")
+				attempt.Log("timeout")
 				conv.SetStop()
-			}
-
-		case state := <-conv.State():
-			switch state {
-			case chat.ChatStateInvite:
-				fmt.Println("QUEUE INVITE")
-			case chat.ChatStateDeclined:
-				fmt.Println("QUEUE DECLINE")
-			case chat.ChatStateBridge:
-				fmt.Println("QUEUE BRIDGED")
-				conv.SendText(fmt.Sprintf("My name is %s", "{{AGENT_NAME}}"))
-				timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
-				tstWaitAgg.Stop()
-
-			default:
-				fmt.Println("QUEUE ERROR state ", state)
+				break
 			}
 		}
 
 		loop = conv.Active()
 	}
 
-	tstWaitAgg.Stop()
-	//for conv != nil {
-	//	select {
-	//	case <-ags:
-	//		agent = attempt.Agent()
-	//		attempt.Log(fmt.Sprintf("agent %s", agent.Name()))
-	//
-	//		team.MissedAgentAndWaitingAttempt(attempt, agent)
-	//		agent = nil
-	//	case <-timeout.C:
-	//		attempt.Log("timeout")
-	//		goto stop
-	//	case <-attempt.Context.Done():
-	//		attempt.Log("cancel")
-	//		goto stop
-	//	}
-	//}
+	if agent != nil && conv.BridgedAt() > 0 {
+		team.Reporting(attempt, agent, false)
+	} else {
+		queue.queueManager.Abandoned(attempt)
+	}
 
-	//stop:
-
-	queue.queueManager.Abandoned(attempt)
 	go attempt.Emit(AttemptHookLeaving)
 	go attempt.Off("*")
 	queue.queueManager.LeavingMember(attempt, queue)

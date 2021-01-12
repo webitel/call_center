@@ -14,7 +14,7 @@ func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 	}
 }
 
-func (app *App) SetAgentOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+func (app *App) SetAgentOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	var agent *model.Agent
 	var err *model.AppError
 
@@ -29,7 +29,7 @@ func (app *App) SetAgentOnline(agentId int, channels []string, onDemand bool) (*
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return nil, err
 	} else {
-		return app.agentManager.SetOnline(agentObj, channels, onDemand)
+		return app.agentManager.SetOnline(agentObj, onDemand)
 	}
 }
 
@@ -96,6 +96,14 @@ func (app *App) WaitingAgentChannel(agentId int, channel string) (int64, *model.
 	} else {
 		return app.dialing.Manager().SetAgentWaitingChannel(agentObj, channel)
 	}
+}
+
+func (app *App) AcceptAgentTask(attemptId int64) *model.AppError {
+	return app.dialing.Manager().AcceptAgentTask(attemptId)
+}
+
+func (app *App) CloseAgentTask(attemptId int64) *model.AppError {
+	return app.dialing.Manager().CloseAgentTask(attemptId)
 }
 
 func getString(p *string) string {

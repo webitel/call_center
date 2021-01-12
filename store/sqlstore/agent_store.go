@@ -3,7 +3,6 @@ package sqlstore
 import (
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"net/http"
@@ -50,7 +49,7 @@ func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
 	if err := s.GetReplica().SelectOne(&agent, `
 			select a.id, a.user_id, a.domain_id, a.updated_at, coalesce( (u.name)::varchar, u.username) as name, 'sofia/sip/' || u.extension || '@' || d.name as destination, 
-			u.extension, a.status, a.status_payload, a.successively_no_answers, a.on_demand, 
+			u.extension, a.status, a.status_payload, a.on_demand, 
 			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media
 from cc_agent a
     inner join directory.wbt_user u on u.id = a.user_id
@@ -67,32 +66,6 @@ where a.id = :Id and u.extension notnull
 		}
 	} else {
 		return agent, nil
-	}
-}
-
-func (s SqlAgentStore) SaveActivityCallStatistic(agentId int, offeringAt, answerAt, bridgeStartAt, bridgeStopAt int64, nowAnswer bool) (int, *model.AppError) {
-	cnt, err := s.GetMaster().SelectInt(`with ag as (
-  select a.id as agent_id, a.max_no_answer, caa.successively_no_answers, (a.max_no_answer > 0 and a.max_no_answer > caa.successively_no_answers + 1) next_call
-  from cc_agent a
-    inner join cc_agent_activity caa on a.id = caa.agent_id
-  where a.id = :AgentId
-)
-update cc_agent_activity a
-set last_offering_call_at = :OfferingAt,
-    last_answer_at = case when :AnswerAt = 0::bigint then last_answer_at else :AnswerAt end,
-    last_bridge_start_at = case when :BridgedStartAt = 0::bigint then last_bridge_start_at else :BridgedStartAt end,
-    last_bridge_end_at = case when :BridgedStopAt = 0::bigint then last_bridge_end_at else :BridgedStopAt end,
-    calls_abandoned = case when :AnswerAt = 0::bigint then calls_abandoned + 1 else calls_abandoned end,
-    calls_answered = case when :AnswerAt != 0::bigint then calls_answered + 1 else calls_answered end,
-    successively_no_answers = case when :NoAnswer and ag.next_call is true then a.successively_no_answers + 1 else 0 end
-from ag
-where a.agent_id = ag.agent_id
-returning case when :NoAnswer and ag.max_no_answer > 0 and ag.next_call is false then 1 else 0 end stopped`, map[string]interface{}{"AgentId": agentId, "OfferingAt": offeringAt, "AnswerAt": answerAt, "BridgedStartAt": bridgeStartAt, "BridgedStopAt": bridgeStopAt, "NoAnswer": nowAnswer})
-	if err != nil {
-		return 0, model.NewAppError("SqlAgentStore.SaveActivityCallStatistic", "store.sql_agent.save_call_activity.app_error", nil,
-			fmt.Sprintf("AgentId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
-	} else {
-		return int(cnt), nil
 	}
 }
 
@@ -134,14 +107,13 @@ func (s SqlAgentStore) RefreshEndStateDay5Min() *model.AppError {
 	return nil
 }
 
-func (s SqlAgentStore) SetOnline(agentId int, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+func (s SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	var data *model.AgentOnlineData
 
-	err := s.GetMaster().SelectOne(&data, `select timestamp, channels
-		from cc_agent_set_login(:AgentId, :Channels::varchar[], :OnDemand) channels  (channels jsonb, timestamp int8)`,
+	err := s.GetMaster().SelectOne(&data, `select timestamp, channel
+		from cc_agent_set_login(:AgentId, :OnDemand) channels  (channel jsonb, timestamp int8)`,
 		map[string]interface{}{
 			"AgentId":  agentId,
-			"Channels": pq.Array(channels),
 			"OnDemand": onDemand,
 		})
 
@@ -154,20 +126,12 @@ func (s SqlAgentStore) SetOnline(agentId int, channels []string, onDemand bool) 
 }
 
 func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
-	if _, err := s.GetMaster().Exec(`with ag as (
-    update cc_agent
+	if _, err := s.GetMaster().Exec(`    update cc_agent
 			set status = :Status,
   			status_payload = :Payload,
-			last_state_change = now(),
-			successively_no_answers = 0
+			last_state_change = now()
     where id = :AgentId
-		and not exists(select 1 from cc_member_attempt att where att.agent_id = cc_agent.id and att.state = 'wait_agent' for update )
-    returning id
-)
-update cc_agent_channel c
- set online = false
-from ag 
-where ag.id = c.agent_id`, map[string]interface{}{
+		and not exists(select 1 from cc_member_attempt att where att.agent_id = cc_agent.id and att.state = 'wait_agent' for update )`, map[string]interface{}{
 		"AgentId": agentId,
 		"Status":  status,
 		"Payload": payload,
@@ -218,8 +182,7 @@ from cc_agent_set_channel_waiting(:AgentId, :Channel) as (joined_at timestamptz)
 func (s SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update cc_agent
 set status = :Status,
-	last_status_change = now(),
-    successively_no_answers = 0
+	last_status_change = now()
 where id = :Id`, map[string]interface{}{
 		"Id":     agentId,
 		"Status": model.AgentStatusPause,
@@ -255,6 +218,7 @@ func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppE
 	_, err := s.GetMaster().Select(&channels, `update cc_agent_channel
 set state = 'waiting',
     timeout = null,
+	channel = null,
     joined_at = now()
 from cc_agent a
 where timeout < now() and a.id = cc_agent_channel.agent_id

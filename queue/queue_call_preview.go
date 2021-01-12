@@ -48,12 +48,12 @@ func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 		return err
 	}
 
-	go queue.run(team, attempt, attempt.Agent(), attempt.Destination())
+	go queue.run(team, attempt, attempt.Agent())
 
 	return nil
 }
 
-func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject, destination string) {
+func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt, queue)

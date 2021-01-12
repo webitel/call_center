@@ -72,8 +72,8 @@ func (am *agentManager) GetAgent(id int, updatedAt int64) (AgentObject, *model.A
 	return agent, nil
 }
 
-func (am *agentManager) SetOnline(agent AgentObject, channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
-	data, err := am.store.Agent().SetOnline(agent.Id(), channels, onDemand)
+func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+	data, err := am.store.Agent().SetOnline(agent.Id(), onDemand)
 	if err != nil {
 		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" error: %s", agent.Name(), agent.Id(), model.AgentStatusOnline, err.Error()))
 		return nil, err

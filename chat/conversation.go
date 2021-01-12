@@ -73,12 +73,12 @@ func (c *Conversation) BridgedAt() int64 {
 	return c.bridgetAt
 }
 
-func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout uint32, title string) *model.AppError {
+func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout uint16, title string, vars map[string]string) *model.AppError {
 	sess := OutboundChat(c.cli, userId, c.id, c.inviterId, c.inviterUserId)
 	c.Lock()
 	c.sessions = append(c.sessions, sess)
 	c.Unlock()
-	invId, err := c.cli.InviteToConversation(ctx, c.DomainId, userId, c.id, c.inviterId, c.inviterUserId, title, int(timeout), c.variables)
+	invId, err := c.cli.InviteToConversation(ctx, c.DomainId, userId, c.id, c.inviterId, c.inviterUserId, title, int(timeout), model.UnionStringMaps(c.variables, vars))
 
 	if err != nil {
 		return model.NewAppError("Chat.InviteInternal", "chat.invite.internal.app_err", nil, err.Error(), http.StatusInternalServerError)
@@ -88,6 +88,22 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	c.Unlock()
 
 	return nil
+}
+
+func (c *Conversation) MemberSession() *ChatSession {
+	// todo
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.sessions[0]
+}
+
+func (c *Conversation) LastSession() *ChatSession {
+	// todo
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.sessions[len(c.sessions)-1]
 }
 
 func (c *Conversation) SendText(text string) *model.AppError {

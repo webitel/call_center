@@ -23,6 +23,7 @@ type QueueObject interface {
 	DomainId() int64
 	Channel() string
 	Id() int
+	AppId() string
 }
 
 type BaseQueue struct {
@@ -103,11 +104,17 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 
 	case model.QueueTypeChat:
 		return NewInboundChatQueue(base), nil
+	case model.QueueTypeAgentTask:
+		return NewTaskAgentQueue(base), nil
 
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
 	}
+}
+
+func (queue *BaseQueue) AppId() string {
+	return queue.queueManager.app.GetInstanceId()
 }
 
 func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
@@ -154,6 +161,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "predictive"
 	case model.QueueTypeChat:
 		return "inbound chat"
+	case model.QueueTypeAgentTask:
+		return "task"
 	default:
 		return "NOT_IMPLEMENT"
 	}

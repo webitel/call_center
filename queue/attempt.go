@@ -19,7 +19,9 @@ type Result string
 
 const (
 	AttemptHookDistributeAgent  = "agent"
+	AttemptHookOfferingAgent    = "offering"
 	AttemptHookBridgedAgent     = "bridged"
+	AttemptHookMissedAgent      = "missed"
 	AttemptHookLeaving          = "leaving"
 	AttemptHookReportingTimeout = "timeout"
 )
@@ -40,6 +42,7 @@ type Attempt struct {
 	agent         agent_manager.AgentObject
 	domainId      int64
 	channel       string
+	channelData   interface{} // for task queue
 
 	emitter.Emitter
 
@@ -168,7 +171,12 @@ func (a *Attempt) Destination() string {
 func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
-		res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
+		//todo is bug!
+		if a.channel == model.QueueChannelCall {
+			res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
+		} else {
+			res[k] = fmt.Sprintf("%v", v)
+		}
 	}
 	if a.member.Seq != nil {
 		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
@@ -204,6 +212,12 @@ func (a *Attempt) GetVariable(name string) (res string, ok bool) {
 	}
 
 	return
+}
+
+func (a *Attempt) RemoveVariable(name string) {
+	if a.member != nil && a.member.Variables != nil {
+		delete(a.member.Variables, name)
+	}
 }
 
 func (a *Attempt) MemberId() *int64 {

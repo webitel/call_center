@@ -12,6 +12,7 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/protos/cc"
 	"github.com/webitel/wlog"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -481,15 +482,53 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		e := WaitingChannelEvent{
 			ChannelEvent: ChannelEvent{
 				Timestamp: res.Timestamp,
-				Channel:   *res.Channel,
 				AttemptId: model.NewInt64(attemptId),
 				Status:    model.ChannelStateWaiting,
 			},
 		}
 
 		ev := model.NewEvent("channel", *res.UserId, e)
-		err = queueManager.mq.AgentChannelEvent(*res.Channel, *res.DomainId, 0, *res.UserId, ev)
+		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, res.QueueId, *res.UserId, ev)
 	}
 
 	return err
+}
+
+func (queueManager *QueueManager) getAgentTaskFromAttemptId(id int64) (*TaskChannel, *model.AppError) {
+	att, ok := queueManager.GetAttempt(id)
+	if !ok {
+		return nil, model.NewAppError("Queue.AcceptAgentTask", "queue.task.accept.not_found", nil,
+			fmt.Sprintf("not found attempt_id=%d", id), http.StatusNotFound)
+	}
+
+	if att.channelData == nil {
+		return nil, model.NewAppError("Queue.AcceptAgentTask", "queue.task.accept.valid.channel", nil,
+			fmt.Sprintf("attempt_id=%d not a agent task", id), http.StatusBadRequest)
+	}
+
+	task, ok := att.channelData.(*TaskChannel)
+	if !ok {
+		return nil, model.NewAppError("Queue.AcceptAgentTask", "queue.task.accept.valid.channel", nil,
+			fmt.Sprintf("attempt_id=%d not a agent task", id), http.StatusBadRequest)
+	}
+
+	return task, nil
+}
+
+func (queueManager *QueueManager) AcceptAgentTask(attemptId int64) *model.AppError {
+	task, err := queueManager.getAgentTaskFromAttemptId(attemptId)
+	if err != nil {
+		return err
+	}
+
+	return task.SetBridged()
+}
+
+func (queueManager *QueueManager) CloseAgentTask(attemptId int64) *model.AppError {
+	task, err := queueManager.getAgentTaskFromAttemptId(attemptId)
+	if err != nil {
+		return err
+	}
+
+	return task.SetClosed()
 }

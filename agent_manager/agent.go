@@ -32,10 +32,6 @@ func (agent *Agent) Name() string {
 	return agent.info.Name
 }
 
-func (agent *Agent) SuccessivelyNoAnswers() uint16 {
-	return uint16(agent.info.SuccessivelyNoAnswers)
-}
-
 func (agent *Agent) Id() int {
 	return agent.info.Id
 }
@@ -56,8 +52,8 @@ func (agent *Agent) CallNumber() string {
 	return agent.info.Extension
 }
 
-func (agent *Agent) Online(channels []string, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
-	return agent.manager.SetOnline(agent, channels, onDemand)
+func (agent *Agent) Online(onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+	return agent.manager.SetOnline(agent, onDemand)
 }
 
 func (agent *Agent) Offline() *model.AppError {

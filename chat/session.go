@@ -48,3 +48,12 @@ func OutboundChat(cli chat_manager.Chat, userId int64, conversationId, inviterId
 		cli:            cli,
 	}
 }
+
+func (c *ChatSession) Id() string {
+	if c.ChannelId != "" {
+
+		return c.ChannelId
+	}
+
+	return c.InviteId
+}
