@@ -452,8 +452,35 @@ func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt
 	}
 }
 
-func (queueManager *QueueManager) GetChat(id string) (*chat.ChatSession, *model.AppError) {
+func (queueManager *QueueManager) GetChat(id string) (*chat.Conversation, *model.AppError) {
 	return queueManager.app.GetChat(id)
+}
+
+func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult) (err *model.AppError) {
+
+	if res.Channel == nil || res.AgentCallId == nil {
+		return
+	}
+
+	switch *res.Channel {
+	case model.QueueChannelCall:
+		if call, ok := queueManager.callManager.GetCall(*res.AgentCallId); ok {
+			err = call.Hangup("", true)
+		}
+		break
+	case model.QueueChannelChat:
+		var conv *chat.Conversation
+		if conv, err = queueManager.GetChat(*res.AgentCallId); err == nil {
+			err = conv.Reporting()
+		}
+	case model.QueueChannelTask:
+		var task *TaskChannel
+		if task, err = queueManager.getAgentTaskFromAttemptId(attemptId); err == nil {
+			err = task.Reporting()
+		}
+	}
+
+	return
 }
 
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
@@ -470,13 +497,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		return err
 	}
 
-	if res.AgentCallId != nil && res.Channel != nil {
-		if call, ok := queueManager.callManager.GetCall(*res.AgentCallId); ok {
-			err = call.Hangup("", true)
-		}
-	} else {
-		// FIXME
-	}
+	err = queueManager.closeBeforeReporting(attemptId, res)
 
 	if res.UserId != nil && res.DomainId != nil {
 		e := WaitingChannelEvent{
@@ -521,7 +542,7 @@ func (queueManager *QueueManager) AcceptAgentTask(attemptId int64) *model.AppErr
 		return err
 	}
 
-	return task.SetBridged()
+	return task.SetAnswered()
 }
 
 func (queueManager *QueueManager) CloseAgentTask(attemptId int64) *model.AppError {

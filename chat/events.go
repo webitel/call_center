@@ -1,10 +1,10 @@
 package chat
 
 import (
-	"errors"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"net/http"
 )
 
 const (
@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
-	ErrBadId    = errors.New("bad conversation_id")
+	ErrNotFound = model.NewAppError("Chat", "chat.not_found", nil, "not found conversation", http.StatusNotFound)
+	ErrBadId    = model.NewAppError("Chat", "chat.valid.id", nil, "bad conversation_id", http.StatusBadRequest)
 )
 
 func (m *ChatManager) handleEvent(e *model.ChatEvent) {

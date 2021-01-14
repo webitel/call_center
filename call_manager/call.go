@@ -236,7 +236,7 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 		call.cm.removeFromCacheCall(call)
 		call.hangupAt = e.Timestamp
 		if call.hangupAt == 0 {
-			wlog.Error(fmt.Sprintf("call %s set server hangup time", call.Id()))
+			wlog.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
 			call.hangupAt = model.GetMillis()
 		}
 

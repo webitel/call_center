@@ -2,10 +2,11 @@ package chat
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 )
 
-func (m *ChatManager) GetConversation(conversationId string) (*Conversation, error) {
+func (m *ChatManager) GetConversation(conversationId string) (*Conversation, *model.AppError) {
 	if conversationId == "" {
 		return nil, ErrBadId
 	}

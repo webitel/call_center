@@ -16,5 +16,5 @@ type App interface {
 	FlowManager() client.FlowManager
 	ChatManager() *chat.ChatManager
 	GetCall(id string) (*model.Call, *model.AppError)
-	GetChat(id string) (*chat.ChatSession, *model.AppError)
+	GetChat(id string) (*chat.Conversation, *model.AppError)
 }

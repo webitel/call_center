@@ -27,6 +27,7 @@ type Distribute struct {
 	AgentChannelId  *string                   `json:"agent_channel_id"`
 	Communication   model.MemberCommunication `json:"communication"`
 	Variables       map[string]string         `json:"variables"`
+	HasReporting    bool                      `json:"has_reporting"`
 }
 
 type Offering struct {
@@ -84,9 +85,10 @@ type WaitingChannelEvent struct {
 	ChannelEvent
 }
 
-func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, mChannel, aChannel Channel) model.Event {
+func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, r bool, mChannel, aChannel Channel) model.Event {
 	e := DistributeEvent{
 		ChannelEvent: ChannelEvent{
+			Timestamp: model.GetMillis(), // todo from attempt!
 			Channel:   a.channel,
 			AttemptId: model.NewInt64(a.Id()),
 			Status:    model.ChannelStateDistribute,
@@ -97,6 +99,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			Channel:       queue.Channel(),
 			QueueId:       queue.Id(),
 			MemberId:      a.MemberId(),
+			HasReporting:  r,
 		},
 	}
 

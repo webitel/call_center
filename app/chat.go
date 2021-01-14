@@ -9,6 +9,6 @@ func (app *App) ChatManager() *chat.ChatManager {
 	return app.chatManager
 }
 
-func (app *App) GetChat(id string) (*chat.ChatSession, *model.AppError) {
-	return nil, nil
+func (app *App) GetChat(conversationId string) (*chat.Conversation, *model.AppError) {
+	return app.chatManager.GetConversation(conversationId)
 }

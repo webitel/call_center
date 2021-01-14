@@ -107,7 +107,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			agentCall = mCall.NewCall(cr)
 
 			// fixme new function
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, mCall, agentCall))
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mCall, agentCall))
 			team.Offering(attempt, agent, agentCall, mCall)
 			agentCall.Invite()
 

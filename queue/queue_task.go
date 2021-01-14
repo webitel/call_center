@@ -28,12 +28,13 @@ type TaskAgentQueueSettings struct {
 
 //todo max working task ?
 type TaskChannel struct {
-	id        string
-	state     TaskState
-	stateC    chan TaskState
-	createdAt int64
-	bridgedAt int64
-	closedAt  int64
+	id          string
+	state       TaskState
+	stateC      chan TaskState
+	createdAt   int64
+	answeredAt  int64
+	closedAt    int64
+	reportingAt int64
 	sync.RWMutex
 }
 
@@ -50,21 +51,28 @@ func (t *TaskChannel) Id() string {
 	return t.id
 }
 
+func (t *TaskChannel) ReportingAt() int64 {
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.reportingAt
+}
+
 func (t *TaskChannel) setState(state TaskState) {
 	t.state = state
 	t.stateC <- t.state
 }
 
-func (t *TaskChannel) SetBridged() *model.AppError {
+func (t *TaskChannel) SetAnswered() *model.AppError {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.bridgedAt != 0 {
+	if t.answeredAt != 0 {
 		return model.NewAppError("TaskChannel", "queue.task.valid.bridged_at", nil,
 			fmt.Sprintf("task %s is bridged", t.id), http.StatusBadRequest)
 	}
 
-	t.bridgedAt = model.GetMillis()
+	t.answeredAt = model.GetMillis()
 	t.setState(TaskStateBridged)
 	return nil
 }
@@ -83,10 +91,22 @@ func (t *TaskChannel) SetClosed() *model.AppError {
 	return nil
 }
 
+func (t *TaskChannel) Reporting() *model.AppError {
+	t.Lock()
+	t.reportingAt = model.GetMillis()
+	t.Unlock()
+
+	if t.closedAt == 0 {
+		return t.SetClosed()
+	}
+
+	return nil
+}
+
 func (t *TaskChannel) IsDeclined() bool {
 	t.RLock()
 	defer t.RUnlock()
-	return t.bridgedAt == 0
+	return t.answeredAt == 0
 }
 
 func NewTaskAgentQueue(base BaseQueue) QueueObject {
@@ -121,7 +141,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 	timeout := time.NewTimer(time.Second * time.Duration(team.CallTimeout()))
 	process := true
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, nil, task))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, task))
 
 	team.Offering(attempt, agent, task, nil)
 
@@ -131,7 +151,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 			switch s {
 			case TaskStateBridged:
 				timeout.Stop()
-				team.Bridged(attempt, agent)
+				team.Answered(attempt, agent)
 			case TaskStateClosed:
 				timeout.Stop()
 				process = false
@@ -146,7 +166,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 	if task.IsDeclined() {
 		team.CancelAgentAttempt(attempt, agent)
 	} else {
-		team.Reporting(attempt, agent, false)
+		team.Reporting(attempt, agent, task.ReportingAt() > 0)
 	}
 
 	queue.queueManager.LeavingMember(attempt, queue)

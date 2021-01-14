@@ -32,19 +32,37 @@ type Conversation struct {
 	createdAt     int64
 	bridgetAt     int64
 	closeAt       int64
+	reportingAt   int64
 	currentState  ChatState
 	state         chan ChatState
 	sync.RWMutex
 }
 
 func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, inviterUserId string, variables map[string]string) *Conversation {
+	// todo
+	sess := &ChatSession{
+		inviterId:      inviterId,
+		inviterUserId:  inviterUserId,
+		UserId:         0,
+		Direction:      ChatDirectionInbound,
+		ConversationId: id,
+		ChannelId:      id,
+		InviteId:       "",
+		InviteAt:       0,
+		CreatedAt:      0,
+		AnsweredAt:     0,
+		StopAt:         0,
+		cli:            cli,
+		variables:      variables,
+	}
+
 	return &Conversation{
 		id:            id,
 		inviterId:     inviterId,
 		inviterUserId: inviterUserId,
 		DomainId:      domainId,
 		variables:     variables,
-		sessions:      make([]*ChatSession, 0, 1), // ?
+		sessions:      []*ChatSession{sess},
 		currentState:  ChatStateIdle,
 		state:         make(chan ChatState),
 		cli:           cli,
@@ -90,6 +108,23 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	return nil
 }
 
+func (c *Conversation) Reporting() *model.AppError {
+	sess := c.LastSession()
+	if sess.StopAt != 0 {
+		return model.NewAppError("Chat.Reporting", "chat.reporting.valid.stop_at", nil, "Chat is closed", http.StatusBadRequest)
+	}
+
+	c.Lock()
+	c.reportingAt = model.GetMillis()
+	c.Unlock()
+	err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId)
+	if err != nil {
+		return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (c *Conversation) MemberSession() *ChatSession {
 	// todo
 	c.RLock()
@@ -104,6 +139,13 @@ func (c *Conversation) LastSession() *ChatSession {
 	defer c.RUnlock()
 
 	return c.sessions[len(c.sessions)-1]
+}
+
+func (c *Conversation) ReportingAt() int64 {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.reportingAt
 }
 
 func (c *Conversation) SendText(text string) *model.AppError {

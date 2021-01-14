@@ -12,7 +12,7 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20201229081853-f0832da3adcc
 	github.com/webitel/flow_manager v0.0.0-20201229083753-702726cbbc87
-	github.com/webitel/protos/cc v0.0.0-20201211125418-3d7d9b05c841
+	github.com/webitel/protos/cc v0.0.0-20210114122421-ff3c8de4bdd2
 	github.com/webitel/protos/workflow v0.0.0-20201229081651-74c4198d5a9a
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	go.uber.org/atomic v1.7.0
