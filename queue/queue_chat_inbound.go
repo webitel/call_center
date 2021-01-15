@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
@@ -15,7 +16,8 @@ const (
 )
 
 type InboundChatQueueSettings struct {
-	MaxNoMessageFromClient int `json:"max_no_message_from"` // канал одлин, сесій багато
+	MaxNoMessageFromClient int    `json:"max_no_message_from"` // канал одлин, сесій багато
+	MaxWaitTime            uint32 `json:"max_wait_time"`
 }
 
 type InboundChatQueue struct {
@@ -23,12 +25,20 @@ type InboundChatQueue struct {
 	settings InboundChatQueueSettings
 }
 
-func NewInboundChatQueue(base BaseQueue) QueueObject {
+func InboundChatQueueFromBytes(data []byte) InboundChatQueueSettings {
+	var settings InboundChatQueueSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewInboundChatQueue(base BaseQueue, settings InboundChatQueueSettings) QueueObject {
+	if settings.MaxWaitTime == 0 {
+		settings.MaxWaitTime = 60
+	}
+
 	return &InboundChatQueue{
 		BaseQueue: base,
-		settings: InboundChatQueueSettings{
-			MaxNoMessageFromClient: 10,
-		},
+		settings:  settings,
 	}
 }
 
@@ -74,7 +84,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 	var agent agent_manager.AgentObject
 	ags := attempt.On(AttemptHookDistributeAgent)
 
-	var timeSec uint32 = 2500
+	var timeSec uint32 = queue.settings.MaxWaitTime
 	timeout := time.NewTimer(time.Second * time.Duration(timeSec))
 
 	var conv *chat.Conversation

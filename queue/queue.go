@@ -103,7 +103,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeChat:
-		return NewInboundChatQueue(base), nil
+		return NewInboundChatQueue(base, InboundChatQueueFromBytes(settings.Payload)), nil
 	case model.QueueTypeAgentTask:
 		return NewTaskAgentQueue(base), nil
 
