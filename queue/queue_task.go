@@ -32,7 +32,7 @@ type TaskChannel struct {
 	state       TaskState
 	stateC      chan TaskState
 	createdAt   int64
-	answeredAt  int64
+	bridgedAt   int64
 	closedAt    int64
 	reportingAt int64
 	sync.RWMutex
@@ -67,12 +67,12 @@ func (t *TaskChannel) SetAnswered() *model.AppError {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.answeredAt != 0 {
+	if t.bridgedAt != 0 {
 		return model.NewAppError("TaskChannel", "queue.task.valid.bridged_at", nil,
 			fmt.Sprintf("task %s is bridged", t.id), http.StatusBadRequest)
 	}
 
-	t.answeredAt = model.GetMillis()
+	t.bridgedAt = model.GetMillis()
 	t.setState(TaskStateBridged)
 	return nil
 }
@@ -106,7 +106,7 @@ func (t *TaskChannel) Reporting() *model.AppError {
 func (t *TaskChannel) IsDeclined() bool {
 	t.RLock()
 	defer t.RUnlock()
-	return t.answeredAt == 0
+	return t.bridgedAt == 0
 }
 
 func NewTaskAgentQueue(base BaseQueue) QueueObject {
@@ -151,7 +151,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 			switch s {
 			case TaskStateBridged:
 				timeout.Stop()
-				team.Answered(attempt, agent)
+				team.Bridged(attempt, agent)
 			case TaskStateClosed:
 				timeout.Stop()
 				process = false
