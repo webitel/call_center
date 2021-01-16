@@ -247,5 +247,7 @@ func (c *Conversation) SetStop() {
 	c.Lock()
 	defer c.Unlock()
 
-	c.closeAt = model.GetMillis()
+	if c.closeAt == 0 {
+		c.closeAt = model.GetMillis()
+	}
 }

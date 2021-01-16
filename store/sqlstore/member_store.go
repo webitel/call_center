@@ -155,6 +155,12 @@ where id = :Id`, map[string]interface{}{
 func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int) (*model.InboundChatQueue, *model.AppError) {
 	var attempt *model.InboundChatQueue
 
+	var v *string
+	if vars != nil {
+		v = new(string)
+		*v = model.MapToJson(vars)
+	}
+
 	if err := s.GetMaster().SelectOne(&attempt, `select *
 		from cc_distribute_inbound_chat_to_queue(:AppId::varchar, :QueueId::int8, :ConvId::varchar, :Variables::jsonb,
 	:BucketId::int, :Priority::int) 
@@ -174,7 +180,7 @@ as x (
 			"AppId":     node,
 			"QueueId":   queueId,
 			"ConvId":    convId,
-			"Variables": model.MapToJson(vars),
+			"Variables": v,
 			"BucketId":  bucketId,
 			"Priority":  priority,
 		}); err != nil {

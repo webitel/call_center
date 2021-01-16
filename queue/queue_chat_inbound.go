@@ -99,6 +99,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	for loop {
 		select {
+		case <-attempt.Context.Done():
+			conv.SetStop()
+
 		case <-ags:
 			agent = attempt.Agent()
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
@@ -132,6 +135,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		top:
 			for conv.Active() && conv.LastSession().StopAt == 0 {
 				select {
+				case <-attempt.Context.Done():
+					conv.SetStop()
 				case state := <-conv.State():
 					switch state {
 					case chat.ChatStateInvite:
@@ -148,6 +153,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 						attempt.Emit(AttemptHookBridgedAgent, agent.Id())
 						timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
 						team.Bridged(attempt, agent)
+					case chat.ChatStateClose:
+						attempt.Log("closed")
+						conv.SetStop()
 
 					default:
 						fmt.Println("QUEUE ERROR state ", state)
