@@ -15,9 +15,14 @@ const (
 	inviterUserId    = "inviter_user_id"
 )
 
+const (
+	timerCheckIdle = 5
+)
+
 type InboundChatQueueSettings struct {
-	MaxNoMessageFromClient int    `json:"max_no_message_from"` // канал одлин, сесій багато
-	MaxWaitTime            uint32 `json:"max_wait_time"`
+	MaxIdleClient int64  `json:"max_idle_client"`
+	MaxIdleAgent  int64  `json:"max_idle_agent"`
+	MaxWaitTime   uint32 `json:"max_wait_time"`
 }
 
 type InboundChatQueue struct {
@@ -33,7 +38,15 @@ func InboundChatQueueFromBytes(data []byte) InboundChatQueueSettings {
 
 func NewInboundChatQueue(base BaseQueue, settings InboundChatQueueSettings) QueueObject {
 	if settings.MaxWaitTime == 0 {
-		settings.MaxWaitTime = 60
+		settings.MaxWaitTime = 300
+	}
+
+	if settings.MaxIdleClient == 0 {
+		settings.MaxIdleClient = 86400
+	}
+
+	if settings.MaxIdleAgent == 0 {
+		settings.MaxIdleAgent = 86400
 	}
 
 	return &InboundChatQueue{
@@ -97,6 +110,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	loop := conv.Active()
 
+	mSess := conv.MemberSession()
+	var aSess *chat.ChatSession
+
 	for loop {
 		select {
 		case <-attempt.Context.Done():
@@ -116,6 +132,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
 			}
 
+			//todo close
 			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.CallTimeout(), queue.name, vars)
 			if err != nil {
 				// todo
@@ -127,31 +144,44 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
 			// fixme new function
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), conv.MemberSession(), conv.LastSession()))
-			team.Offering(attempt, agent, conv.LastSession(), conv.MemberSession())
+			aSess = conv.LastSession()
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mSess, aSess))
 
 			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
 
 		top:
-			for conv.Active() && conv.LastSession().StopAt == 0 {
+			for conv.Active() && aSess.StopAt == 0 {
 				select {
+				case <-timeout.C:
+					if conv.BridgedAt() > 0 {
+						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec()))
+
+						if aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent {
+							attempt.Log("max idle agent")
+							aSess.Leave()
+							break
+						}
+						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
+					}
 				case <-attempt.Context.Done():
 					conv.SetStop()
 				case state := <-conv.State():
 					switch state {
 					case chat.ChatStateInvite:
 						attempt.Log("invited")
+						team.Offering(attempt, agent, conv.LastSession(), conv.MemberSession())
 					case chat.ChatStateDeclined:
 						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
 						team.MissedAgentAndWaitingAttempt(attempt, agent)
 						attempt.Emit(AttemptHookMissedAgent, agent.Id())
 						agent = nil
+						aSess = nil
 
 						break top
 					case chat.ChatStateBridge:
 						attempt.Log("bridged")
 						attempt.Emit(AttemptHookBridgedAgent, agent.Id())
-						timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
+						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 						team.Bridged(attempt, agent)
 					case chat.ChatStateClose:
 						attempt.Log("closed")
@@ -165,8 +195,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 		case <-timeout.C:
 			if conv.BridgedAt() > 0 {
-				timeout.Reset(time.Second * time.Duration(queue.settings.MaxNoMessageFromClient))
-				fmt.Println("TODO TIMEOUT NO MESSAGE CHECK LAST SEND FROM AGENT")
+				timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 			} else {
 				attempt.Log("timeout")
 				conv.SetStop()
@@ -177,8 +206,12 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		loop = conv.Active()
 	}
 
-	if agent != nil && conv.BridgedAt() > 0 {
-		team.Reporting(attempt, agent, conv.ReportingAt() > 0)
+	if agent != nil {
+		if conv.BridgedAt() > 0 {
+			team.Reporting(attempt, agent, conv.ReportingAt() > 0)
+		} else {
+			team.Missed(attempt, 0, agent)
+		}
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

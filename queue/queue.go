@@ -314,7 +314,7 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\"", attempt.Id(), agent.Name()))
+	wlog.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.AgentObject) {

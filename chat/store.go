@@ -25,7 +25,7 @@ func (m *ChatManager) StoreConversation(chat *Conversation) {
 	}
 
 	m.chats.AddWithDefaultExpires(chat.id, chat)
-	wlog.Debug(fmt.Sprintf("chat [%s] save to store domaind_Id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
+	wlog.Debug(fmt.Sprintf("chat [%s] save to store domaind_Id=%d, chat_user_id=%s len=%d", chat.id, chat.DomainId, chat.inviterUserId, m.chats.Len()))
 }
 
 func (m *ChatManager) RemoveConversation(chat *Conversation) {
@@ -35,5 +35,5 @@ func (m *ChatManager) RemoveConversation(chat *Conversation) {
 	}
 
 	m.chats.Remove(chat.id)
-	wlog.Debug(fmt.Sprintf("chat [%s] remove from store domaind_id=%d, chat_user_id=%d", chat.id, chat.DomainId, chat.inviterUserId))
+	wlog.Debug(fmt.Sprintf("chat [%s] remove from store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
 }

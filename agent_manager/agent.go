@@ -71,3 +71,8 @@ func (agent *Agent) IsOnDemand() bool {
 func (agent *Agent) GreetingMedia() *model.RingtoneFile {
 	return agent.info.GreetingMedia
 }
+
+func (agent *Agent) SetOnDemand(v bool) {
+	//todo mutex
+	agent.info.OnDemand = v
+}

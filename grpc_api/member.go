@@ -82,8 +82,7 @@ stop:
 }
 
 func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
-	ctx := context.Background()
-	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(ctx, in)
+	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(out.Context(), in)
 	if err != nil {
 		return err
 	}

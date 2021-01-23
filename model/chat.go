@@ -43,6 +43,14 @@ func (c ChatEvent) ChannelId() string {
 	return ""
 }
 
+func (c ChatEvent) MessageChannelId() string {
+	if k, ok := c.Data["channel_id"].(string); ok {
+		return k
+	}
+
+	return ""
+}
+
 func (c ChatEvent) InviteId() string {
 	i, _ := c.Data["invite_id"].(string)
 	return i

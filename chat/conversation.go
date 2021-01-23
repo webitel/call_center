@@ -64,7 +64,7 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		variables:     variables,
 		sessions:      []*ChatSession{sess},
 		currentState:  ChatStateIdle,
-		state:         make(chan ChatState),
+		state:         make(chan ChatState, 5), //TODO
 		cli:           cli,
 	}
 }
@@ -191,6 +191,7 @@ func (c *Conversation) getSessionByChannelId(chanId string) *ChatSession {
 func (c *Conversation) setInvite(inviteId string, timestamp int64) {
 	sess := c.getSessionByInviteId(inviteId)
 	if sess != nil {
+		sess.SetActivity()
 		sess.InviteId = inviteId
 		sess.InviteAt = timestamp
 		c.state <- ChatStateInvite
@@ -211,10 +212,18 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 	if sess != nil {
 		sess.ChannelId = channelId
 		sess.AnsweredAt = timestamp
+		sess.SetActivity()
 		c.bridgetAt = timestamp // TODO created from register in queue
 		c.state <- ChatStateBridge
 	} else {
 		wlog.Warn(fmt.Sprintf("Conversation %s not found chanel_id %s", c.id, channelId))
+	}
+}
+
+func (c *Conversation) setNewMessage(channelId string) {
+	sess := c.getSessionByChannelId(channelId)
+	if sess != nil {
+		sess.SetActivity()
 	}
 }
 

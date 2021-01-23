@@ -78,6 +78,8 @@ func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.Agen
 		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" error: %s", agent.Name(), agent.Id(), model.AgentStatusOnline, err.Error()))
 		return nil, err
 	}
+
+	agent.SetOnDemand(onDemand)
 	//FIXME add pool send event
 	return data, am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventOnlineStatus(agent, data, onDemand))
 }

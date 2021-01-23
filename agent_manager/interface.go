@@ -30,6 +30,7 @@ type AgentObject interface {
 	Online(onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
+	SetOnDemand(v bool)
 	IsOnDemand() bool
 	GreetingMedia() *model.RingtoneFile
 }

@@ -126,12 +126,19 @@ func (s SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnline
 }
 
 func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
-	if _, err := s.GetMaster().Exec(`    update cc_agent
+	if _, err := s.GetMaster().Exec(`with ag as (
+	update cc_agent
 			set status = :Status,
   			status_payload = :Payload,
 			last_state_change = now()
     where id = :AgentId
-		and not exists(select 1 from cc_member_attempt att where att.agent_id = cc_agent.id and att.state = 'wait_agent' for update )`, map[string]interface{}{
+		and not exists(select 1 from cc_member_attempt att where att.agent_id = cc_agent.id and att.state = 'wait_agent' for update )
+    returning id
+)
+update cc_agent_channel c
+ set online = false
+from ag 
+where c.agent_id = ag.id`, map[string]interface{}{
 		"AgentId": agentId,
 		"Status":  status,
 		"Payload": payload,

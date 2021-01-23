@@ -33,22 +33,21 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 		return
 	}
 
+	wlog.Debug(fmt.Sprintf("chat receive [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
+
 	switch e.Name {
 	case ChatEventInvite:
 		chat.setInvite(e.InviteId(), e.Timestamp())
-		fmt.Println("NEW INVITE")
 	case ChatEventDecline:
 		chat.setDeclined(e.InviteId(), e.Timestamp())
-		fmt.Println("NEW DECLINED")
 	case ChatEventJoined:
 		chat.setJoined(e.ChannelId(), e.Timestamp())
-		fmt.Println("NEW JOINED")
 
 	case ChatEventMessage:
-		fmt.Println("NEW MESSAGE")
+		chat.setNewMessage(e.MessageChannelId())
 	case ChatEventLeave, ChatEventClose:
 		chat.setClose(e.Timestamp())
-		fmt.Println("CLOSE")
+		m.RemoveConversation(chat)
 	default:
 		wlog.Warn(fmt.Sprintf("skip [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
 	}
