@@ -24,7 +24,7 @@ var (
 func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 	chat, err := m.GetConversation(e.ConversationId())
 	if err != nil {
-		wlog.Warn(fmt.Sprintf("chat %s: %s", e.ConversationId(), err.Error()))
+		wlog.Warn(fmt.Sprintf("chat %s [%s]: %s", e.ConversationId(), e.Name, err.Error()))
 		return
 	}
 

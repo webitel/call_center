@@ -162,6 +162,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 							break
 						}
 						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
+					} else {
+						attempt.Log("timeout")
+						conv.SetStop()
+						break
 					}
 				case <-attempt.Context.Done():
 					conv.SetStop()
@@ -218,5 +222,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	go attempt.Emit(AttemptHookLeaving)
 	go attempt.Off("*")
+
+	queue.queueManager.app.ChatManager().RemoveConversation(conv)
 	queue.queueManager.LeavingMember(attempt, queue)
 }

@@ -149,13 +149,14 @@ begin
     set status            = 'online', -- enum added
         status_payload = null,
         on_demand = on_demand_,
---         updated_at = cc_view_timestamp(now()), -- todo
+--         updated_at = case when on_demand != on_demand_ then cc_view_timestamp(now()) else updated_at end,
         last_state_change = now()     -- todo rename to status
     where cc_agent.id = agent_id_;
 
     update cc_agent_channel c
         set  channel = case when x.x = 1 then c.channel end,
             state = case when x.x = 1 then c.state else 'waiting' end,
+            online = true,
             no_answers = 0
     from cc_agent_channel c2
         left join LATERAL (
@@ -295,6 +296,7 @@ begin
         update cc_agent_channel ch
         set state = attempt.state,
             no_answers = 0,
+            joined_at = attempt.bridged_at,
             last_bridged_at = now()
         where  ch.agent_id = attempt.agent_id;
     end if;
@@ -1230,14 +1232,13 @@ BEGIN
       _attempt.queue_id::int,
       _queue_updated_at::int8,
       _attempt.destination::jsonb,
-      variables_::jsonb || jsonb_build_object('inviter_channel_id', _inviter_channel_id)|| jsonb_build_object('inviter_user_id', _inviter_user_id),
+      coalesce((variables_::jsonb), '{}'::jsonb) || jsonb_build_object('inviter_channel_id', _inviter_channel_id) || jsonb_build_object('inviter_user_id', _inviter_user_id),
       _conversation_id::varchar,
       _team_updated_at::int8,
 
       _conversation_id::varchar,
       cc_view_timestamp(_con_created)::int8
   );
-
 END;
 $$;
 
@@ -1779,9 +1780,19 @@ BEGIN
       new.queue_id := null;
   end if;
 
-  --fixme
+  --fixme error when agent set offline/pause in active call
   if new.joined_at - old.joined_at = interval '0' then
+--       raise exception 'dev';
         return new;
+  end if;
+
+  if coalesce(new.channel, '') != coalesce(old.channel, '') then
+      new.channel_changed_at = now();
+  end if;
+
+  if new.channel = 'chat' or old.channel = 'chat' then
+      
+      return new;
   end if;
 
   insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
@@ -2016,7 +2027,9 @@ CREATE TABLE call_center.cc_agent_channel (
     last_offering_at timestamp with time zone,
     last_bridged_at timestamp with time zone,
     last_missed_at timestamp with time zone,
-    last_bucket_id integer
+    last_bucket_id integer,
+    channel_changed_at timestamp with time zone DEFAULT now() NOT NULL,
+    online boolean DEFAULT false NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -2032,7 +2045,8 @@ CREATE TABLE call_center.cc_agent_state_history (
     state character varying(20) NOT NULL,
     channel character varying,
     duration interval DEFAULT '00:00:00'::interval NOT NULL,
-    payload character varying
+    payload character varying,
+    queue_id integer
 );
 
 
@@ -2375,7 +2389,8 @@ CREATE TABLE call_center.cc_queue (
     description character varying DEFAULT ''::character varying,
     ringtone_id integer,
     do_schema_id integer,
-    after_schema_id integer
+    after_schema_id integer,
+    sticky_agent boolean DEFAULT false NOT NULL
 );
 
 
@@ -4821,13 +4836,6 @@ CREATE INDEX cc_member_attempt_history_queue_id_leaving_at_index ON call_center.
 
 
 --
--- Name: cc_member_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_member_attempt_id_uindex ON call_center.cc_member_attempt USING btree (id);
-
-
---
 -- Name: cc_member_attempt_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -4845,14 +4853,14 @@ CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt U
 -- Name: cc_member_dis_fifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, priority DESC, ready_at, id) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, ready_at, priority DESC, id) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
 
 
 --
 -- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, priority DESC, ready_at, id DESC) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, ready_at, priority DESC, id DESC) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
 
 
 --
@@ -5498,6 +5506,13 @@ CREATE TRIGGER tg_cc_set_agent_change_status_i AFTER INSERT ON call_center.cc_ag
 --
 
 CREATE TRIGGER tg_cc_set_agent_change_status_u AFTER UPDATE ON call_center.cc_agent FOR EACH ROW WHEN ((((old.status)::text <> (new.status)::text) OR ((old.status_payload)::text <> (new.status_payload)::text))) EXECUTE FUNCTION call_center.cc_set_agent_change_status();
+
+
+--
+-- Name: cc_agent_channel tg_cc_set_agent_channel_change_status_u; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER tg_cc_set_agent_channel_change_status_u BEFORE UPDATE ON call_center.cc_agent_channel FOR EACH ROW WHEN ((((old.state)::text <> (new.state)::text) OR (old.online <> new.online))) EXECUTE FUNCTION call_center.cc_set_agent_channel_change_status();
 
 
 --

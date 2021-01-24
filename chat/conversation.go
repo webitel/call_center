@@ -259,4 +259,6 @@ func (c *Conversation) SetStop() {
 	if c.closeAt == 0 {
 		c.closeAt = model.GetMillis()
 	}
+
+	//todo remove store ?
 }
