@@ -468,8 +468,8 @@ begin
         update cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
-            channel = null,
-            no_answers = no_answers + 1,
+            channel = case when agent_hold_sec_ > 0 then channel else null end,
+            no_answers = case when attempt.bridged_at notnull then 0 else no_answers + 1 end,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
         where c.agent_id = attempt.agent_id;
 
