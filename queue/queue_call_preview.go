@@ -79,6 +79,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
 
 				"hangup_after_bridge": "true",
+				"continue_on_fail":    "true",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -114,7 +115,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: make([]*model.CallRequestApplication, 0, 2),
+		Applications: make([]*model.CallRequestApplication, 0, 3),
 	}
 
 	call := queue.NewCall(callRequest)
@@ -126,6 +127,11 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
 		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), display, queue.OriginateTimeout),
+	})
+
+	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		AppName: "playback",
+		Args:    "tone_stream://L=3;%(400,400,425)",
 	})
 
 	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, call))
