@@ -534,7 +534,7 @@ begin
         last_state_change = now(),
 --         destination = dest_,
         display = displ_,
-        offering_at       = coalesce(offering_at, now()),
+        offering_at       = now(),
         agent_id          = case when agent_id isnull and agent_id_::int notnull then agent_id_ else agent_id end,
         agent_call_id     = case
                                 when agent_call_id isnull and agent_call_id_::varchar notnull then agent_call_id_
@@ -2338,7 +2338,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     conversation_id bigint,
     resource_group_id integer,
     destination jsonb,
-    seq integer DEFAULT 0 NOT NULL
+    seq integer DEFAULT 0 NOT NULL,
+    answered_at timestamp with time zone
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
