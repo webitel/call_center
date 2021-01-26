@@ -96,15 +96,22 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	c.Lock()
 	c.sessions = append(c.sessions, sess)
 	c.Unlock()
-	invId, err := c.cli.InviteToConversation(ctx, c.DomainId, userId, c.id, c.inviterId, c.inviterUserId, title, int(timeout), model.UnionStringMaps(c.variables, vars))
+
+	invId, err := c.cli.InviteToConversation(ctx, c.DomainId, userId, c.id, c.inviterId, c.inviterUserId, title, int(timeout),
+		model.UnionStringMaps(c.variables, vars))
 
 	if err != nil {
 		return model.NewAppError("Chat.InviteInternal", "chat.invite.internal.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
+
+	//todo
 	c.Lock()
+	sess.SetActivity()
 	sess.InviteId = invId
+	sess.InviteAt = model.GetMillis() //todo
 	c.Unlock()
 
+	c.state <- ChatStateInvite
 	return nil
 }
 
