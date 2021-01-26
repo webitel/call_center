@@ -37,7 +37,7 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 
 	switch e.Name {
 	case ChatEventInvite:
-		chat.setInvite(e.InviteId(), e.Timestamp())
+		//chat.setInvite(e.InviteId(), e.Timestamp())
 	case ChatEventDecline:
 		chat.setDeclined(e.InviteId(), e.Timestamp())
 	case ChatEventJoined:

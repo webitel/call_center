@@ -53,7 +53,7 @@ func (api *memberApi) DirectAgentToMember(domainId int64, memberId int64, commun
 }
 
 func (api *memberApi) AttemptResult(attemptId int64, status, description string, nextOffering *int64, expireAt *int64, vars map[string]string,
-	stickyDisplay bool) error {
+	stickyDisplay bool, agentId int32) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
@@ -65,6 +65,7 @@ func (api *memberApi) AttemptResult(attemptId int64, status, description string,
 		Variables:   vars,
 		Display:     stickyDisplay,
 		Description: description,
+		AgentId:     agentId,
 	}
 
 	if nextOffering != nil {

@@ -451,16 +451,17 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 	return attempts, nil
 }
 
-func (s *SqlMemberStore) CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64) (*model.AttemptReportingResult, *model.AppError) {
+func (s *SqlMemberStore) CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64, agentId *int) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status, :Description, :ExpireAt, :NextDistributeAt) as
+from cc_attempt_end_reporting(:AttemptId::int8, :Status, :Description, :ExpireAt, :NextDistributeAt, :StickyAgentId) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)`, map[string]interface{}{
 		"AttemptId":        attemptId,
 		"Status":           status,
 		"Description":      description,
 		"ExpireAt":         expireAt,
 		"NextDistributeAt": nextDistributeAt,
+		"StickyAgentId":    agentId,
 	})
 
 	if err != nil {

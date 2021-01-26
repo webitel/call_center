@@ -17,7 +17,7 @@ func NewMemberApi(app *app.App) *member {
 }
 
 func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
-	result := model.AttemptResult2{
+	result := model.AttemptCallback{
 		Success:     false,
 		Status:      in.GetStatus(),
 		Description: in.GetDescription(),
@@ -30,6 +30,10 @@ func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultReques
 
 	if in.NextDistributeAt > 0 {
 		result.NextCall = model.NewInt64(in.NextDistributeAt)
+	}
+
+	if in.AgentId > 0 {
+		result.StickyAgentId = model.NewInt(int(in.AgentId))
 	}
 
 	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result)

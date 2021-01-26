@@ -124,18 +124,16 @@ type AttemptOfferingAgent struct {
   name?: string
   timezone?: object
 */
-type AttemptCallback struct {
-	Success bool
-}
 
-type AttemptResult2 struct {
+type AttemptCallback struct {
 	Success bool `json:"success"`
 
-	Status      string `json:"status"`
-	Description string `json:"description"`
-	Display     bool   `json:"display"`
-	ExpireAt    *int64 `json:"expire_at"`
-	NextCall    *int64 `json:"next_call"`
+	Status        string `json:"status"`
+	Description   string `json:"description"`
+	Display       bool   `json:"display"`
+	ExpireAt      *int64 `json:"expire_at"`
+	NextCall      *int64 `json:"next_call"`
+	StickyAgentId *int   `json:"sticky_agent_id"`
 }
 
 type AttemptReportingResult struct {

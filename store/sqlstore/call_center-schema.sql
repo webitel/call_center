@@ -339,10 +339,10 @@ $$;
 
 
 --
--- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ bigint DEFAULT NULL::bigint, next_offering_at_ bigint DEFAULT NULL::bigint, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ bigint DEFAULT NULL::bigint, next_offering_at_ bigint DEFAULT NULL::bigint, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -376,10 +376,10 @@ begin
     set last_hangup_at  = time_,
         variables = case when variables_ isnull then variables else variables_ end,
         expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
+        agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
         stop_at = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
         stop_cause = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
---         ready_at = now() + (q._next_after || ' sec')::interval,
 
         ready_at = case when next_offering_at_ notnull then to_timestamp((next_offering_at_/1000)::double precision)
             else now() + (q._next_after || ' sec')::interval end,
@@ -668,7 +668,7 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     amd_duration interval,
     tags character varying[]
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
+WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
 
 --
@@ -2294,7 +2294,6 @@ CREATE TABLE call_center.cc_member (
     timezone_id integer,
     last_agent integer,
     sys_offset_id smallint,
-    min_offering_at bigint DEFAULT 0 NOT NULL,
     created_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint,
     domain_id bigint NOT NULL,
     skill_id integer,
@@ -2341,7 +2340,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     destination jsonb,
     seq integer DEFAULT 0 NOT NULL
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
+WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
 
 --
@@ -2821,7 +2820,8 @@ SELECT
     NULL::integer[] AS offset_ids,
     NULL::integer AS lim,
     NULL::bigint AS domain_id,
-    NULL::integer AS priority;
+    NULL::integer AS priority,
+    NULL::boolean AS sticky_agent;
 
 
 --
@@ -3471,7 +3471,8 @@ CREATE VIEW call_center.cc_queue_list AS
     call_center.cc_get_lookup(afs.id, afs.name) AS after_schema,
     COALESCE(ss.member_count, (0)::bigint) AS count,
     COALESCE(ss.member_waiting, (0)::bigint) AS waiting,
-    COALESCE(act.cnt, (0)::bigint) AS active
+    COALESCE(act.cnt, (0)::bigint) AS active,
+    q.sticky_agent
    FROM (((((((((((call_center.cc_queue q
      JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
@@ -5274,6 +5275,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.id,
             q_1.calendar_id,
             q_1.type,
+            q_1.sticky_agent,
                 CASE
                     WHEN ((q_1.strategy)::text = 'lifo'::text) THEN 1
                     ELSE 0
@@ -5351,7 +5353,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
         END AS offset_ids,
     ((q.lim - l.usage))::integer AS lim,
     q.domain_id,
-    q.priority
+    q.priority,
+    q.sticky_agent
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((r.queue_id = q.id)))
@@ -5961,6 +5964,14 @@ ALTER TABLE ONLY call_center.cc_member_attempt_history
 
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES flow.calendar_timezones(id);
+
+
+--
+-- Name: cc_member cc_member_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member
+    ADD CONSTRAINT cc_member_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id);
 
 
 --

@@ -483,7 +483,7 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 	return
 }
 
-func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptResult2) *model.AppError {
+func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptCallback) *model.AppError {
 
 	// TODO
 	if !result.Success && result.Status == "" {
@@ -492,7 +492,8 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] callback: %v", attemptId, result))
 
-	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status, result.Description, result.ExpireAt, result.NextCall)
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status, result.Description,
+		result.ExpireAt, result.NextCall, result.StickyAgentId)
 	if err != nil {
 		return err
 	}
