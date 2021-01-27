@@ -2335,7 +2335,6 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     timeout timestamp with time zone,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
     communication_idx integer DEFAULT 1 NOT NULL,
-    conversation_id bigint,
     resource_group_id integer,
     destination jsonb,
     seq integer DEFAULT 0 NOT NULL,
@@ -5163,7 +5162,7 @@ CREATE INDEX cc_skill_in_agent_created_by_index ON call_center.cc_skill_in_agent
 -- Name: cc_skill_in_agent_skill_id_agent_id_capacity_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_center.cc_skill_in_agent USING btree (skill_id, agent_id, capacity DESC);
+CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_center.cc_skill_in_agent USING btree (skill_id, capacity DESC, agent_id);
 
 
 --
@@ -6245,6 +6244,22 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 
 ALTER TABLE ONLY call_center.cc_queue_acl
     ADD CONSTRAINT cc_queue_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_queue cc_queue_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- Name: cc_queue cc_queue_acr_routing_scheme_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_acr_routing_scheme_id_fk_2 FOREIGN KEY (after_schema_id) REFERENCES flow.acr_routing_scheme(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --

@@ -220,6 +220,7 @@ values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 	return nil
 }
 
+// fixme chat > 1
 func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
 	var channels []*model.ChannelTimeout
 	_, err := s.GetMaster().Select(&channels, `update cc_agent_channel
