@@ -188,15 +188,13 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							switch state {
 							case call_manager.CALL_STATE_ACCEPT:
 								time.Sleep(time.Millisecond * 250)
-								printfIfErr(mCall.Bridge(agentCall)) // TODO
+								printfIfErr(agentCall.Bridge(mCall)) // TODO
 								//fixme refactor
 								if queue.AllowGreetingAgent {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 								}
 
-								team.Answered(attempt, agent)
-							case call_manager.CALL_STATE_BRIDGE:
-								team.Bridged(attempt, agent)
+								//team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_HANGUP:
 								if mCall.HangupAt() == 0 {
 									mCall.Hangup("", false) //TODO
@@ -206,7 +204,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							}
 
 						case mState := <-mCall.State():
-							if mState == call_manager.CALL_STATE_HANGUP {
+
+							switch mState {
+							case call_manager.CALL_STATE_BRIDGE:
+								attempt.Log("bridged")
+								team.Bridged(attempt, agent)
+							case call_manager.CALL_STATE_HANGUP:
 								attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 								if agentCall.HangupAt() == 0 {
 									if mCall.BridgeAt() > 0 {

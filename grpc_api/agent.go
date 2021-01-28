@@ -71,6 +71,7 @@ func (api *agent) WaitingChannel(ctx context.Context, in *cc.WaitingChannelReque
 }
 
 func (api *agent) AcceptTask(_ context.Context, in *cc.AcceptTaskRequest) (*cc.AcceptTaskResponse, error) {
+	//fixme find server id;
 	err := api.app.AcceptAgentTask(in.Id)
 	if err != nil {
 		return nil, err
@@ -80,6 +81,7 @@ func (api *agent) AcceptTask(_ context.Context, in *cc.AcceptTaskRequest) (*cc.A
 }
 
 func (api *agent) CloseTask(_ context.Context, in *cc.CloseTaskRequest) (*cc.CloseTaskResponse, error) {
+	//fixme find server id;
 	err := api.app.CloseAgentTask(in.Id)
 	if err != nil {
 		return nil, err
