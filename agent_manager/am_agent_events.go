@@ -18,7 +18,7 @@ func NewAgentEventStatus(agent AgentObject, event model.AgentEventStatus) model.
 func NewAgentEventOnlineStatus(agent AgentObject, info *model.AgentOnlineData, onDemand bool) model.Event {
 	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), model.AgentStatusOnline))
 	return model.NewEvent(model.AgentChangedStatusEvent, agent.UserId(), model.AgentEventOnlineStatus{
-		Channel:  info.Channel,
+		Channels: []model.AgentChannel{info.Channel},
 		OnDemand: onDemand,
 		AgentEvent: model.AgentEvent{
 			AgentId:   agent.Id(),

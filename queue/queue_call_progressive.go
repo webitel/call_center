@@ -56,6 +56,7 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 	return nil
 }
 
+// bug agent number
 func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent agent_manager.AgentObject) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {

@@ -99,8 +99,8 @@ type AgentEventStatus struct {
 }
 
 type AgentEventOnlineStatus struct {
-	Channel  AgentChannel `json:"channel"`
-	OnDemand bool         `json:"on_demand"`
+	Channels []AgentChannel `json:"channels"`
+	OnDemand bool           `json:"on_demand"`
 	AgentEvent
 	AgentStatus
 }
