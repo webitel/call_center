@@ -163,7 +163,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 		}
 	}
 
-	if task.IsDeclined() {
+	if task.IsDeclined() && task.ReportingAt() == 0 {
 		team.CancelAgentAttempt(attempt, agent)
 	} else {
 		team.Reporting(attempt, agent, task.ReportingAt() > 0)
