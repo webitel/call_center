@@ -86,14 +86,14 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 		case <-ags:
 			agent = attempt.Agent()
+			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
+
 			attempts++
 			if mCall.HangupCause() != "" {
 				attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))
 				calling = false
 				break
 			}
-
-			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
 				{
