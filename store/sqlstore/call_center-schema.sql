@@ -127,7 +127,7 @@ begin
         joined_at = now(),
         queue_id = null,
         timeout = null
-    where (c.agent_id, c.channel) = (agent_id_, channel_) and c.state in ('wrap_time', 'missed')
+    where c.agent_id = agent_id_ and c.state in ('wrap_time', 'missed')
     returning joined_at into joined_at_;
 
     return row(joined_at_);
@@ -369,7 +369,8 @@ begin
     returning * into attempt;
 
     if attempt.id isnull then
-        raise exception  'not found %', attempt_id_;
+        return null;
+--         raise exception  'not found %', attempt_id_;
     end if;
 
     update cc_member
@@ -468,7 +469,7 @@ begin
         update cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
-            channel = case when agent_hold_sec_ > 0 then channel else null end,
+            channel = case when agent_hold_sec_ > 0 or agent_status_ != 'waiting' then channel else null end,
             no_answers = case when attempt.bridged_at notnull then 0 else no_answers + 1 end,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
         where c.agent_id = attempt.agent_id;

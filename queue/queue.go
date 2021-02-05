@@ -278,12 +278,18 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 		return
 	}
 
+	timeoutSec := tm.PostProcessingTimeout()
+
+	if agent.IsOnDemand() {
+		timeoutSec = 0
+	}
+
 	if !tm.PostProcessing() {
 		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 30,
-			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
-			e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)), false)
+			model.ChannelStateWrapTime, int(timeoutSec)); err == nil {
+			e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(timeoutSec*1000)), false)
 			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 			if err != nil {
 				wlog.Error(err.Error())
@@ -292,12 +298,6 @@ func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject
 			wlog.Error(err.Error())
 		}
 		return
-	}
-
-	timeoutSec := tm.PostProcessingTimeout()
-
-	if agent.IsOnDemand() {
-		timeoutSec = 0
 	}
 
 	attempt.SetResult(AttemptResultPostProcessing)

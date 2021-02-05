@@ -455,7 +455,8 @@ func (s *SqlMemberStore) CallbackReporting(attemptId int64, status, description 
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
 from cc_attempt_end_reporting(:AttemptId::int8, :Status, :Description, :ExpireAt, :NextDistributeAt, :StickyAgentId) as
-x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)`, map[string]interface{}{
+x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)
+where x.queue_id notnull`, map[string]interface{}{
 		"AttemptId":        attemptId,
 		"Status":           status,
 		"Description":      description,
@@ -465,8 +466,15 @@ x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_i
 	})
 
 	if err != nil {
-		return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.app_error", nil,
-			err.Error(), http.StatusInternalServerError)
+		code := extractCodeFromErr(err)
+		if code == http.StatusNotFound {
+			return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.not_found", nil,
+				err.Error(), code)
+		} else {
+			return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.app_error", nil,
+				err.Error(), code)
+		}
+
 	}
 
 	return result, nil
