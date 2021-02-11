@@ -55,6 +55,11 @@ type Agent struct {
 	AgentStatus
 }
 
+type AgentHashKey struct {
+	Id        int   `json:"id" db:"id" `
+	UpdatedAt int64 `json:"updated_at" db:"updated_at"`
+}
+
 type AgentChannel struct {
 	Channel  string `json:"channel"`
 	State    string `json:"state"`

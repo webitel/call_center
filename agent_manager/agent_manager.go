@@ -17,6 +17,10 @@ const (
 	MAX_AGENTS_EXPIRE_CACHE = 60 * 60 * 24 //day
 )
 
+var (
+	MaxAgentOnlineWithOutSocSec = 60
+)
+
 type agentManager struct {
 	store       store.Store
 	mq          mq.MQ
@@ -138,8 +142,22 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
 
-// TODO deprecated
+// WTEL-1727
+//todo new watcher &
 func (am *agentManager) changeDeadlineState() {
+	if items, err := am.store.Agent().OnlineWithOutActiveSock(MaxAgentOnlineWithOutSocSec); err != nil {
+		wlog.Error(err.Error())
+	} else {
+		for _, v := range items {
+			if a, _ := am.GetAgent(v.Id, v.UpdatedAt); a != nil {
+				err = am.SetOffline(a)
+				if err != nil {
+					wlog.Error(err.Error())
+				}
+			}
+		}
+	}
+
 	return
 }
 

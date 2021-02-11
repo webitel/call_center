@@ -239,3 +239,25 @@ returning a.user_id, channel, cc_view_timestamp(joined_at) as timestamp, a.domai
 
 	return channels, nil
 }
+
+//todo need index 3163
+func (s SqlAgentStore) OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError) {
+	var res []model.AgentHashKey
+	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at
+from cc_agent a
+    inner join directory.wbt_user_presence p on (p.user_id, p.status) = (a.user_id, 'web')
+where a.status != 'offline'
+    and p.open = 0
+    and now() - p.updated_at > (:Sec || ' sec')::interval
+for update skip locked
+limit 500`, map[string]interface{}{
+		"Sec": sec,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.OnlineWithOutActiveSock", "store.sql_agent.find_active.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}

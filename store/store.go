@@ -95,6 +95,8 @@ type AgentStore interface {
 
 	RefreshEndStateDay5Min() *model.AppError
 	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
+
+	OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError)
 }
 
 type TeamStore interface {
