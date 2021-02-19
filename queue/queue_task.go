@@ -141,7 +141,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 	timeout := time.NewTimer(time.Second * time.Duration(team.CallTimeout()))
 	process := true
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, task))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))
 
 	team.Offering(attempt, agent, task, nil)
 
@@ -166,7 +166,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 	if task.IsDeclined() && task.ReportingAt() == 0 {
 		team.CancelAgentAttempt(attempt, agent)
 	} else {
-		team.Reporting(attempt, agent, task.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, task.ReportingAt() > 0)
 	}
 
 	queue.queueManager.LeavingMember(attempt, queue)

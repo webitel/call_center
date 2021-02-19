@@ -33,6 +33,7 @@ type OutboundResource struct {
 	MaxSuccessivelyErrors uint16                 `json:"max_successively_errors" db:"max_successively_errors"`
 	ErrorIds              StringArray            `json:"error_ids" db:"error_ids"`
 	GatewayId             int64                  `json:"gateway_id" db:"gateway_id"`
+	Codecs                []string
 }
 
 type SipGateway struct {

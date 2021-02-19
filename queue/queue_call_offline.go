@@ -116,7 +116,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
 	})
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, call))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	call.Invite()
 
 	var calling = true
@@ -138,7 +138,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	if call.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
 		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-		team.Reporting(attempt, agent, call.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
 		team.Missed(attempt, 5, agent)
 	}

@@ -33,13 +33,15 @@ select q.id,
        q.payload,
        q.updated_at,
        q.variables,
-       q.timeout,
        q.team_id,
        q.schema_id,
        q.ringtone_id,
        q.do_schema_id,
        q.after_schema_id,
-       f.mime_type ringtone_type
+       f.mime_type ringtone_type,
+	   q.processing,
+	   q.processing_sec,
+	   q.processing_renewal_sec	
 from cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id

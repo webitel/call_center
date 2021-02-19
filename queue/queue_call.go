@@ -2,7 +2,6 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 )
@@ -17,14 +16,6 @@ type CallingQueueObject interface {
 type CallingQueue struct {
 	BaseQueue
 	params model.QueueDialingSettings
-}
-
-func (queue *CallingQueue) CallContextName() string {
-	return "call_center"
-}
-
-func (queue *CallingQueue) FlowEndpoints() []string {
-	return []string{"null"}
 }
 
 func (queue *CallingQueue) GetRecordingsApplication(call call_manager.Call) *model.CallRequestApplication {
@@ -127,8 +118,4 @@ func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfo
 		attempt.Info = &AttemptInfoCall{}
 	}
 	return attempt.Info.(*AttemptInfoCall)
-}
-
-func (queue *BaseQueue) AgentMissedCall(agent agent_manager.AgentObject, attempt *Attempt, call call_manager.Call) {
-	queue.queueManager.store.Agent().MissedAttempt(agent.Id(), attempt.Id(), call.HangupCause())
 }

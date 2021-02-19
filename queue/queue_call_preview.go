@@ -76,7 +76,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
 				"absolute_codec_string":      "pcmu,pcma",
-				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
+				"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
 
 				"hangup_after_bridge": "true",
 				"continue_on_fail":    "true",
@@ -134,7 +134,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    "tone_stream://L=3;%(400,400,425)",
 	})
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, call))
+	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 
 	team.Offering(attempt, agent, call, nil)
 	printfIfErr(call.Invite())
@@ -157,7 +157,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	if call.AcceptAt() > 0 {
-		team.Reporting(attempt, agent, call.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
 		team.CancelAgentAttempt(attempt, agent)
 	}

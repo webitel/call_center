@@ -24,44 +24,52 @@ type QueueObject interface {
 	Channel() string
 	Id() int
 	AppId() string
+
+	Processing() bool
+	ProcessingSec() uint16
+	ProcessingRenewalSec() uint16
 }
 
 type BaseQueue struct {
-	channel         string
-	id              int
-	updatedAt       int64
-	domainId        int64
-	domainName      string
-	typeId          int8
-	name            string
-	resourceManager *ResourceManager
-	queueManager    *QueueManager
-	variables       map[string]string
-	timeout         uint16
-	teamId          *int
-	schemaId        *int
-	ringtone        *model.RingtoneFile
-	doSchema        *int32
-	afterSchemaId   *int32
+	channel              string
+	id                   int
+	updatedAt            int64
+	domainId             int64
+	domainName           string
+	typeId               int8
+	name                 string
+	resourceManager      *ResourceManager
+	queueManager         *QueueManager
+	variables            map[string]string
+	teamId               *int
+	schemaId             *int
+	ringtone             *model.RingtoneFile
+	doSchema             *int32
+	afterSchemaId        *int32
+	processing           bool
+	processingSec        uint16
+	processingRenewalSec uint16
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := BaseQueue{
-		channel:         settings.Channel(),
-		id:              settings.Id,
-		updatedAt:       settings.UpdatedAt,
-		typeId:          int8(settings.Type),
-		domainId:        settings.DomainId,
-		domainName:      settings.DomainName,
-		name:            settings.Name,
-		queueManager:    queueManager,
-		resourceManager: resourceManager,
-		variables:       settings.Variables,
-		timeout:         settings.Timeout,
-		teamId:          settings.TeamId,
-		schemaId:        settings.SchemaId,
-		doSchema:        settings.DoSchemaId,
-		afterSchemaId:   settings.AfterSchemaId,
+		channel:              settings.Channel(),
+		id:                   settings.Id,
+		updatedAt:            settings.UpdatedAt,
+		domainId:             settings.DomainId,
+		domainName:           settings.DomainName,
+		typeId:               int8(settings.Type),
+		name:                 settings.Name,
+		resourceManager:      resourceManager,
+		queueManager:         queueManager,
+		variables:            settings.Variables,
+		teamId:               settings.TeamId,
+		schemaId:             settings.SchemaId,
+		doSchema:             settings.DoSchemaId,
+		afterSchemaId:        settings.AfterSchemaId,
+		processing:           settings.Processing,
+		processingSec:        settings.ProcessingSec,
+		processingRenewalSec: settings.ProcessingRenewalSec,
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -129,10 +137,6 @@ func (queue *BaseQueue) Name() string {
 	return queue.name
 }
 
-func (queue *BaseQueue) Timeout() uint16 {
-	return queue.timeout
-}
-
 func (queue *BaseQueue) TeamManager() *teamManager {
 	return queue.queueManager.teamManager
 }
@@ -143,6 +147,18 @@ func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) 
 	}
 
 	return nil, model.NewAppError("BaseQueue.GetTeam", "queue.team.get_by_id.app_error", nil, "Not found parameters", http.StatusInternalServerError)
+}
+
+func (queue *BaseQueue) Processing() bool {
+	return queue.processing
+}
+
+func (queue *BaseQueue) ProcessingSec() uint16 {
+	return queue.processingSec
+}
+
+func (queue *BaseQueue) ProcessingRenewalSec() uint16 {
+	return queue.processingRenewalSec
 }
 
 func (queue *BaseQueue) TypeName() string {
@@ -271,20 +287,21 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 	}
 }
 
-func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
+func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
 	if agentSendReporting {
 		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		return
 	}
 
-	timeoutSec := tm.PostProcessingTimeout()
+	timeoutSec := queue.ProcessingSec()
 
+	// todo on demand - wrap_time
 	if agent.IsOnDemand() {
 		timeoutSec = 0
 	}
 
-	if !tm.PostProcessing() {
+	if !queue.Processing() {
 		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 30,

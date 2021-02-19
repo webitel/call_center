@@ -46,7 +46,6 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 }
 
 func (queue *IVRQueue) run(attempt *Attempt) {
-	info := queue.GetCallInfoFromAttempt(attempt)
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt, queue)
@@ -131,7 +130,6 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		})
 	}
 
-	info.fromCall = call
 	call.Invite()
 	if call.Err() != nil {
 		return

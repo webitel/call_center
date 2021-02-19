@@ -22,7 +22,7 @@ type InboundQueue struct {
 func NewInboundQueue(callQueue CallingQueue, settings model.QueueInboundSettings) QueueObject {
 	// todo timeout is deprecated
 	if settings.MaxWaitTime == 0 {
-		settings.MaxWaitTime = callQueue.timeout
+		settings.MaxWaitTime = 60
 	}
 
 	return &InboundQueue{
@@ -107,7 +107,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			agentCall = mCall.NewCall(cr)
 
 			// fixme new function
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mCall, agentCall))
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
 			team.Offering(attempt, agent, agentCall, mCall)
 			agentCall.Invite()
 
@@ -123,7 +123,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						//FIXME
 						result := "success"
-						if team.PostProcessing() {
+						if queue.Processing() {
 							result = "processing"
 						}
 						mCall.SerVariables(map[string]string{
@@ -183,7 +183,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(attempt, agent, agentCall.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

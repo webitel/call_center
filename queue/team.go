@@ -51,14 +51,6 @@ func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
 }
 
-func (at *agentTeam) PostProcessing() bool {
-	return at.data.PostProcessing
-}
-
-func (at *agentTeam) PostProcessingTimeout() uint16 {
-	return at.data.WrapUpTime
-}
-
 func NewTeamManager(s store.Store, m mq.MQ) *teamManager {
 	return &teamManager{
 		store: s,

@@ -429,7 +429,7 @@ func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTi
 	var attempts []*model.AttemptReportingTimeout
 	_, err := s.GetMaster().Select(&attempts, `select
        a.id attempt_id,
-       cc_view_timestamp(cc_attempt_timeout(a.id, cq.sec_between_retries, 'abandoned', 'waiting', 0)) as timestamp,
+       cc_view_timestamp(cc_attempt_timeout(a.id, 0, 'abandoned', 'waiting', 0)) as timestamp,
        a.agent_id,
        ag.updated_at agent_updated_at,
        ag.user_id,

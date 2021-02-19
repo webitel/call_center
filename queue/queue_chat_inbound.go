@@ -129,7 +129,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 				model.QUEUE_NAME_FIELD:       queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
 				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
-				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
+				"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
 			}
 
 			//todo close
@@ -145,7 +145,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
 			// fixme new function
 			aSess = conv.LastSession()
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mSess, aSess))
+			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
 
 			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
 
@@ -212,7 +212,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	if agent != nil {
 		if conv.BridgedAt() > 0 {
-			team.Reporting(attempt, agent, conv.ReportingAt() > 0)
+			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0)
 		} else {
 			team.Missed(attempt, 0, agent)
 		}

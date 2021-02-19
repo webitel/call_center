@@ -20,7 +20,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"absolute_codec_string":     "opus,pcmu,pcma",
 				"hangup_after_bridge":       "true",
 				"ignore_display_updates":    "true",
-				"cc_reporting":              fmt.Sprintf("%v", at.PostProcessing()),
+				"cc_reporting":              fmt.Sprintf("%v", queue.Processing()),
 				model.CallVariableDomainId:  fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableUserId:    fmt.Sprintf("%v", agent.UserId()),
 				"bridge_export_vars":        "cc_agent_id",
