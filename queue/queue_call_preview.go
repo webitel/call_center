@@ -19,6 +19,7 @@ type PreviewSettings struct {
 	Recordings         bool   `json:"recordings"`
 	OriginateTimeout   uint16 `json:"originate_timeout"`
 	WaitBetweenRetries int    `json:"wait_between_retries"`
+	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -150,6 +151,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
 				team.Bridged(attempt, agent)
+				if queue.AllowGreetingAgent {
+					call.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+				}
 			}
 		case <-call.HangupChan():
 			calling = false
