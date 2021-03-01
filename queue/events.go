@@ -39,8 +39,9 @@ type Missed struct {
 	Timeout int64 `json:"timeout"`
 }
 
-type Reporting struct {
-	Timeout int64 `json:"timeout"`
+type Processing struct {
+	Timeout    int64  `json:"timeout"`
+	RenewalSec uint16 `json:"renewal_sec"`
 }
 
 type DistributeEvent struct {
@@ -61,14 +62,13 @@ type BridgedEvent struct {
 	ChannelEvent
 }
 
-type ReportingEvent struct {
+type ProcessingEvent struct {
 	ChannelEvent
-	Reporting Reporting `json:"reporting"`
+	Processing Processing `json:"processing"`
 }
 
 type WrapTime struct {
-	Timeout        int64 `json:"timeout"`
-	PostProcessing bool  `json:"post_processing"`
+	Timeout int64 `json:"timeout"`
 }
 
 type MissedEvent struct {
@@ -174,16 +174,34 @@ func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewReportingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint16) model.Event {
-	e := ReportingEvent{
-		Reporting: Reporting{
-			Timeout: timestamp + (int64(deadlineSec) * 1000),
+func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint16, renewal uint16) model.Event {
+	e := ProcessingEvent{
+		Processing: Processing{
+			Timeout:    timestamp + (int64(deadlineSec) * 1000),
+			RenewalSec: renewal,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
 			Channel:   a.channel,
 			AttemptId: model.NewInt64(a.Id()),
-			Status:    model.ChannelStateReporting,
+			Status:    model.ChannelStateProcessing,
+		},
+	}
+
+	return model.NewEvent("channel", userId, e)
+}
+
+func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64) model.Event {
+	e := ProcessingEvent{
+		Processing: Processing{
+			Timeout:    timeout,
+			RenewalSec: 0,
+		},
+		ChannelEvent: ChannelEvent{
+			Timestamp: timestamp,
+			Channel:   channel,
+			AttemptId: model.NewInt64(attId),
+			Status:    model.ChannelStateProcessing,
 		},
 	}
 
@@ -206,16 +224,15 @@ func NewMissedEventEvent(a *Attempt, userId int64, timestamp int64, timeout int6
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewWrapTimeEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64, postProcessing bool) model.Event {
+func NewWrapTimeEventEvent(channel string, attemptId *int64, userId int64, timestamp int64, timeout int64) model.Event {
 	e := WrapTimeEvent{
 		WrapTime: WrapTime{
-			Timeout:        timeout,
-			PostProcessing: postProcessing,
+			Timeout: timeout,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
-			Channel:   a.channel,
-			AttemptId: model.NewInt64(a.Id()),
+			Channel:   channel,
+			AttemptId: attemptId,
 			Status:    model.ChannelStateWrapTime,
 		},
 	}

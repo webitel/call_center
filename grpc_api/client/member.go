@@ -84,3 +84,18 @@ func (api *memberApi) AttemptResult(attemptId int64, status, description string,
 
 	return nil
 }
+
+func (api *memberApi) RenewalResult(domainId, attemptId int64, renewal uint32) error {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.member.AttemptRenewalResult(context.Background(), &proto.AttemptRenewalResultRequest{
+		DomainId:  domainId,
+		AttemptId: attemptId,
+		Renewal:   renewal,
+	})
+
+	return err
+}

@@ -220,8 +220,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		queue.queueManager.Abandoned(attempt)
 	}
 
-	go attempt.Emit(AttemptHookLeaving)
-	go attempt.Off("*")
+	go func() {
+		attempt.Emit(AttemptHookLeaving)
+		attempt.Off("*")
+	}()
 
 	queue.queueManager.app.ChatManager().RemoveConversation(conv)
 	queue.queueManager.LeavingMember(attempt, queue)

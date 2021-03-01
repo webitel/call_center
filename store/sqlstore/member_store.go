@@ -330,7 +330,7 @@ set state = att.state,
 from att
 where (att.agent_id, att.channel) = (c.agent_id, c.channel)
 returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
-		"State":       model.ChannelStateWrapTime,
+		"State":       model.ChannelStateProcessing,
 		"Id":          attemptId,
 		"DeadlineSec": deadlineSec,
 	})
@@ -341,6 +341,39 @@ returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
 	}
 
 	return timestamp, nil
+}
+
+func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
+	var res *model.RenewalProcessing
+	err := s.GetMaster().SelectOne(&res, `update cc_member_attempt a
+ set timeout = now() + (:Renewal::int || ' sec')::interval
+from cc_member_attempt a2
+    inner join cc_queue cq on cq.id = a2.queue_id
+    inner join cc_agent ca on ca.id = a2.agent_id
+where a2.id = :Id::int8
+	and a2.id = a.id 
+	and cq.processing_renewal_sec > 0
+    and ca.domain_id = :DomainId::int8
+	and a2.state = 'processing'
+returning
+    a.id attempt_id,
+	a.queue_id,
+    cc_view_timestamp(a.timeout) timeout,
+    cc_view_timestamp(now()) "timestamp",
+    a.channel,
+    ca.user_id,
+    ca.domain_id`, map[string]interface{}{
+		"DomainId": domainId,
+		"Id":       attId,
+		"Renewal":  renewalSec,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.RenewalProcessing", "store.sql_member.set_attempt_renewal.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attId, err.Error()), extractCodeFromErr(err))
+	}
+
+	return res, nil
 }
 
 //TODO
@@ -493,10 +526,10 @@ insert
 into cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, resource_id, result,
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
-                                bridged_at, channel, seq)
+                                bridged_at, channel, seq, resource_group_id)
 select a.id, domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
        a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
-       a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq
+       a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq, a.resource_group_id
 from del a
     inner join cc_queue q on q.id = a.queue_id
 returning cc_member_attempt_history.id, cc_member_attempt_history.result`)

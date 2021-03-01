@@ -131,7 +131,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
-						team.Answered(attempt, agent)
+						//team.Answered(attempt, agent)
 						printfIfErr(agentCall.Bridge(mCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
@@ -195,7 +195,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		}
 	}
 
-	go attempt.Emit(AttemptHookLeaving)
-	go attempt.Off("*")
+	go func() {
+		attempt.Emit(AttemptHookLeaving)
+		attempt.Off("*")
+	}()
 	queue.queueManager.LeavingMember(attempt, queue)
 }
