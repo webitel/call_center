@@ -164,3 +164,12 @@ func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentTo
 func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
 	return nil, nil
 }
+
+func (api *member) AttemptRenewalResult(ctx context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
+	err := api.app.Queue().Manager().RenewalAttempt(in.DomainId, in.AttemptId, in.Renewal)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.AttemptRenewalResultResponse{}, nil
+}

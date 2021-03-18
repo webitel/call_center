@@ -142,6 +142,28 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
 
+func (am *agentManager) SetBreakOut(agent AgentObject) *model.AppError {
+	event := model.AgentEventStatus{
+		AgentEvent: model.AgentEvent{
+			AgentId:   agent.Id(),
+			UserId:    agent.UserId(),
+			DomainId:  agent.DomainId(),
+			Timestamp: model.GetMillis(), //FIXME DB time
+		},
+		AgentStatus: model.AgentStatus{
+			Status: model.AgentStatusBreakOut,
+		},
+	}
+
+	err := am.setAgentStatus(agent, &event.AgentStatus)
+
+	if err != nil {
+		return err
+	}
+	//add channel queue
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
+}
+
 // WTEL-1727
 //todo new watcher &
 func (am *agentManager) changeDeadlineState() {

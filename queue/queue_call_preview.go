@@ -19,6 +19,7 @@ type PreviewSettings struct {
 	Recordings         bool   `json:"recordings"`
 	OriginateTimeout   uint16 `json:"originate_timeout"`
 	WaitBetweenRetries int    `json:"wait_between_retries"`
+	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -60,6 +61,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		return
 	}
 
+	// joined
+
 	display := attempt.Display()
 
 	callRequest := &model.CallRequest{
@@ -76,7 +79,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
 				"absolute_codec_string":      "pcmu,pcma",
-				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
+				"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
 
 				"hangup_after_bridge": "true",
 				"continue_on_fail":    "true",
@@ -134,9 +137,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    "tone_stream://L=3;%(400,400,425)",
 	})
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), nil, call))
-
-	team.Offering(attempt, agent, call, nil)
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	printfIfErr(call.Invite())
 	var calling = true
 
@@ -145,11 +146,15 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
+				team.Offering(attempt, agent, call, nil)
 
 			case call_manager.CALL_STATE_ACCEPT:
 				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
 				team.Bridged(attempt, agent)
+				if queue.AllowGreetingAgent {
+					call.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+				}
 			}
 		case <-call.HangupChan():
 			calling = false
@@ -157,7 +162,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	if call.AcceptAt() > 0 {
-		team.Reporting(attempt, agent, call.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
 		team.CancelAgentAttempt(attempt, agent)
 	}

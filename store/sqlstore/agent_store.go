@@ -91,6 +91,7 @@ func (s SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string)
 		"AgentId":   agentId,
 		"Cause":     cause,
 	})
+
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.MissedAttempt", "store.sql_agent.missed_attempt.app_error", nil,
 			fmt.Sprintf("AgenetId=%v, AttemptId=%v, %s", agentId, attemptId, err.Error()), http.StatusInternalServerError)

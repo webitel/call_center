@@ -24,44 +24,55 @@ type QueueObject interface {
 	Channel() string
 	Id() int
 	AppId() string
+
+	Processing() bool
+	ProcessingSec() uint16
+	ProcessingRenewalSec() uint16
+	Hook(name string, at *Attempt)
 }
 
 type BaseQueue struct {
-	channel         string
-	id              int
-	updatedAt       int64
-	domainId        int64
-	domainName      string
-	typeId          int8
-	name            string
-	resourceManager *ResourceManager
-	queueManager    *QueueManager
-	variables       map[string]string
-	timeout         uint16
-	teamId          *int
-	schemaId        *int
-	ringtone        *model.RingtoneFile
-	doSchema        *int32
-	afterSchemaId   *int32
+	channel              string
+	id                   int
+	updatedAt            int64
+	domainId             int64
+	domainName           string
+	typeId               int8
+	name                 string
+	resourceManager      *ResourceManager
+	queueManager         *QueueManager
+	variables            map[string]string
+	teamId               *int
+	schemaId             *int
+	ringtone             *model.RingtoneFile
+	doSchema             *int32
+	afterSchemaId        *int32
+	processing           bool
+	processingSec        uint16
+	processingRenewalSec uint16
+	hooks                HookHub
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := BaseQueue{
-		channel:         settings.Channel(),
-		id:              settings.Id,
-		updatedAt:       settings.UpdatedAt,
-		typeId:          int8(settings.Type),
-		domainId:        settings.DomainId,
-		domainName:      settings.DomainName,
-		name:            settings.Name,
-		queueManager:    queueManager,
-		resourceManager: resourceManager,
-		variables:       settings.Variables,
-		timeout:         settings.Timeout,
-		teamId:          settings.TeamId,
-		schemaId:        settings.SchemaId,
-		doSchema:        settings.DoSchemaId,
-		afterSchemaId:   settings.AfterSchemaId,
+		channel:              settings.Channel(),
+		id:                   settings.Id,
+		updatedAt:            settings.UpdatedAt,
+		domainId:             settings.DomainId,
+		domainName:           settings.DomainName,
+		typeId:               int8(settings.Type),
+		name:                 settings.Name,
+		resourceManager:      resourceManager,
+		queueManager:         queueManager,
+		variables:            settings.Variables,
+		teamId:               settings.TeamId,
+		schemaId:             settings.SchemaId,
+		doSchema:             settings.DoSchemaId,
+		afterSchemaId:        settings.AfterSchemaId,
+		processing:           settings.Processing,
+		processingSec:        settings.ProcessingSec,
+		processingRenewalSec: settings.ProcessingRenewalSec,
+		hooks:                NewHookHub(settings.Hooks),
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -129,10 +140,6 @@ func (queue *BaseQueue) Name() string {
 	return queue.name
 }
 
-func (queue *BaseQueue) Timeout() uint16 {
-	return queue.timeout
-}
-
 func (queue *BaseQueue) TeamManager() *teamManager {
 	return queue.queueManager.teamManager
 }
@@ -143,6 +150,18 @@ func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) 
 	}
 
 	return nil, model.NewAppError("BaseQueue.GetTeam", "queue.team.get_by_id.app_error", nil, "Not found parameters", http.StatusInternalServerError)
+}
+
+func (queue *BaseQueue) Processing() bool {
+	return queue.processing
+}
+
+func (queue *BaseQueue) ProcessingSec() uint16 {
+	return queue.processingSec
+}
+
+func (queue *BaseQueue) ProcessingRenewalSec() uint16 {
+	return queue.processingRenewalSec
 }
 
 func (queue *BaseQueue) TypeName() string {
@@ -200,8 +219,8 @@ func (queue *BaseQueue) Channel() string {
 	return queue.channel
 }
 
-func (queue *BaseQueue) Hook(agent agent_manager.AgentObject, e model.Event) {
-	if err := queue.queueManager.mq.AgentChannelEvent(queue.Channel(), queue.domainId, queue.id, agent.UserId(), e); err != nil {
+func (tm *agentTeam) Distribute(queue QueueObject, agent agent_manager.AgentObject, e model.Event) {
+	if err := tm.teamManager.mq.AgentChannelEvent(queue.Channel(), queue.DomainId(), queue.Id(), agent.UserId(), e); err != nil {
 		wlog.Error(err.Error())
 	}
 }
@@ -219,6 +238,7 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 		wlog.Error(err.Error())
 		return
 	}
+	attempt.SetState(model.MemberStateOffering)
 	e := NewOfferingEvent(attempt, agent.UserId(), timestamp, aChannel, mChannel)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
@@ -243,135 +263,4 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject, m
 	if err != nil {
 		wlog.Error(err.Error())
 	}
-}
-
-//FIXME store
-func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject) {
-	timestamp := model.GetMillis()
-	e := NewAnsweredEvent(attempt, agent.UserId(), timestamp)
-	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-}
-
-func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) {
-	timestamp, err := tm.teamManager.store.Member().SetAttemptBridged(attempt.Id())
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	e := NewBridgedEventEvent(attempt, agent.UserId(), timestamp)
-	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-}
-
-func (tm *agentTeam) Reporting(attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
-	if agentSendReporting {
-		// FIXME
-		attempt.SetResult(AttemptResultSuccess)
-		return
-	}
-
-	timeoutSec := tm.PostProcessingTimeout()
-
-	if agent.IsOnDemand() {
-		timeoutSec = 0
-	}
-
-	if !tm.PostProcessing() {
-		// FIXME
-		attempt.SetResult(AttemptResultSuccess)
-		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 30,
-			model.ChannelStateWrapTime, int(timeoutSec)); err == nil {
-			e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(timeoutSec*1000)), false)
-			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-			if err != nil {
-				wlog.Error(err.Error())
-			}
-		} else {
-			wlog.Error(err.Error())
-		}
-		return
-	}
-
-	attempt.SetResult(AttemptResultPostProcessing)
-	timestamp, err := tm.teamManager.store.Member().SetAttemptReporting(attempt.Id(), timeoutSec)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	e := NewWrapTimeEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(timeoutSec*1000)), true)
-	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	wlog.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
-}
-
-func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.AgentObject) {
-	timestamp, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), holdSec, int(tm.NoAnswerDelayTime()))
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	e := NewMissedEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.NoAnswerDelayTime())*1000))
-	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-}
-
-func (tm *agentTeam) CancelAgentAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
-	// todo missed or waiting ?
-
-	missed, err := tm.teamManager.store.Member().CancelAgentAttempt(attempt.Id(), int(tm.NoAnswerDelayTime()))
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	tm.MissedAgent(missed, attempt, agent)
-}
-
-func (tm *agentTeam) MissedAgent(missed *model.MissedAgent, attempt *Attempt, agent agent_manager.AgentObject) {
-	if missed.NoAnswers != nil && *missed.NoAnswers >= tm.MaxNoAnswer() {
-		tm.SetAgentMaxNoAnswer(agent)
-	}
-
-	e := NewMissedEventEvent(attempt, agent.UserId(), missed.Timestamp, missed.Timestamp+(int64(tm.NoAnswerDelayTime())*1000))
-	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-}
-
-func (tm *agentTeam) MissedAgentAndWaitingAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
-	missed, err := tm.teamManager.store.Member().SetAttemptMissedAgent(attempt.Id(), int(tm.NoAnswerDelayTime()))
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	tm.MissedAgent(missed, attempt, agent)
-}
-
-func (tm *agentTeam) SetAgentMaxNoAnswer(agent agent_manager.AgentObject) {
-	if err := agent.SetOnBreak(); err != nil {
-		wlog.Error(fmt.Sprintf("agent \"%s\" change to pause error %s", agent.Name(), err.Error()))
-	} else {
-		wlog.Debug(fmt.Sprintf("agent \"%s\" changed status to pause, maximum no answers in team \"%s\"", agent.Name(), tm.Name()))
-	}
-
 }

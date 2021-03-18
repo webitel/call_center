@@ -250,7 +250,8 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		}
 		return gorp.CustomScanner{Holder: new(string), Target: target, Binder: binder}, true
 
-	case **model.RingtoneFile:
+	case **model.RingtoneFile,
+		*[]*model.QueueHook:
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*[]byte)
 			if !ok {

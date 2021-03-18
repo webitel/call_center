@@ -8,6 +8,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"strconv"
 	"sync"
 )
 
@@ -45,6 +46,9 @@ type Attempt struct {
 	channelData   interface{} // for task queue
 
 	emitter.Emitter
+	queue         QueueObject
+	agentChannel  Channel
+	memberChannel Channel
 
 	Info    AttemptInfo `json:"info"`
 	Logs    []LogItem   `json:"logs"`
@@ -72,9 +76,12 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 }
 
 func (a *Attempt) SetState(state string) {
+	//fmt.Println("SET STATE >>>> ", state)
 	a.Lock()
-	defer a.Unlock()
 	a.state = state
+	a.Unlock()
+
+	a.queue.Hook(state, a)
 }
 
 func (a *Attempt) GetState() string {
@@ -193,6 +200,14 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	}
 	if a.member.Seq != nil {
 		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
+	}
+
+	if a.member.Name != "" {
+		res["member_name"] = a.member.Name
+	}
+
+	if a.member.MemberId != nil {
+		res["member_id"] = strconv.Itoa(int(*a.member.MemberId))
 	}
 
 	if a.agent != nil {

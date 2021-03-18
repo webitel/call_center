@@ -208,6 +208,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 
 	attempt.domainId = queue.DomainId()
 	attempt.channel = queue.Channel()
+	attempt.queue = queue
 
 	if attempt.IsBarred() {
 		err = queueManager.Barred(attempt)
@@ -223,6 +224,8 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 		//panic("CHANGE TO SET MEMBER FUNCTION")
 		return nil, nil
 	}
+
+	//todo new event instance
 
 	attempt.resource = queueManager.GetAttemptResource(attempt)
 
@@ -318,6 +321,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
 	}
+
 	return attempt, nil
 }
 
@@ -429,6 +433,7 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	attempt.SetResult(AttemptResultAbandoned)
+	attempt.SetState(HookLeaving)
 	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())
@@ -483,6 +488,18 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 	return
 }
 
+func (queueManager *QueueManager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (err *model.AppError) {
+	var data *model.RenewalProcessing
+
+	data, err = queueManager.store.Member().RenewalProcessing(domainId, attemptId, renewal)
+	if err != nil {
+		return err
+	}
+
+	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp)
+	return queueManager.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
+}
+
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptCallback) *model.AppError {
 
 	// TODO
@@ -501,15 +518,18 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	err = queueManager.closeBeforeReporting(attemptId, res)
 
 	if res.UserId != nil && res.DomainId != nil {
-		e := WaitingChannelEvent{
-			ChannelEvent: ChannelEvent{
-				Timestamp: res.Timestamp,
-				AttemptId: model.NewInt64(attemptId),
-				Status:    model.ChannelStateWaiting,
-			},
+		var ev model.Event
+		ch := ""
+		if res.Channel != nil {
+			ch = *res.Channel
 		}
 
-		ev := model.NewEvent("channel", *res.UserId, e)
+		// if team wrap_time = 0 then waiting
+		if res.AgentTimeout != nil && *res.AgentTimeout > 0 {
+			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, *res.AgentTimeout)
+		} else {
+			ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
+		}
 		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, res.QueueId, *res.UserId, ev)
 	}
 

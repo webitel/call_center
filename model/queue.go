@@ -66,23 +66,25 @@ func RingtoneUri(domainId int64, id int, mimeType string) string {
 }
 
 type Queue struct {
-	Id            int               `json:"id" db:"id"`
-	DomainId      int64             `json:"domain_id" db:"domain_id"`
-	DomainName    string            `json:"domain_name" db:"domain_name"`
-	Type          uint8             `json:"type" db:"type"`
-	Name          string            `json:"name" db:"name"`
-	Strategy      string            `json:"strategy" db:"strategy"`
-	Payload       []byte            `json:"payload" db:"payload"`
-	UpdatedAt     int64             `json:"updated_at" db:"updated_at"`
-	MaxCalls      uint16            `json:"max_calls" db:"max_calls"`
-	Variables     map[string]string `json:"variables" db:"variables"`
-	TeamId        *int              `json:"team_id" db:"team_id"`
-	Timeout       uint16            `json:"timeout" db:"timeout"`
-	RingtoneId    *int              `json:"ringtone_id" db:"ringtone_id"`
-	RingtoneType  *string           `json:"ringtone_type" db:"ringtone_type"`
-	SchemaId      *int              `json:"schema_id" db:"schema_id"`
-	DoSchemaId    *int32            `json:"do_schema_id" db:"do_schema_id"`
-	AfterSchemaId *int32            `json:"after_schema_id" db:"after_schema_id"`
+	Id                   int               `json:"id" db:"id"`
+	DomainId             int64             `json:"domain_id" db:"domain_id"`
+	DomainName           string            `json:"domain_name" db:"domain_name"`
+	Type                 uint8             `json:"type" db:"type"`
+	Name                 string            `json:"name" db:"name"`
+	Strategy             string            `json:"strategy" db:"strategy"`
+	Payload              []byte            `json:"payload" db:"payload"`
+	UpdatedAt            int64             `json:"updated_at" db:"updated_at"`
+	Variables            map[string]string `json:"variables" db:"variables"`
+	TeamId               *int              `json:"team_id" db:"team_id"`
+	RingtoneId           *int              `json:"ringtone_id" db:"ringtone_id"`
+	RingtoneType         *string           `json:"ringtone_type" db:"ringtone_type"`
+	SchemaId             *int              `json:"schema_id" db:"schema_id"`
+	DoSchemaId           *int32            `json:"do_schema_id" db:"do_schema_id"`
+	AfterSchemaId        *int32            `json:"after_schema_id" db:"after_schema_id"`
+	Processing           bool              `json:"processing" db:"processing"`
+	ProcessingSec        uint16            `json:"processing_sec" db:"processing_sec"`
+	ProcessingRenewalSec uint16            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
+	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 }
 
 //FIXME  enum & queue_type
@@ -104,25 +106,31 @@ type QueueDialingSettings struct {
 }
 
 type QueueAmdSettings struct {
-	Enabled                 bool    `json:"enabled"`
-	AllowNotSure            bool    `json:"allow_not_sure"`
-	MaxWordLength           uint16  `json:"max_word_length"`
-	MaxNumberOfWords        uint16  `json:"max_number_of_words"`
-	BetweenWordsSilence     uint16  `json:"between_words_silence"`
-	MinWordLength           uint16  `json:"min_word_length"`
-	TotalAnalysisTime       uint16  `json:"total_analysis_time"`
-	SilenceThreshold        uint16  `json:"silence_threshold"`
-	AfterGreetingSilence    uint16  `json:"after_greeting_silence"`
-	Greeting                uint16  `json:"greeting"`
-	InitialSilence          uint16  `json:"initial_silence"`
-	PlaybackFileSilenceTime uint16  `json:"playback_file_silence_time"`
-	PlaybackFileUri         string  `json:"playback_file_uri"`
-	buildString             *string `json:"build_string"`
+	Enabled                 bool   `json:"enabled"`
+	AllowNotSure            bool   `json:"allow_not_sure"`
+	MaxWordLength           uint16 `json:"max_word_length"`
+	MaxNumberOfWords        uint16 `json:"max_number_of_words"`
+	BetweenWordsSilence     uint16 `json:"between_words_silence"`
+	MinWordLength           uint16 `json:"min_word_length"`
+	TotalAnalysisTime       uint16 `json:"total_analysis_time"`
+	SilenceThreshold        uint16 `json:"silence_threshold"`
+	AfterGreetingSilence    uint16 `json:"after_greeting_silence"`
+	Greeting                uint16 `json:"greeting"`
+	InitialSilence          uint16 `json:"initial_silence"`
+	PlaybackFileSilenceTime uint16 `json:"playback_file_silence_time"`
+	PlaybackFileUri         string `json:"playback_file_uri"`
+	buildString             *string
 }
 
 type QueueCallbackSettings struct {
 	Enabled bool  `json:"enabled"`
 	Timeout int32 `json:"timeout"`
+}
+
+type QueueHook struct {
+	Event      string   `json:"event"`
+	SchemaId   uint32   `json:"schema_id"`
+	Properties []string `json:"properties"`
 }
 
 /* TODO

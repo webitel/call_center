@@ -64,6 +64,10 @@ func (agent *Agent) SetOnBreak() *model.AppError {
 	return agent.manager.SetPause(agent, nil, nil)
 }
 
+func (agent *Agent) SetBreakOut() *model.AppError {
+	return agent.manager.SetBreakOut(agent)
+}
+
 func (agent *Agent) IsOnDemand() bool {
 	return agent.info.OnDemand
 }

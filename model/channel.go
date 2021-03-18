@@ -8,7 +8,7 @@ const (
 	ChannelStateAnswered   = "answered"
 	ChannelStateBridged    = "bridged"
 	ChannelStateHold       = "hold" //TODO
-	ChannelStateReporting  = "reporting"
+	ChannelStateProcessing = "processing"
 	ChannelStateMissed     = "missed"
 	ChannelStateWrapTime   = "wrap_time"
 )

@@ -26,9 +26,10 @@ const (
 )
 
 const (
-	AgentStatusOnline  = "online"
-	AgentStatusOffline = "offline"
-	AgentStatusPause   = "pause"
+	AgentStatusOnline   = "online"
+	AgentStatusOffline  = "offline"
+	AgentStatusPause    = "pause"
+	AgentStatusBreakOut = "break_out"
 )
 
 const (

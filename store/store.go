@@ -70,6 +70,7 @@ type MemberStore interface {
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError)
+	RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError)
 
 	// CHAT TODO
 	CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError)

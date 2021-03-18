@@ -87,6 +87,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 	var err *model.AppError
 	defer attempt.Log("stopped queue")
 
+	queue.Hook(HookJoined, attempt)
+
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
 		//FIXME
@@ -129,7 +131,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 				model.QUEUE_NAME_FIELD:       queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
 				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
-				"cc_reporting":               fmt.Sprintf("%v", team.PostProcessing()),
+				"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
 			}
 
 			//todo close
@@ -145,7 +147,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
 			// fixme new function
 			aSess = conv.LastSession()
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mSess, aSess))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
 
 			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
 
@@ -177,6 +179,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 					case chat.ChatStateDeclined:
 						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
 						team.MissedAgentAndWaitingAttempt(attempt, agent)
+						attempt.SetState(model.MemberStateWaitAgent)
+
 						attempt.Emit(AttemptHookMissedAgent, agent.Id())
 						agent = nil
 						aSess = nil
@@ -212,7 +216,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	if agent != nil {
 		if conv.BridgedAt() > 0 {
-			team.Reporting(attempt, agent, conv.ReportingAt() > 0)
+			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0)
 		} else {
 			team.Missed(attempt, 0, agent)
 		}
@@ -220,8 +224,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		queue.queueManager.Abandoned(attempt)
 	}
 
-	go attempt.Emit(AttemptHookLeaving)
-	go attempt.Off("*")
+	go func() {
+		attempt.Emit(AttemptHookLeaving)
+		attempt.Off("*")
+	}()
 
 	queue.queueManager.app.ChatManager().RemoveConversation(conv)
 	queue.queueManager.LeavingMember(attempt, queue)

@@ -29,7 +29,6 @@ func (s SqlTeamStore) Get(id int) (*model.Team, *model.AppError) {
 			   wrap_up_time,
 			   no_answer_delay_time,
 			   call_timeout,
-			   post_processing,
 			   updated_at
 		from cc_team	
 		where id = :Id

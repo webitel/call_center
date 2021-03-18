@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -15,10 +16,13 @@ const (
 )
 
 const (
-	MemberStateIdle       = "idle" // ~Reserved resource
-	MemberStateWaiing     = "waiting"
+	MemberStateIdle = "idle" // ~Reserved resource
+
+	MemberStateWaiting    = "waiting"
+	MemberStateJoined     = "joined"
 	MemberStateWaitAgent  = "wait_agent"
 	MemberStateActive     = "active"
+	MemberStateOffering   = "offering"
 	MemberStateBridged    = "bridged"
 	MemberStateProcessing = "processing"
 	MemberStateLeaving    = "leaving"
@@ -84,6 +88,16 @@ type EventAttempt struct {
 	AgentId   *int   `json:"agent_id"`
 	UserId    *int64 `json:"user_id"`
 	DomainId  int64  `json:"domain_id"`
+}
+
+type RenewalProcessing struct {
+	AttemptId int64  `json:"attempt_id" db:"attempt_id"`
+	Timeout   int64  `json:"timeout" db:"timeout"`
+	Timestamp int64  `json:"timestamp" db:"timestamp"`
+	Channel   string `json:"channel" db:"channel"`
+	UserId    int64  `json:"user_id" db:"user_id"`
+	QueueId   int    `json:"queue_id" db:"queue_id"`
+	DomainId  int64  `json:"domain_id" db:"domain_id"`
 }
 
 type EventAttemptOffering struct {
@@ -175,6 +189,20 @@ type InboundMember struct {
 
 func (ma *MemberAttempt) IsTimeout() bool {
 	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
+}
+
+func (r AttemptCallback) String() string {
+	t := fmt.Sprintf("Success: %v, Status: %v", r.Success, r.Status)
+	if r.ExpireAt != nil {
+		t += fmt.Sprintf(", ExpireAt: %d", *r.ExpireAt)
+	}
+	if r.NextCall != nil {
+		t += fmt.Sprintf(", NextCall: %d", *r.NextCall)
+	}
+	if r.StickyAgentId != nil {
+		t += fmt.Sprintf(", StickyAgentId: %d", *r.StickyAgentId)
+	}
+	return t
 }
 
 func MemberDestinationFromBytes(data []byte) MemberCommunication {

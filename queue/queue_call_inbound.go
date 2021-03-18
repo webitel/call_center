@@ -22,7 +22,7 @@ type InboundQueue struct {
 func NewInboundQueue(callQueue CallingQueue, settings model.QueueInboundSettings) QueueObject {
 	// todo timeout is deprecated
 	if settings.MaxWaitTime == 0 {
-		settings.MaxWaitTime = callQueue.timeout
+		settings.MaxWaitTime = 60
 	}
 
 	return &InboundQueue{
@@ -41,6 +41,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	if err != nil {
 		return err
 	}
+	attempt.memberChannel = mCall
 
 	go queue.run(attempt, mCall, team)
 
@@ -51,6 +52,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	var err *model.AppError
 	defer attempt.Log("stopped queue")
 
+	attempt.SetState(model.MemberStateJoined)
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
 		//FIXME
@@ -105,10 +107,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 
 			agentCall = mCall.NewCall(cr)
+			attempt.agentChannel = agentCall
 
-			// fixme new function
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, team.PostProcessing(), mCall, agentCall))
-			team.Offering(attempt, agent, agentCall, mCall)
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
 			agentCall.Invite()
 
 			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
@@ -119,11 +120,14 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
+					case call_manager.CALL_STATE_RINGING:
+						team.Offering(attempt, agent, agentCall, mCall)
+
 					case call_manager.CALL_STATE_ACCEPT:
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						//FIXME
 						result := "success"
-						if team.PostProcessing() {
+						if queue.Processing() {
 							result = "processing"
 						}
 						mCall.SerVariables(map[string]string{
@@ -131,7 +135,6 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
-						team.Answered(attempt, agent)
 						printfIfErr(agentCall.Bridge(mCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
@@ -166,6 +169,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 
 			if agentCall.BridgeAt() == 0 {
 				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				attempt.SetState(model.MemberStateWaitAgent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
 					//TODO WaitForHangup
 					//panic(agentCall.Id())
@@ -183,7 +187,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(attempt, agent, agentCall.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}
@@ -195,7 +199,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		}
 	}
 
-	go attempt.Emit(AttemptHookLeaving)
-	go attempt.Off("*")
+	go func() {
+		attempt.Emit(AttemptHookLeaving)
+		attempt.Off("*")
+	}()
 	queue.queueManager.LeavingMember(attempt, queue)
 }
