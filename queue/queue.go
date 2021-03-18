@@ -28,6 +28,7 @@ type QueueObject interface {
 	Processing() bool
 	ProcessingSec() uint16
 	ProcessingRenewalSec() uint16
+	Hook(name string, at *Attempt)
 }
 
 type BaseQueue struct {
@@ -49,6 +50,7 @@ type BaseQueue struct {
 	processing           bool
 	processingSec        uint16
 	processingRenewalSec uint16
+	hooks                HookHub
 }
 
 func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
@@ -70,6 +72,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		processing:           settings.Processing,
 		processingSec:        settings.ProcessingSec,
 		processingRenewalSec: settings.ProcessingRenewalSec,
+		hooks:                NewHookHub(settings.Hooks),
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -216,8 +219,8 @@ func (queue *BaseQueue) Channel() string {
 	return queue.channel
 }
 
-func (queue *BaseQueue) Hook(agent agent_manager.AgentObject, e model.Event) {
-	if err := queue.queueManager.mq.AgentChannelEvent(queue.Channel(), queue.domainId, queue.id, agent.UserId(), e); err != nil {
+func (tm *agentTeam) Distribute(queue QueueObject, agent agent_manager.AgentObject, e model.Event) {
+	if err := tm.teamManager.mq.AgentChannelEvent(queue.Channel(), queue.DomainId(), queue.Id(), agent.UserId(), e); err != nil {
 		wlog.Error(err.Error())
 	}
 }
@@ -235,6 +238,7 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 		wlog.Error(err.Error())
 		return
 	}
+	attempt.SetState(model.MemberStateOffering)
 	e := NewOfferingEvent(attempt, agent.UserId(), timestamp, aChannel, mChannel)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {

@@ -208,6 +208,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 
 	attempt.domainId = queue.DomainId()
 	attempt.channel = queue.Channel()
+	attempt.queue = queue
 
 	if attempt.IsBarred() {
 		err = queueManager.Barred(attempt)
@@ -223,6 +224,8 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 		//panic("CHANGE TO SET MEMBER FUNCTION")
 		return nil, nil
 	}
+
+	//todo new event instance
 
 	attempt.resource = queueManager.GetAttemptResource(attempt)
 
@@ -430,6 +433,7 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	attempt.SetResult(AttemptResultAbandoned)
+	attempt.SetState(HookLeaving)
 	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())

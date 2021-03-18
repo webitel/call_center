@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -15,10 +16,13 @@ const (
 )
 
 const (
-	MemberStateIdle       = "idle" // ~Reserved resource
-	MemberStateWaiing     = "waiting"
+	MemberStateIdle = "idle" // ~Reserved resource
+
+	MemberStateWaiting    = "waiting"
+	MemberStateJoined     = "joined"
 	MemberStateWaitAgent  = "wait_agent"
 	MemberStateActive     = "active"
+	MemberStateOffering   = "offering"
 	MemberStateBridged    = "bridged"
 	MemberStateProcessing = "processing"
 	MemberStateLeaving    = "leaving"
@@ -185,6 +189,20 @@ type InboundMember struct {
 
 func (ma *MemberAttempt) IsTimeout() bool {
 	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
+}
+
+func (r AttemptCallback) String() string {
+	t := fmt.Sprintf("Success: %v, Status: %v", r.Success, r.Status)
+	if r.ExpireAt != nil {
+		t += fmt.Sprintf(", ExpireAt: %d", *r.ExpireAt)
+	}
+	if r.NextCall != nil {
+		t += fmt.Sprintf(", NextCall: %d", *r.NextCall)
+	}
+	if r.StickyAgentId != nil {
+		t += fmt.Sprintf(", StickyAgentId: %d", *r.StickyAgentId)
+	}
+	return t
 }
 
 func MemberDestinationFromBytes(data []byte) MemberCommunication {

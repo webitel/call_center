@@ -10,6 +10,7 @@ type AgentManager interface {
 	SetOnline(agent AgentObject, onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	SetOffline(agent AgentObject) *model.AppError
 	SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError
+	SetBreakOut(agent AgentObject) *model.AppError
 
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
@@ -30,6 +31,7 @@ type AgentObject interface {
 	Online(onDemand bool) (*model.AgentOnlineData, *model.AppError)
 	Offline() *model.AppError
 	SetOnBreak() *model.AppError
+	SetBreakOut() *model.AppError
 	SetOnDemand(v bool)
 	IsOnDemand() bool
 	GreetingMedia() *model.RingtoneFile

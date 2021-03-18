@@ -87,6 +87,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 	var err *model.AppError
 	defer attempt.Log("stopped queue")
 
+	queue.Hook(HookJoined, attempt)
+
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
 		//FIXME
@@ -145,7 +147,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
 			// fixme new function
 			aSess = conv.LastSession()
-			queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
 
 			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
 
@@ -177,6 +179,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 					case chat.ChatStateDeclined:
 						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
 						team.MissedAgentAndWaitingAttempt(attempt, agent)
+						attempt.SetState(model.MemberStateWaitAgent)
+
 						attempt.Emit(AttemptHookMissedAgent, agent.Id())
 						agent = nil
 						aSess = nil

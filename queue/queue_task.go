@@ -141,8 +141,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 	timeout := time.NewTimer(time.Second * time.Duration(team.CallTimeout()))
 	process := true
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))
-
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))
 	team.Offering(attempt, agent, task, nil)
 
 	for process {

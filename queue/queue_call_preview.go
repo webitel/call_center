@@ -61,6 +61,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		return
 	}
 
+	// joined
+
 	display := attempt.Display()
 
 	callRequest := &model.CallRequest{
@@ -135,9 +137,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    "tone_stream://L=3;%(400,400,425)",
 	})
 
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
-
-	team.Offering(attempt, agent, call, nil)
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	printfIfErr(call.Invite())
 	var calling = true
 
@@ -146,6 +146,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
+				team.Offering(attempt, agent, call, nil)
 
 			case call_manager.CALL_STATE_ACCEPT:
 				team.Answered(attempt, agent)

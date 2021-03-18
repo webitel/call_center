@@ -84,6 +84,7 @@ type Queue struct {
 	Processing           bool              `json:"processing" db:"processing"`
 	ProcessingSec        uint16            `json:"processing_sec" db:"processing_sec"`
 	ProcessingRenewalSec uint16            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
+	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 }
 
 //FIXME  enum & queue_type
@@ -124,6 +125,12 @@ type QueueAmdSettings struct {
 type QueueCallbackSettings struct {
 	Enabled bool  `json:"enabled"`
 	Timeout int32 `json:"timeout"`
+}
+
+type QueueHook struct {
+	Event      string   `json:"event"`
+	SchemaId   uint32   `json:"schema_id"`
+	Properties []string `json:"properties"`
 }
 
 /* TODO

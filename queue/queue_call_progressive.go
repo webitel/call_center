@@ -143,7 +143,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	}
 
 	//FIXME update member call id
-	queue.Hook(agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, mCall))
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, mCall))
 	mCall.Invite()
 
 	var calling = true
@@ -175,7 +175,6 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					})
 					cr.Variables["wbt_parent_id"] = mCall.Id()
 					agentCall = mCall.NewCall(cr)
-					team.Offering(attempt, agent, agentCall, mCall)
 					printfIfErr(agentCall.Invite())
 
 					wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
@@ -186,6 +185,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 						case state := <-agentCall.State():
 							attempt.Log(fmt.Sprintf("agent call state %d", state))
 							switch state {
+							case call_manager.CALL_STATE_RINGING:
+								team.Offering(attempt, agent, agentCall, mCall)
+
 							case call_manager.CALL_STATE_ACCEPT:
 								time.Sleep(time.Millisecond * 250)
 								printfIfErr(agentCall.Bridge(mCall)) // TODO

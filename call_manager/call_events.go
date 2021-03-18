@@ -18,13 +18,10 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 	switch action.(type) {
 	case *model.CallActionRinging:
 		callRinging := action.(*model.CallActionRinging)
-		if callRinging.Direction == model.CALL_DIRECTION_INBOUND {
-			//FIXME NOT IMPLEMENT
-		} else if call != nil {
-			call.setRinging(callRinging)
-		} else {
-			//FIXME ?
+		if call == nil {
+			return
 		}
+		call.setRinging(callRinging)
 
 	case *model.CallActionActive:
 		if call == nil {

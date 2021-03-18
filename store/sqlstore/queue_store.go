@@ -41,7 +41,13 @@ select q.id,
        f.mime_type ringtone_type,
 	   q.processing,
 	   q.processing_sec,
-	   q.processing_renewal_sec	
+	   q.processing_renewal_sec,
+	   (
+        select jsonb_agg(row_to_json(qe))
+        from cc_queue_events qe
+            inner join flow.acr_routing_scheme s on s.id = qe.schema_id and q.domain_id = s.domain_id
+        where qe.queue_id = q.id and qe.enabled
+       ) hooks
 from cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id
