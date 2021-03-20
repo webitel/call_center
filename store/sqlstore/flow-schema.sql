@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.4 (Debian 12.4-1.pgdg100+1)
--- Dumped by pg_dump version 12.4 (Debian 12.4-1.pgdg100+1)
+-- Dumped from database version 12.6 (Debian 12.6-1.pgdg100+1)
+-- Dumped by pg_dump version 12.6 (Debian 12.6-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -143,6 +143,23 @@ $_$;
 
 
 --
+-- Name: cc_get_lookup(bigint, character varying); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.cc_get_lookup(_id bigint, _name character varying) RETURNS jsonb
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+BEGIN
+    if _id isnull then
+        return null;
+    else
+        return json_build_object('id', _id, 'name', _name)::jsonb;
+    end if;
+END;
+$$;
+
+
+--
 -- Name: set_rbac_rec(); Type: FUNCTION; Schema: flow; Owner: -
 --
 
@@ -170,6 +187,19 @@ $_$;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: region; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.region (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying NOT NULL,
+    description character varying,
+    timezone_id integer NOT NULL
+);
+
 
 --
 -- Name: calendar; Type: TABLE; Schema: flow; Owner: -
@@ -244,7 +274,7 @@ CREATE TABLE flow.acr_routing_outbound_call (
     created_by bigint NOT NULL,
     updated_at bigint NOT NULL,
     updated_by bigint NOT NULL,
-    pattern character varying(50) NOT NULL,
+    pattern character varying NOT NULL,
     priority integer DEFAULT 0 NOT NULL,
     disabled boolean DEFAULT false,
     scheme_id bigint NOT NULL,
@@ -382,7 +412,8 @@ CREATE TABLE flow.calendar_timezones (
     id integer NOT NULL,
     name character varying(100) NOT NULL,
     utc_offset interval NOT NULL,
-    offset_id smallint NOT NULL
+    offset_id smallint NOT NULL,
+    sys_name text
 );
 
 
@@ -431,6 +462,41 @@ ALTER SEQUENCE flow.calendar_timezones_id_seq OWNED BY flow.calendar_timezones.i
 
 
 --
+-- Name: region_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.region_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: region_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.region_id_seq OWNED BY flow.region.id;
+
+
+--
+-- Name: region_list; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.region_list AS
+ SELECT r.id,
+    r.name,
+    r.description,
+    flow.cc_get_lookup((t.id)::bigint, t.name) AS timezone,
+    r.timezone_id,
+    r.domain_id
+   FROM (flow.region r
+     LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)));
+
+
+--
 -- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
@@ -473,6 +539,13 @@ ALTER TABLE ONLY flow.calendar_timezones ALTER COLUMN id SET DEFAULT nextval('fl
 
 
 --
+-- Name: region id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.region ALTER COLUMN id SET DEFAULT nextval('flow.region_id_seq'::regclass);
+
+
+--
 -- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
@@ -510,6 +583,14 @@ ALTER TABLE ONLY flow.calendar
 
 ALTER TABLE ONLY flow.calendar_timezones
     ADD CONSTRAINT calendar_timezones_pk PRIMARY KEY (name);
+
+
+--
+-- Name: region region_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.region
+    ADD CONSTRAINT region_pk PRIMARY KEY (id);
 
 
 --
@@ -650,6 +731,13 @@ CREATE UNIQUE INDEX calendar_timezones_utc_offset_index ON flow.calendar_timezon
 --
 
 CREATE INDEX calendar_updated_by_index ON flow.calendar USING btree (updated_by);
+
+
+--
+-- Name: region_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX region_domain_id_name_uindex ON flow.region USING btree (domain_id, name);
 
 
 --
@@ -801,6 +889,14 @@ ALTER TABLE ONLY flow.calendar
 
 ALTER TABLE ONLY flow.calendar
     ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: region region_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.region
+    ADD CONSTRAINT region_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
