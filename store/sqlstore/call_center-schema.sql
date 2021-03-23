@@ -1330,6 +1330,23 @@ $$;
 
 
 --
+-- Name: cc_is_lookup(text, text); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_is_lookup(_table_name text, _col_name text) RETURNS boolean
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+begin
+    return exists(select 1
+from information_schema.columns
+where table_name = _table_name
+    and column_name = _col_name
+    and data_type in ('json', 'jsonb'));
+end;
+$$;
+
+
+--
 -- Name: cc_list_statistics_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -1892,31 +1909,6 @@ $$;
 
 
 --
--- Name: cc_set_rbac_rec(); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_set_rbac_rec() RETURNS trigger
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $_$
-    BEGIN
-        execute 'insert into ' || (TG_ARGV[0])::text ||' (dc, object, grantor, subject, access)
-        select t.dc, $1, t.grantor, t.subject, t.access
-        from (
-            select u.dc, u.id grantor, u.id subject, 255 as access
-            from directory.wbt_user u
-            where u.id = $2
-            union all
-            select rm.dc, rm.member_id, rm.role_id, 68
-            from directory.wbt_auth_member rm
-            where rm.member_id = $2
-        ) t'
-        using NEW.id, NEW.created_by;
-        RETURN NEW;
-    END;
-$_$;
-
-
---
 -- Name: cc_team_agents_by_bucket(character varying, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -1991,6 +1983,58 @@ begin
     end if;
 end;
 $$;
+
+
+--
+-- Name: tg_obj_default_rbac(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.tg_obj_default_rbac() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $_$
+BEGIN
+
+    EXECUTE format(
+'INSERT INTO %I.%I AS acl (dc, object, grantor, subject, access)
+ SELECT $1, $2, rbac.grantor, rbac.subject, rbac.access
+   FROM (
+    -- NEW object OWNER access SUPER(255) mode (!)
+    SELECT $3, $3, (255)::int2
+     UNION ALL
+    SELECT DISTINCT ON (rbac.subject)
+      -- [WHO] grants MAX of WINDOW subset access level
+        first_value(rbac.grantor) OVER sub
+      -- [WHOM] role/user administrative unit
+      , rbac.subject
+      -- [GRANT] ALL of WINDOW subset access mode(s)
+      , bit_or(rbac.access) OVER sub
+
+      FROM directory.wbt_default_acl AS rbac
+      JOIN directory.wbt_class AS oc ON (oc.dc, oc.name) = ($1, %L)
+      -- EXISTS( OWNER membership WITH grantor role )
+      JOIN directory.wbt_auth_member AS sup ON (sup.role_id, sup.member_id) = (rbac.grantor, $3)
+     WHERE rbac.object = oc.id
+       AND rbac.subject <> $3
+    WINDOW sub AS (PARTITION BY rbac.subject ORDER BY rbac.access DESC)
+
+   ) AS rbac(grantor, subject, access)',
+
+--   ON CONFLICT (object, subject)
+--   DO UPDATE SET
+--     grantor = EXCLUDED.grantor,
+--     access = EXCLUDED.access',
+
+            tg_table_schema,
+            tg_table_name||'_acl',
+            tg_argv[0]::name -- objclass: directory.wbt_class.name
+        )
+    --      :srv,   :oid,   :rid
+    USING NEW.domain_id, NEW.id, NEW.created_by;
+    -- FOR EACH ROW
+    RETURN NEW;
+
+END
+$_$;
 
 
 --
@@ -2183,6 +2227,26 @@ CREATE SEQUENCE call_center.cc_agent_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_agent_id_seq OWNED BY call_center.cc_agent.id;
+
+
+--
+-- Name: cc_agent_in_queue_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_agent_in_queue_view AS
+SELECT
+    NULL::jsonb AS queue,
+    NULL::integer AS priority,
+    NULL::smallint AS type,
+    NULL::character varying(20) AS strategy,
+    NULL::boolean AS enabled,
+    NULL::bigint AS count_members,
+    NULL::bigint AS waiting_members,
+    NULL::bigint AS active_members,
+    NULL::integer AS queue_id,
+    NULL::character varying AS queue_name,
+    NULL::bigint AS domain_id,
+    NULL::integer AS agent_id;
 
 
 --
@@ -2415,6 +2479,34 @@ CREATE SEQUENCE call_center.cc_bucket_in_queue_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_bucket_in_queue_id_seq OWNED BY call_center.cc_bucket_in_queue.id;
+
+
+--
+-- Name: cc_bucket_in_queue_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_bucket_in_queue_view AS
+ SELECT q.id,
+    q.ratio,
+    call_center.cc_get_lookup(cb.id, ((cb.name)::text)::character varying) AS bucket,
+    q.queue_id,
+    q.bucket_id,
+    cb.domain_id,
+    cb.name AS bucket_name
+   FROM (call_center.cc_bucket_in_queue q
+     LEFT JOIN call_center.cc_bucket cb ON ((q.bucket_id = cb.id)));
+
+
+--
+-- Name: cc_bucket_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_bucket_view AS
+ SELECT b.id,
+    b.name,
+    b.description,
+    b.domain_id
+   FROM call_center.cc_bucket b;
 
 
 --
@@ -2924,6 +3016,20 @@ ALTER SEQUENCE call_center.cc_communication_id_seq OWNED BY call_center.cc_commu
 
 
 --
+-- Name: cc_communication_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_communication_view AS
+ SELECT c.id,
+    c.name,
+    c.code,
+    c.description,
+    c.type,
+    c.domain_id
+   FROM call_center.cc_communication c;
+
+
+--
 -- Name: cc_distribute_stage_1; Type: VIEW; Schema: call_center; Owner: -
 --
 
@@ -3135,6 +3241,20 @@ ALTER SEQUENCE call_center.cc_list_communications_id_seq OWNED BY call_center.cc
 
 
 --
+-- Name: cc_list_communications_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_list_communications_view AS
+ SELECT i.id,
+    i.number,
+    i.description,
+    i.list_id,
+    cl.domain_id
+   FROM (call_center.cc_list_communications i
+     LEFT JOIN call_center.cc_list cl ON ((cl.id = i.list_id)));
+
+
+--
 -- Name: cc_list_statistics; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3142,6 +3262,26 @@ CREATE TABLE call_center.cc_list_statistics (
     list_id integer NOT NULL,
     count integer DEFAULT 0 NOT NULL
 );
+
+
+--
+-- Name: cc_list_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_list_view AS
+ SELECT i.id,
+    i.name,
+    i.description,
+    i.domain_id,
+    i.created_at,
+    call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+    i.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    COALESCE(cls.count, 0) AS count
+   FROM (((call_center.cc_list i
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = i.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = i.updated_by)))
+     LEFT JOIN call_center.cc_list_statistics cls ON ((i.id = cls.list_id)));
 
 
 --
@@ -3393,6 +3533,19 @@ ALTER SEQUENCE call_center.cc_outbound_resource_display_id_seq OWNED BY call_cen
 
 
 --
+-- Name: cc_outbound_resource_display_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_outbound_resource_display_view AS
+ SELECT d.id,
+    d.display,
+    d.resource_id,
+    cor.domain_id
+   FROM (call_center.cc_outbound_resource_display d
+     LEFT JOIN call_center.cc_outbound_resource cor ON ((d.resource_id = cor.id)));
+
+
+--
 -- Name: cc_outbound_resource_group; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3464,6 +3617,29 @@ ALTER SEQUENCE call_center.cc_outbound_resource_group_id_seq OWNED BY call_cente
 
 
 --
+-- Name: cc_outbound_resource_group_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_outbound_resource_group_view AS
+ SELECT s.id,
+    s.domain_id,
+    s.name,
+    s.strategy,
+    s.description,
+    call_center.cc_get_lookup((comm.id)::bigint, comm.name) AS communication,
+    s.created_at,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    s.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    s.communication_id,
+    s."time"
+   FROM (((call_center.cc_outbound_resource_group s
+     JOIN call_center.cc_communication comm ON ((comm.id = s.communication_id)))
+     LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)));
+
+
+--
 -- Name: cc_outbound_resource_in_group; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3491,6 +3667,53 @@ CREATE SEQUENCE call_center.cc_outbound_resource_in_group_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_outbound_resource_in_group_id_seq OWNED BY call_center.cc_outbound_resource_in_group.id;
+
+
+--
+-- Name: cc_outbound_resource_in_group_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_outbound_resource_in_group_view AS
+ SELECT s.id,
+    s.group_id,
+    call_center.cc_get_lookup((cor.id)::bigint, cor.name) AS resource,
+    s.resource_id,
+    cor.name AS resource_name,
+    cor.domain_id
+   FROM ((call_center.cc_outbound_resource_in_group s
+     LEFT JOIN call_center.cc_outbound_resource cor ON ((s.resource_id = cor.id)))
+     LEFT JOIN call_center.cc_outbound_resource_group corg ON ((s.group_id = corg.id)));
+
+
+--
+-- Name: cc_outbound_resource_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_outbound_resource_view AS
+ SELECT s.id,
+    s."limit",
+    s.enabled,
+    s.updated_at,
+    s.rps,
+    s.domain_id,
+    s.reserve,
+    s.variables,
+    s.number,
+    s.max_successively_errors,
+    s.name,
+    s.error_ids,
+    s.last_error_id,
+    s.successively_errors,
+    s.last_error_at,
+    s.created_at,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
+    s.gateway_id
+   FROM (((call_center.cc_outbound_resource s
+     LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)))
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = s.gateway_id)));
 
 
 --
@@ -3797,6 +4020,20 @@ ALTER SEQUENCE call_center.cc_queue_resource_id_seq1 OWNED BY call_center.cc_que
 
 
 --
+-- Name: cc_queue_resource_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_queue_resource_view AS
+ SELECT q.id,
+    q.queue_id,
+    call_center.cc_get_lookup(g.id, ((g.name)::text)::character varying) AS resource_group,
+    g.name AS resource_group_name,
+    g.domain_id
+   FROM (call_center.cc_queue_resource q
+     LEFT JOIN call_center.cc_outbound_resource_group g ON ((q.resource_group_id = g.id)));
+
+
+--
 -- Name: cc_queue_skill; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3873,6 +4110,45 @@ CREATE SEQUENCE call_center.cc_skill_in_agent_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_skill_in_agent_id_seq OWNED BY call_center.cc_skill_in_agent.id;
+
+
+--
+-- Name: cc_skill_in_agent_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_skill_in_agent_view AS
+ SELECT sa.id,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    sa.created_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    sa.updated_at,
+    call_center.cc_get_lookup((cs.id)::bigint, cs.name) AS skill,
+    call_center.cc_get_lookup((ca.id)::bigint, (COALESCE(uu.name, (uu.username)::text))::character varying) AS agent,
+    sa.capacity,
+    sa.enabled,
+    ca.domain_id,
+    sa.skill_id,
+    cs.name AS skill_name,
+    sa.agent_id,
+    COALESCE(u.name, (u.username)::text) AS agent_name
+   FROM (((((call_center.cc_skill_in_agent sa
+     LEFT JOIN call_center.cc_agent ca ON ((sa.agent_id = ca.id)))
+     LEFT JOIN directory.wbt_user uu ON ((uu.id = ca.user_id)))
+     LEFT JOIN call_center.cc_skill cs ON ((sa.skill_id = cs.id)))
+     LEFT JOIN directory.wbt_user c ON ((c.id = sa.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = sa.updated_by)));
+
+
+--
+-- Name: cc_skill_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_skill_view AS
+ SELECT c.id,
+    c.name,
+    c.description,
+    c.domain_id
+   FROM call_center.cc_skill c;
 
 
 --
@@ -5606,6 +5882,35 @@ CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
 
 
 --
+-- Name: cc_agent_in_queue_view _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    q.priority,
+    q.type,
+    q.strategy,
+    q.enabled,
+    COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
+    COALESCE(sum(cqs.member_waiting), (0)::bigint) AS waiting_members,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a_1
+          WHERE (a_1.queue_id = q.id)) AS active_members,
+    q.id AS queue_id,
+    q.name AS queue_name,
+    a.domain_id,
+    a.id AS agent_id
+   FROM ((call_center.cc_agent a
+     JOIN call_center.cc_queue q ON ((q.team_id = a.team_id)))
+     LEFT JOIN call_center.cc_queue_statistics cqs ON ((q.id = cqs.queue_id)))
+  WHERE (EXISTS ( SELECT qs.queue_id
+           FROM (call_center.cc_queue_skill qs
+             JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
+          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND ((csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
+  GROUP BY a.id, q.id, q.priority;
+
+
+--
 -- Name: cc_agent cc_agent_init_channel_ins; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -5616,14 +5921,7 @@ CREATE TRIGGER cc_agent_init_channel_ins AFTER INSERT ON call_center.cc_agent FO
 -- Name: cc_agent cc_agent_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_agent_set_rbac_acl AFTER INSERT ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_agent_acl');
-
-
---
--- Name: cc_bucket cc_bucket_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
---
-
-CREATE TRIGGER cc_bucket_set_rbac_acl AFTER INSERT ON call_center.cc_bucket FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_bucket_acl');
+CREATE TRIGGER cc_agent_set_rbac_acl AFTER INSERT ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_agent');
 
 
 --
@@ -5637,7 +5935,7 @@ CREATE TRIGGER cc_calls_set_timing_trigger_updated BEFORE INSERT OR UPDATE ON ca
 -- Name: cc_list cc_list_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_list_set_rbac_acl AFTER INSERT ON call_center.cc_list FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_list_acl');
+CREATE TRIGGER cc_list_set_rbac_acl AFTER INSERT ON call_center.cc_list FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_list');
 
 
 --
@@ -5700,14 +5998,14 @@ CREATE TRIGGER cc_member_sys_offset_id_trigger_update BEFORE UPDATE ON call_cent
 -- Name: cc_outbound_resource_group cc_outbound_resource_group_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_outbound_resource_group_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource_group FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_outbound_resource_group_acl');
+CREATE TRIGGER cc_outbound_resource_group_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource_group FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_outbound_resource_group');
 
 
 --
 -- Name: cc_outbound_resource cc_outbound_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_outbound_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_outbound_resource_acl');
+CREATE TRIGGER cc_outbound_resource_set_rbac_acl AFTER INSERT ON call_center.cc_outbound_resource FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_outbound_resource');
 
 
 --
@@ -5721,14 +6019,14 @@ CREATE TRIGGER cc_queue_events_changed AFTER INSERT OR DELETE OR UPDATE ON call_
 -- Name: cc_queue cc_queue_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_queue FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_queue_acl');
+CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_queue FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_queue');
 
 
 --
 -- Name: cc_team cc_team_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
-CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH ROW EXECUTE FUNCTION call_center.cc_set_rbac_rec('cc_team_acl');
+CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_team');
 
 
 --

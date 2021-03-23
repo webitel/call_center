@@ -160,27 +160,54 @@ $$;
 
 
 --
--- Name: set_rbac_rec(); Type: FUNCTION; Schema: flow; Owner: -
+-- Name: tg_obj_default_rbac(); Type: FUNCTION; Schema: flow; Owner: -
 --
 
-CREATE FUNCTION flow.set_rbac_rec() RETURNS trigger
+CREATE FUNCTION flow.tg_obj_default_rbac() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $_$
 BEGIN
-        execute 'insert into ' || (TG_ARGV[0])::text ||' (dc, object, grantor, subject, access)
-        select t.dc, $1, t.grantor, t.subject, t.access
-        from (
-            select u.dc, u.id grantor, u.id subject, 255 as access
-            from directory.wbt_user u
-            where u.id = $2
-            union all
-            select rm.dc, rm.member_id, rm.role_id, 68
-            from directory.wbt_auth_member rm
-            where rm.member_id = $2
-        ) t'
-        using NEW.id, NEW.created_by;
-        RETURN NEW;
-    END;
+
+    EXECUTE format(
+'INSERT INTO %I.%I AS acl (dc, object, grantor, subject, access)
+ SELECT $1, $2, rbac.grantor, rbac.subject, rbac.access
+   FROM (
+    -- NEW object OWNER access SUPER(255) mode (!)
+    SELECT $3, $3, (255)::int2
+     UNION ALL
+    SELECT DISTINCT ON (rbac.subject)
+      -- [WHO] grants MAX of WINDOW subset access level
+        first_value(rbac.grantor) OVER sub
+      -- [WHOM] role/user administrative unit
+      , rbac.subject
+      -- [GRANT] ALL of WINDOW subset access mode(s)
+      , bit_or(rbac.access) OVER sub
+
+      FROM directory.wbt_default_acl AS rbac
+      JOIN directory.wbt_class AS oc ON (oc.dc, oc.name) = ($1, %L)
+      -- EXISTS( OWNER membership WITH grantor role )
+      JOIN directory.wbt_auth_member AS sup ON (sup.role_id, sup.member_id) = (rbac.grantor, $3)
+     WHERE rbac.object = oc.id
+       AND rbac.subject <> $3
+    WINDOW sub AS (PARTITION BY rbac.subject ORDER BY rbac.access DESC)
+
+   ) AS rbac(grantor, subject, access)',
+
+--   ON CONFLICT (object, subject)
+--   DO UPDATE SET
+--     grantor = EXCLUDED.grantor,
+--     access = EXCLUDED.access',
+
+            tg_table_schema,
+            tg_table_name||'_acl',
+            tg_argv[0]::name -- objclass: directory.wbt_class.name
+        )
+    --      :srv,   :oid,   :rid
+    USING NEW.domain_id, NEW.id, NEW.created_by;
+    -- FOR EACH ROW
+    RETURN NEW;
+
+END
 $_$;
 
 
@@ -322,6 +349,29 @@ ALTER SEQUENCE flow.acr_routing_outbound_call_pos_seq OWNED BY flow.acr_routing_
 
 
 --
+-- Name: acr_routing_outbound_call_view; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.acr_routing_outbound_call_view AS
+ SELECT tmp.id,
+    tmp.domain_id,
+    tmp.scheme_id AS schema_id,
+    tmp.name,
+    tmp.description,
+    tmp.created_at,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    tmp.pattern,
+    tmp.disabled,
+    call_center.cc_get_lookup(arst.id, arst.name) AS schema,
+    row_number() OVER (PARTITION BY tmp.domain_id ORDER BY tmp.pos DESC) AS "position"
+   FROM (((flow.acr_routing_outbound_call tmp
+     JOIN flow.acr_routing_scheme arst ON ((tmp.scheme_id = arst.id)))
+     LEFT JOIN directory.wbt_user c ON ((c.id = tmp.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = tmp.updated_by)));
+
+
+--
 -- Name: acr_routing_scheme_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
 --
 
@@ -338,6 +388,26 @@ CREATE SEQUENCE flow.acr_routing_scheme_id_seq
 --
 
 ALTER SEQUENCE flow.acr_routing_scheme_id_seq OWNED BY flow.acr_routing_scheme.id;
+
+
+--
+-- Name: acr_routing_scheme_view; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.acr_routing_scheme_view AS
+ SELECT s.id,
+    s.domain_id,
+    s.name,
+    s.created_at,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    s.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    s.debug,
+    s.scheme AS schema,
+    s.payload
+   FROM ((flow.acr_routing_scheme s
+     LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)));
 
 
 --
@@ -459,6 +529,30 @@ CREATE SEQUENCE flow.calendar_timezones_id_seq
 --
 
 ALTER SEQUENCE flow.calendar_timezones_id_seq OWNED BY flow.calendar_timezones.id;
+
+
+--
+-- Name: calendar_view; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.calendar_view AS
+ SELECT c.id,
+    c.name,
+    c.start_at,
+    c.end_at,
+    c.description,
+    c.domain_id,
+    call_center.cc_get_lookup((ct.id)::bigint, ct.name) AS timezone,
+    c.created_at,
+    call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+    c.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    flow.calendar_accepts_to_jsonb(c.accepts) AS accepts,
+    call_center.cc_arr_type_to_jsonb(c.excepts) AS excepts
+   FROM (((flow.calendar c
+     LEFT JOIN flow.calendar_timezones ct ON ((c.timezone_id = ct.id)))
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = c.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.updated_by)));
 
 
 --
@@ -744,7 +838,7 @@ CREATE UNIQUE INDEX region_domain_id_name_uindex ON flow.region USING btree (dom
 -- Name: calendar calendar_set_rbac_acl; Type: TRIGGER; Schema: flow; Owner: -
 --
 
-CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON flow.calendar FOR EACH ROW EXECUTE FUNCTION flow.set_rbac_rec('flow.calendar_acl');
+CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON flow.calendar FOR EACH ROW EXECUTE FUNCTION flow.tg_obj_default_rbac('calendar');
 
 
 --

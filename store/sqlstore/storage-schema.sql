@@ -177,6 +177,58 @@ END;
 $$;
 
 
+--
+-- Name: tg_obj_default_rbac(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.tg_obj_default_rbac() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $_$
+BEGIN
+
+    EXECUTE format(
+'INSERT INTO %I.%I AS acl (dc, object, grantor, subject, access)
+ SELECT $1, $2, rbac.grantor, rbac.subject, rbac.access
+   FROM (
+    -- NEW object OWNER access SUPER(255) mode (!)
+    SELECT $3, $3, (255)::int2
+     UNION ALL
+    SELECT DISTINCT ON (rbac.subject)
+      -- [WHO] grants MAX of WINDOW subset access level
+        first_value(rbac.grantor) OVER sub
+      -- [WHOM] role/user administrative unit
+      , rbac.subject
+      -- [GRANT] ALL of WINDOW subset access mode(s)
+      , bit_or(rbac.access) OVER sub
+
+      FROM directory.wbt_default_acl AS rbac
+      JOIN directory.wbt_class AS oc ON (oc.dc, oc.name) = ($1, %L)
+      -- EXISTS( OWNER membership WITH grantor role )
+      JOIN directory.wbt_auth_member AS sup ON (sup.role_id, sup.member_id) = (rbac.grantor, $3)
+     WHERE rbac.object = oc.id
+       AND rbac.subject <> $3
+    WINDOW sub AS (PARTITION BY rbac.subject ORDER BY rbac.access DESC)
+
+   ) AS rbac(grantor, subject, access)',
+
+--   ON CONFLICT (object, subject)
+--   DO UPDATE SET
+--     grantor = EXCLUDED.grantor,
+--     access = EXCLUDED.access',
+
+            tg_table_schema,
+            tg_table_name||'_acl',
+            tg_argv[0]::name -- objclass: directory.wbt_class.name
+        )
+    --      :srv,   :oid,   :rid
+    USING NEW.domain_id, NEW.id, NEW.created_by;
+    -- FOR EACH ROW
+    RETURN NEW;
+
+END
+$_$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -297,6 +349,51 @@ ALTER SEQUENCE storage.file_backend_profiles_id_seq OWNED BY storage.file_backen
 
 
 --
+-- Name: files_statistics; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.files_statistics (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    profile_id integer,
+    mime_type character varying NOT NULL,
+    count bigint DEFAULT 0 NOT NULL,
+    size bigint DEFAULT 0 NOT NULL,
+    not_exists_count integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: file_backend_profiles_view; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.file_backend_profiles_view AS
+ SELECT p.id,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    p.created_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    p.updated_at,
+    p.name,
+    p.description,
+    p.expire_day AS expire_days,
+    p.priority,
+    p.disabled,
+    p.max_size_mb AS max_size,
+    p.properties,
+    p.type,
+    COALESCE(s.size, (0)::numeric) AS data_size,
+    COALESCE(s.cnt, (0)::numeric) AS data_count,
+    p.domain_id
+   FROM (((storage.file_backend_profiles p
+     LEFT JOIN LATERAL ( SELECT sum(s_1.size) AS size,
+            sum(s_1.count) AS cnt
+           FROM storage.files_statistics s_1
+          WHERE (s_1.profile_id = p.id)) s ON (true))
+     LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = p.updated_by)));
+
+
+--
 -- Name: files_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
 --
 
@@ -313,21 +410,6 @@ CREATE SEQUENCE storage.files_id_seq
 --
 
 ALTER SEQUENCE storage.files_id_seq OWNED BY storage.files.id;
-
-
---
--- Name: files_statistics; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.files_statistics (
-    id integer NOT NULL,
-    domain_id bigint NOT NULL,
-    profile_id integer,
-    mime_type character varying NOT NULL,
-    count bigint DEFAULT 0 NOT NULL,
-    size bigint DEFAULT 0 NOT NULL,
-    not_exists_count integer DEFAULT 0 NOT NULL
-);
 
 
 --
@@ -386,6 +468,26 @@ CREATE SEQUENCE storage.media_files_id_seq
 --
 
 ALTER SEQUENCE storage.media_files_id_seq OWNED BY storage.media_files.id;
+
+
+--
+-- Name: media_files_view; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.media_files_view AS
+ SELECT f.id,
+    f.name,
+    f.created_at,
+    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    f.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    f.mime_type,
+    f.size,
+    f.properties,
+    f.domain_id
+   FROM ((storage.media_files f
+     LEFT JOIN directory.wbt_user c ON ((f.created_by = c.id)))
+     LEFT JOIN directory.wbt_user u ON ((f.updated_by = u.id)));
 
 
 --
@@ -677,6 +779,13 @@ CREATE UNIQUE INDEX files_statistics_id_uindex ON storage.files_statistics USING
 --
 
 CREATE UNIQUE INDEX media_files_domain_id_name_uindex ON storage.media_files USING btree (domain_id, name);
+
+
+--
+-- Name: file_backend_profiles file_backend_profiles_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER file_backend_profiles_set_rbac_acl AFTER INSERT ON storage.file_backend_profiles FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_backend_profiles');
 
 
 --
