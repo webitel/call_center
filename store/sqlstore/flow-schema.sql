@@ -79,11 +79,11 @@ begin
                where not x.disabled is true
                  and case
                          when x.repeat is true then
-                                 to_char((current_timestamp AT TIME ZONE ct.name)::date, 'MM-DD') =
-                                 to_char((to_timestamp(x.date / 1000) at time zone ct.name)::date, 'MM-DD')
+                                 to_char((current_timestamp AT TIME ZONE ct.sys_name)::date, 'MM-DD') =
+                                 to_char((to_timestamp(x.date / 1000) at time zone ct.sys_name)::date, 'MM-DD')
                          else
-                                 (current_timestamp AT TIME ZONE ct.name)::date =
-                                 (to_timestamp(x.date / 1000) at time zone ct.name)::date
+                                 (current_timestamp AT TIME ZONE ct.sys_name)::date =
+                                 (to_timestamp(x.date / 1000) at time zone ct.sys_name)::date
                    end
                limit 1
            )                     excepted,
@@ -91,12 +91,12 @@ begin
                    select 1
                    from unnest(c.accepts) as x
                    where not x.disabled is true
-                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.name)::int
-                     and (to_char(current_timestamp AT TIME ZONE ct.name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
+                     and x.day + 1 = extract(isodow from current_timestamp AT TIME ZONE ct.sys_name)::int
+                     and (to_char(current_timestamp AT TIME ZONE ct.sys_name, 'SSSS') :: int / 60) between x.start_time_of_day and x.end_time_of_day
                )                 accept,
            case
                when c.start_at > 0 and c.end_at > 0 then
-                   not current_date AT TIME ZONE ct.name between (to_timestamp(c.start_at / 1000) at time zone ct.name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.name)::date
+                   not current_date AT TIME ZONE ct.sys_name between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date
                else false end as expire
     into res
     from flow.calendar c
