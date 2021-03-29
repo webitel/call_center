@@ -527,7 +527,8 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		if res.AgentTimeout != nil && *res.AgentTimeout > 0 {
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, *res.AgentTimeout)
 		} else {
-			ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
+			//ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
+			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, 0)
 		}
 		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, res.QueueId, *res.UserId, ev)
 	}

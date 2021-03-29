@@ -131,8 +131,14 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		attempt.SetState(HookLeaving)
+
+		t := int(tm.WrapUpTime())
+		if agent.IsOnDemand() {
+			t = 0
+		}
+
 		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
-			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
+			model.ChannelStateWrapTime, t); err == nil {
 
 			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
 			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
