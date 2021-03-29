@@ -230,5 +230,4 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 	}()
 
 	queue.queueManager.app.ChatManager().RemoveConversation(conv)
-	queue.queueManager.LeavingMember(attempt)
 }
