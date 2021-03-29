@@ -134,7 +134,7 @@ func (queue *TaskAgentQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 
 func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject, task *TaskChannel) {
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
-		queue.queueManager.LeavingMember(attempt, queue)
+		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
@@ -168,5 +168,5 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 		team.Reporting(queue, attempt, agent, task.ReportingAt() > 0)
 	}
 
-	queue.queueManager.LeavingMember(attempt, queue)
+	queue.queueManager.LeavingMember(attempt)
 }

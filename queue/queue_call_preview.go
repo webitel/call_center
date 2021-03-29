@@ -57,7 +57,7 @@ func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
-		queue.queueManager.LeavingMember(attempt, queue)
+		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
@@ -167,7 +167,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		team.CancelAgentAttempt(attempt, agent)
 	}
 
-	queue.queueManager.LeavingMember(attempt, queue)
+	queue.queueManager.LeavingMember(attempt)
 }
 
 func printfIfErr(err *model.AppError) {

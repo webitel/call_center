@@ -103,6 +103,11 @@ func (d *DialingImpl) routeIdleAgents() {
 		for _, v := range attempts {
 			waiting := NewWaitingChannelEvent(v.Channel, v.UserId, &v.AttemptId, v.Timestamp)
 			err = d.queueManager.mq.AgentChannelEvent(v.Channel, v.DomainId, 0, v.UserId, waiting)
+
+			if a, ok := d.queueManager.GetAttempt(v.AttemptId); ok {
+				a.SetResult("timeout")
+				d.queueManager.LeavingMember(a)
+			}
 		}
 	} else {
 		wlog.Error(err.Error()) ///TODO return ?

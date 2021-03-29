@@ -203,5 +203,4 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 		attempt.Emit(AttemptHookLeaving)
 		attempt.Off("*")
 	}()
-	queue.queueManager.LeavingMember(attempt, queue)
 }

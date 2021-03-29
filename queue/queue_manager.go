@@ -232,7 +232,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 	if err = queue.DistributeAttempt(attempt); err != nil {
 		wlog.Error(err.Error())
 		queueManager.Abandoned(attempt)
-		queueManager.LeavingMember(attempt, queue)
+		queueManager.LeavingMember(attempt)
 
 		return nil, err
 	} else {
@@ -387,12 +387,13 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 	return attempt, nil
 }
 
-func (queueManager *QueueManager) LeavingMember(attempt *Attempt, queue QueueObject) {
+func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
+	attempt.SetState(HookLeaving)
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
 
-	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%v] AttemptId=%d  from queue \"%s\" [%d]", queue.TypeName(), attempt.Name(),
-		attempt.MemberId(), attempt.Id(), queue.Name(), queueManager.membersCache.Len()))
+	wlog.Info(fmt.Sprintf("[%s] leaving member %s[%v] AttemptId=%d  from queue \"%s\" [%d]", attempt.queue.TypeName(), attempt.Name(),
+		attempt.MemberId(), attempt.Id(), attempt.queue.Name(), queueManager.membersCache.Len()))
 }
 
 func (queueManager *QueueManager) GetAttemptResource(attempt *Attempt) ResourceObject {
@@ -433,13 +434,11 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	attempt.SetResult(AttemptResultAbandoned)
-	attempt.SetState(HookLeaving)
 	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())
-
-		return
 	}
+	queueManager.LeavingMember(attempt)
 }
 
 func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
@@ -531,6 +530,10 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 			ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
 		}
 		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, res.QueueId, *res.UserId, ev)
+	}
+
+	if attempt, ok := queueManager.GetAttempt(attemptId); ok {
+		queueManager.LeavingMember(attempt)
 	}
 
 	return err

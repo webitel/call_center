@@ -118,7 +118,6 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
 	if agentSendReporting {
-		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		return
 	}
@@ -132,7 +131,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		// FIXME
 		attempt.SetResult(AttemptResultSuccess)
 		attempt.SetState(HookLeaving)
-		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 30,
+		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
 			model.ChannelStateWrapTime, int(tm.WrapUpTime())); err == nil {
 
 			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
@@ -143,6 +142,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		} else {
 			wlog.Error(err.Error())
 		}
+		queue.Leaving(attempt)
 		return
 	}
 

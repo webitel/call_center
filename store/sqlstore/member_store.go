@@ -440,13 +440,12 @@ where m.id = u.member_id`, map[string]interface{}{
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, :Result::varchar, :State::varchar, :AgentHoldTime)) as timestamp`,
+func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (int64, *model.AppError) {
+	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, null::int, :Result::varchar, :State::varchar, :AgentHoldTime)) as timestamp`,
 		map[string]interface{}{
 			"Result":        result,
 			"State":         channelState,
 			"Id":            id,
-			"HoldSec":       holdSec,
 			"AgentHoldTime": agentHoldTime,
 		})
 

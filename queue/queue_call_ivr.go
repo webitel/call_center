@@ -48,7 +48,7 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 func (queue *IVRQueue) run(attempt *Attempt) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
-		queue.queueManager.LeavingMember(attempt, queue)
+		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
@@ -130,6 +130,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		})
 	}
 
+	attempt.SetState(model.MemberStateJoined)
+
 	call.Invite()
 	if call.Err() != nil {
 		return
@@ -144,6 +146,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		case state := <-call.State():
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
+				attempt.SetState(model.MemberStateOffering)
 				_, err := queue.queueManager.store.Member().
 					SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()), &dst, &callerIdNumber)
 				if err != nil {
@@ -156,6 +159,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 					continue
 				}
 
+				attempt.SetState(model.MemberStateBridged)
 				_, err := queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
 				if err != nil {
 					wlog.Error(err.Error())
@@ -170,11 +174,10 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	}
 
 	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
-		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", 0,
-			"", 0)
+		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0)
 	} else {
 		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries)
 	}
 
-	queue.queueManager.LeavingMember(attempt, queue)
+	queue.queueManager.LeavingMember(attempt)
 }

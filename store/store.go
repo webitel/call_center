@@ -65,7 +65,7 @@ type MemberStore interface {
 
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
 	SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError)
-	SetAttemptResult(id int64, result string, holdSec int, channelState string, agentHoldTime int) (int64, *model.AppError)
+	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (int64, *model.AppError)
 	CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64, agentId *int) (*model.AttemptReportingResult, *model.AppError)
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)

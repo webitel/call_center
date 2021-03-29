@@ -25,6 +25,8 @@ type QueueObject interface {
 	Id() int
 	AppId() string
 
+	Leaving(attempt *Attempt)
+
 	Processing() bool
 	ProcessingSec() uint16
 	ProcessingRenewalSec() uint16
@@ -217,6 +219,10 @@ func (queue *BaseQueue) AgentManager() agent_manager.AgentManager {
 
 func (queue *BaseQueue) Channel() string {
 	return queue.channel
+}
+
+func (queue *BaseQueue) Leaving(attempt *Attempt) {
+	queue.queueManager.LeavingMember(attempt)
 }
 
 func (tm *agentTeam) Distribute(queue QueueObject, agent agent_manager.AgentObject, e model.Event) {

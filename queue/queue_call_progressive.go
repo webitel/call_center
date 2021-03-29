@@ -60,7 +60,7 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent agent_manager.AgentObject) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
-		queue.queueManager.LeavingMember(attempt, queue)
+		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
@@ -247,5 +247,4 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		}
 	}
 
-	queue.queueManager.LeavingMember(attempt, queue)
 }
