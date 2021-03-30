@@ -28,8 +28,8 @@ type QueueObject interface {
 	Leaving(attempt *Attempt)
 
 	Processing() bool
-	ProcessingSec() uint16
-	ProcessingRenewalSec() uint16
+	ProcessingSec() uint32
+	ProcessingRenewalSec() uint32
 	Hook(name string, at *Attempt)
 }
 
@@ -50,8 +50,8 @@ type BaseQueue struct {
 	doSchema             *int32
 	afterSchemaId        *int32
 	processing           bool
-	processingSec        uint16
-	processingRenewalSec uint16
+	processingSec        uint32
+	processingRenewalSec uint32
 	hooks                HookHub
 }
 
@@ -158,11 +158,11 @@ func (queue *BaseQueue) Processing() bool {
 	return queue.processing
 }
 
-func (queue *BaseQueue) ProcessingSec() uint16 {
+func (queue *BaseQueue) ProcessingSec() uint32 {
 	return queue.processingSec
 }
 
-func (queue *BaseQueue) ProcessingRenewalSec() uint16 {
+func (queue *BaseQueue) ProcessingRenewalSec() uint32 {
 	return queue.processingRenewalSec
 }
 

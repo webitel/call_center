@@ -314,7 +314,7 @@ where x.last_state_change notnull `, map[string]interface{}{
 	return res, nil
 }
 
-func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint16) (int64, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`with att as (
     update cc_member_attempt
     set timeout  = case when :DeadlineSec::int > 0 then  now() + (:DeadlineSec::int || ' sec')::interval end,

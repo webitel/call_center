@@ -82,8 +82,8 @@ type Queue struct {
 	DoSchemaId           *int32            `json:"do_schema_id" db:"do_schema_id"`
 	AfterSchemaId        *int32            `json:"after_schema_id" db:"after_schema_id"`
 	Processing           bool              `json:"processing" db:"processing"`
-	ProcessingSec        uint16            `json:"processing_sec" db:"processing_sec"`
-	ProcessingRenewalSec uint16            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
+	ProcessingSec        uint32            `json:"processing_sec" db:"processing_sec"`
+	ProcessingRenewalSec uint32            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
 	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 }
 

@@ -59,7 +59,7 @@ type MemberStore interface {
 
 	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
-	SetAttemptReporting(attemptId int64, deadlineSec uint16) (int64, *model.AppError)
+	SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError)
 	SetAttemptAbandoned(attemptId int64) (int64, *model.AppError)
 	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64) (int64, *model.AppError)
 

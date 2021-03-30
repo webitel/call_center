@@ -41,7 +41,7 @@ type Missed struct {
 
 type Processing struct {
 	Timeout    int64  `json:"timeout"`
-	RenewalSec uint16 `json:"renewal_sec"`
+	RenewalSec uint32 `json:"renewal_sec"`
 }
 
 type DistributeEvent struct {
@@ -174,7 +174,7 @@ func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint16, renewal uint16) model.Event {
+func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint32, renewal uint32) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:    timestamp + (int64(deadlineSec) * 1000),
