@@ -403,17 +403,17 @@ begin
     where id = attempt.member_id;
 
     if attempt.agent_id notnull then
-        select a.user_id, a.domain_id, coalesce(tm.wrap_up_time, 0)
+        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
         into user_id_, domain_id_, wrap_time_
         from cc_agent a
             left join cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.agent_id;
 
-        if wrap_time_ > 0 then
+        if wrap_time_ > 0 or wrap_time_ isnull then
             update cc_agent_channel c
             set state = 'wrap_time',
                 joined_at = now(),
-                timeout = now() + (wrap_time_ || ' sec')::interval,
+                timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
                 last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
             returning timeout into agent_timeout_;
@@ -1502,6 +1502,102 @@ $$;
 
 
 --
+-- Name: cc_member_statistic_skill_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_member_statistic_skill_trigger_deleted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    insert into call_center.cc_queue_skill_statistics (queue_id, skill_id, member_count, member_waiting)
+    select t.queue_id, t.skill_id, t.cnt, t.cntwait
+    from (
+             select queue_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
+             from deleted m
+             group by queue_id, skill_id
+         ) t
+    where t.skill_id notnull 
+    on conflict (queue_id, skill_id)
+        do update
+        set member_count   = cc_queue_skill_statistics.member_count - EXCLUDED.member_count,
+            member_waiting = cc_queue_skill_statistics.member_waiting - EXCLUDED.member_waiting
+    ;
+
+    RETURN NULL;
+END
+$$;
+
+
+--
+-- Name: cc_member_statistic_skill_trigger_inserted(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_member_statistic_skill_trigger_inserted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    insert into call_center.cc_queue_skill_statistics (queue_id, skill_id, member_count, member_waiting)
+    select t.queue_id, t.skill_id, t.cnt, t.cntwait
+    from (
+             select queue_id, skill_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
+             from inserted m
+             where m.skill_id notnull
+             group by queue_id, skill_id
+         ) t
+    on conflict (queue_id, skill_id)
+        do update
+        set member_count   = EXCLUDED.member_count + call_center.cc_queue_skill_statistics.member_count,
+            member_waiting = EXCLUDED.member_waiting + call_center.cc_queue_skill_statistics.member_waiting;
+
+    RETURN NULL;
+END
+$$;
+
+
+--
+-- Name: cc_member_statistic_skill_trigger_updated(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_member_statistic_skill_trigger_updated() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    insert into call_center.cc_queue_skill_statistics (queue_id, skill_id, member_count, member_waiting)
+    select t.queue_id, t.skill_id, t.cnt, t.cntwait
+    from (
+        select queue_id, skill_id, sum(cnt) cnt, sum(cntwait) cntwait
+        from (
+             select m.queue_id,
+                    m.skill_id,
+                    -1 * count(*) cnt,
+                    -1 * count(*) filter ( where m.stop_at isnull ) cntwait
+             from old_data m
+             group by m.queue_id, m.skill_id
+
+             union all
+            select m.queue_id,
+                   m.skill_id,
+                   count(*) cnt,
+                   count(*) filter ( where m.stop_at isnull ) cntwait
+             from new_data m
+--              where m.skill_id notnull
+             group by m.queue_id, m.skill_id
+        ) o
+        group by queue_id, skill_id
+    ) t
+        where t.skill_id notnull
+    on conflict (queue_id, skill_id) do update
+        set member_waiting = excluded.member_waiting + call_center.cc_queue_skill_statistics.member_waiting,
+            member_count = excluded.member_count + call_center.cc_queue_skill_statistics.member_count
+    ;
+
+   RETURN NULL;
+END
+$$;
+
+
+--
 -- Name: cc_member_statistic_trigger_deleted(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -2531,10 +2627,11 @@ CREATE TABLE call_center.cc_member (
     ready_at timestamp with time zone,
     stop_at timestamp with time zone,
     last_hangup_at bigint DEFAULT 0 NOT NULL,
-    sys_destinations call_center.cc_destination[],
     search_destinations character varying[],
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    expire_at timestamp with time zone
+    expire_at timestamp with time zone,
+    skill_id integer,
+    sys_destinations call_center.cc_destination[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
@@ -4093,6 +4190,18 @@ CREATE VIEW call_center.cc_queue_skill_list AS
 
 
 --
+-- Name: cc_queue_skill_statistics; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_queue_skill_statistics (
+    queue_id integer NOT NULL,
+    skill_id integer NOT NULL,
+    member_count integer DEFAULT 0 NOT NULL,
+    member_waiting integer DEFAULT 0 NOT NULL
+);
+
+
+--
 -- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
 --
 
@@ -4843,6 +4952,14 @@ ALTER TABLE ONLY call_center.cc_queue_skill
 
 
 --
+-- Name: cc_queue_skill_statistics cc_queue_skill_statistics_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue_skill_statistics
+    ADD CONSTRAINT cc_queue_skill_statistics_pk PRIMARY KEY (queue_id, skill_id);
+
+
+--
 -- Name: cc_queue_statistics cc_queue_statistics_pk_queue_id_bucket_id_skill_id; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -5329,14 +5446,14 @@ CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt U
 -- Name: cc_member_dis_fifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, ready_at, priority DESC, id) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at, id) INCLUDE (sys_offset_id, sys_destinations, expire_at) WHERE (stop_at IS NULL);
 
 
 --
 -- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, ready_at, priority DESC, id DESC) INCLUDE (sys_offset_id, sys_destinations) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, priority DESC, ready_at, id DESC) INCLUDE (sys_offset_id, sys_destinations, expire_at) WHERE (stop_at IS NULL);
 
 
 --
@@ -5753,6 +5870,65 @@ CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (update
 
 
 --
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
+
+
+--
+-- Name: cc_agent_in_queue_view _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    q.priority,
+    q.type,
+    q.strategy,
+    q.enabled,
+    COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
+    COALESCE(sum(cqs.member_waiting), (0)::bigint) AS waiting_members,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a_1
+          WHERE (a_1.queue_id = q.id)) AS active_members,
+    q.id AS queue_id,
+    q.name AS queue_name,
+    a.domain_id,
+    a.id AS agent_id
+   FROM ((call_center.cc_agent a
+     JOIN call_center.cc_queue q ON ((q.team_id = a.team_id)))
+     LEFT JOIN call_center.cc_queue_statistics cqs ON ((q.id = cqs.queue_id)))
+  WHERE (EXISTS ( SELECT qs.queue_id
+           FROM (call_center.cc_queue_skill qs
+             JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
+          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND ((csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
+  GROUP BY a.id, q.id, q.priority;
+
+
+--
 -- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
@@ -5852,65 +6028,6 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
 
 
 --
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
-
-
---
--- Name: cc_agent_in_queue_view _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    q.priority,
-    q.type,
-    q.strategy,
-    q.enabled,
-    COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
-    COALESCE(sum(cqs.member_waiting), (0)::bigint) AS waiting_members,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a_1
-          WHERE (a_1.queue_id = q.id)) AS active_members,
-    q.id AS queue_id,
-    q.name AS queue_name,
-    a.domain_id,
-    a.id AS agent_id
-   FROM ((call_center.cc_agent a
-     JOIN call_center.cc_queue q ON ((q.team_id = a.team_id)))
-     LEFT JOIN call_center.cc_queue_statistics cqs ON ((q.id = cqs.queue_id)))
-  WHERE (EXISTS ( SELECT qs.queue_id
-           FROM (call_center.cc_queue_skill qs
-             JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
-          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND ((csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
-  GROUP BY a.id, q.id, q.priority;
-
-
---
 -- Name: cc_agent cc_agent_init_channel_ins; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -5957,6 +6074,27 @@ CREATE TRIGGER cc_member_set_sys_destinations_insert BEFORE INSERT ON call_cente
 --
 
 CREATE TRIGGER cc_member_set_sys_destinations_update BEFORE UPDATE ON call_center.cc_member FOR EACH ROW WHEN ((new.communications <> old.communications)) EXECUTE FUNCTION call_center.cc_member_set_sys_destinations_tg();
+
+
+--
+-- Name: cc_member cc_member_statistic_skill_trigger_deleted; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_member_statistic_skill_trigger_deleted AFTER DELETE ON call_center.cc_member REFERENCING OLD TABLE AS deleted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_skill_trigger_deleted();
+
+
+--
+-- Name: cc_member cc_member_statistic_skill_trigger_inserted; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_member_statistic_skill_trigger_inserted AFTER INSERT ON call_center.cc_member REFERENCING NEW TABLE AS inserted FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_skill_trigger_inserted();
+
+
+--
+-- Name: cc_member cc_member_statistic_skill_trigger_updated; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_member_statistic_skill_trigger_updated AFTER UPDATE ON call_center.cc_member REFERENCING OLD TABLE AS old_data NEW TABLE AS new_data FOR EACH STATEMENT EXECUTE FUNCTION call_center.cc_member_statistic_skill_trigger_updated();
 
 
 --
@@ -6934,6 +7072,22 @@ ALTER TABLE ONLY call_center.cc_queue_skill
 
 ALTER TABLE ONLY call_center.cc_queue_skill
     ADD CONSTRAINT cc_queue_skill_cc_skill_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- Name: cc_queue_skill_statistics cc_queue_skill_statistics_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue_skill_statistics
+    ADD CONSTRAINT cc_queue_skill_statistics_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_queue_skill_statistics cc_queue_skill_statistics_cc_skill_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue_skill_statistics
+    ADD CONSTRAINT cc_queue_skill_statistics_cc_skill_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
