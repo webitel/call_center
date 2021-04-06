@@ -6,10 +6,11 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"sync"
+	"time"
 )
 
 const (
-	STATISTICS_WATCHER_POLLING_INTERVAL = 5 * 1000 * 60
+	STATISTICS_WATCHER_POLLING_INTERVAL = 1 * 1000 * 60
 )
 
 type StatisticsManager struct {
@@ -37,17 +38,11 @@ func (s *StatisticsManager) Stop() {
 }
 
 func (s *StatisticsManager) refresh() {
-	wlog.Debug("refresh statistics start")
-	return
-	if err := s.store.Queue().RefreshStatisticsDay5Min(); err != nil {
-		wlog.Error(fmt.Sprintf("refresh member statistics error: %s", err.Error()))
-	} else {
-		wlog.Debug("refresh member statistics ")
+	st := time.Now()
+	if err := s.store.Agent().RefreshAgentPauseCauses(); err != nil {
+		wlog.Error(err.Error())
 	}
 
-	if err := s.store.Agent().RefreshEndStateDay5Min(); err != nil {
-		wlog.Error(fmt.Sprintf("refresh agent statistics error: %s", err.Error()))
-	} else {
-		wlog.Debug("refresh agent statistics ")
-	}
+	wlog.Debug(fmt.Sprintf("refresh statistics time: %s", time.Now().Sub(st)))
+	return
 }

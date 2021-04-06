@@ -34,7 +34,6 @@ type OutboundResourceStore interface {
 
 type QueueStore interface {
 	GetById(id int64) (*model.Queue, *model.AppError)
-	RefreshStatisticsDay5Min() *model.AppError
 }
 
 type MemberStore interface {
@@ -94,7 +93,8 @@ type AgentStore interface {
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
 	ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError)
 
-	RefreshEndStateDay5Min() *model.AppError
+	RefreshAgentPauseCauses() *model.AppError
+
 	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
 
 	OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError)

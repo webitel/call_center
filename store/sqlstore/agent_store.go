@@ -241,6 +241,17 @@ returning a.user_id, channel, cc_view_timestamp(joined_at) as timestamp, a.domai
 	return channels, nil
 }
 
+func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
+	_, err := s.GetMaster().Exec(`refresh materialized view cc_agent_today_pause_cause`)
+
+	if err != nil {
+		return model.NewAppError("SqlAgentStore.RefreshAgentPauseCauses", "store.sql_agent.refresh_pause_cause.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 //todo need index
 func (s SqlAgentStore) OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey

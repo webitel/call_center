@@ -64,6 +64,7 @@ func (q *BaseQueue) Hook(name string, at *Attempt) {
 		return
 	}
 
+	// add params last attempt
 	req := &workflow.StartFlowRequest{
 		SchemaId: h.SchemaId,
 		DomainId: q.DomainId(),

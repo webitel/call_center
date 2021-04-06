@@ -354,7 +354,7 @@ declare
     wrap_time_ int;
 begin
 
-    if next_offering_at_ notnull and not attempt.result = 'success' and next_offering_at_ < (extract(epoch from now()) * 1000)::int8 then
+    if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < (extract(epoch from now()) * 1000)::int8 then
         -- todo move to application
         raise exception 'bad parameter: next distribute at';
     end if;
@@ -380,8 +380,8 @@ begin
         expire_at = case when expire_at_ isnull then expire_at else to_timestamp((expire_at_/1000)::double precision) end,
         agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
-        stop_at = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
-        stop_cause = case when not attempt.result = 'success' and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
+        stop_at = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
+        stop_cause = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
 
         ready_at = case when next_offering_at_ notnull then to_timestamp((next_offering_at_/1000)::double precision)
             else now() + (q._next_after || ' sec')::interval end,
@@ -2451,6 +2451,27 @@ CREATE VIEW call_center.cc_agent_list AS
 
 
 --
+-- Name: cc_agent_today_pause_cause; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+--
+
+CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
+ SELECT a.id,
+    ((now())::date + age(now(), (timezone(t.sys_name, now()))::timestamp with time zone)) AS today,
+    p.payload AS cause,
+    p.d AS duration
+   FROM (((call_center.cc_agent a
+     LEFT JOIN flow.region r ON ((r.id = a.region_id)))
+     LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
+     LEFT JOIN LATERAL ( SELECT cc_agent_state_history.payload,
+            sum(cc_agent_state_history.duration) AS d
+           FROM call_center.cc_agent_state_history
+          WHERE ((cc_agent_state_history.joined_at > ((now())::date + age(now(), (timezone(t.sys_name, now()))::timestamp with time zone))) AND (cc_agent_state_history.agent_id = a.id) AND ((cc_agent_state_history.state)::text = 'pause'::text) AND (cc_agent_state_history.channel IS NULL))
+          GROUP BY cc_agent_state_history.payload) p ON (true))
+  WHERE (p.d IS NOT NULL)
+  WITH NO DATA;
+
+
+--
 -- Name: cc_agent_waiting; Type: VIEW; Schema: call_center; Owner: -
 --
 
@@ -2631,7 +2652,8 @@ CREATE TABLE call_center.cc_member (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     expire_at timestamp with time zone,
     skill_id integer,
-    sys_destinations call_center.cc_destination[]
+    sys_destinations call_center.cc_destination[],
+    CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
@@ -5067,6 +5089,13 @@ CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_
 --
 
 CREATE INDEX cc_agent_status_distribute_index ON call_center.cc_agent USING btree (status) INCLUDE (user_id, id);
+
+
+--
+-- Name: cc_agent_today_pause_cause_agent_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_today_pause_cause_agent_idx ON call_center.cc_agent_today_pause_cause USING btree (id);
 
 
 --
