@@ -463,8 +463,28 @@ CREATE TABLE flow.calendar_acl (
     object bigint NOT NULL,
     grantor bigint NOT NULL,
     subject bigint NOT NULL,
-    access smallint DEFAULT 0 NOT NULL
+    access smallint DEFAULT 0 NOT NULL,
+    id bigint NOT NULL
 );
+
+
+--
+-- Name: calendar_acl_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.calendar_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: calendar_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.calendar_acl_id_seq OWNED BY flow.calendar_acl.id;
 
 
 --
@@ -626,6 +646,13 @@ ALTER TABLE ONLY flow.calendar ALTER COLUMN id SET DEFAULT nextval('flow.calenda
 
 
 --
+-- Name: calendar_acl id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.calendar_acl ALTER COLUMN id SET DEFAULT nextval('flow.calendar_acl_id_seq'::regclass);
+
+
+--
 -- Name: calendar_timezones id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
@@ -661,6 +688,14 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 
 ALTER TABLE ONLY flow.acr_routing_variables
     ADD CONSTRAINT acr_routing_variables_pk PRIMARY KEY (id);
+
+
+--
+-- Name: calendar_acl calendar_acl_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.calendar_acl
+    ADD CONSTRAINT calendar_acl_pk PRIMARY KEY (id);
 
 
 --
@@ -761,14 +796,14 @@ CREATE INDEX calendar_acl_grantor_idx ON flow.calendar_acl USING btree (grantor)
 -- Name: calendar_acl_object_subject_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
-CREATE UNIQUE INDEX calendar_acl_object_subject_udx ON flow.calendar_acl USING btree (object, subject, access);
+CREATE UNIQUE INDEX calendar_acl_object_subject_udx ON flow.calendar_acl USING btree (object, subject) INCLUDE (access);
 
 
 --
 -- Name: calendar_acl_subject_object_udx; Type: INDEX; Schema: flow; Owner: -
 --
 
-CREATE UNIQUE INDEX calendar_acl_subject_object_udx ON flow.calendar_acl USING btree (subject, object, access);
+CREATE UNIQUE INDEX calendar_acl_subject_object_udx ON flow.calendar_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
