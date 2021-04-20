@@ -218,7 +218,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		if conv.BridgedAt() > 0 {
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0)
 		} else {
-			team.Missed(attempt, 0, agent)
+			team.Missed(attempt, agent)
 		}
 	} else {
 		queue.queueManager.Abandoned(attempt)

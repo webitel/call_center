@@ -237,13 +237,15 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	if agentCall == nil {
 		team.Cancel(attempt, agent, uint(queue.MaxAttempts), uint64(queue.WaitBetweenRetries))
+		queue.queueManager.LeavingMember(attempt)
 	} else {
 		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
 		} else {
 			//FIXME cancel if progressive cnt > 1
-			team.Missed(attempt, queue.WaitBetweenRetries, agent)
+			team.Missed(attempt, agent)
+			queue.queueManager.LeavingMember(attempt)
 		}
 	}
 

@@ -500,16 +500,13 @@ func (queueManager *QueueManager) RenewalAttempt(domainId, attemptId int64, rene
 }
 
 func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptCallback) *model.AppError {
-
-	// TODO
-	if !result.Success && result.Status == "" {
+	if result.Status == "" {
 		result.Status = "abandoned"
 	}
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] callback: %v", attemptId, result))
 
-	res, err := queueManager.store.Member().CallbackReporting(attemptId, result.Status, result.Description,
-		result.ExpireAt, result.NextCall, result.StickyAgentId)
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, &result)
 	if err != nil {
 		return err
 	}
@@ -534,6 +531,8 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	}
 
 	if attempt, ok := queueManager.GetAttempt(attemptId); ok {
+		attempt.SetMemberStopCause(res.MemberStopCause)
+		attempt.SetCallback(&result)
 		queueManager.LeavingMember(attempt)
 	}
 

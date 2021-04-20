@@ -16,20 +16,23 @@ func NewMemberApi(app *app.App) *member {
 	return &member{app}
 }
 
-func (api *member) AttemptResult(ctx context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
+func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
 	result := model.AttemptCallback{
-		Success:     false,
-		Status:      in.GetStatus(),
-		Description: in.GetDescription(),
-		Display:     in.GetDisplay(),
+		Status:        in.GetStatus(),
+		Description:   in.GetDescription(),
+		Display:       in.GetDisplay(),
+		Variables:     in.Variables,
+		StickyAgentId: nil,
+		NextCallAt:    nil,
+		ExpireAt:      nil,
 	}
 
 	if in.ExpireAt > 0 {
-		result.ExpireAt = model.NewInt64(in.GetExpireAt())
+		result.ExpireAt = model.Int64ToTime(in.GetExpireAt())
 	}
 
 	if in.NextDistributeAt > 0 {
-		result.NextCall = model.NewInt64(in.NextDistributeAt)
+		result.NextCallAt = model.Int64ToTime(in.NextDistributeAt)
 	}
 
 	if in.AgentId > 0 {
@@ -150,7 +153,7 @@ stop:
 	return nil
 }
 
-func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
+func (api *member) DirectAgentToMember(_ context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
 	res, err := api.app.Queue().Manager().DistributeDirectMember(in.GetMemberId(), int(in.GetCommunicationId()), int(in.GetAgentId()))
 	if err != nil {
 		return nil, err
@@ -161,11 +164,11 @@ func (api *member) DirectAgentToMember(ctx context.Context, in *cc.DirectAgentTo
 	}, nil
 }
 
-func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
+func (api *member) EmailJoinToQueue(_ context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
 	return nil, nil
 }
 
-func (api *member) AttemptRenewalResult(ctx context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
+func (api *member) AttemptRenewalResult(_ context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
 	err := api.app.Queue().Manager().RenewalAttempt(in.DomainId, in.AttemptId, in.Renewal)
 	if err != nil {
 		return nil, err

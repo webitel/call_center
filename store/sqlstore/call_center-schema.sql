@@ -339,10 +339,10 @@ $$;
 
 
 --
--- Name: cc_attempt_end_reporting(bigint, character varying, character varying, bigint, bigint, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ bigint DEFAULT NULL::bigint, next_offering_at_ bigint DEFAULT NULL::bigint, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, next_offering_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -352,9 +352,10 @@ declare
     user_id_ int8 = null;
     domain_id_ int8;
     wrap_time_ int;
+    stop_cause_ varchar;
 begin
 
-    if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < (extract(epoch from now()) * 1000)::int8 then
+    if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < now() then
         -- todo move to application
         raise exception 'bad parameter: next distribute at';
     end if;
@@ -377,13 +378,13 @@ begin
     update cc_member
     set last_hangup_at  = time_,
         variables = case when variables_ isnull then variables else variables_ end,
-        expire_at = case when expire_at_ isnull then expire_at else to_timestamp((expire_at_/1000)::double precision) end,
+        expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
         agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
         stop_at = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
         stop_cause = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
 
-        ready_at = case when next_offering_at_ notnull then to_timestamp((next_offering_at_/1000)::double precision)
+        ready_at = case when next_offering_at_ notnull then next_offering_at_
             else now() + (q._next_after || ' sec')::interval end,
 
         last_agent      = coalesce(attempt.agent_id, last_agent),
@@ -400,7 +401,8 @@ begin
         from cc_queue q
         where q.id = attempt.queue_id
     ) q
-    where id = attempt.member_id;
+    where id = attempt.member_id
+    returning stop_cause into stop_cause_;
 
     if attempt.agent_id notnull then
         select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
@@ -430,20 +432,30 @@ begin
         end if;
     end if;
 
-    return row(cc_view_timestamp(now()), attempt.channel, attempt.queue_id, attempt.agent_call_id, attempt.agent_id, user_id_, domain_id_, cc_view_timestamp(agent_timeout_));
+    return row(cc_view_timestamp(now()),
+        attempt.channel,
+        attempt.queue_id,
+        attempt.agent_call_id,
+        attempt.agent_id,
+        user_id_,
+        domain_id_,
+        cc_view_timestamp(agent_timeout_),
+        stop_cause_
+        );
 end;
 $$;
 
 
 --
--- Name: cc_attempt_leaving(bigint, integer, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_leaving(bigint, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS timestamp with time zone
+CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
     attempt cc_member_attempt%rowtype;
+    no_answers_ int;
 begin
     /*
      FIXME
@@ -485,11 +497,12 @@ begin
             channel = case when agent_hold_sec_ > 0 or agent_status_ != 'waiting' then channel else null end,
             no_answers = case when attempt.bridged_at notnull then 0 else no_answers + 1 end,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
-        where c.agent_id = attempt.agent_id;
+        where c.agent_id = attempt.agent_id
+        returning no_answers into no_answers_;
 
     end if;
 
-    return now();
+    return row(attempt.leaving_at, no_answers_);
 end;
 $$;
 
@@ -915,7 +928,7 @@ begin
                    dis.id,
                    dis.queue_id,
                    dis.resource_id,
-                   dis.agent_id,
+                   case when q.type != 5 then dis.agent_id end,
                    dis.bucket_id,
                    x,
                    dis.comm_idx,
@@ -2692,7 +2705,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     destination jsonb,
     seq integer DEFAULT 0 NOT NULL,
     answered_at timestamp with time zone,
-    team_id integer
+    team_id integer,
+    sticky_agent_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -2812,15 +2826,19 @@ CREATE VIEW call_center.cc_call_active_list AS
     c.gateway_id,
     c.from_number,
     c.to_number,
-    cma.display
-   FROM (((((((call_center.cc_calls c
+    cma.display,
+    sup."user" AS supervisor,
+    aa.supervisor_id
+   FROM (((((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
      LEFT JOIN call_center.cc_member_attempt cma ON ((cma.id = c.attempt_id)))
      LEFT JOIN call_center.cc_agent_with_user ca ON ((cma.agent_id = ca.id)))
+     LEFT JOIN call_center.cc_agent aa ON ((aa.user_id = c.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
-     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
+     LEFT JOIN call_center.cc_agent_with_user sup ON ((sup.id = aa.supervisor_id)));
 
 
 --
@@ -3166,6 +3184,26 @@ SELECT
     NULL::bigint AS domain_id,
     NULL::integer AS priority,
     NULL::boolean AS sticky_agent;
+
+
+--
+-- Name: cc_distribute_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+--
+
+CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
+ SELECT att.queue_id,
+    att.bucket_id,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (att.bridged_at IS NULL)) AS nbr_cnt,
+    count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS br_cnt,
+        CASE
+            WHEN (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) > 0) THEN ((count(*))::double precision / (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)))::double precision)
+            ELSE (0)::double precision
+        END AS connect_rate
+   FROM call_center.cc_member_attempt_history att
+  WHERE (att.joined_at > (now() - '02:00:00'::interval))
+  GROUP BY att.queue_id, att.bucket_id
+  WITH NO DATA;
 
 
 --
@@ -3586,6 +3624,45 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
      LEFT JOIN call_center.cc_outbound_resource r ON ((r.id = t.resource_id)))
      LEFT JOIN call_center.cc_bucket cb ON ((cb.id = t.bucket_id)))
      LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)));
+
+
+--
+-- Name: cc_notification; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE UNLOGGED TABLE call_center.cc_notification (
+    id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint,
+    accepted_at timestamp with time zone,
+    accepted_by bigint,
+    closed_at timestamp with time zone,
+    description character varying,
+    for_users bigint[],
+    action character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    timeout timestamp with time zone,
+    object_id character varying
+);
+
+
+--
+-- Name: cc_notification_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_notification_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_notification_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_notification_id_seq OWNED BY call_center.cc_notification.id;
 
 
 --
@@ -4582,6 +4659,13 @@ ALTER TABLE ONLY call_center.cc_member_messages ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: cc_notification id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_notification ALTER COLUMN id SET DEFAULT nextval('call_center.cc_notification_id_seq'::regclass);
+
+
+--
 -- Name: cc_outbound_resource id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -4883,6 +4967,14 @@ ALTER TABLE ONLY call_center.cc_member_messages
 
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cc_notification cc_notification_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_notification
+    ADD CONSTRAINT cc_notification_pk PRIMARY KEY (id);
 
 
 --
@@ -5975,27 +6067,36 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.priority,
             q_1.team_id,
             ((q_1.payload -> 'max_calls'::text))::integer AS lim,
-            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets
-           FROM ((( SELECT a.queue_id,
-                    a.bucket_id,
-                    count(*) AS member_waiting,
-                    false AS op
-                   FROM call_center.cc_member_attempt a
-                  WHERE ((a.bridged_at IS NULL) AND (a.leaving_at IS NULL) AND ((a.state)::text = 'wait_agent'::text))
-                  GROUP BY a.queue_id, a.bucket_id
-                UNION ALL
-                 SELECT q_2.queue_id,
-                    q_2.bucket_id,
-                    sum(q_2.member_waiting) AS sum,
-                    true AS op
-                   FROM call_center.cc_queue_statistics q_2
-                  GROUP BY q_2.queue_id, q_2.bucket_id) m
+            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
+            m.op
+           FROM ((( WITH mem AS MATERIALIZED (
+                         SELECT a.queue_id,
+                            a.bucket_id,
+                            count(*) AS member_waiting,
+                            false AS op
+                           FROM call_center.cc_member_attempt a
+                          WHERE ((a.bridged_at IS NULL) AND (a.leaving_at IS NULL) AND ((a.state)::text = 'wait_agent'::text))
+                          GROUP BY a.queue_id, a.bucket_id
+                        UNION ALL
+                         SELECT q_2.queue_id,
+                            q_2.bucket_id,
+                            q_2.member_waiting,
+                            true AS op
+                           FROM call_center.cc_queue_statistics q_2
+                          WHERE (q_2.member_waiting > 0)
+                        )
+                 SELECT rank() OVER (PARTITION BY mem.queue_id ORDER BY mem.op) AS pos,
+                    mem.queue_id,
+                    mem.bucket_id,
+                    mem.member_waiting,
+                    mem.op
+                   FROM mem) m
              JOIN call_center.cc_queue q_1 ON ((q_1.id = m.queue_id)))
              LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((cbiq.queue_id = m.queue_id) AND (cbiq.bucket_id = m.bucket_id))))
-          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0))
-          GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type
+          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0) AND (m.pos = 1))
+          GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type, m.op
          LIMIT 1024
-        ), calend AS (
+        ), calend AS MATERIALIZED (
          SELECT c.id AS calendar_id,
             queues.id AS queue_id,
             array_agg(DISTINCT o1.id) AS l
@@ -6005,7 +6106,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
              JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
           WHERE (NOT (a.disabled IS TRUE))
           GROUP BY c.id, queues.id
-        ), resources AS (
+        ), resources AS MATERIALIZED (
          SELECT cqr.queue_id,
             array_agg(DISTINCT ROW(corg.communication_id, (cor.id)::bigint, (((l_1.l)::integer[] & (l2.x)::integer[]))::smallint[], (corg.id)::integer)::call_center.cc_sys_distribute_type) AS types,
             array_agg(DISTINCT ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer)::call_center.cc_sys_distribute_resource) AS resources,
@@ -6043,17 +6144,17 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             WHEN (q.type = 7) THEN (calend.l)::integer[]
             ELSE r.offset_ids
         END AS offset_ids,
-    ((q.lim - l.usage))::integer AS lim,
+    ((q.lim - COALESCE(l.usage, (0)::bigint)))::integer AS lim,
     q.domain_id,
     q.priority,
     q.sticky_agent
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
-     LEFT JOIN resources r ON ((r.queue_id = q.id)))
+     LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE (a.queue_id = q.id)) l ON ((q.lim > 0)))
-  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
 
 
 --

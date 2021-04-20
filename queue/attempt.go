@@ -36,19 +36,22 @@ const (
 )
 
 type Attempt struct {
-	member        *model.MemberAttempt
-	state         string
-	communication model.MemberCommunication
-	resource      ResourceObject
-	agent         agent_manager.AgentObject
-	domainId      int64
-	channel       string
-	channelData   interface{} // for task queue
+	member          *model.MemberAttempt
+	memberStopCause *string
+	state           string
+	communication   model.MemberCommunication
+	resource        ResourceObject
+	agent           agent_manager.AgentObject
+	domainId        int64
+	channel         string
+	channelData     interface{} // for task queue
 
 	emitter.Emitter
 	queue         QueueObject
 	agentChannel  Channel
 	memberChannel Channel
+
+	agentCallback *model.AttemptCallback
 
 	Info    AttemptInfo `json:"info"`
 	Logs    []LogItem   `json:"logs"`
@@ -69,6 +72,35 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 	}
 }
 
+func (a *Attempt) SetMemberStopCause(cause *string) {
+	a.Lock()
+	a.memberStopCause = cause
+	a.Unlock()
+}
+
+func (a *Attempt) MemberStopCause() string {
+	a.RLock()
+	defer a.RUnlock()
+
+	if a.memberStopCause == nil {
+		return ""
+	}
+
+	return *a.memberStopCause
+}
+
+func (a *Attempt) SetCallback(callback *model.AttemptCallback) {
+	a.Lock()
+	a.agentCallback = callback
+	a.Unlock()
+}
+
+func (a *Attempt) Callback() *model.AttemptCallback {
+	a.RLock()
+	defer a.RUnlock()
+	return a.agentCallback
+}
+
 func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 	a.Lock()
 	defer a.Unlock()
@@ -76,7 +108,6 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 }
 
 func (a *Attempt) SetState(state string) {
-	//fmt.Println("SET STATE >>>> ", state)
 	a.Lock()
 	a.state = state
 	a.Unlock()

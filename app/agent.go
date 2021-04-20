@@ -65,6 +65,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 	}
 
 	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId); chs != nil {
+		//TODO Task & chat
 		app.hangupNoAnswerChannels(chs)
 	}
 

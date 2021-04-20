@@ -19,6 +19,23 @@ type Lookup struct {
 	Name string `json:"name"`
 }
 
+func TimeToInt64(t *time.Time) int64 {
+	if t == nil {
+		return 0
+	}
+
+	return t.UnixNano() / int64(time.Millisecond)
+}
+
+func Int64ToTime(i int64) *time.Time {
+	if i == 0 {
+		return nil
+	}
+
+	t := time.Unix(0, i*int64(time.Millisecond))
+	return &t
+}
+
 type AppError struct {
 	Id            string `json:"id"`
 	Message       string `json:"message"`               // Message to be display to the end user without debugging information

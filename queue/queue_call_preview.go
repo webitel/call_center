@@ -165,9 +165,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
 		team.CancelAgentAttempt(attempt, agent)
+		queue.queueManager.LeavingMember(attempt)
 	}
-
-	queue.queueManager.LeavingMember(attempt)
 }
 
 func printfIfErr(err *model.AppError) {

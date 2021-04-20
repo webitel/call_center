@@ -141,6 +141,6 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
-		team.Missed(attempt, 5, agent)
+		team.Missed(attempt, agent)
 	}
 }

@@ -173,19 +173,14 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	wlog.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
 }
 
-func (tm *agentTeam) Missed(attempt *Attempt, holdSec int, agent agent_manager.AgentObject) {
-	timestamp, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), holdSec, int(tm.NoAnswerDelayTime()))
+func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
+	missed, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), int(tm.NoAnswerDelayTime()))
 	if err != nil {
 		wlog.Error(err.Error())
 		return
 	}
 
-	e := NewMissedEventEvent(attempt, agent.UserId(), timestamp, timestamp+(int64(tm.NoAnswerDelayTime())*1000))
-	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
+	tm.MissedAgent(missed, attempt, agent)
 }
 
 func (tm *agentTeam) CancelAgentAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
@@ -206,6 +201,7 @@ func (tm *agentTeam) MissedAgent(missed *model.MissedAgent, attempt *Attempt, ag
 	}
 
 	attempt.SetState(HookMissed)
+
 	e := NewMissedEventEvent(attempt, agent.UserId(), missed.Timestamp, missed.Timestamp+(int64(tm.NoAnswerDelayTime())*1000))
 	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {

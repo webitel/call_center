@@ -210,21 +210,6 @@ func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicat
 
 }
 
-func (s SqlMemberStore) LeavingAttempt(attemptId int64, holdSec int, result *string) *model.AppError {
-	_, err := s.GetMaster().Exec(`select cc_attempt_leaving(:AttemptId::int8, :HoldSec::int, :Result::varchar)`, map[string]interface{}{
-		"AttemptId": attemptId,
-		"HoldSec":   holdSec,
-		"Result":    result,
-	})
-
-	if err != nil {
-		return model.NewAppError("SqlMemberStore.LeavingAttempt", "store.sql_member.set_attempt_leaving.app_error", nil,
-			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
-	}
-
-	return nil
-}
-
 func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
 from cc_attempt_offering(:AttemptId::int8, :AgentId::int4, :AgentCallId::varchar, :MemberCallId::varchar, :Dest::varchar, :Displ::varchar)
@@ -376,22 +361,22 @@ returning
 	return res, nil
 }
 
-//TODO
-func (s *SqlMemberStore) SetAttemptMissed(id int64, holdSec, agentHoldTime int) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, :HoldSec::int, 'missed', :State, :AgentHoldTime)) as timestamp`,
+func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
+	var missed *model.MissedAgent
+	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers from cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
+		as x (last_state_change timestamptz, no_answers int)`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
 			"Id":            id,
-			"HoldSec":       holdSec,
 			"AgentHoldTime": agentHoldTime,
 		})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptMissed", "store.sql_member.set_attempt_missed.app_error", nil,
+		return nil, model.NewAppError("SqlMemberStore.SetAttemptMissed", "store.sql_member.set_attempt_missed.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
 	}
 
-	return timestamp, nil
+	return missed, nil
 }
 
 func (s *SqlMemberStore) CancelAgentAttempt(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
@@ -441,7 +426,9 @@ where m.id = u.member_id`, map[string]interface{}{
 }
 
 func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(cc_attempt_leaving(:Id::int8, null::int, :Result::varchar, :State::varchar, :AgentHoldTime)) as timestamp`,
+	var missed *model.MissedAgent
+	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers from cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime) 
+		as x (last_state_change timestamptz, no_answers int)`,
 		map[string]interface{}{
 			"Result":        result,
 			"State":         channelState,
@@ -454,7 +441,7 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState 
 			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
 	}
 
-	return timestamp, nil
+	return missed.Timestamp, nil
 }
 
 func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError) {
@@ -483,18 +470,18 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 	return attempts, nil
 }
 
-func (s *SqlMemberStore) CallbackReporting(attemptId int64, status, description string, expireAt, nextDistributeAt *int64, agentId *int) (*model.AttemptReportingResult, *model.AppError) {
+func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status, :Description, :ExpireAt, :NextDistributeAt, :StickyAgentId) as
-x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8)
+from cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, :NextCallAt::timestamptz, :StickyAgentId::int) as
+x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar)
 where x.queue_id notnull`, map[string]interface{}{
-		"AttemptId":        attemptId,
-		"Status":           status,
-		"Description":      description,
-		"ExpireAt":         expireAt,
-		"NextDistributeAt": nextDistributeAt,
-		"StickyAgentId":    agentId,
+		"AttemptId":     attemptId,
+		"Status":        callback.Status,
+		"Description":   callback.Description,
+		"ExpireAt":      callback.ExpireAt,
+		"NextCallAt":    callback.NextCallAt,
+		"StickyAgentId": callback.StickyAgentId,
 	})
 
 	if err != nil {
@@ -559,4 +546,15 @@ returning channel_id`, map[string]interface{}{
 
 	return res, nil
 
+}
+
+func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
+	_, err := s.GetMaster().Exec(`refresh materialized view cc_distribute_stats`)
+
+	if err != nil {
+		return model.NewAppError("SqlAgentStore.RefreshAgentPauseCauses", "store.sql_agent.refresh_pause_cause.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
 }

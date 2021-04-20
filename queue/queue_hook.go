@@ -91,6 +91,10 @@ func (q *BaseQueue) Hook(name string, at *Attempt) {
 		req.Variables["member_channel_id"] = at.memberChannel.Id()
 	}
 
+	if at.MemberStopCause() != "" {
+		req.Variables["member_stop_cause"] = at.MemberStopCause()
+	}
+
 	id, err := q.queueManager.app.FlowManager().Queue().StartFlow(req)
 
 	call_manager.DUMP(req.Variables)

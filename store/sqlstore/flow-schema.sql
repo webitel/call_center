@@ -229,6 +229,19 @@ CREATE TABLE flow.region (
 
 
 --
+-- Name: calendar_timezones; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.calendar_timezones (
+    id integer NOT NULL,
+    name character varying(100) NOT NULL,
+    utc_offset interval NOT NULL,
+    offset_id smallint NOT NULL,
+    sys_name text
+);
+
+
+--
 -- Name: calendar; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -472,19 +485,6 @@ CREATE SEQUENCE flow.calendar_id_seq
 --
 
 ALTER SEQUENCE flow.calendar_id_seq OWNED BY flow.calendar.id;
-
-
---
--- Name: calendar_timezones; Type: TABLE; Schema: flow; Owner: -
---
-
-CREATE TABLE flow.calendar_timezones (
-    id integer NOT NULL,
-    name character varying(100) NOT NULL,
-    utc_offset interval NOT NULL,
-    offset_id smallint NOT NULL,
-    sys_name text
-);
 
 
 --
@@ -811,6 +811,13 @@ CREATE UNIQUE INDEX calendar_timezones_id_uindex ON flow.calendar_timezones USIN
 --
 
 CREATE UNIQUE INDEX calendar_timezones_name_uindex ON flow.calendar_timezones USING btree (name);
+
+
+--
+-- Name: calendar_timezones_sys_name_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX calendar_timezones_sys_name_uindex ON flow.calendar_timezones USING btree (sys_name);
 
 
 --

@@ -41,6 +41,16 @@ type MemberCommunication struct {
 	Display     *string       `json:"display"`
 }
 
+type AttemptCallback struct {
+	Status        string
+	NextCallAt    *time.Time
+	ExpireAt      *time.Time
+	Description   string
+	Display       bool
+	Variables     map[string]string
+	StickyAgentId *int
+}
+
 type MemberAttempt struct {
 	Id             int64 `json:"id" db:"id"`
 	QueueId        int   `json:"queue_id" db:"queue_id"`
@@ -139,26 +149,16 @@ type AttemptOfferingAgent struct {
   timezone?: object
 */
 
-type AttemptCallback struct {
-	Success bool `json:"success"`
-
-	Status        string `json:"status"`
-	Description   string `json:"description"`
-	Display       bool   `json:"display"`
-	ExpireAt      *int64 `json:"expire_at"`
-	NextCall      *int64 `json:"next_call"`
-	StickyAgentId *int   `json:"sticky_agent_id"`
-}
-
 type AttemptReportingResult struct {
-	Timestamp    int64   `json:"timestamp" db:"timestamp"`
-	Channel      *string `json:"channel" db:"channel"`
-	AgentCallId  *string `json:"agent_call_id" db:"agent_call_id"`
-	AgentId      *int    `json:"agent_id" db:"agent_id"`
-	UserId       *int64  `json:"user_id" db:"user_id"`
-	DomainId     *int64  `json:"domain_id" db:"domain_id"`
-	QueueId      int     `json:"queue_id" db:"queue_id"`
-	AgentTimeout *int64  `json:"agent_timeout" db:"agent_timeout"`
+	Timestamp       int64   `json:"timestamp" db:"timestamp"`
+	Channel         *string `json:"channel" db:"channel"`
+	AgentCallId     *string `json:"agent_call_id" db:"agent_call_id"`
+	AgentId         *int    `json:"agent_id" db:"agent_id"`
+	UserId          *int64  `json:"user_id" db:"user_id"`
+	DomainId        *int64  `json:"domain_id" db:"domain_id"`
+	QueueId         int     `json:"queue_id" db:"queue_id"`
+	AgentTimeout    *int64  `json:"agent_timeout" db:"agent_timeout"`
+	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
 }
 
 type HistoryAttempt struct {
@@ -192,12 +192,12 @@ func (ma *MemberAttempt) IsTimeout() bool {
 }
 
 func (r AttemptCallback) String() string {
-	t := fmt.Sprintf("Success: %v, Status: %v", r.Success, r.Status)
+	t := fmt.Sprintf("Status: %v", r.Status)
 	if r.ExpireAt != nil {
-		t += fmt.Sprintf(", ExpireAt: %d", *r.ExpireAt)
+		t += fmt.Sprintf(", ExpireAt: %v", *r.ExpireAt)
 	}
-	if r.NextCall != nil {
-		t += fmt.Sprintf(", NextCall: %d", *r.NextCall)
+	if r.NextCallAt != nil {
+		t += fmt.Sprintf(", NextCall: %v", *r.NextCallAt)
 	}
 	if r.StickyAgentId != nil {
 		t += fmt.Sprintf(", StickyAgentId: %d", *r.StickyAgentId)

@@ -43,6 +43,14 @@ func (s *StatisticsManager) refresh() {
 		wlog.Error(err.Error())
 	}
 
-	wlog.Debug(fmt.Sprintf("refresh statistics time: %s", time.Now().Sub(st)))
+	wlog.Debug(fmt.Sprintf("refresh pause_cause statistics time: %s", time.Now().Sub(st)))
+
+	st = time.Now()
+	if err := s.store.Member().RefreshQueueStatsLast2H(); err != nil {
+		wlog.Error(err.Error())
+	}
+
+	wlog.Debug(fmt.Sprintf("refresh queue statistics time: %s", time.Now().Sub(st)))
+
 	return
 }
