@@ -27,6 +27,7 @@ func NewPredictCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSe
 				MaxWaitTime:           60,
 			},
 		},
+		Amd: settings.Amd,
 		//ProgressiveCallQueue: ProgressiveCallQueue{
 		//	CallingQueue:                 callQueue,
 		//	ProgressiveCallQueueSettings: settings,
@@ -153,6 +154,10 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 				queue.InboundQueue.run(attempt, mCall, team)
 
 				fmt.Println("END INB")
+
+				if mCall.BridgeAt() == 0 {
+
+				}
 
 				return
 				//mCall.Hangup("", false)
