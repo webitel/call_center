@@ -1,37 +1,46 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
+	"time"
 )
 
+type PredictCallQueueSettings struct {
+	Recordings         bool   `json:"recordings"`
+	MaxWaitTime        uint16 `json:"max_wait_time"`
+	WaitBetweenRetries int    `json:"wait_between_retries"`
+	MaxAttempts        int    `json:"max_attempts"`
+	OriginateTimeout   uint16 `json:"originate_timeout"`
+	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
+	Amd                *model.QueueAmdSettings
+}
+
+func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
+	var settings PredictCallQueueSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
 type PredictCallQueue struct {
-	//ProgressiveCallQueue
-	InboundQueue
+	PredictCallQueueSettings
 	CallingQueue
 	Amd *model.QueueAmdSettings
 }
 
-func NewPredictCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSettings) QueueObject {
+func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettings) QueueObject {
+
+	if settings.MaxWaitTime == 0 {
+		settings.MaxWaitTime = 10
+	}
+
 	return &PredictCallQueue{
-		CallingQueue: callQueue,
-		InboundQueue: InboundQueue{
-			CallingQueue: callQueue,
-			props: model.QueueInboundSettings{
-				DiscardAbandonedAfter: 0,
-				TimeBaseScore:         "",
-				MaxWaitWithNoAgent:    0,
-				MaxCallPerAgent:       0,
-				AllowGreetingAgent:    false,
-				MaxWaitTime:           60,
-			},
-		},
-		Amd: settings.Amd,
-		//ProgressiveCallQueue: ProgressiveCallQueue{
-		//	CallingQueue:                 callQueue,
-		//	ProgressiveCallQueueSettings: settings,
-		//},
+		CallingQueue:             callQueue,
+		PredictCallQueueSettings: settings,
 	}
 }
 
@@ -72,8 +81,8 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
-		//Timeout:      queue.OriginateTimeout,
-		Destination: attempt.Destination(),
+		Timeout:      queue.OriginateTimeout,
+		Destination:  attempt.Destination(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.ExportVariables(),
@@ -84,7 +93,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
-				//"park_timeout":           "5",
+				"park_timeout":           fmt.Sprintf("%d", queue.MaxWaitTime),
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -124,11 +133,10 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 	}
 
 	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
-	//var agentCall call_manager.Call
 
-	//if queue.Recordings {
-	//	callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(mCall))
-	//}
+	if queue.Recordings {
+		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(mCall))
+	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
@@ -150,17 +158,8 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 					continue
 				}
 
-				fmt.Println("START INB")
-				queue.InboundQueue.run(attempt, mCall, team)
-
-				fmt.Println("END INB")
-
-				if mCall.BridgeAt() == 0 {
-
-				}
-
+				queue.runOfferingAgents(attempt, team, mCall)
 				return
-				//mCall.Hangup("", false)
 			}
 		case <-mCall.HangupChan():
 			calling = false
@@ -175,4 +174,141 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 
 	queue.queueManager.LeavingMember(attempt)
 
+}
+
+func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTeam, mCall call_manager.Call) {
+	attempt.Log("wait agent")
+	if err := queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
+		//FIXME
+		panic(err.Error())
+	}
+	attempt.SetState(model.MemberStateWaitAgent)
+
+	attempts := 0
+
+	var agent agent_manager.AgentObject
+	var agentCall call_manager.Call
+
+	var calling = mCall.HangupAt() == 0
+
+	ags := attempt.On(AttemptHookDistributeAgent)
+
+	//TODO
+	timeout := time.NewTimer(time.Second * time.Duration(queue.MaxWaitTime))
+
+	for calling {
+		select {
+		case <-timeout.C:
+			calling = false
+		case <-attempt.Context.Done():
+			calling = false
+		case c := <-mCall.State():
+			if c == call_manager.CALL_STATE_HANGUP {
+				calling = false
+				break
+			} else {
+				wlog.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+			}
+
+		case <-ags:
+			agent = attempt.Agent()
+			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
+
+			attempts++
+			if mCall.HangupCause() != "" {
+				attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))
+				calling = false
+				break
+			}
+
+			cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
+				{
+					AppName: "park",
+					Args:    "",
+				},
+			})
+
+			cr.Variables["wbt_parent_id"] = mCall.Id()
+
+			agentCall = mCall.NewCall(cr)
+			attempt.agentChannel = agentCall
+
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
+			agentCall.Invite()
+
+			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
+
+		top:
+			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
+				select {
+				case state := <-agentCall.State():
+					attempt.Log(fmt.Sprintf("agent call state %d", state))
+					switch state {
+					case call_manager.CALL_STATE_RINGING:
+						team.Offering(attempt, agent, agentCall, mCall)
+
+					case call_manager.CALL_STATE_ACCEPT:
+						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
+						time.Sleep(time.Millisecond * 250)
+						printfIfErr(agentCall.Bridge(mCall))
+
+						if queue.AllowGreetingAgent {
+							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+						}
+
+					case call_manager.CALL_STATE_HANGUP:
+						break top
+					}
+				case s := <-mCall.State():
+					switch s {
+					case call_manager.CALL_STATE_BRIDGE:
+						timeout.Stop()
+						team.Bridged(attempt, agent)
+					case call_manager.CALL_STATE_HANGUP:
+						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+						if agentCall.HangupAt() == 0 {
+							if mCall.BridgeAt() > 0 {
+								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
+							} else {
+								agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+							}
+
+							agentCall.WaitForHangup()
+						}
+
+						attempt.Log(fmt.Sprintf("[%s] agent call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
+						break top // FIXME
+					}
+				}
+			}
+
+			if agentCall.BridgeAt() == 0 {
+				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				attempt.SetState(model.MemberStateWaitAgent)
+				if agentCall != nil && agentCall.HangupAt() == 0 {
+					//TODO WaitForHangup
+					//panic(agentCall.Id())
+				}
+				agent = nil
+				agentCall = nil
+			}
+
+			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
+		}
+	}
+
+	if agentCall != nil && agentCall.HangupAt() == 0 {
+		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
+	}
+
+	if agentCall != nil && agentCall.BridgeAt() > 0 {
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+	} else {
+		queue.queueManager.Abandoned(attempt)
+	}
+
+	go func() {
+		attempt.Emit(AttemptHookLeaving)
+		attempt.Off("*")
+	}()
 }
