@@ -13,8 +13,8 @@ import (
 type PredictCallQueueSettings struct {
 	Recordings         bool   `json:"recordings"`
 	MaxWaitTime        uint16 `json:"max_wait_time"`
-	WaitBetweenRetries int    `json:"wait_between_retries"`
-	MaxAttempts        int    `json:"max_attempts"`
+	WaitBetweenRetries uint64 `json:"wait_between_retries"`
+	MaxAttempts        uint   `json:"max_attempts"`
 	OriginateTimeout   uint16 `json:"originate_timeout"`
 	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
 	Amd                *model.QueueAmdSettings
@@ -166,12 +166,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 		}
 	}
 
-	if mCall.AcceptAt() > 0 && int((mCall.HangupAt()-mCall.AcceptAt())/1000) > int(100) {
-		queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0)
-	} else {
-		queue.queueManager.SetAttemptAbandonedWithParams(attempt, 100, 60)
-	}
-
+	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries)
 	queue.queueManager.LeavingMember(attempt)
 
 }
