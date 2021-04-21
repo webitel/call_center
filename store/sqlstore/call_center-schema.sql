@@ -2955,7 +2955,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     destination jsonb,
     seq integer DEFAULT 0 NOT NULL,
     team_id integer,
-    resource_group_id integer
+    resource_group_id integer,
+    answered_at timestamp with time zone
 );
 
 
