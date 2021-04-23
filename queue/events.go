@@ -41,6 +41,7 @@ type Missed struct {
 
 type Processing struct {
 	Timeout    int64  `json:"timeout"`
+	Sec        uint32 `json:"sec"`
 	RenewalSec uint32 `json:"renewal_sec"`
 }
 
@@ -178,6 +179,7 @@ func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadline
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:    timestamp + (int64(deadlineSec) * 1000),
+			Sec:        deadlineSec,
 			RenewalSec: renewal,
 		},
 		ChannelEvent: ChannelEvent{
@@ -191,11 +193,12 @@ func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadline
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64) model.Event {
+func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64, renewal uint32) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:    timeout,
-			RenewalSec: 0,
+			RenewalSec: renewal,
+			Sec:        uint32((timeout - timestamp) / 1000),
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,

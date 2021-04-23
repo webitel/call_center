@@ -495,7 +495,7 @@ func (queueManager *QueueManager) RenewalAttempt(domainId, attemptId int64, rene
 		return err
 	}
 
-	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp)
+	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, renewal)
 	return queueManager.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 
