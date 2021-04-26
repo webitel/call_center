@@ -67,14 +67,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 	}
 
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	var callerIdNumber string
-
-	// FIXME display
-	if attempt.communication.Display != nil && *attempt.communication.Display != "" {
-		callerIdNumber = *attempt.communication.Display
-	} else {
-		callerIdNumber = attempt.resource.GetDisplay()
-	}
+	var callerIdNumber = attempt.Display()
 
 	callRequest := &model.CallRequest{
 		Id:           attempt.MemberCallId(),
@@ -172,8 +165,8 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 }
 
 func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTeam, mCall call_manager.Call) {
-	attempt.Log("wait agent")
-	if err := queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
+	attempt.Log("answer & wait agent")
+	if err := queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
 		//FIXME
 		panic(err.Error())
 	}

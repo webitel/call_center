@@ -53,13 +53,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	}
 
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	var callerIdNumber string
-
-	if attempt.communication.Display != nil && *attempt.communication.Display != "" {
-		callerIdNumber = *attempt.communication.Display
-	} else {
-		callerIdNumber = attempt.resource.GetDisplay()
-	}
+	var callerIdNumber = attempt.Display()
 
 	callRequest := &model.CallRequest{
 		Endpoints:    []string{dst},
