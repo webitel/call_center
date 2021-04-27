@@ -178,6 +178,23 @@ $$;
 
 
 --
+-- Name: get_lookup(bigint, character varying); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.get_lookup(_id bigint, _name character varying) RETURNS jsonb
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+BEGIN
+    if _id isnull then
+        return null;
+    else
+        return json_build_object('id', _id, 'name', _name)::jsonb;
+    end if;
+END;
+$$;
+
+
+--
 -- Name: tg_obj_default_rbac(); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -369,9 +386,9 @@ CREATE TABLE storage.files_statistics (
 
 CREATE VIEW storage.file_backend_profiles_view AS
  SELECT p.id,
-    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    storage.get_lookup(c.id, (c.name)::character varying) AS created_by,
     p.created_at,
-    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    storage.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     p.updated_at,
     p.name,
     p.description,
@@ -447,7 +464,7 @@ CREATE TABLE storage.jobs (
     last_activity_at bigint,
     status character varying(32),
     progress bigint,
-    data character varying(1024)
+    data character varying
 );
 
 
@@ -478,9 +495,9 @@ CREATE VIEW storage.media_files_view AS
  SELECT f.id,
     f.name,
     f.created_at,
-    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    storage.get_lookup(c.id, (c.name)::character varying) AS created_by,
     f.updated_at,
-    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    storage.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     f.mime_type,
     f.size,
     f.properties,

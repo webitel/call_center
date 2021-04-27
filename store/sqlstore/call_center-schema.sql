@@ -1889,7 +1889,7 @@ BEGIN
             select c.id,
                    cq.updated_at                                   as queue_updated_at,
                    r.updated_at                                    as resource_updated_at,
-                   0                                               as gateway_updated_at, --fixme!!!
+                   cc_view_timestamp(gw.updated_at)             as gateway_updated_at,
                    c.destination as destination,
                    cm.variables                                    as variables,
                    cm.name                                         as member_name,
@@ -3197,12 +3197,14 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
     count(*) AS cnt,
     count(*) FILTER (WHERE (att.bridged_at IS NULL)) AS nbr_cnt,
     count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS br_cnt,
+    COALESCE(date_part('epoch'::text, avg((att.answered_at - att.joined_at)) FILTER (WHERE (att.answered_at IS NOT NULL))), (0)::double precision) AS distr_t,
+    count(*) FILTER (WHERE ((att.bridged_at IS NULL) AND (att.answered_at IS NOT NULL))) AS predict_abandoned_cnt,
         CASE
             WHEN (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) > 0) THEN ((count(*))::double precision / (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)))::double precision)
             ELSE (0)::double precision
         END AS connect_rate
    FROM call_center.cc_member_attempt_history att
-  WHERE (att.joined_at > (now() - '02:00:00'::interval))
+  WHERE (att.joined_at > (now() - '01:00:00'::interval))
   GROUP BY att.queue_id, att.bucket_id
   WITH NO DATA;
 
@@ -6822,11 +6824,27 @@ ALTER TABLE ONLY call_center.cc_member
 
 
 --
+-- Name: cc_member cc_member_cc_bucket_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member
+    ADD CONSTRAINT cc_member_cc_bucket_id_fk FOREIGN KEY (bucket_id) REFERENCES call_center.cc_bucket(id);
+
+
+--
 -- Name: cc_member cc_member_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_member cc_member_cc_skill_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member
+    ADD CONSTRAINT cc_member_cc_skill_id_fk FOREIGN KEY (skill_id) REFERENCES call_center.cc_skill(id);
 
 
 --

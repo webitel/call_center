@@ -48,6 +48,18 @@ CREATE TYPE flow.calendar_except_date AS (
 
 
 --
+-- Name: arr_type_to_jsonb(anyarray); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.arr_type_to_jsonb(anyarray) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+select jsonb_agg(row_to_json(a))
+    from unnest($1) a;
+$_$;
+
+
+--
 -- Name: calendar_accepts_to_jsonb(flow.calendar_accept_time[]); Type: FUNCTION; Schema: flow; Owner: -
 --
 
@@ -143,10 +155,10 @@ $_$;
 
 
 --
--- Name: cc_get_lookup(bigint, character varying); Type: FUNCTION; Schema: flow; Owner: -
+-- Name: get_lookup(bigint, character varying); Type: FUNCTION; Schema: flow; Owner: -
 --
 
-CREATE FUNCTION flow.cc_get_lookup(_id bigint, _name character varying) RETURNS jsonb
+CREATE FUNCTION flow.get_lookup(_id bigint, _name character varying) RETURNS jsonb
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -372,11 +384,11 @@ CREATE VIEW flow.acr_routing_outbound_call_view AS
     tmp.name,
     tmp.description,
     tmp.created_at,
-    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
-    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    flow.get_lookup(c.id, (c.name)::character varying) AS created_by,
+    flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     tmp.pattern,
     tmp.disabled,
-    call_center.cc_get_lookup(arst.id, arst.name) AS schema,
+    flow.get_lookup(arst.id, arst.name) AS schema,
     row_number() OVER (PARTITION BY tmp.domain_id ORDER BY tmp.pos DESC) AS "position"
    FROM (((flow.acr_routing_outbound_call tmp
      JOIN flow.acr_routing_scheme arst ON ((tmp.scheme_id = arst.id)))
@@ -412,9 +424,9 @@ CREATE VIEW flow.acr_routing_scheme_view AS
     s.domain_id,
     s.name,
     s.created_at,
-    call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
+    flow.get_lookup(c.id, (c.name)::character varying) AS created_by,
     s.updated_at,
-    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     s.debug,
     s.scheme AS schema,
     s.payload
@@ -562,13 +574,13 @@ CREATE VIEW flow.calendar_view AS
     c.end_at,
     c.description,
     c.domain_id,
-    call_center.cc_get_lookup((ct.id)::bigint, ct.name) AS timezone,
+    flow.get_lookup((ct.id)::bigint, ct.name) AS timezone,
     c.created_at,
-    call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+    flow.get_lookup(uc.id, (uc.name)::character varying) AS created_by,
     c.updated_at,
-    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     flow.calendar_accepts_to_jsonb(c.accepts) AS accepts,
-    call_center.cc_arr_type_to_jsonb(c.excepts) AS excepts
+    flow.arr_type_to_jsonb(c.excepts) AS excepts
    FROM (((flow.calendar c
      LEFT JOIN flow.calendar_timezones ct ON ((c.timezone_id = ct.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = c.created_by)))
@@ -603,7 +615,7 @@ CREATE VIEW flow.region_list AS
  SELECT r.id,
     r.name,
     r.description,
-    flow.cc_get_lookup((t.id)::bigint, t.name) AS timezone,
+    flow.get_lookup((t.id)::bigint, t.name) AS timezone,
     r.timezone_id,
     r.domain_id
    FROM (flow.region r
