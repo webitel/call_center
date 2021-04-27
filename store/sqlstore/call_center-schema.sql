@@ -3045,8 +3045,19 @@ CREATE VIEW call_center.cc_calls_history_list AS
     cma.description AS agent_description
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
-           FROM storage.files f_1
-          WHERE ((f_1.domain_id = c.domain_id) AND (((f_1.uuid)::text = (c.id)::text) OR ((f_1.uuid)::text = (c.parent_id)::text)))) f ON (true))
+           FROM ( SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    f1.name
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.id)::text))
+                UNION ALL
+                 SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    f1.name
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (true))
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
