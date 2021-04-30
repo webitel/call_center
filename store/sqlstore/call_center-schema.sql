@@ -653,12 +653,13 @@ $$;
 CREATE FUNCTION call_center.cc_call_active_numbers() RETURNS SETOF character varying
     LANGUAGE plpgsql
     AS $$
-    declare
+declare
         c cc_calls;
 BEGIN
 
     for c in select *
-            from cc_calls cc where cc.hangup_at isnull
+            from cc_calls cc where cc.hangup_at isnull and not cc.direction isnull
+            and ( (cc.gateway_id notnull and cc.direction = 'outbound') or (cc.gateway_id notnull and cc.direction = 'inbound') )
     loop
         if c.gateway_id notnull and c.direction = 'outbound' then
             return next c.to_number;
@@ -5581,14 +5582,14 @@ CREATE INDEX cc_member_attempt_queue_id_index ON call_center.cc_member_attempt U
 -- Name: cc_member_dis_fifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at, id) INCLUDE (sys_offset_id, sys_destinations, expire_at) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at, id) INCLUDE (sys_offset_id, sys_destinations, expire_at, search_destinations) WHERE (stop_at IS NULL);
 
 
 --
 -- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, agent_id, priority DESC, ready_at, id DESC) INCLUDE (sys_offset_id, sys_destinations, expire_at) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at, id DESC) INCLUDE (sys_offset_id, sys_destinations, expire_at, search_destinations) WHERE (stop_at IS NULL);
 
 
 --
