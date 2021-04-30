@@ -3057,7 +3057,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (true))
+                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
