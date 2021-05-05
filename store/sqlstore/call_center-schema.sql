@@ -1031,10 +1031,10 @@ $$;
 
 
 --
--- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_call_to_queue(character varying, bigint, character varying, jsonb, integer, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0) RETURNS record
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -1050,6 +1050,7 @@ declare
     _list_comm_id int8;
     _enabled bool;
     _q_type smallint;
+    _sticky bool;
     _call record;
     _attempt record;
 BEGIN
@@ -1063,13 +1064,13 @@ BEGIN
          q.team_id,
          q.enabled,
          q.type,
-         q.domain_id
+         q.sticky_agent
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     inner join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
 
   if not _q_type = 1 then
       raise exception 'queue not inbound';
@@ -1134,9 +1135,17 @@ BEGIN
         into _weight;
   end if;
 
-  insert into call_center.cc_member_attempt (state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, list_communication_id)
+  if _sticky_agent_id notnull and _sticky then
+      if not exists(select 1 from cc_agent a where a.id = _sticky_agent_id and a.domain_id = _domain_id and a.status = 'online') then
+          _sticky_agent_id = null;
+      end if;
+  else
+      _sticky_agent_id = null;
+  end if;
+
+  insert into call_center.cc_member_attempt (state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
   values ('waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
-              _node_name, (select clc.id
+              _node_name, _sticky_agent_id, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
   returning * into _attempt;
@@ -3196,7 +3205,8 @@ SELECT
     NULL::integer AS lim,
     NULL::bigint AS domain_id,
     NULL::integer AS priority,
-    NULL::boolean AS sticky_agent;
+    NULL::boolean AS sticky_agent,
+    NULL::integer AS sticky_agent_sec;
 
 
 --
@@ -6076,6 +6086,10 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.type,
             q_1.sticky_agent,
                 CASE
+                    WHEN q_1.sticky_agent THEN COALESCE(((q_1.payload -> 'sticky_agent_sec'::text))::integer, 30)
+                    ELSE NULL::integer
+                END AS sticky_agent_sec,
+                CASE
                     WHEN ((q_1.strategy)::text = 'lifo'::text) THEN 1
                     ELSE 0
                 END AS strategy,
@@ -6162,7 +6176,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     ((q.lim - COALESCE(l.usage, (0)::bigint)))::integer AS lim,
     q.domain_id,
     q.priority,
-    q.sticky_agent
+    q.sticky_agent,
+    q.sticky_agent_sec
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))

@@ -113,11 +113,11 @@ func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDi
 	return nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int) (*model.InboundCallQueue, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError) {
 	var att *model.InboundCallQueue
 	err := s.GetMaster().SelectOne(&att, `select *
 from cc_distribute_inbound_call_to_queue(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
-	:BucketId::int, :Priority::int)
+	:BucketId::int, :Priority::int, :StickyAgentId::int4)
 as x (
     attempt_id int8,
     queue_id int,
@@ -139,12 +139,13 @@ as x (
     call_bridged_at int8,
     call_created_at int8
 );`, map[string]interface{}{
-		"AppId":     node,
-		"QueueId":   queueId,
-		"CallId":    callId,
-		"Variables": model.MapToJson(vars),
-		"BucketId":  bucketId,
-		"Priority":  priority,
+		"AppId":         node,
+		"QueueId":       queueId,
+		"CallId":        callId,
+		"Variables":     model.MapToJson(vars),
+		"BucketId":      bucketId,
+		"Priority":      priority,
+		"StickyAgentId": stickyAgentId,
 	})
 
 	if err != nil {

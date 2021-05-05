@@ -44,7 +44,7 @@ type MemberStore interface {
 
 	DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int) (*model.InboundChatQueue, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
-	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int) (*model.InboundCallQueue, *model.AppError)
+	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
 
 	/*

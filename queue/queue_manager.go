@@ -202,7 +202,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 	if err != nil {
 		wlog.Error(err.Error())
 		//TODO added to model "dialing.queue.new_queue.app_error"
-		panic(err.Error())
+		//panic(err.Error())
 		return nil, err
 	}
 
@@ -246,9 +246,14 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.CallJoinToQueueRequest) (*Attempt, *model.AppError) {
 	//var member *model.MemberAttempt
 	var bucketId *int32
+	var stickyAgentId *int
 
 	if in.BucketId != 0 {
 		bucketId = &in.BucketId
+	}
+
+	if in.StickyAgentId != 0 {
+		stickyAgentId = model.NewInt(int(in.StickyAgentId))
 	}
 
 	// FIXME add domain
@@ -259,6 +264,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		in.GetVariables(),
 		bucketId,
 		int(in.GetPriority()),
+		stickyAgentId,
 	)
 
 	if err != nil {
