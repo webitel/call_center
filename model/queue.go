@@ -150,7 +150,7 @@ type QueueInboundSettings struct {
 	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
 	MaxWaitTime        uint16 `json:"max_wait_time"`
 	StickyAgent        bool   `json:"sticky_agent"`
-	StickyAgentWaitSec uint16 `json:"sticky_agent_wait_sec"` // def 30 sec
+	StickyAgentSec     uint16 `json:"sticky_agent_sec"` // def 30 sec
 }
 
 type QueueIVRSettings struct {
