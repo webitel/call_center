@@ -174,7 +174,7 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int) (*model.InboundChatQueue, *model.AppError) {
+func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundChatQueue, *model.AppError) {
 	var attempt *model.InboundChatQueue
 
 	var v *string
@@ -185,7 +185,7 @@ func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId
 
 	if err := s.GetMaster().SelectOne(&attempt, `select *
 		from cc_distribute_inbound_chat_to_queue(:AppId::varchar, :QueueId::int8, :ConvId::varchar, :Variables::jsonb,
-	:BucketId::int, :Priority::int) 
+	:BucketId::int, :Priority::int, :StickyAgentId::int) 
 as x (
     attempt_id int8,
     queue_id int,
@@ -199,12 +199,13 @@ as x (
     conversation_created_at int8
 );`,
 		map[string]interface{}{
-			"AppId":     node,
-			"QueueId":   queueId,
-			"ConvId":    convId,
-			"Variables": v,
-			"BucketId":  bucketId,
-			"Priority":  priority,
+			"AppId":         node,
+			"QueueId":       queueId,
+			"ConvId":        convId,
+			"Variables":     v,
+			"BucketId":      bucketId,
+			"Priority":      priority,
+			"StickyAgentId": stickyAgentId,
 		}); err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeChatToQueue", "store.sql_member.distribute_chat.app_error", nil,
 			fmt.Sprintf("QueueId=%v, Id=%v %s", queueId, convId, err.Error()), http.StatusInternalServerError)

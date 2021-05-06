@@ -334,9 +334,14 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*Attempt, *model.AppError) {
 	//var member *model.MemberAttempt
 	var bucketId *int32
+	var stickyAgentId *int
 
 	if in.BucketId != 0 {
 		bucketId = &in.BucketId
+	}
+
+	if in.StickyAgentId != 0 {
+		stickyAgentId = model.NewInt(int(in.StickyAgentId))
 	}
 
 	// FIXME add domain
@@ -347,6 +352,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		in.GetVariables(),
 		bucketId,
 		int(in.GetPriority()),
+		stickyAgentId,
 	)
 
 	if err != nil {

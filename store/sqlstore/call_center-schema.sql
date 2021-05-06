@@ -1191,10 +1191,10 @@ $$;
 
 
 --
--- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, jsonb, integer, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0) RETURNS record
+CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -1207,7 +1207,6 @@ declare
     _queue_updated_at int8;
     _team_updated_at int8;
     _team_id_ int;
-    _list_comm_id int8;
     _enabled bool;
     _q_type smallint;
     _attempt record;
@@ -1215,6 +1214,7 @@ declare
     _con_name varchar;
     _inviter_channel_id varchar;
     _inviter_user_id varchar;
+    _sticky bool;
 BEGIN
   select c.timezone_id,
            (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
@@ -1225,13 +1225,14 @@ BEGIN
          ct.updated_at,
          q.team_id,
          q.enabled,
-         q.type
+         q.type,
+         q.sticky_agent
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     inner join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
 
   if not _q_type = 6 then
       raise exception 'queue type not inbound chat';
@@ -1285,9 +1286,17 @@ BEGIN
         into _weight;
   end if;
 
-  insert into call_center.cc_member_attempt (channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, list_communication_id)
+  if _sticky_agent_id notnull and _sticky then
+      if not exists(select 1 from cc_agent a where a.id = _sticky_agent_id and a.domain_id = _domain_id and a.status = 'online') then
+          _sticky_agent_id = null;
+      end if;
+  else
+      _sticky_agent_id = null;
+  end if;
+
+  insert into call_center.cc_member_attempt (channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
   values ('chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id, jsonb_build_object('destination', _con_name),
-              _node_name, (select clc.id
+              _node_name, _sticky_agent_id, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)))
   returning * into _attempt;
