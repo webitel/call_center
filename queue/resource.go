@@ -4,6 +4,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"go.uber.org/ratelimit"
 	"math/rand"
+	"time"
 )
 
 const (
@@ -64,7 +65,7 @@ func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceO
 	}
 
 	if r.rps > 0 {
-		r.rateLimiter = ratelimit.New(int(config.Rps))
+		r.rateLimiter = ratelimit.New(int(config.Rps), ratelimit.Per(time.Second), ratelimit.WithSlack(1))
 	}
 
 	return r, nil

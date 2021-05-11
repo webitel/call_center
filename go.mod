@@ -16,7 +16,7 @@ require (
 	github.com/webitel/protos/workflow v0.0.0-20210318110202-d914a54df431
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	go.uber.org/atomic v1.7.0
-	go.uber.org/ratelimit v0.1.0
+	go.uber.org/ratelimit v0.2.0
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
 	google.golang.org/grpc v1.33.1
 )
