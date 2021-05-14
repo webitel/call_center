@@ -11,7 +11,10 @@ import (
 )
 
 type PredictCallQueueSettings struct {
-	Recordings         bool   `json:"recordings"`
+	Recordings    bool `json:"recordings"`
+	RecordStereo  bool `json:"record_stereo"`
+	RecordBridged bool `json:"record_bridged"`
+
 	MaxWaitTime        uint16 `json:"max_wait_time"`
 	WaitBetweenRetries uint64 `json:"wait_between_retries"`
 	MaxAttempts        uint   `json:"max_attempts"`
@@ -128,7 +131,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
 
 	if queue.Recordings {
-		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(mCall))
+		queue.SetRecordings(mCall, queue.RecordBridged, queue.RecordStereo)
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {

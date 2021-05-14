@@ -10,7 +10,10 @@ import (
 )
 
 type OfflineQueueSettings struct {
-	Recordings       bool   `json:"recordings"`
+	Recordings    bool `json:"recordings"`
+	RecordStereo  bool `json:"record_stereo"`
+	RecordBridged bool `json:"record_bridged"`
+
 	OriginateTimeout uint16 `json:"originate_timeout"`
 }
 
@@ -106,10 +109,10 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Applications: make([]*model.CallRequestApplication, 0, 1),
 	}
 
-	call := queue.NewCall(callRequest)
+	call := queue.NewCallUseResource(callRequest, attempt.resource)
 
 	if queue.Recordings {
-		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(call))
+		queue.SetRecordings(call, queue.RecordBridged, queue.RecordStereo)
 	}
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{

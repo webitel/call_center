@@ -9,7 +9,10 @@ import (
 )
 
 type QueueIVRSettings struct {
-	Recordings         bool                    `json:"recordings"`
+	Recordings    bool `json:"recordings"`
+	RecordStereo  bool `json:"record_stereo"`
+	RecordBridged bool `json:"record_bridged"`
+
 	Amd                *model.QueueAmdSettings `json:"amd"`
 	MinDuration        uint                    `json:"min_duration"`
 	MaxAttempts        uint                    `json:"max_attempts"`
@@ -114,7 +117,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	call := queue.NewCallUseResource(callRequest, attempt.resource)
 
 	if queue.Recordings {
-		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(call))
+		queue.SetRecordings(call, queue.RecordBridged, queue.RecordStereo)
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, queue.CallManager().GetFlowUri()) {

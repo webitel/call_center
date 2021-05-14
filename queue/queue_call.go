@@ -18,12 +18,8 @@ type CallingQueue struct {
 	params model.QueueDialingSettings
 }
 
-func (queue *CallingQueue) GetRecordingsApplication(call call_manager.Call) *model.CallRequestApplication {
-	return &model.CallRequestApplication{
-		AppName: "record_session",
-		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", queue.DomainId(),
-			call.Id(), call.Id(), "recordFile", "mp3"),
-	}
+func (queue *CallingQueue) SetRecordings(call call_manager.Call, bridged, stereo bool) {
+	call.SetRecordings(queue.domainId, bridged, stereo)
 }
 
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {

@@ -16,7 +16,10 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
-	Recordings         bool   `json:"recordings"`
+	Recordings    bool `json:"recordings"`
+	RecordStereo  bool `json:"record_stereo"`
+	RecordBridged bool `json:"record_bridged"`
+
 	WaitBetweenRetries int    `json:"wait_between_retries"`
 	MaxAttempts        int    `json:"max_attempts"`
 	OriginateTimeout   uint16 `json:"originate_timeout"`
@@ -126,7 +129,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	var agentCall call_manager.Call
 
 	if queue.Recordings {
-		callRequest.Applications = append(callRequest.Applications, queue.GetRecordingsApplication(mCall))
+		queue.SetRecordings(mCall, queue.RecordBridged, queue.RecordStereo)
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
@@ -156,6 +159,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				} else if len(cnt) > 0 {
 
 					go queue.HangupManyCall(mCall.Id(), model.CALL_HANGUP_ORIGINATOR_CANCEL, cnt...)
+
+					//todo
+					if mCall.HangupCause() != "" {
+						calling = false
+						continue
+					}
 
 					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
 						{

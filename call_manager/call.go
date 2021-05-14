@@ -58,6 +58,8 @@ type Call interface {
 	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
 	StopPlayback() *model.AppError
 	SerVariables(vars map[string]string) *model.AppError
+
+	SetRecordings(domainId int64, bridged, stereo bool)
 }
 
 type CallAction struct {
@@ -168,6 +170,26 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
+}
+
+func (call *CallImpl) SetRecordings(domainId int64, bridged, stereo bool) {
+
+	call.callRequest.Variables["RECORD_MIN_SEC"] = "2"
+	call.callRequest.Variables["recording_follow_transfer"] = "true"
+
+	if bridged {
+		call.callRequest.Variables["RECORD_BRIDGE_REQ"] = "true"
+	}
+
+	if stereo {
+		call.callRequest.Variables["RECORD_STEREO"] = "true"
+	}
+
+	call.callRequest.Applications = append(call.callRequest.Applications, &model.CallRequestApplication{
+		AppName: "record_session",
+		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", domainId,
+			call.Id(), call.Id(), "recordFile", "mp3"),
+	})
 }
 
 func (call *CallImpl) setRinging(e *model.CallActionRinging) {
