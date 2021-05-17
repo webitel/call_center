@@ -1514,6 +1514,10 @@ CREATE FUNCTION call_center.cc_member_set_sys_destinations_tg() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
+    if new.stop_cause notnull then
+        new.ready_at = null;
+    end if;
+
     if new.communications notnull and jsonb_typeof(new.communications) = 'array' then
         new.sys_destinations = (select array(select cc_destination_in(idx::int4 - 1, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
          from jsonb_array_elements(new.communications) with ordinality as x(x, idx)
@@ -5906,10 +5910,10 @@ CREATE UNIQUE INDEX cc_queue_skill_lvl_queue_id_skill_id_bucket_ids_uindex ON ca
 
 
 --
--- Name: cc_queue_skill_queue_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_skill_queue_id_skill_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_queue_skill_queue_id_index ON call_center.cc_queue_skill USING btree (queue_id);
+CREATE INDEX cc_queue_skill_queue_id_skill_id_index ON call_center.cc_queue_skill USING btree (queue_id) INCLUDE (skill_id, min_capacity, max_capacity) WHERE enabled;
 
 
 --
@@ -6065,7 +6069,15 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
     q.strategy,
     q.enabled,
     COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
-    COALESCE(sum(cqs.member_waiting), (0)::bigint) AS waiting_members,
+    COALESCE(
+        CASE
+            WHEN (q.type = 1) THEN ( SELECT count(*) AS count
+               FROM call_center.cc_member_attempt a1
+              WHERE ((a1.queue_id = q.id) AND (a1.bridged_at IS NULL)))
+            ELSE ( SELECT sum(s.member_waiting) AS sum
+               FROM call_center.cc_queue_statistics s
+              WHERE (s.queue_id = q.id))
+        END, (0)::bigint) AS waiting_members,
     ( SELECT count(*) AS count
            FROM call_center.cc_member_attempt a_1
           WHERE (a_1.queue_id = q.id)) AS active_members,
@@ -6079,7 +6091,7 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
   WHERE (EXISTS ( SELECT qs.queue_id
            FROM (call_center.cc_queue_skill qs
              JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
-          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND ((csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
+          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity))))
   GROUP BY a.id, q.id, q.priority;
 
 
