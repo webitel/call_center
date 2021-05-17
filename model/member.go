@@ -101,13 +101,14 @@ type EventAttempt struct {
 }
 
 type RenewalProcessing struct {
-	AttemptId int64  `json:"attempt_id" db:"attempt_id"`
-	Timeout   int64  `json:"timeout" db:"timeout"`
-	Timestamp int64  `json:"timestamp" db:"timestamp"`
-	Channel   string `json:"channel" db:"channel"`
-	UserId    int64  `json:"user_id" db:"user_id"`
-	QueueId   int    `json:"queue_id" db:"queue_id"`
-	DomainId  int64  `json:"domain_id" db:"domain_id"`
+	AttemptId  int64  `json:"attempt_id" db:"attempt_id"`
+	Timeout    int64  `json:"timeout" db:"timeout"`
+	Timestamp  int64  `json:"timestamp" db:"timestamp"`
+	Channel    string `json:"channel" db:"channel"`
+	UserId     int64  `json:"user_id" db:"user_id"`
+	QueueId    int    `json:"queue_id" db:"queue_id"`
+	DomainId   int64  `json:"domain_id" db:"domain_id"`
+	RenewalSec uint32 `json:"renewal_sec" db:"renewal_sec"`
 }
 
 type EventAttemptOffering struct {

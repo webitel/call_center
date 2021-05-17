@@ -368,6 +368,7 @@ returning
 	a.queue_id,
     cc_view_timestamp(a.timeout) timeout,
     cc_view_timestamp(now()) "timestamp",
+	cq.processing_renewal_sec as renewal_sec,
     a.channel,
     ca.user_id,
     ca.domain_id`, map[string]interface{}{
