@@ -55,6 +55,7 @@ message HangupRequest {
     string uuid = 1;
     string cause = 2;
     bool reporting = 3;
+    map<string, string> variables = 4;
 }
 
 message HangupResponse {

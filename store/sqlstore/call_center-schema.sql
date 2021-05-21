@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.6 (Debian 12.6-1.pgdg100+1)
--- Dumped by pg_dump version 12.6 (Debian 12.6-1.pgdg100+1)
+-- Dumped from database version 12.7 (Debian 12.7-1.pgdg100+1)
+-- Dumped by pg_dump version 12.7 (Debian 12.7-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -924,7 +924,7 @@ begin
     )
        , ins as (
         insert into cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                       communication_idx, member_call_id, team_id, resource_group_id)
+                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
                    dis.queue_id,
@@ -935,7 +935,8 @@ begin
                    dis.comm_idx,
                    uuid_generate_v4(),
                    q.team_id,
-                   dis.resource_group_id
+                   dis.resource_group_id,
+                   q.domain_id
             from dis
                      inner join cc_queue q on q.id = dis.queue_id
                      inner join cc_member m on m.id = dis.id
@@ -970,7 +971,7 @@ BEGIN
 
     return query with attempts as (
         insert into cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id,
-                                       bucket_id, seq, team_id)
+                                       bucket_id, seq, team_id, domain_id)
             select 1,
                    m.queue_id,
                    m.id,
@@ -980,7 +981,8 @@ BEGIN
                    r.resource_id,
                    m.bucket_id,
                    m.attempts + 1,
-                   q.team_id
+                   q.team_id,
+                   q.domain_id
             from cc_member m
                      inner join cc_queue q on q.id = m.queue_id
                      inner join lateral (
@@ -1026,6 +1028,114 @@ BEGIN
 
     --raise notice '%', _attempt_id;
 
+END;
+$$;
+
+
+--
+-- Name: cc_distribute_inbound_call_to_agent(character varying, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_agent(_node_name character varying, _call_id character varying, variables_ jsonb, _agent_id integer DEFAULT NULL::integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+    _domain_id int8;
+    _team_updated_at int8;
+    _agent_updated_at int8;
+    _team_id_ int;
+
+    _call record;
+    _attempt record;
+
+    _a_status varchar;
+    _a_channel varchar;
+BEGIN
+
+  select *
+  from cc_calls c
+  where c.id = _call_id
+--   for update
+  into _call;
+
+  if _call.id isnull or _call.direction isnull then
+--       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
+--           values ('call', _queue_id, 'leaving', now(), _call_id, 'abandoned');
+      raise exception 'not found call';
+  end if;
+
+  select
+    a.team_id,
+    t.updated_at,
+    a.status,
+    cac.channel,
+    a.domain_id,
+    a.updated_at
+  from cc_agent a
+      inner join cc_team t on t.id = a.team_id
+      inner join cc_agent_channel cac on a.id = cac.agent_id
+  where a.id = _agent_id -- check attempt
+  for update
+  into _team_id_,
+      _team_updated_at,
+      _a_status,
+      _a_channel,
+      _domain_id,
+      _agent_updated_at
+      ;
+
+  if _call.domain_id != _domain_id then
+      raise exception 'the queue on another domain';
+  end if;
+
+  if not _a_status = 'online' then
+      raise exception 'agent not in online';
+  end if;
+
+  if not _a_channel isnull  then
+      raise exception 'agent is busy';
+  end if;
+
+
+  insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id)
+  values (_domain_id, 'waiting', _team_id_, _call_id, jsonb_build_object('destination', _call.from_number),
+              _node_name, _agent_id)
+  returning * into _attempt;
+
+  update cc_calls
+  set team_id = _team_id_,
+      attempt_id = _attempt.id,
+      payload = variables_
+  where id = _call_id
+  returning * into _call;
+
+  if _call.id isnull or _call.direction isnull then
+--       insert into cc_member_attempt(channel, queue_id, state, leaving_at, result, member_call_id)
+--       values ('call', _queue_id, 'leaving', now(), 'abandoned', _call_id);
+      raise exception 'not found call';
+  end if;
+
+  return row(
+      _attempt.id::int8,
+      _attempt.destination::jsonb,
+      variables_::jsonb,
+      _call.from_name::varchar,
+      _team_id_::int,
+      _team_updated_at::int8,
+      _agent_updated_at::int8,
+
+      _call.id::varchar,
+      _call.state::varchar,
+      _call.direction::varchar,
+      _call.destination::varchar,
+      cc_view_timestamp(_call.timestamp)::int8,
+      _call.app_id::varchar,
+      _call.from_number::varchar,
+      _call.from_name::varchar,
+      cc_view_timestamp(_call.answered_at)::int8,
+      cc_view_timestamp(_call.bridged_at)::int8,
+      cc_view_timestamp(_call.created_at)::int8
+  );
 END;
 $$;
 
@@ -1136,15 +1246,27 @@ BEGIN
   end if;
 
   if _sticky_agent_id notnull and _sticky then
-      if not exists(select 1 from cc_agent a where a.id = _sticky_agent_id and a.domain_id = _domain_id and a.status = 'online') then
+      if not exists(select 1
+                    from cc_agent a
+                    where a.id = _sticky_agent_id
+                      and a.domain_id = _domain_id
+                      and a.status = 'online'
+                      and exists(select 1
+                                 from cc_skill_in_agent sa
+                                          inner join cc_queue_skill qs
+                                                     on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                 where sa.agent_id = _sticky_agent_id
+                                   and sa.enabled
+                                   and sa.capacity between qs.min_capacity and qs.max_capacity)
+          ) then
           _sticky_agent_id = null;
       end if;
   else
       _sticky_agent_id = null;
   end if;
 
-  insert into call_center.cc_member_attempt (state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
-  values ('waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
+  insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
+  values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
               _node_name, _sticky_agent_id, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
@@ -1287,15 +1409,27 @@ BEGIN
   end if;
 
   if _sticky_agent_id notnull and _sticky then
-      if not exists(select 1 from cc_agent a where a.id = _sticky_agent_id and a.domain_id = _domain_id and a.status = 'online') then
+      if not exists(select 1
+                    from cc_agent a
+                    where a.id = _sticky_agent_id
+                      and a.domain_id = _domain_id
+                      and a.status = 'online'
+                      and exists(select 1
+                                 from cc_skill_in_agent sa
+                                          inner join cc_queue_skill qs
+                                                     on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                 where sa.agent_id = _sticky_agent_id
+                                   and sa.enabled
+                                   and sa.capacity between qs.min_capacity and qs.max_capacity)
+          ) then
           _sticky_agent_id = null;
       end if;
   else
       _sticky_agent_id = null;
   end if;
 
-  insert into call_center.cc_member_attempt (channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
-  values ('chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id, jsonb_build_object('destination', _con_name),
+  insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
+  values (_domain_id, 'chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id, jsonb_build_object('destination', _con_name),
               _node_name, _sticky_agent_id, (select clc.id
                             from cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)))
@@ -1553,7 +1687,7 @@ BEGIN
              from deleted m
              group by queue_id, skill_id
          ) t
-    where t.skill_id notnull 
+    where t.skill_id notnull
     on conflict (queue_id, skill_id)
         do update
         set member_count   = cc_queue_skill_statistics.member_count - EXCLUDED.member_count,
@@ -2701,7 +2835,7 @@ ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTIC
 
 CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     id bigint NOT NULL,
-    queue_id integer NOT NULL,
+    queue_id integer,
     member_id bigint,
     weight integer DEFAULT 0 NOT NULL,
     resource_id integer,
@@ -2729,7 +2863,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     seq integer DEFAULT 0 NOT NULL,
     answered_at timestamp with time zone,
     team_id integer,
-    sticky_agent_id integer
+    sticky_agent_id integer,
+    domain_id bigint NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3608,14 +3743,14 @@ CREATE VIEW call_center.cc_member_view_attempt AS
     COALESCE(t.display, ''::character varying) AS display,
     t.destination,
     t.result,
-    cq.domain_id,
+    t.domain_id,
     t.queue_id,
     t.bucket_id,
     t.member_id,
     t.agent_id,
     t.joined_at AS joined_at_timestamp
    FROM (((((((call_center.cc_member_attempt t
-     JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))
+     LEFT JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))
      LEFT JOIN call_center.cc_member cm ON ((t.member_id = cm.id)))
      LEFT JOIN call_center.cc_agent a ON ((t.agent_id = a.id)))
      LEFT JOIN directory.wbt_user u ON (((u.id = a.user_id) AND (u.dc = a.domain_id))))

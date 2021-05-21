@@ -75,16 +75,7 @@ const (
 	CallActionAmdName     = "amd"
 )
 
-type InboundCallQueue struct {
-	AttemptId      int64             `json:"attempt_id" db:"attempt_id"`
-	QueueId        int               `json:"queue_id" db:"queue_id"`
-	QueueUpdatedAt int64             `json:"queue_updated_at" db:"queue_updated_at"`
-	Destination    []byte            `json:"destination" db:"destination"`
-	Variables      map[string]string `json:"variables" db:"variables"`
-	Name           string            `json:"name" db:"name"`
-	TeamUpdatedAt  int64             `json:"team_updated_at" db:"team_updated_at"`
-	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
-
+type inboundCallData struct {
 	CallId          string  `json:"call_id" db:"call_id"`
 	CallState       string  `json:"call_state" db:"call_state"`
 	CallDirection   string  `json:"call_direction" db:"call_direction"`
@@ -96,6 +87,31 @@ type InboundCallQueue struct {
 	CallAnsweredAt  int64   `json:"call_answered_at" db:"call_answered_at"`
 	CallBridgedAt   int64   `json:"call_bridged_at" db:"call_bridged_at"`
 	CallCreatedAt   int64   `json:"call_created_at" db:"call_created_at"`
+}
+
+type InboundCallQueue struct {
+	AttemptId      int64             `json:"attempt_id" db:"attempt_id"`
+	QueueId        int               `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt int64             `json:"queue_updated_at" db:"queue_updated_at"`
+	Destination    []byte            `json:"destination" db:"destination"`
+	Variables      map[string]string `json:"variables" db:"variables"`
+	Name           string            `json:"name" db:"name"`
+	TeamUpdatedAt  int64             `json:"team_updated_at" db:"team_updated_at"`
+	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
+
+	inboundCallData
+}
+
+type InboundCallAgent struct {
+	AttemptId      int64             `json:"attempt_id" db:"attempt_id"`
+	Destination    []byte            `json:"destination" db:"destination"`
+	Variables      map[string]string `json:"variables" db:"variables"`
+	Name           string            `json:"name" db:"name"`
+	TeamId         int               `json:"team_id" db:"team_id"`
+	TeamUpdatedAt  int64             `json:"team_updated_at" db:"team_updated_at"`
+	AgentUpdatedAt int64             `json:"agent_updated_at" db:"agent_updated_at"`
+
+	inboundCallData
 }
 
 ///id, direction, destination, parent_id, timestamp, app_id, from_number, domain_id, answered_at, bridged_at, created_at

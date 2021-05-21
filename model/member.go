@@ -106,7 +106,7 @@ type RenewalProcessing struct {
 	Timestamp  int64  `json:"timestamp" db:"timestamp"`
 	Channel    string `json:"channel" db:"channel"`
 	UserId     int64  `json:"user_id" db:"user_id"`
-	QueueId    int    `json:"queue_id" db:"queue_id"`
+	QueueId    int    `json:"queue_id" db:"queue_id"` // todo queue null
 	DomainId   int64  `json:"domain_id" db:"domain_id"`
 	RenewalSec uint32 `json:"renewal_sec" db:"renewal_sec"`
 }
@@ -157,7 +157,7 @@ type AttemptReportingResult struct {
 	AgentId         *int    `json:"agent_id" db:"agent_id"`
 	UserId          *int64  `json:"user_id" db:"user_id"`
 	DomainId        *int64  `json:"domain_id" db:"domain_id"`
-	QueueId         int     `json:"queue_id" db:"queue_id"`
+	QueueId         *int    `json:"queue_id" db:"queue_id"`
 	AgentTimeout    *int64  `json:"agent_timeout" db:"agent_timeout"`
 	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
 }

@@ -55,7 +55,7 @@ type BaseQueue struct {
 	hooks                HookHub
 }
 
-func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
+func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
 	base := BaseQueue{
 		channel:              settings.Channel(),
 		id:                   settings.Id,
@@ -83,6 +83,12 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			Type: *settings.RingtoneType,
 		}
 	}
+
+	return base
+}
+
+func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
+	base := NewBaseQueue(queueManager, resourceManager, settings)
 
 	switch settings.Type {
 	case model.QUEUE_TYPE_OFFLINE:

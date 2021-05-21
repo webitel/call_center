@@ -298,7 +298,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		}
 	}
 
-	_, err = queueManager.callManager.InboundCall(callInfo, ringtone)
+	_, err = queueManager.callManager.InboundCallQueue(callInfo, ringtone)
 	if err != nil {
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))
@@ -326,6 +326,112 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
+	}
+
+	return attempt, nil
+}
+
+func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToAgentRequest) (*Attempt, *model.AppError) {
+	// FIXME add domain
+	var agent agent_manager.AgentObject
+
+	res, err := queueManager.store.Member().DistributeCallToAgent(
+		queueManager.app.GetInstanceId(),
+		in.GetMemberCallId(),
+		in.GetVariables(),
+		in.GetAgentId(),
+	)
+
+	if err != nil {
+		wlog.Error(err.Error())
+		return nil, err
+	}
+
+	agent, err = queueManager.agentManager.GetAgent(int(in.GetAgentId()), res.AgentUpdatedAt)
+	if err != nil {
+		wlog.Error(err.Error())
+		return nil, err
+	}
+
+	callInfo := &model.Call{
+		Id:          res.CallId,
+		State:       res.CallState,
+		DomainId:    in.DomainId,
+		Direction:   res.CallDirection,
+		Destination: res.CallDestination,
+		Timestamp:   res.CallTimestamp,
+		AppId:       res.CallAppId,
+		AnsweredAt:  res.CallAnsweredAt,
+		BridgedAt:   res.CallBridgedAt,
+		CreatedAt:   res.CallCreatedAt,
+	}
+	if res.CallFromName != nil {
+		callInfo.FromName = *res.CallFromName
+	}
+	if res.CallFromNumber != nil {
+		callInfo.FromNumber = *res.CallFromNumber
+	}
+
+	_, err = queueManager.callManager.ConnectCall(callInfo)
+	if err != nil {
+		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
+		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))
+		return nil, err
+	}
+
+	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+		Id:             res.AttemptId,
+		CreatedAt:      time.Time{},
+		Result:         nil,
+		Destination:    res.Destination,
+		AgentId:        model.NewInt(int(in.AgentId)),
+		AgentUpdatedAt: &res.AgentUpdatedAt,
+		TeamUpdatedAt:  model.NewInt64(res.TeamUpdatedAt),
+		Variables:      res.Variables,
+		Name:           res.Name,
+		MemberCallId:   &res.CallId,
+	})
+
+	settings := &model.Queue{
+		Id:                   0,
+		DomainId:             in.DomainId,
+		DomainName:           "TODO",
+		Type:                 10,
+		Name:                 "agent",
+		Strategy:             "",
+		Payload:              nil,
+		TeamId:               &res.TeamId,
+		Processing:           false,
+		ProcessingSec:        30,
+		ProcessingRenewalSec: 15,
+		Hooks:                nil,
+	}
+	if in.Processing != nil && in.Processing.Enabled {
+		settings.Processing = true
+		settings.ProcessingSec = in.Processing.Sec
+		settings.ProcessingRenewalSec = in.Processing.RenewalSec
+	}
+
+	var queue = JoinAgentQueue{
+		CallingQueue{
+			BaseQueue: NewBaseQueue(queueManager, queueManager.resourceManager, settings),
+		},
+	}
+
+	attempt.queue = &queue
+	attempt.agent = agent
+	attempt.domainId = queue.domainId
+	attempt.channel = model.QueueChannelCall
+
+	if err = queue.DistributeAttempt(attempt); err != nil {
+		wlog.Error(err.Error())
+		queueManager.Abandoned(attempt)
+		queueManager.LeavingMember(attempt)
+
+		return nil, err
+	} else {
+		wlog.Info(fmt.Sprintf("[%s] join member %s[%v] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+			attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
 	}
 
 	return attempt, nil
@@ -400,6 +506,9 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 }
 
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
+	if attempt.Result() == "" {
+		attempt.SetResult(AttemptResultAbandoned)
+	}
 	attempt.SetState(HookLeaving)
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
@@ -472,7 +581,7 @@ func (queueManager *QueueManager) GetChat(id string) (*chat.Conversation, *model
 	return queueManager.app.GetChat(id)
 }
 
-func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult) (err *model.AppError) {
+func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult, ccCause string) (err *model.AppError) {
 
 	if res.Channel == nil || res.AgentCallId == nil {
 		return
@@ -481,7 +590,9 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 	switch *res.Channel {
 	case model.QueueChannelCall:
 		if call, ok := queueManager.callManager.GetCall(*res.AgentCallId); ok {
-			err = call.Hangup("", true)
+			err = call.Hangup("", true, map[string]string{
+				"cc_result": ccCause,
+			})
 		}
 		break
 	case model.QueueChannelChat:
@@ -523,7 +634,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		return err
 	}
 
-	err = queueManager.closeBeforeReporting(attemptId, res)
+	err = queueManager.closeBeforeReporting(attemptId, res, result.Status)
 
 	if res.UserId != nil && res.DomainId != nil {
 		var ev model.Event
@@ -539,7 +650,11 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 			//ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, 0)
 		}
-		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, res.QueueId, *res.UserId, ev)
+		q := 0
+		if res.QueueId != nil {
+			q = *res.QueueId
+		}
+		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, q, *res.UserId, ev)
 	}
 
 	if attempt, ok := queueManager.GetAttempt(attemptId); ok {

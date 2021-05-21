@@ -176,3 +176,42 @@ func (api *member) AttemptRenewalResult(_ context.Context, in *cc.AttemptRenewal
 
 	return &cc.AttemptRenewalResultResponse{}, nil
 }
+
+func (api *member) CallJoinToAgent(in *cc.CallJoinToAgentRequest, out cc.MemberService_CallJoinToAgentServer) error {
+	ctx := context.Background()
+	attempt, err := api.app.Queue().Manager().DistributeCallToAgent(ctx, in)
+	if err != nil {
+		return err
+	}
+
+	bridged := attempt.On(queue.AttemptHookBridgedAgent)
+	leaving := attempt.On(queue.AttemptHookLeaving)
+
+	for {
+		select {
+		case <-leaving:
+			out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Leaving{
+					Leaving: &cc.QueueEvent_LeavingData{
+						Result: attempt.Result(),
+					},
+				},
+			})
+			goto stop
+		case _, ok := <-bridged:
+			if ok {
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Bridged{
+						Bridged: &cc.QueueEvent_BridgedData{
+							AgentId: 0, //TODO
+						},
+					},
+				})
+			}
+		}
+	}
+
+stop:
+
+	return nil
+}

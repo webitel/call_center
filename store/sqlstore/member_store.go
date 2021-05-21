@@ -17,6 +17,7 @@ func NewSqlMemberStore(sqlStore SqlStore) store.MemberStore {
 }
 
 func (s *SqlMemberStore) CreateTableIfNotExists() {
+
 }
 
 func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppError) {
@@ -151,6 +152,47 @@ as x (
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v %s", queueId, callId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return att, nil
+}
+
+func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32) (*model.InboundCallAgent, *model.AppError) {
+	var att *model.InboundCallAgent
+
+	err := s.GetMaster().SelectOne(&att, `select *
+from cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId)
+as x (
+    attempt_id int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_id int,
+    team_updated_at int8,
+    agent_updated_at int8,
+
+    call_id varchar,
+    call_state varchar,
+    call_direction varchar,
+    call_destination varchar,
+    call_timestamp int8,
+    call_app_id varchar,
+    call_from_number varchar,
+    call_from_name varchar,
+    call_answered_at int8,
+    call_bridged_at int8,
+    call_created_at int8
+)
+where not exists(select 1 from cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
+		"Node":         node,
+		"MemberCallId": callId,
+		"Variables":    model.MapToJson(vars),
+		"AgentId":      agentId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeCallToAgent", "store.sql_member.distribute_call_agent.app_error", nil,
+			fmt.Sprintf("AgentId=%v, CallId=%v %s", agentId, callId, err.Error()), http.StatusInternalServerError)
 	}
 
 	return att, nil
@@ -351,24 +393,25 @@ returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
 	return timestamp, nil
 }
 
+// fixme queue_id
 func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
 	var res *model.RenewalProcessing
 	err := s.GetMaster().SelectOne(&res, `update cc_member_attempt a
  set timeout = now() + (:Renewal::int || ' sec')::interval
 from cc_member_attempt a2
-    inner join cc_queue cq on cq.id = a2.queue_id
     inner join cc_agent ca on ca.id = a2.agent_id
+    left join cc_queue cq on cq.id = a2.queue_id
 where a2.id = :Id::int8
-	and a2.id = a.id 
-	and cq.processing_renewal_sec > 0
+	and a2.id = a.id
+	and (cq.id isnull or cq.processing_renewal_sec > 0)
     and ca.domain_id = :DomainId::int8
 	and a2.state = 'processing'
 returning
     a.id attempt_id,
-	a.queue_id,
+	coalesce(a.queue_id,0) as queue_id,
     cc_view_timestamp(a.timeout) timeout,
     cc_view_timestamp(now()) "timestamp",
-	cq.processing_renewal_sec as renewal_sec,
+	coalesce(cq.processing_renewal_sec, (:Renewal::int / 2)::int) as renewal_sec,
     a.channel,
     ca.user_id,
     ca.domain_id`, map[string]interface{}{
@@ -499,7 +542,7 @@ func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.Atte
 	err := s.GetMaster().SelectOne(&result, `select *
 from cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, :NextCallAt::timestamptz, :StickyAgentId::int) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar)
-where x.queue_id notnull`, map[string]interface{}{
+where x.channel notnull`, map[string]interface{}{
 		"AttemptId":     attemptId,
 		"Status":        callback.Status,
 		"Description":   callback.Description,
@@ -537,11 +580,10 @@ into cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, reso
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
                                 bridged_at, channel, seq, resource_group_id, answered_at)
-select a.id, domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
+select a.id, a.domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
        a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
        a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq, a.resource_group_id, a.answered_at
 from del a
-    inner join cc_queue q on q.id = a.queue_id
 returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
 
 	if err != nil {

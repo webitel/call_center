@@ -27,7 +27,8 @@ type CallManager interface {
 	ActiveCalls() int
 	NewCall(callRequest *model.CallRequest) Call
 	GetCall(id string) (Call, bool)
-	InboundCall(call *model.Call, ringtone string) (Call, *model.AppError)
+	InboundCallQueue(call *model.Call, ringtone string) (Call, *model.AppError)
+	ConnectCall(call *model.Call) (Call, *model.AppError)
 	CountConnection() int
 	GetFlowUri() string
 	HangupManyCall(cause string, ids ...string)
@@ -131,7 +132,7 @@ func (cm *CallManagerImpl) HangupManyCall(cause string, ids ...string) {
 
 	for _, id := range ids {
 		if call, ok = cm.calls.Get(id); ok {
-			call.(Call).Hangup(cause, false)
+			call.(Call).Hangup(cause, false, nil)
 		}
 	}
 }
@@ -143,10 +144,10 @@ func (cm *CallManagerImpl) HangupById(id, node string) *model.AppError {
 		return err
 	}
 
-	return cli.HangupCall(id, model.CALL_HANGUP_LOSE_RACE, false)
+	return cli.HangupCall(id, model.CALL_HANGUP_LOSE_RACE, false, nil)
 }
 
-func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call, *model.AppError) {
+func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (Call, *model.AppError) {
 	cli, err := cm.getApiConnectionById(call.AppId)
 	if err != nil {
 		return nil, err
@@ -193,6 +194,54 @@ func (cm *CallManagerImpl) InboundCall(call *model.Call, ringtone string) (Call,
 		ParentId: nil,
 		Payload:  nil,
 	}
+
+	cm.saveToCacheCall(res)
+
+	wlog.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
+
+	return res, nil
+}
+
+func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError) {
+	cli, err := cm.getApiConnectionById(call.AppId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &CallImpl{
+		callRequest: nil,
+		direction:   model.CALL_DIRECTION_INBOUND, //FIXME
+		id:          call.Id,
+		api:         cli,
+		cm:          cm,
+		hangupCh:    make(chan struct{}),
+		chState:     make(chan CallState, 5),
+		acceptAt:    call.AnsweredAt,
+		offeringAt:  call.CreatedAt,
+		state:       CALL_STATE_ACCEPT, //FIXME
+	}
+
+	res.info = model.CallActionInfo{
+		GatewayId:   nil,
+		UserId:      nil,
+		Direction:   "inbound",
+		Destination: call.Destination,
+		From: &model.CallEndpoint{
+			Type:   "dest",
+			Id:     call.FromNumber,
+			Number: call.FromNumber,
+			Name:   call.FromName,
+		},
+		To:       nil,
+		ParentId: nil,
+		Payload:  nil,
+	}
+
+	//todo
+	cli.SetCallVariables(call.Id, map[string]string{
+		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
+		"cc_result":               "abandoned",
+	})
 
 	cm.saveToCacheCall(res)
 

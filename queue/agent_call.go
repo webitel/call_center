@@ -45,7 +45,6 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 
 				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),
-				model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
 				model.QUEUE_NAME_FIELD:       queue.Name(),
 				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
 				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
@@ -54,6 +53,10 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		Timeout:      at.CallTimeout(),
 		CallerName:   attempt.Name(),
 		CallerNumber: attempt.Destination(),
+	}
+
+	if queue.id > 0 {
+		cr.Variables[model.QUEUE_ID_FIELD] = fmt.Sprintf("%d", queue.Id())
 	}
 
 	if attempt.MemberId() != nil {

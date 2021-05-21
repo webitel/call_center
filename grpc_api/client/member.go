@@ -99,3 +99,12 @@ func (api *memberApi) RenewalResult(domainId, attemptId int64, renewal uint32) e
 
 	return err
 }
+
+func (api *memberApi) CallJoinToAgent(ctx context.Context, in *proto.CallJoinToAgentRequest) (proto.MemberService_CallJoinToAgentClient, error) {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.member.CallJoinToAgent(ctx, in)
+}

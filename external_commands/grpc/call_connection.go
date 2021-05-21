@@ -208,11 +208,12 @@ func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *
 	return c.NewCallContext(context.Background(), settings)
 }
 
-func (c *CallConnection) HangupCall(id, cause string, reporting bool) *model.AppError {
+func (c *CallConnection) HangupCall(id, cause string, reporting bool, vars map[string]string) *model.AppError {
 	res, err := c.api.Hangup(context.Background(), &fs.HangupRequest{
 		Uuid:      id,
 		Cause:     cause,
 		Reporting: reporting,
+		Variables: vars,
 	})
 
 	if err != nil {

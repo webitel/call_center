@@ -155,7 +155,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				}
 
 				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil || len(cnt) == 0 {
-					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 				} else if len(cnt) > 0 {
 
 					go queue.HangupManyCall(mCall.Id(), model.CALL_HANGUP_ORIGINATOR_CANCEL, cnt...)
@@ -201,7 +201,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								//team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_HANGUP:
 								if mCall.HangupAt() == 0 {
-									mCall.Hangup("", false) //TODO
+									mCall.Hangup("", false, nil) //TODO
 									mCall.WaitForHangup()
 								}
 								break top
@@ -217,9 +217,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 								if agentCall.HangupAt() == 0 {
 									if mCall.BridgeAt() > 0 {
-										agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
+										agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
 									} else {
-										agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+										agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 									}
 								}
 

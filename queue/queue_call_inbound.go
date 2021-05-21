@@ -153,9 +153,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 						if agentCall.HangupAt() == 0 {
 							if mCall.BridgeAt() > 0 {
-								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false)
+								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
 							} else {
-								agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false)
+								agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 							}
 
 							agentCall.WaitForHangup()

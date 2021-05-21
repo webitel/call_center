@@ -46,6 +46,7 @@ type MemberStore interface {
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
+	DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32) (*model.InboundCallAgent, *model.AppError)
 
 	/*
 		Flow control

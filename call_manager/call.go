@@ -51,7 +51,7 @@ type Call interface {
 
 	NewCall(callRequest *model.CallRequest) Call
 	//ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
-	Hangup(cause string, reporting bool) *model.AppError
+	Hangup(cause string, reporting bool, vars map[string]string) *model.AppError
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
@@ -468,7 +468,7 @@ func (call *CallImpl) Err() *model.AppError {
 	return call.err
 }
 
-func (call *CallImpl) Hangup(cause string, reporting bool) *model.AppError {
+func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]string) *model.AppError {
 	if call.GetState() < CALL_STATE_INVITE {
 		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
@@ -479,7 +479,8 @@ func (call *CallImpl) Hangup(cause string, reporting bool) *model.AppError {
 	}
 
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
-	err := call.api.HangupCall(call.id, cause, reporting)
+	// todo set variables
+	err := call.api.HangupCall(call.id, cause, reporting, vars)
 	if err != nil && call.HangupCause() == "" {
 		call.setHangup(&model.CallActionHangup{
 			CallAction: model.CallAction{
