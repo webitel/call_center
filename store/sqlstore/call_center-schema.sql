@@ -720,7 +720,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     amd_result character varying,
     amd_duration interval,
     tags character varying[],
-    region_id integer
+    region_id integer,
+    grantee_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -2912,7 +2913,8 @@ CREATE TABLE call_center.cc_queue (
     sticky_agent boolean DEFAULT false NOT NULL,
     processing boolean DEFAULT false NOT NULL,
     processing_sec integer DEFAULT 30 NOT NULL,
-    processing_renewal_sec integer DEFAULT 0 NOT NULL
+    processing_renewal_sec integer DEFAULT 0 NOT NULL,
+    grantee_id bigint
 );
 
 
@@ -2986,7 +2988,8 @@ CREATE VIEW call_center.cc_call_active_list AS
     c.to_number,
     cma.display,
     sup."user" AS supervisor,
-    aa.supervisor_id
+    aa.supervisor_id,
+    c.grantee_id
    FROM (((((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
@@ -3080,7 +3083,8 @@ CREATE TABLE call_center.cc_calls_history (
     transfer_from character varying,
     transfer_to character varying,
     amd_result character varying,
-    amd_duration interval
+    amd_duration interval,
+    grantee_id bigint
 );
 
 
@@ -3200,7 +3204,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
-    cma.description AS agent_description
+    cma.description AS agent_description,
+    c.grantee_id
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM ( SELECT f1.id,
@@ -6812,6 +6817,14 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 ALTER TABLE ONLY call_center.cc_calls_history
     ADD CONSTRAINT cc_calls_history_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: cc_calls cc_calls_wbt_auth_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls
+    ADD CONSTRAINT cc_calls_wbt_auth_id_fk FOREIGN KEY (grantee_id) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
 
 
 --
