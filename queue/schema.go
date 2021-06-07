@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
@@ -12,6 +13,13 @@ type DoDistributeResult struct {
 	DisplayNumber string
 	Variables     map[string]interface{}
 	Cancel        bool
+}
+
+type SchemaResult struct {
+	Status             string
+	MaxAttempts        uint32
+	WaitBetweenRetries uint32
+	Variables          map[string]string
 }
 
 func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {
@@ -62,6 +70,56 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	return true
 }
 
-func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt) {
-	fmt.Println("TEST AfterDistributeSchema")
+func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, call call_manager.Call) (*SchemaResult, bool) {
+	if queue.afterSchemaId == nil {
+
+		return nil, false
+	}
+
+	//vars := make(map[string]string)
+
+	vars := map[string]string{
+		"call_bill_sec":   fmt.Sprintf("%d", call.BillSeconds()),
+		"call_answer_sec": fmt.Sprintf("%d", call.AnswerSeconds()),
+		"call_duration":   fmt.Sprintf("%d", call.DurationSeconds()),
+		"call_cause":      call.HangupCause(),
+		"call_sip_code":   fmt.Sprintf("%d", call.HangupCauseCode()),
+	}
+
+	call_manager.DUMP(model.UnionStringMaps(
+		att.ExportSchemaVariables(),
+		vars,
+	))
+
+	res, err := qm.app.FlowManager().Queue().ResultAttempt(&flow.ResultAttemptRequest{
+		DomainId: queue.domainId,
+		SchemaId: *queue.afterSchemaId,
+		Variables: model.UnionStringMaps(
+			att.ExportSchemaVariables(),
+			vars,
+		),
+	})
+
+	if err != nil {
+		// TODO
+		wlog.Error(fmt.Sprintf("%s", err.Error()))
+		return nil, false
+	}
+
+	switch v := res.Result.(type) {
+	case *flow.ResultAttemptResponse_Success_:
+		return &SchemaResult{
+			Status: "success",
+		}, true
+
+	case *flow.ResultAttemptResponse_Abandoned_:
+		return &SchemaResult{
+			Status:             v.Abandoned.Status,
+			MaxAttempts:        v.Abandoned.MaxAttempts,
+			WaitBetweenRetries: v.Abandoned.WaitBetweenRetries,
+		}, true
+
+	}
+
+	return nil, false
 }

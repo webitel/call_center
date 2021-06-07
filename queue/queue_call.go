@@ -108,10 +108,3 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 	}
 	return call
 }
-
-func (queue *CallingQueue) GetCallInfoFromAttempt(attempt *Attempt) *AttemptInfoCall {
-	if attempt.Info == nil {
-		attempt.Info = &AttemptInfoCall{}
-	}
-	return attempt.Info.(*AttemptInfoCall)
-}

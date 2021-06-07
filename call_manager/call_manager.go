@@ -175,7 +175,7 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 		hangupCh:    make(chan struct{}),
 		chState:     make(chan CallState, 5),
 		acceptAt:    call.AnsweredAt,
-		offeringAt:  call.CreatedAt,
+		ringingAt:   call.CreatedAt,
 		state:       CALL_STATE_ACCEPT, //FIXME
 	}
 
@@ -217,7 +217,7 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError)
 		hangupCh:    make(chan struct{}),
 		chState:     make(chan CallState, 5),
 		acceptAt:    call.AnsweredAt,
-		offeringAt:  call.CreatedAt,
+		ringingAt:   call.CreatedAt,
 		state:       CALL_STATE_ACCEPT, //FIXME
 	}
 

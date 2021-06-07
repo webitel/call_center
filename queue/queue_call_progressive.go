@@ -87,6 +87,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
+				"ignore_early_media":     "true",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",

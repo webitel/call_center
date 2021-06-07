@@ -152,7 +152,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
 				// FIXME
-				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !call.IsHuman()) {
+				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) ||
+					(state == call_manager.CALL_STATE_DETECT_AMD && !call.IsHuman()) {
 					continue
 				}
 
@@ -168,6 +169,17 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				attempt.Log(fmt.Sprintf("set state %s", state))
 			}
 		}
+	}
+
+	if res, ok := queue.queueManager.AfterDistributeSchema(&queue.BaseQueue, attempt, call); ok {
+		if res.Status == "success" {
+			queue.queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0)
+		} else {
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, uint(res.MaxAttempts), uint64(res.WaitBetweenRetries))
+		}
+
+		queue.queueManager.LeavingMember(attempt)
+		return
 	}
 
 	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {

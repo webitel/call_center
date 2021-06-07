@@ -32,7 +32,6 @@ type Call interface {
 
 	BridgeId() *string
 
-	OfferingAt() int64
 	AcceptAt() int64
 	BridgeAt() int64
 	HangupAt() int64
@@ -89,7 +88,6 @@ type CallImpl struct {
 
 	bridgedId *string
 
-	offeringAt  int64
 	ringingAt   int64
 	acceptAt    int64
 	bridgeAt    int64
@@ -400,10 +398,6 @@ func (call *CallImpl) HangupChan() <-chan struct{} {
 	return call.hangupCh
 }
 
-func (call *CallImpl) OfferingAt() int64 {
-	return call.offeringAt
-}
-
 func (call *CallImpl) ReportingAt() int64 {
 	return call.reportingAt
 }
@@ -428,9 +422,9 @@ func (call *CallImpl) IsHuman() bool {
 
 func (call *CallImpl) DurationSeconds() int {
 	if call.hangupAt > 0 {
-		return int(call.hangupAt-call.offeringAt) / 1000
+		return int(call.hangupAt-call.ringingAt) / 1000
 	} else {
-		return int(model.GetMillis()-call.offeringAt) / 1000
+		return int(model.GetMillis()-call.ringingAt) / 1000
 	}
 }
 
@@ -447,7 +441,7 @@ func (call *CallImpl) BillSeconds() int {
 
 func (call *CallImpl) AnswerSeconds() int {
 	if call.acceptAt > 0 {
-		return int(call.acceptAt-call.offeringAt) / 1000
+		return int(call.acceptAt-call.ringingAt) / 1000
 	} else {
 		return 0
 	}
@@ -455,9 +449,9 @@ func (call *CallImpl) AnswerSeconds() int {
 
 func (call *CallImpl) WaitSeconds() int {
 	if call.bridgeAt > 0 {
-		return int(call.bridgeAt-call.offeringAt) / 1000
+		return int(call.bridgeAt-call.ringingAt) / 1000
 	} else {
-		return int(model.GetMillis()-call.offeringAt) / 1000
+		return int(model.GetMillis()-call.ringingAt) / 1000
 	}
 }
 
