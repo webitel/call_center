@@ -124,7 +124,8 @@ const (
 )
 
 const (
-	AmdHuman = "HUMAN"
+	AmdHuman   = "HUMAN"
+	AmdNotSure = "NOTSURE"
 )
 
 func (s CallState) String() string {
@@ -417,7 +418,7 @@ func (call *CallImpl) HangupAt() int64 {
 }
 
 func (call *CallImpl) IsHuman() bool {
-	return call.amdResult == AmdHuman
+	return call.amdResult == AmdHuman || call.amdResult == AmdNotSure
 }
 
 func (call *CallImpl) DurationSeconds() int {

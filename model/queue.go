@@ -267,6 +267,10 @@ func (amd *QueueAmdSettings) ToArgs() string {
 		}
 		tmp = append(tmp, fmt.Sprintf("initial_silence=%d", amd.InitialSilence))
 
+		if amd.AllowNotSure {
+			tmp = append(tmp, "silence_notsure=1")
+		}
+
 		amd.buildString = new(string)
 		*amd.buildString = strings.Join(tmp, " ")
 	}
