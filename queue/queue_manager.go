@@ -509,6 +509,12 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
 	if attempt.Result() == "" {
 		attempt.SetResult(AttemptResultAbandoned)
 	}
+
+	// todo fixme: bug if offering && reporting
+	if _, ok := queueManager.membersCache.Get(attempt.Id()); !ok {
+		wlog.Error(fmt.Sprintf("[%d] not found", attempt.Id()))
+		return
+	}
 	attempt.SetState(HookLeaving)
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
