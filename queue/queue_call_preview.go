@@ -164,7 +164,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		}
 	}
 
-	if call.AcceptAt() > 0 {
+	if call.AcceptAt() > 0 || attempt.Callback() != nil {
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
 	} else {
 		team.CancelAgentAttempt(attempt, agent)
