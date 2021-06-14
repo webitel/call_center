@@ -166,6 +166,11 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 		return nil, err
 	}
 
+	if c, ok := cm.calls.Get(call.Id); ok {
+		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
+		return c.(Call), nil
+	}
+
 	res := &CallImpl{
 		callRequest: nil,
 		direction:   model.CALL_DIRECTION_INBOUND, //FIXME

@@ -87,7 +87,7 @@ func (a *AMQP) listen() {
 }
 
 func (a *AMQP) readMessage(msg *amqp.Delivery) {
-	fmt.Println(string(msg.Body))
+	//fmt.Println(string(msg.Body))
 	switch msg.Exchange {
 	case model.CallExchange:
 		var ev model.CallActionData

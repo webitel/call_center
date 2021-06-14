@@ -140,7 +140,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	for calling {
 		select {
+		case <-call.HangupChan():
+			calling = false
+			break
+
 		case state := <-call.State():
+
 			switch state {
 			case call_manager.CALL_STATE_RINGING:
 				attempt.SetState(model.MemberStateOffering)
