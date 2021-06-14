@@ -219,18 +219,20 @@ begin
     where id = attempt_id_
     returning * into attempt;
 
-    update cc_member
-    set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
-        last_agent      = coalesce(attempt.agent_id, last_agent),
-        stop_at = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else  attempt.leaving_at end,
-        stop_cause = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else attempt.result end,
-        ready_at = now() + (_next_after || ' sec')::interval,
-        -- fixme
-        communications  = jsonb_set(
-                jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
-            , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
-        attempts        = attempts + 1                     --TODO
-    where id = attempt.member_id;
+    if attempt.member_id notnull then
+        update cc_member
+        set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
+            last_agent      = coalesce(attempt.agent_id, last_agent),
+            stop_at = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else  attempt.leaving_at end,
+            stop_cause = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else attempt.result end,
+            ready_at = now() + (_next_after || ' sec')::interval,
+            -- fixme
+            communications  = jsonb_set(
+                    jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
+                , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
+            attempts        = attempts + 1                     --TODO
+        where id = attempt.member_id;
+    end if;
 
 
     return row(attempt.last_state_change::timestamptz);
@@ -375,34 +377,36 @@ begin
 --         raise exception  'not found %', attempt_id_;
     end if;
 
-    update cc_member
-    set last_hangup_at  = time_,
-        variables = case when variables_ isnull then variables else variables_ end,
-        expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
-        agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
+    if attempt.member_id notnull then
+        update cc_member
+        set last_hangup_at  = time_,
+            variables = case when variables_ isnull then variables else variables_ end,
+            expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
+            agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
-        stop_at = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
-        stop_cause = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
+            stop_at = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
+            stop_cause = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
 
-        ready_at = case when next_offering_at_ notnull then next_offering_at_
-            else now() + (q._next_after || ' sec')::interval end,
+            ready_at = case when next_offering_at_ notnull then next_offering_at_
+                else now() + (q._next_after || ' sec')::interval end,
 
-        last_agent      = coalesce(attempt.agent_id, last_agent),
-        communications = jsonb_set(
-                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
-                          attempt_id_::text::jsonb, true)
-            , array [attempt.communication_idx, 'last_activity_at']::text[],
-                case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
-            ),
-        attempts        = attempts + 1                     --TODO
-    from (
-        -- fixme
-        select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
-        from cc_queue q
-        where q.id = attempt.queue_id
-    ) q
-    where id = attempt.member_id
-    returning stop_cause into stop_cause_;
+            last_agent      = coalesce(attempt.agent_id, last_agent),
+            communications = jsonb_set(
+                    jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                              attempt_id_::text::jsonb, true)
+                , array [attempt.communication_idx, 'last_activity_at']::text[],
+                    case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
+                ),
+            attempts        = attempts + 1                     --TODO
+        from (
+            -- fixme
+            select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
+            from cc_queue q
+            where q.id = attempt.queue_id
+        ) q
+        where id = attempt.member_id
+        returning stop_cause into stop_cause_;
+    end if;
 
     if attempt.agent_id notnull then
         select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
@@ -461,34 +465,36 @@ begin
      FIXME
      */
     update cc_member_attempt
-        set leaving_at = now(),
-            result = result_,
-            state = 'leaving'
+    set leaving_at = now(),
+        result = result_,
+        state = 'leaving'
     where id = attempt_id_
     returning * into attempt;
 
-    update cc_member m
-    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
-        last_agent      = coalesce(attempt.agent_id, last_agent),
+    if attempt.member_id notnull then
+        update cc_member m
+        set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
+            last_agent      = coalesce(attempt.agent_id, last_agent),
 
-        stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
-        stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
-        ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
+            stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
+            stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+            ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
 
-        communications = jsonb_set(
-                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
-                          attempt_id_::text::jsonb, true)
-            , array [attempt.communication_idx, 'last_activity_at']::text[],
-                ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
-            ),
-        attempts        = attempts + 1
-    from (
-        -- fixme
-        select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
-        from cc_queue q
-        where q.id = attempt.queue_id
-    ) q
-    where id = attempt.member_id;
+            communications = jsonb_set(
+                    jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                              attempt_id_::text::jsonb, true)
+                , array [attempt.communication_idx, 'last_activity_at']::text[],
+                    ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
+                ),
+            attempts        = attempts + 1
+        from (
+            -- fixme
+            select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
+            from cc_queue q
+            where q.id = attempt.queue_id
+        ) q
+        where id = attempt.member_id;
+    end if;
 
     if attempt.agent_id notnull then
         update cc_agent_channel c
@@ -660,6 +666,7 @@ BEGIN
     for c in select *
             from cc_calls cc where cc.hangup_at isnull and not cc.direction isnull
             and ( (cc.gateway_id notnull and cc.direction = 'outbound') or (cc.gateway_id notnull and cc.direction = 'inbound') )
+            for update skip locked
     loop
         if c.gateway_id notnull and c.direction = 'outbound' then
             return next c.to_number;
@@ -2865,7 +2872,9 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     answered_at timestamp with time zone,
     team_id integer,
     sticky_agent_id integer,
-    domain_id bigint NOT NULL
+    domain_id bigint NOT NULL,
+    transferred_at timestamp with time zone,
+    transferred_agent_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -2914,7 +2923,8 @@ CREATE TABLE call_center.cc_queue (
     processing boolean DEFAULT false NOT NULL,
     processing_sec integer DEFAULT 30 NOT NULL,
     processing_renewal_sec integer DEFAULT 0 NOT NULL,
-    grantee_id bigint
+    grantee_id bigint,
+    recall_calendar boolean DEFAULT false
 );
 
 
@@ -3359,7 +3369,8 @@ SELECT
     NULL::bigint AS domain_id,
     NULL::integer AS priority,
     NULL::boolean AS sticky_agent,
-    NULL::integer AS sticky_agent_sec;
+    NULL::integer AS sticky_agent_sec,
+    NULL::boolean AS recall_calendar;
 
 
 --
@@ -5353,6 +5364,8 @@ CREATE INDEX cc_agent_state_history_joined_at_agent_id_index ON call_center.cc_a
 
 CREATE INDEX cc_agent_state_history_joined_at_idx ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id DESC) INCLUDE (state, duration);
 
+ALTER TABLE call_center.cc_agent_state_history CLUSTER ON cc_agent_state_history_joined_at_idx;
+
 
 --
 -- Name: cc_agent_status_distribute_index; Type: INDEX; Schema: call_center; Owner: -
@@ -6246,6 +6259,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.calendar_id,
             q_1.type,
             q_1.sticky_agent,
+            q_1.recall_calendar,
                 CASE
                     WHEN q_1.sticky_agent THEN COALESCE(((q_1.payload -> 'sticky_agent_sec'::text))::integer, 30)
                     ELSE NULL::integer
@@ -6289,18 +6303,23 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
         ), calend AS MATERIALIZED (
          SELECT c.id AS calendar_id,
             queues.id AS queue_id,
-            array_agg(DISTINCT o1.id) AS l
-           FROM (((flow.calendar c
+                CASE
+                    WHEN (queues.recall_calendar AND (NOT (tz.offset_id = ANY (array_agg(DISTINCT o1.id))))) THEN ((array_agg(DISTINCT o1.id))::integer[] + (tz.offset_id)::integer)
+                    ELSE (array_agg(DISTINCT o1.id))::integer[]
+                END AS l,
+            (queues.recall_calendar AND (NOT (tz.offset_id = ANY (array_agg(DISTINCT o1.id))))) AS recall_calendar
+           FROM ((((flow.calendar c
+             LEFT JOIN flow.calendar_timezones tz ON ((tz.id = c.timezone_id)))
              JOIN queues ON ((queues.calendar_id = c.id)))
              JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
              JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
           WHERE (NOT (a.disabled IS TRUE))
-          GROUP BY c.id, queues.id
+          GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id
         ), resources AS MATERIALIZED (
          SELECT cqr.queue_id,
-            array_agg(DISTINCT ROW(corg.communication_id, (cor.id)::bigint, (((l_1.l)::integer[] & (l2.x)::integer[]))::smallint[], (corg.id)::integer)::call_center.cc_sys_distribute_type) AS types,
+            array_agg(DISTINCT ROW(corg.communication_id, (cor.id)::bigint, ((l_1.l & (l2.x)::integer[]))::smallint[], (corg.id)::integer)::call_center.cc_sys_distribute_type) AS types,
             array_agg(DISTINCT ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer)::call_center.cc_sys_distribute_resource) AS resources,
-            call_center.cc_array_merge_agg(((l_1.l)::integer[] & (l2.x)::integer[])) AS offset_ids
+            call_center.cc_array_merge_agg((l_1.l & (l2.x)::integer[])) AS offset_ids
            FROM ((((((call_center.cc_queue_resource cqr
              JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
              JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
@@ -6319,7 +6338,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
              LEFT JOIN LATERAL ( SELECT count(*) AS cnt
                    FROM ( SELECT 1 AS cnt
                            FROM call_center.cc_member_attempt c_1
-                          WHERE (c_1.resource_id = cor.id)) c) used ON (true))
+                          WHERE ((c_1.resource_id = cor.id) AND ((c_1.state)::text <> ALL (ARRAY[('leaving'::character varying)::text, ('processing'::character varying)::text])))) c) used ON (true))
           WHERE (cor.enabled AND (NOT cor.reserve) AND ((cor."limit" - used.cnt) > 0))
           GROUP BY cqr.queue_id
         )
@@ -6331,14 +6350,15 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     r.types,
     r.resources,
         CASE
-            WHEN (q.type = 7) THEN (calend.l)::integer[]
+            WHEN (q.type = 7) THEN calend.l
             ELSE r.offset_ids
         END AS offset_ids,
     ((q.lim - COALESCE(l.usage, (0)::bigint)))::integer AS lim,
     q.domain_id,
     q.priority,
     q.sticky_agent,
-    q.sticky_agent_sec
+    q.sticky_agent_sec,
+    calend.recall_calendar
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))
@@ -7449,6 +7469,14 @@ ALTER TABLE ONLY call_center.cc_queue_statistics
 
 ALTER TABLE ONLY call_center.cc_queue_statistics
     ADD CONSTRAINT cc_queue_statistics_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_queue cc_queue_wbt_auth_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_wbt_auth_id_fk FOREIGN KEY (grantee_id) REFERENCES directory.wbt_auth(id);
 
 
 --
