@@ -21,6 +21,7 @@ type Distribute struct {
 	AppId           string                    `json:"app_id"`
 	Channel         string                    `json:"channel"`
 	QueueId         int                       `json:"queue_id"`
+	QueueName       string                    `json:"queue_name"`
 	MemberId        *int64                    `json:"member_id"`
 	AgentId         *int                      `json:"agent_id"`
 	MemberChannelId *string                   `json:"member_channel_id"`
@@ -99,6 +100,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			Communication: a.communication,
 			Channel:       queue.Channel(),
 			QueueId:       queue.Id(),
+			QueueName:     queue.Name(),
 			MemberId:      a.MemberId(),
 			HasReporting:  r,
 		},
