@@ -241,6 +241,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["member_id"] = strconv.Itoa(int(*a.member.MemberId))
 	}
 
+	if a.communication.Destination != "" {
+		res["destination"] = a.communication.Destination
+	}
+
 	if a.agent != nil {
 		// fixme add to model
 		res["agent_name"] = a.agent.Name()
