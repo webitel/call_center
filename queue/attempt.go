@@ -229,9 +229,13 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	for k, v := range a.member.Variables {
 		res[k] = fmt.Sprintf("%v", v)
 	}
+
 	if a.member.Seq != nil {
 		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
 	}
+
+	res["destination"] = a.Destination()
+	res["attempt_id"] = fmt.Sprintf("%d", a.Id())
 
 	if a.member.Name != "" {
 		res["member_name"] = a.member.Name
@@ -241,8 +245,19 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["member_id"] = strconv.Itoa(int(*a.member.MemberId))
 	}
 
-	if a.communication.Destination != "" {
-		res["destination"] = a.communication.Destination
+	if a.agentChannel != nil {
+		res["agent_channel_id"] = a.agentChannel.Id()
+	}
+	if a.memberChannel != nil {
+		res["member_channel_id"] = a.memberChannel.Id()
+	}
+
+	if a.MemberStopCause() != "" {
+		res["member_stop_cause"] = a.MemberStopCause()
+	}
+
+	if a.queue != nil && a.queue.Processing() {
+		res["use_processing"] = "true"
 	}
 
 	if a.agent != nil {

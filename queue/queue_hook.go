@@ -72,27 +72,10 @@ func (q *BaseQueue) Hook(name string, at *Attempt) {
 			at.ExportSchemaVariables(),
 			q.variables,
 			map[string]string{
-				"state":       at.GetState(),
-				"channel":     q.channel,
-				"attempt_id":  fmt.Sprintf("%d", at.Id()),
-				"destination": at.Destination(),
+				"state":   at.GetState(),
+				"channel": q.channel,
 			},
 		),
-	}
-
-	if q.Processing() {
-		req.Variables["use_processing"] = "true"
-	}
-
-	if at.agentChannel != nil {
-		req.Variables["agent_channel_id"] = at.agentChannel.Id()
-	}
-	if at.memberChannel != nil {
-		req.Variables["member_channel_id"] = at.memberChannel.Id()
-	}
-
-	if at.MemberStopCause() != "" {
-		req.Variables["member_stop_cause"] = at.MemberStopCause()
 	}
 
 	id, err := q.queueManager.app.FlowManager().Queue().StartFlow(req)
