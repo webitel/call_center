@@ -69,8 +69,9 @@ type AgentChannel struct {
 }
 
 type MissedAgent struct {
-	Timestamp int64   `json:"timestamp" db:"timestamp"`
-	NoAnswers *uint16 `json:"no_answers" db:"no_answers"`
+	Timestamp       int64   `json:"timestamp" db:"timestamp"`
+	NoAnswers       *uint16 `json:"no_answers" db:"no_answers"`
+	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
 }
 
 type AgentOnlineData struct {

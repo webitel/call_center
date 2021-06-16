@@ -312,26 +312,28 @@ where x.last_state_change notnull `, map[string]interface{}{
 	return timestamp, nil
 }
 
-func (s *SqlMemberStore) SetAttemptAbandoned(attemptId int64) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+func (s *SqlMemberStore) SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError) {
+	var res *model.AttemptLeaving
+	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
 from cc_attempt_abandoned(:AttemptId)
-    as x (last_state_change timestamptz)
+    as x (last_state_change timestamptz, member_stop_cause varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId": attemptId,
 	})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptAbandoned", "store.sql_member.set_attempt_abandoned.app_error", nil,
+		return nil, model.NewAppError("SqlMemberStore.SetAttemptAbandoned", "store.sql_member.set_attempt_abandoned.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
-	return timestamp, nil
+	return res, nil
 }
 
-func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64) (*model.AttemptLeaving, *model.AppError) {
+	var res *model.AttemptLeaving
+	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
 from cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep)
-    as x (last_state_change timestamptz)
+    as x (last_state_change timestamptz, member_stop_cause varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":   attemptId,
 		"MaxAttempts": maxAttempts,
@@ -339,11 +341,11 @@ where x.last_state_change notnull `, map[string]interface{}{
 	})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptAbandonedWithParams", "store.sql_member.set_attempt_abandoned.app_error", nil,
+		return nil, model.NewAppError("SqlMemberStore.SetAttemptAbandonedWithParams", "store.sql_member.set_attempt_abandoned.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
 	}
 
-	return timestamp, nil
+	return res, nil
 }
 
 func (s *SqlMemberStore) SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError) {
@@ -430,8 +432,9 @@ returning
 
 func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
-	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers from cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
-		as x (last_state_change timestamptz, no_answers int)`,
+	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers, member_stop_cause 
+		from cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
+		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
 			"Id":            id,
@@ -492,10 +495,11 @@ where m.id = u.member_id`, map[string]interface{}{
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (int64, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
-	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers from cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime) 
-		as x (last_state_change timestamptz, no_answers int)`,
+	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers,  member_stop_cause
+		from cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime) 
+		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"Result":        result,
 			"State":         channelState,
@@ -504,11 +508,11 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState 
 		})
 
 	if err != nil {
-		return 0, model.NewAppError("SqlMemberStore.SetAttemptResult", "store.sql_member.set_attempt_result.app_error", nil,
+		return nil, model.NewAppError("SqlMemberStore.SetAttemptResult", "store.sql_member.set_attempt_result.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
 	}
 
-	return missed.Timestamp, nil
+	return missed, nil
 }
 
 func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError) {

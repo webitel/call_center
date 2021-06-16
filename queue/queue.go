@@ -262,15 +262,19 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject, maxAttempts uint, sleep uint64) {
 	//SetAttemptAbandonedWithParams
 	//timestamp, err := tm.teamManager.store.Member().SetAttemptAbandoned(attempt.Id())
-	timestamp, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
+	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
 	if err != nil {
 		wlog.Error(err.Error())
 
 		return
 	}
 
+	if res.MemberStopCause != nil {
+		attempt.SetMemberStopCause(res.MemberStopCause)
+	}
+
 	attId := model.NewInt64(attempt.Id())
-	e := NewWaitingChannelEvent(attempt.channel, agent.UserId(), attId, timestamp)
+	e := NewWaitingChannelEvent(attempt.channel, agent.UserId(), attId, res.Timestamp)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		wlog.Error(err.Error())

@@ -128,19 +128,20 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	}
 
 	if !queue.Processing() {
-		// FIXME
-		attempt.SetResult(AttemptResultSuccess)
-		attempt.SetState(HookLeaving)
-
 		t := int(tm.WrapUpTime())
 		if agent.IsOnDemand() {
 			t = 0
 		}
 
-		if timestamp, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
+		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
 			model.ChannelStateWrapTime, t); err == nil {
+			if res.MemberStopCause != nil {
+				attempt.SetMemberStopCause(res.MemberStopCause)
+			}
+			attempt.SetResult(AttemptResultSuccess)
+			attempt.SetState(HookLeaving)
 
-			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), res.Timestamp, res.Timestamp+(int64(tm.WrapUpTime()*1000)))
 			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 			if err != nil {
 				wlog.Error(err.Error())
@@ -178,6 +179,10 @@ func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
 	if err != nil {
 		wlog.Error(err.Error())
 		return
+	}
+
+	if missed.MemberStopCause != nil {
+		attempt.SetMemberStopCause(missed.MemberStopCause)
 	}
 
 	tm.MissedAgent(missed, attempt, agent)

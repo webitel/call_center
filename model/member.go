@@ -51,6 +51,11 @@ type AttemptCallback struct {
 	StickyAgentId *int
 }
 
+type AttemptLeaving struct {
+	Timestamp       int64   `json:"timestamp" db:"timestamp"`
+	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
+}
+
 type MemberAttempt struct {
 	Id             int64 `json:"id" db:"id"`
 	QueueId        int   `json:"queue_id" db:"queue_id"`

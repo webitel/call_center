@@ -210,6 +210,7 @@ CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count 
     AS $$
 declare
     attempt  cc_member_attempt%rowtype;
+    member_stop_cause varchar;
 begin
     update cc_member_attempt
         set leaving_at = now(),
@@ -231,11 +232,12 @@ begin
                     jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
                 , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
             attempts        = attempts + 1                     --TODO
-        where id = attempt.member_id;
+        where id = attempt.member_id
+        returning stop_cause into member_stop_cause;
     end if;
 
 
-    return row(attempt.last_state_change::timestamptz);
+    return row(attempt.last_state_change::timestamptz, member_stop_cause::varchar);
 end;
 $$;
 
@@ -460,6 +462,7 @@ CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ chara
 declare
     attempt cc_member_attempt%rowtype;
     no_answers_ int;
+    member_stop_cause varchar;
 begin
     /*
      FIXME
@@ -493,7 +496,8 @@ begin
             from cc_queue q
             where q.id = attempt.queue_id
         ) q
-        where id = attempt.member_id;
+        where id = attempt.member_id
+        returning stop_cause into member_stop_cause;
     end if;
 
     if attempt.agent_id notnull then
@@ -508,7 +512,7 @@ begin
 
     end if;
 
-    return row(attempt.leaving_at, no_answers_);
+    return row(attempt.leaving_at, no_answers_, member_stop_cause);
 end;
 $$;
 
@@ -2874,7 +2878,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     sticky_agent_id integer,
     domain_id bigint NOT NULL,
     transferred_at timestamp with time zone,
-    transferred_agent_id integer
+    transferred_agent_id integer,
+    transferred_attempt_id bigint
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 

@@ -560,11 +560,14 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 }
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
-	attempt.SetResult(AttemptResultAbandoned)
-	_, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
+	res, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())
 	}
+	if res.MemberStopCause != nil {
+		attempt.SetMemberStopCause(res.MemberStopCause)
+	}
+	attempt.SetResult(AttemptResultAbandoned)
 	queueManager.LeavingMember(attempt)
 }
 
@@ -573,14 +576,29 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 	return queueManager.teamManager.store.Member().SetBarred(attempt.Id())
 }
 
+func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt) {
+	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0)
+	if err != nil {
+		wlog.Error(err.Error())
+	} else {
+		if res.MemberStopCause != nil {
+			attempt.SetMemberStopCause(res.MemberStopCause)
+		}
+		attempt.SetResult(AttemptResultSuccess)
+	}
+}
+
 func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64) {
-	attempt.SetResult(AttemptResultAbandoned)
-	_, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
 	if err != nil {
 		wlog.Error(err.Error())
 
 		return
 	}
+	if res.MemberStopCause != nil {
+		attempt.SetMemberStopCause(res.MemberStopCause)
+	}
+	attempt.SetResult(AttemptResultAbandoned)
 }
 
 func (queueManager *QueueManager) GetChat(id string) (*chat.Conversation, *model.AppError) {
