@@ -256,8 +256,11 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["member_stop_cause"] = a.MemberStopCause()
 	}
 
-	if a.queue != nil && a.queue.Processing() {
-		res["use_processing"] = "true"
+	if a.queue != nil {
+		res["queue_id"] = fmt.Sprintf("%d", a.queue.Id())
+		if a.queue.Processing() {
+			res["use_processing"] = "true"
+		}
 	}
 
 	if a.agent != nil {
