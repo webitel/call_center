@@ -80,7 +80,7 @@ func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, ca
 
 	vars := map[string]string{
 		"call_bill_sec":   fmt.Sprintf("%d", call.BillSeconds()),
-		"call_answer_sec": fmt.Sprintf("%d", call.AnswerSeconds()),
+		"call_answer_sec": fmt.Sprintf("%d", int((call.HangupAt()-call.AcceptAt())/1000)), //todo
 		"call_duration":   fmt.Sprintf("%d", call.DurationSeconds()),
 		"call_cause":      call.HangupCause(),
 		"call_sip_code":   fmt.Sprintf("%d", call.HangupCauseCode()),
