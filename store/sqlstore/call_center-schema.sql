@@ -202,10 +202,10 @@ $$;
 
 
 --
--- Name: cc_attempt_abandoned(bigint, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -231,6 +231,7 @@ begin
             communications  = jsonb_set(
                     jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
                 , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
+            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
             attempts        = attempts + 1                     --TODO
         where id = attempt.member_id
         returning stop_cause into member_stop_cause;
@@ -453,10 +454,10 @@ $$;
 
 
 --
--- Name: cc_attempt_leaving(bigint, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer, vars_ jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -489,7 +490,8 @@ begin
                 , array [attempt.communication_idx, 'last_activity_at']::text[],
                     ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
                 ),
-            attempts        = attempts + 1
+            attempts        = attempts + 1,
+            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end
         from (
             -- fixme
             select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
@@ -652,6 +654,54 @@ begin
     end if;
 
     return now();
+end;
+$$;
+
+
+--
+-- Name: cc_attempt_transferred_from(bigint, integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_transferred_from(attempt_id_ bigint, to_agent_id_ integer, agent_sess_id_ character varying) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+    attempt cc_member_attempt%rowtype;
+begin
+
+    update cc_member_attempt
+    set transferred_agent_id = agent_id,
+        agent_id = to_agent_id_,
+        agent_call_id = agent_sess_id_
+    where id = attempt_id_
+    returning * into attempt;
+
+    return row(attempt.last_state_change::timestamptz);
+end;
+$$;
+
+
+--
+-- Name: cc_attempt_transferred_to(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_transferred_to(attempt_id_ bigint, to_attempt_id_ bigint) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+    attempt cc_member_attempt%rowtype;
+begin
+
+    update cc_member_attempt
+    set transferred_attempt_id = to_attempt_id_,
+        result = 'transferred',
+        leaving_at = now(),
+        last_state_change = now(),
+        state = 'leaving'
+    where id = attempt_id_
+    returning * into attempt;
+
+    return row(attempt.last_state_change::timestamptz);
 end;
 $$;
 
@@ -2699,6 +2749,37 @@ CREATE SEQUENCE call_center.cc_attempt_missed_agent_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_attempt_missed_agent_id_seq OWNED BY call_center.cc_attempt_missed_agent.id;
+
+
+--
+-- Name: cc_member_attempt_transferred; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_member_attempt_transferred (
+    id bigint NOT NULL,
+    from_id bigint NOT NULL,
+    to_id bigint NOT NULL,
+    transferred_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: cc_attempt_transferred_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_attempt_transferred_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_attempt_transferred_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_attempt_transferred_id_seq OWNED BY call_center.cc_member_attempt_transferred.id;
 
 
 --
@@ -4846,6 +4927,13 @@ ALTER TABLE ONLY call_center.cc_member_attempt ALTER COLUMN id SET DEFAULT nextv
 
 
 --
+-- Name: cc_member_attempt_transferred id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member_attempt_transferred ALTER COLUMN id SET DEFAULT nextval('call_center.cc_attempt_transferred_id_seq'::regclass);
+
+
+--
 -- Name: cc_member_messages id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -5025,6 +5113,14 @@ ALTER TABLE ONLY call_center.cc_pause_cause
 
 ALTER TABLE ONLY call_center.cc_attempt_missed_agent
     ADD CONSTRAINT cc_attempt_missed_agent_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_member_attempt_transferred cc_attempt_transferred_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_member_attempt_transferred
+    ADD CONSTRAINT cc_attempt_transferred_pk PRIMARY KEY (id);
 
 
 --
