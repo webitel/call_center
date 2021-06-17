@@ -162,7 +162,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 		}
 	}
 
-	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries)
+	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 	queue.queueManager.LeavingMember(attempt)
 
 }

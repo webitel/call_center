@@ -576,8 +576,8 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 	return queueManager.teamManager.store.Member().SetBarred(attempt.Id())
 }
 
-func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt) {
-	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0)
+func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {
+	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0, vars)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else {
@@ -588,8 +588,8 @@ func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt) {
 	}
 }
 
-func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64) {
-	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep)
+func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64, vars map[string]string) {
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, vars)
 	if err != nil {
 		wlog.Error(err.Error())
 

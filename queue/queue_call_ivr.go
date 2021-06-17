@@ -178,9 +178,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	if res, ok := queue.queueManager.AfterDistributeSchema(&queue.BaseQueue, attempt, call); ok {
 		if res.Status == "success" {
-			queue.queueManager.SetAttemptSuccess(attempt)
+			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
 		} else {
-			queue.queueManager.SetAttemptAbandonedWithParams(attempt, uint(res.MaxAttempts), uint64(res.WaitBetweenRetries))
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, uint(res.MaxAttempts), uint64(res.WaitBetweenRetries), res.Variables)
 		}
 
 		queue.queueManager.LeavingMember(attempt)
@@ -188,9 +188,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	}
 
 	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
-		queue.queueManager.SetAttemptSuccess(attempt)
+		queue.queueManager.SetAttemptSuccess(attempt, nil)
 	} else {
-		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries)
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 	}
 
 	queue.queueManager.LeavingMember(attempt)

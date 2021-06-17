@@ -109,7 +109,8 @@ func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, ca
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:
 		return &SchemaResult{
-			Status: "success",
+			Status:    "success",
+			Variables: res.Variables,
 		}, true
 
 	case *flow.ResultAttemptResponse_Abandoned_:
@@ -117,6 +118,7 @@ func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, ca
 			Status:             v.Abandoned.Status,
 			MaxAttempts:        v.Abandoned.MaxAttempts,
 			WaitBetweenRetries: v.Abandoned.WaitBetweenRetries,
+			Variables:          res.Variables,
 		}, true
 
 	}

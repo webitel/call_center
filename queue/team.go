@@ -134,7 +134,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		}
 
 		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
-			model.ChannelStateWrapTime, t); err == nil {
+			model.ChannelStateWrapTime, t, nil); err == nil {
 			if res.MemberStopCause != nil {
 				attempt.SetMemberStopCause(res.MemberStopCause)
 			}

@@ -62,11 +62,11 @@ type MemberStore interface {
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError)
 	SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError)
-	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64) (*model.AttemptLeaving, *model.AppError)
+	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string) (*model.AttemptLeaving, *model.AppError)
 
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
 	SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError)
-	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int) (*model.MissedAgent, *model.AppError)
+	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string) (*model.MissedAgent, *model.AppError)
 	CallbackReporting(attemptId int64, callback *model.AttemptCallback) (*model.AttemptReportingResult, *model.AppError)
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
