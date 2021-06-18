@@ -5864,10 +5864,24 @@ CREATE INDEX cc_member_dis_fifo ON call_center.cc_member USING btree (queue_id, 
 
 
 --
+-- Name: cc_member_dis_fifo_desc; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_dis_fifo_desc ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at DESC NULLS LAST, id) INCLUDE (sys_offset_id, sys_destinations, expire_at, search_destinations) WHERE (stop_at IS NULL);
+
+
+--
 -- Name: cc_member_dis_lifo; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_member_dis_lifo ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at, id DESC) INCLUDE (sys_offset_id, sys_destinations, expire_at, search_destinations) WHERE (stop_at IS NULL);
+
+
+--
+-- Name: cc_member_dis_lifo_desc; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_dis_lifo_desc ON call_center.cc_member USING btree (queue_id, bucket_id, skill_id, agent_id, priority DESC, ready_at DESC NULLS LAST, id DESC) INCLUDE (sys_offset_id, sys_destinations, expire_at, search_destinations) WHERE (stop_at IS NULL);
 
 
 --
