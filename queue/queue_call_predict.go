@@ -15,12 +15,13 @@ type PredictCallQueueSettings struct {
 	RecordStereo  bool `json:"record_stereo"`
 	RecordBridged bool `json:"record_bridged"`
 
-	MaxWaitTime        uint16 `json:"max_wait_time"`
-	WaitBetweenRetries uint64 `json:"wait_between_retries"`
-	MaxAttempts        uint   `json:"max_attempts"`
-	OriginateTimeout   uint16 `json:"originate_timeout"`
-	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
-	Amd                *model.QueueAmdSettings
+	MaxWaitTime            uint16 `json:"max_wait_time"`
+	WaitBetweenRetries     uint64 `json:"wait_between_retries"`
+	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
+	MaxAttempts            uint   `json:"max_attempts"`
+	OriginateTimeout       uint16 `json:"originate_timeout"`
+	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
+	Amd                    *model.QueueAmdSettings
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {

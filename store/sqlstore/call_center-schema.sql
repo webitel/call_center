@@ -3456,7 +3456,8 @@ SELECT
     NULL::integer AS priority,
     NULL::boolean AS sticky_agent,
     NULL::integer AS sticky_agent_sec,
-    NULL::boolean AS recall_calendar;
+    NULL::boolean AS recall_calendar,
+    NULL::boolean AS wait_between_retries_desc;
 
 
 --
@@ -6372,6 +6373,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.priority,
             q_1.team_id,
             ((q_1.payload -> 'max_calls'::text))::integer AS lim,
+            ((q_1.payload -> 'wait_between_retries_desc'::text))::boolean AS wait_between_retries_desc,
             array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
             m.op
            FROM ((( WITH mem AS MATERIALIZED (
@@ -6459,7 +6461,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     q.priority,
     q.sticky_agent,
     q.sticky_agent_sec,
-    calend.recall_calendar
+    calend.recall_calendar,
+    q.wait_between_retries_desc
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))

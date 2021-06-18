@@ -20,11 +20,12 @@ type ProgressiveCallQueueSettings struct {
 	RecordStereo  bool `json:"record_stereo"`
 	RecordBridged bool `json:"record_bridged"`
 
-	WaitBetweenRetries int    `json:"wait_between_retries"`
-	MaxAttempts        int    `json:"max_attempts"`
-	OriginateTimeout   uint16 `json:"originate_timeout"`
-	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
-	Amd                *model.QueueAmdSettings
+	WaitBetweenRetries     int    `json:"wait_between_retries"`
+	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
+	MaxAttempts            int    `json:"max_attempts"`
+	OriginateTimeout       uint16 `json:"originate_timeout"`
+	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
+	Amd                    *model.QueueAmdSettings
 }
 
 func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {

@@ -13,11 +13,12 @@ type QueueIVRSettings struct {
 	RecordStereo  bool `json:"record_stereo"`
 	RecordBridged bool `json:"record_bridged"`
 
-	Amd                *model.QueueAmdSettings `json:"amd"`
-	MinDuration        uint                    `json:"min_duration"`
-	MaxAttempts        uint                    `json:"max_attempts"`
-	OriginateTimeout   int                     `json:"originate_timeout"`
-	WaitBetweenRetries uint64                  `json:"wait_between_retries"`
+	Amd                    *model.QueueAmdSettings `json:"amd"`
+	MinDuration            uint                    `json:"min_duration"`
+	MaxAttempts            uint                    `json:"max_attempts"`
+	OriginateTimeout       int                     `json:"originate_timeout"`
+	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
+	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
 }
 
 type IVRQueue struct {

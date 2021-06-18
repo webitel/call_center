@@ -20,9 +20,10 @@ type PreviewSettings struct {
 	RecordStereo  bool `json:"record_stereo"`
 	RecordBridged bool `json:"record_bridged"`
 
-	OriginateTimeout   uint16 `json:"originate_timeout"`
-	WaitBetweenRetries int    `json:"wait_between_retries"`
-	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
+	OriginateTimeout       uint16 `json:"originate_timeout"`
+	WaitBetweenRetries     int    `json:"wait_between_retries"`
+	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
+	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
