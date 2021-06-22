@@ -2322,7 +2322,7 @@ CREATE FUNCTION call_center.tg_obj_default_rbac() RETURNS trigger
     AS $_$
 BEGIN
 
-    EXECUTE format(
+        EXECUTE format(
 'INSERT INTO %I.%I AS acl (dc, object, grantor, subject, access)
  SELECT $1, $2, rbac.grantor, rbac.subject, rbac.access
    FROM (
@@ -2340,9 +2340,15 @@ BEGIN
       FROM directory.wbt_default_acl AS rbac
       JOIN directory.wbt_class AS oc ON (oc.dc, oc.name) = ($1, %L)
       -- EXISTS( OWNER membership WITH grantor role )
-      JOIN directory.wbt_auth_member AS sup ON (sup.role_id, sup.member_id) = (rbac.grantor, $3)
+      -- JOIN directory.wbt_auth_member AS sup ON (sup.role_id, sup.member_id) = (rbac.grantor, $3)
      WHERE rbac.object = oc.id
        AND rbac.subject <> $3
+        -- EXISTS( OWNER membership WITH grantor user/role )
+       AND (rbac.grantor = $3 OR EXISTS(SELECT true
+             FROM directory.wbt_auth_member sup
+            WHERE sup.member_id = $3
+              AND sup.role_id = rbac.grantor
+           ))
     WINDOW sub AS (PARTITION BY rbac.subject ORDER BY rbac.access DESC)
 
    ) AS rbac(grantor, subject, access)',
