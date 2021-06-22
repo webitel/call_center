@@ -20,6 +20,7 @@ type PredictCallQueueSettings struct {
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 	MaxAttempts            uint   `json:"max_attempts"`
 	OriginateTimeout       uint16 `json:"originate_timeout"`
+	RetryAbandoned         bool   `json:"retry_abandoned"`
 	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings
 }
@@ -295,6 +296,8 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+	} else if queue.RetryAbandoned {
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}
