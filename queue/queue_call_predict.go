@@ -156,6 +156,10 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 					continue
 				}
 
+				if queue.HasRingtone() {
+					mCall.BroadcastPlaybackFile(queue.domainId, queue.Ringtone(), "both")
+				}
+
 				queue.runOfferingAgents(attempt, team, mCall)
 				return
 			}

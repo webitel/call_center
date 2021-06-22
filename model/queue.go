@@ -56,7 +56,7 @@ func (r *RingtoneFile) Uri(domainId int64) string {
 
 func RingtoneUri(domainId int64, id int, mimeType string) string {
 	switch mimeType {
-	case "audio/mp3":
+	case "audio/mp3", "audio/mpeg":
 		return fmt.Sprintf("shout://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.mp3", id, domainId)
 	case "audio/wav":
 		return fmt.Sprintf("http_cache://http://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.wav", id, domainId)

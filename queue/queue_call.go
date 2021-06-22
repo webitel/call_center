@@ -22,6 +22,14 @@ func (queue *CallingQueue) SetRecordings(call call_manager.Call, bridged, stereo
 	call.SetRecordings(queue.domainId, bridged, stereo)
 }
 
+func (queue *CallingQueue) HasRingtone() bool {
+	return queue.ringtoneUri != nil
+}
+
+func (queue *CallingQueue) Ringtone() *model.RingtoneFile {
+	return queue.ringtone
+}
+
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {
 	if amd == nil || !amd.Enabled {
 		return false

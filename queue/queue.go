@@ -47,6 +47,7 @@ type BaseQueue struct {
 	teamId               *int
 	schemaId             *int
 	ringtone             *model.RingtoneFile
+	ringtoneUri          *string
 	doSchema             *int32
 	afterSchemaId        *int32
 	processing           bool
@@ -82,6 +83,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 			Id:   *settings.RingtoneId,
 			Type: *settings.RingtoneType,
 		}
+		base.ringtoneUri = model.NewString(model.RingtoneUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
 	}
 
 	return base
