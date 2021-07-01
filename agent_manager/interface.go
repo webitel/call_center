@@ -25,6 +25,7 @@ type AgentObject interface {
 	GetCallEndpoints() []string
 	CallNumber() string
 	UpdatedAt() int64
+	TeamId() int
 
 	IsExpire(updatedAt int64) bool
 

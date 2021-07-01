@@ -51,6 +51,12 @@ type DistributeEvent struct {
 	Distribute Distribute `json:"distribute"`
 }
 
+type TransferEvent struct {
+	ChannelEvent
+	ToAttemptId int64      `json:"to_attempt_id"`
+	Distribute  Distribute `json:"distribute"`
+}
+
 type OfferingEvent struct {
 	ChannelEvent
 	Offering Offering `json:"offering"`
@@ -95,6 +101,46 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			AttemptId: model.NewInt64(a.Id()),
 			Status:    model.ChannelStateDistribute,
 		},
+		Distribute: Distribute{
+			AppId:         queue.AppId(),
+			Communication: a.communication,
+			Channel:       queue.Channel(),
+			QueueId:       queue.Id(),
+			QueueName:     queue.Name(),
+			MemberId:      a.MemberId(),
+			HasReporting:  r,
+		},
+	}
+
+	//todo: send all channel variables ?
+	if a.channel == model.QueueChannelTask || queue.TypeName() == "progressive" {
+		e.Distribute.Variables = a.ExportSchemaVariables()
+	}
+
+	if agent != nil {
+		e.Distribute.AgentId = model.NewInt(agent.Id())
+	}
+
+	if mChannel != nil {
+		e.Distribute.MemberChannelId = model.NewString(mChannel.Id())
+	}
+
+	if aChannel != nil {
+		e.Distribute.AgentChannelId = model.NewString(aChannel.Id())
+	}
+
+	return model.NewEvent("channel", userId, e)
+}
+
+func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, agent agent_manager.AgentObject, r bool, mChannel, aChannel Channel) model.Event {
+	e := TransferEvent{
+		ChannelEvent: ChannelEvent{
+			Timestamp: model.GetMillis(), // todo from attempt!
+			Channel:   a.channel,
+			AttemptId: model.NewInt64(a.Id()),
+			Status:    model.ChannelTransfer,
+		},
+		ToAttemptId: attemptId,
 		Distribute: Distribute{
 			AppId:         queue.AppId(),
 			Communication: a.communication,

@@ -47,7 +47,8 @@ select q.id,
         from cc_queue_events qe
             inner join flow.acr_routing_scheme s on s.id = qe.schema_id and q.domain_id = s.domain_id
         where qe.queue_id = q.id and qe.enabled
-       ) hooks
+       ) hooks,
+	   q.grantee_id	
 from cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id

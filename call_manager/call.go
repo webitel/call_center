@@ -37,6 +37,13 @@ type Call interface {
 	HangupAt() int64
 	ReportingAt() int64
 
+	Transferred() bool
+	TransferTo() *string
+	TransferFrom() *string
+	TransferToAgentId() *int
+	TransferFromAttemptId() *int64
+	TransferToAttemptId() *int64
+
 	DurationSeconds() int
 	BillSeconds() int
 	AnswerSeconds() int
@@ -93,6 +100,12 @@ type CallImpl struct {
 	bridgeAt    int64
 	hangupAt    int64
 	reportingAt int64
+
+	transferTo            *string
+	transferFrom          *string
+	transferToAgentId     *int
+	transferFromAttemptId *int64
+	transferToAttemptId   *int64
 
 	queueId *int //FIXME
 
@@ -265,6 +278,12 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 			call.reportingAt = *e.ReportingAt
 		}
 
+		call.transferFrom = e.TransferFrom
+		call.transferFromAttemptId = e.TransferFromAttempt
+		call.transferTo = e.TransferTo
+		call.transferToAgentId = e.TransferToAgent
+		call.transferToAttemptId = e.TransferToAttempt
+
 		close(call.hangupCh)
 		call.Unlock()
 
@@ -401,6 +420,48 @@ func (call *CallImpl) HangupChan() <-chan struct{} {
 
 func (call *CallImpl) ReportingAt() int64 {
 	return call.reportingAt
+}
+
+func (call *CallImpl) Transferred() bool {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferTo != nil
+}
+
+func (call *CallImpl) TransferTo() *string {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferTo
+}
+
+func (call *CallImpl) TransferFrom() *string {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferFrom
+}
+
+func (call *CallImpl) TransferToAgentId() *int {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferToAgentId
+}
+
+func (call *CallImpl) TransferFromAttemptId() *int64 {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferFromAttemptId
+}
+
+func (call *CallImpl) TransferToAttemptId() *int64 {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.transferToAttemptId
 }
 
 func (call *CallImpl) AcceptAt() int64 {

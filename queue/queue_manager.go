@@ -563,10 +563,10 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	res, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())
-	}
-	if res.MemberStopCause != nil {
+	} else if res.MemberStopCause != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 	}
+
 	attempt.SetResult(AttemptResultAbandoned)
 	queueManager.LeavingMember(attempt)
 }
@@ -727,4 +727,41 @@ func (queueManager *QueueManager) CloseAgentTask(attemptId int64) *model.AppErro
 	}
 
 	return task.SetClosed()
+}
+
+func (queueManager *QueueManager) TransferTo(attempt *Attempt, toAttemptId int64) {
+	// new result
+	attempt.Log(fmt.Sprintf("transfer to attempt: %d", toAttemptId))
+	attempt.SetResult(AttemptResultAbandoned)
+	err := queueManager.store.Member().TransferredTo(attempt.Id(), toAttemptId)
+	if err != nil {
+		wlog.Error(err.Error())
+	}
+	//
+
+	queueManager.LeavingMember(attempt)
+}
+
+func (queueManager *QueueManager) TransferFrom(team *agentTeam, attempt *Attempt, toAttemptId int64, toAgentId int,
+	toAgentSession string, ch Channel) (agent_manager.AgentObject, *model.AppError) {
+	a, err := queueManager.agentManager.GetAgent(toAgentId, 0)
+	if err != nil {
+		// fixme
+		wlog.Error(err.Error())
+	}
+
+	if err = queueManager.store.Member().TransferredFrom(attempt.Id(), toAttemptId, a.Id(), toAgentSession); err != nil {
+		//todo
+		wlog.Error(err.Error())
+	}
+
+	if attempt.agent != nil {
+		team.Transfer(attempt, attempt.agent)
+	}
+	attempt.agent = a
+
+	team.Distribute(attempt.queue, a, NewTransferEvent(attempt, toAttemptId, a.UserId(), attempt.queue, a, attempt.queue.Processing(),
+		nil, ch))
+
+	return a, nil
 }

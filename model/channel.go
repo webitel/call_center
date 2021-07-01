@@ -11,6 +11,8 @@ const (
 	ChannelStateProcessing = "processing"
 	ChannelStateMissed     = "missed"
 	ChannelStateWrapTime   = "wrap_time"
+
+	ChannelTransfer = "transfer"
 )
 
 type ChannelTimeout struct {

@@ -161,12 +161,30 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				}
 			}
 		case <-call.HangupChan():
+			if call.TransferTo() != nil && call.TransferToAgentId() != nil && call.TransferFromAttemptId() != nil {
+				attempt.Log("receive transfer")
+				if nc, err := queue.GetTransferredCall(*call.TransferTo()); err != nil {
+					wlog.Error(err.Error())
+				} else {
+					if nc.HangupAt() == 0 {
+						if newA, err := queue.queueManager.TransferFrom(team, attempt, *call.TransferFromAttemptId(), *call.TransferToAgentId(), *call.TransferTo(), nc); err == nil {
+							agent = newA
+							attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", call.Id(), nc.Id(), newA.Name(), attempt.Id(), *call.TransferFromAttemptId()))
+						} else {
+							wlog.Error(err.Error())
+						}
+
+						call = nc
+						continue
+					}
+				}
+			}
 			calling = false
 		}
 	}
 
 	if call.AcceptAt() > 0 || attempt.Callback() != nil {
-		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0, call.Transferred())
 	} else {
 		team.CancelAgentAttempt(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)

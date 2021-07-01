@@ -37,20 +37,23 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 		return NewErrorCallRequired(queue, attempt)
 	}
 
-	team, err := queue.GetTeam(attempt)
-	if err != nil {
-		return err
-	}
 	attempt.memberChannel = mCall
 
-	go queue.run(attempt, mCall, team)
+	go queue.run(attempt, mCall)
 
 	return nil
 }
 
-func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *agentTeam) {
+func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	var err *model.AppError
+	var team *agentTeam
 	defer attempt.Log("stopped queue")
+
+	team, err = queue.GetTeam(attempt)
+	if err != nil {
+		wlog.Error(err.Error()) // todo
+		panic("FIXME")
+	}
 
 	attempt.SetState(model.MemberStateJoined)
 	attempt.Log("wait agent")
@@ -135,13 +138,32 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
-						printfIfErr(agentCall.Bridge(mCall))
+						printfIfErr(mCall.Bridge(agentCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						}
 
 					case call_manager.CALL_STATE_HANGUP:
+						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
+							attempt.Log("receive transfer queue")
+							if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
+								wlog.Error(err.Error())
+							} else {
+								if nc.HangupAt() == 0 {
+									if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(),
+										*agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
+										agent = newA
+										attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
+									} else {
+										wlog.Error(err.Error())
+									}
+
+									agentCall = nc
+									continue
+								}
+							}
+						}
 						break top
 					}
 				case s := <-mCall.State():
@@ -151,6 +173,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 						team.Bridged(attempt, agent)
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+
+						if mCall.TransferToAttemptId() != nil {
+							attempt.Log(fmt.Sprintf("transfer to %d, wait connect to attemt...", *mCall.TransferToAttemptId()))
+							queue.queueManager.TransferTo(attempt, *mCall.TransferToAttemptId())
+							return
+						}
+
 						if agentCall.HangupAt() == 0 {
 							if mCall.BridgeAt() > 0 {
 								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
@@ -187,7 +216,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call, team *
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

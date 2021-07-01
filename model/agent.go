@@ -51,6 +51,7 @@ type Agent struct {
 	UpdatedAt     int64         `json:"updated_at" db:"updated_at"`
 	Destination   string        `json:"destination" db:"destination"`
 	Extension     string        `json:"extension" db:"extension"`
+	TeamId        int           `json:"team_id" db:"team_id"`
 	OnDemand      bool          `json:"on_demand" db:"on_demand"`
 	GreetingMedia *RingtoneFile `json:"greeting_media" db:"greeting_media"`
 	AgentStatus

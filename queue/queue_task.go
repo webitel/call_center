@@ -166,6 +166,6 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 		team.CancelAgentAttempt(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)
 	} else {
-		team.Reporting(queue, attempt, agent, task.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, task.ReportingAt() > 0, false)
 	}
 }

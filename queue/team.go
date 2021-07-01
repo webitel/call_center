@@ -69,7 +69,7 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 
 	if t, ok := tm.cache.Get(id); ok {
 		team = t.(*agentTeam)
-		if team.data.UpdatedAt == updatedAt {
+		if updatedAt == 0 || team.data.UpdatedAt == updatedAt {
 			return team, nil
 		}
 	}
@@ -116,10 +116,14 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 	}
 }
 
-func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool) {
+func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool, transfer bool) {
 	if agentSendReporting {
 		attempt.SetResult(AttemptResultSuccess)
 		return
+	}
+
+	if transfer && !queue.ProcessingTransfer() {
+		transfer = false
 	}
 
 	// todo on demand - wrap_time
@@ -127,13 +131,18 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		//timeoutSec = 0
 	}
 
-	if !queue.Processing() {
+	if !queue.Processing() || transfer {
 		t := int(tm.WrapUpTime())
 		if agent.IsOnDemand() {
 			t = 0
 		}
 
-		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success",
+		s := "success"
+		if transfer {
+			s = "transfer"
+		}
+
+		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), s,
 			model.ChannelStateWrapTime, t, nil); err == nil {
 			if res.MemberStopCause != nil {
 				attempt.SetMemberStopCause(res.MemberStopCause)
@@ -233,4 +242,17 @@ func (tm *agentTeam) SetAgentMaxNoAnswer(agent agent_manager.AgentObject) {
 	} else {
 		wlog.Debug(fmt.Sprintf("agent \"%s\" changed status to [break_out], maximum no answers in team \"%s\"", agent.Name(), tm.Name()))
 	}
+}
+
+func (tm *agentTeam) Transfer(attempt *Attempt, agent agent_manager.AgentObject) {
+	timestamp := model.GetMillis()
+
+	// todo is old agent
+	e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), timestamp, timestamp+(int64(tm.WrapUpTime()*1000)))
+	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
+	if err != nil {
+		wlog.Error(err.Error())
+	}
+
+	return
 }

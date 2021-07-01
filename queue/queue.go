@@ -27,6 +27,7 @@ type QueueObject interface {
 
 	Leaving(attempt *Attempt)
 
+	ProcessingTransfer() bool
 	Processing() bool
 	ProcessingSec() uint32
 	ProcessingRenewalSec() uint32
@@ -84,6 +85,10 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 			Type: *settings.RingtoneType,
 		}
 		base.ringtoneUri = model.NewString(model.RingtoneUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
+	}
+
+	if settings.GranteeId != nil {
+		base.variables["wbt_grantee_id"] = fmt.Sprintf("%d", *settings.GranteeId)
 	}
 
 	return base
@@ -227,6 +232,11 @@ func (queue *BaseQueue) AgentManager() agent_manager.AgentManager {
 
 func (queue *BaseQueue) Channel() string {
 	return queue.channel
+}
+
+// todo config
+func (qeueu *BaseQueue) ProcessingTransfer() bool {
+	return false
 }
 
 func (queue *BaseQueue) Leaving(attempt *Attempt) {

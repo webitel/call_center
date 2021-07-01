@@ -142,7 +142,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	if call.AnswerSeconds() > 0 && call.BridgeAt() > 0 { //FIXME Accept or Bridge ?
 		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0, call.Transferred())
 	} else {
 		team.Missed(attempt, agent)
 	}

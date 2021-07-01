@@ -114,7 +114,7 @@ top:
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		team.Missed(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)

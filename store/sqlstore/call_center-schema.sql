@@ -659,14 +659,18 @@ $$;
 
 
 --
--- Name: cc_attempt_transferred_from(bigint, integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_transferred_from(bigint, bigint, integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_transferred_from(attempt_id_ bigint, to_agent_id_ integer, agent_sess_id_ character varying) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_transferred_from(attempt_id_ bigint, to_attempt_id_ bigint, to_agent_id_ integer, agent_sess_id_ character varying) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
     attempt cc_member_attempt%rowtype;
+        user_id_ int8 = null;
+    domain_id_ int8;
+    wrap_time_ int;
+     agent_timeout_ timestamptz;
 begin
 
     update cc_member_attempt
@@ -675,6 +679,38 @@ begin
         agent_call_id = agent_sess_id_
     where id = attempt_id_
     returning * into attempt;
+
+    insert into cc_member_attempt_transferred (from_id, to_id, from_agent_id, to_agent_id)
+    values (to_attempt_id_, attempt_id_, attempt.transferred_agent_id, attempt.agent_id);
+
+    if attempt.transferred_agent_id notnull then
+        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
+        into user_id_, domain_id_, wrap_time_
+        from cc_agent a
+            left join cc_team tm on tm.id = attempt.team_id
+        where a.id = attempt.transferred_agent_id;
+
+        if wrap_time_ > 0 or wrap_time_ isnull then
+            update cc_agent_channel c
+            set state = 'wrap_time',
+                joined_at = now(),
+                timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
+                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
+            where (c.agent_id, c.channel) = (attempt.transferred_agent_id, attempt.channel)
+            returning timeout into agent_timeout_;
+        else
+            update cc_agent_channel c
+            set state = 'waiting',
+                joined_at = now(),
+                timeout = null,
+                channel = null,
+                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
+                queue_id = null
+            where (c.agent_id, c.channel) = (attempt.transferred_agent_id, attempt.channel)
+            returning timeout into agent_timeout_;
+        end if;
+    end if;
+
 
     return row(attempt.last_state_change::timestamptz);
 end;
@@ -1225,6 +1261,7 @@ declare
     _sticky bool;
     _call record;
     _attempt record;
+    _number varchar;
 BEGIN
   select c.timezone_id,
            (payload->>'discard_abandoned_after')::int discard_abandoned_after,
@@ -1263,10 +1300,14 @@ BEGIN
   end if;
 
   if _call.id isnull or _call.direction isnull then
---       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
---           values ('call', _queue_id, 'leaving', now(), _call_id, 'abandoned');
       raise exception 'not found call';
+  ELSIF _call.direction <> 'outbound' then
+      _number = _call.from_number;
+  else
+      _number = _call.destination;
   end if;
+
+--   raise  exception '%', _number;
 
 
   if not exists(select accept
@@ -1276,7 +1317,7 @@ BEGIN
   then
 --       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
 --           values ('call', _queue_id, 'leaving', now(), _call_id, 'now_working');
-      raise exception 'number % calendar not working', _call.from_number;
+      raise exception 'number % calendar not working', _number;
   end if;
 
 
@@ -1284,13 +1325,13 @@ BEGIN
   select clc.id
     into _list_comm_id
     from cc_list_communications clc
-    where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)
+    where (clc.list_id = dnc_list_id_ and clc.number = _number)
   limit 1;
 
   if _list_comm_id notnull then
 --           insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result, list_communication_id)
 --           values ('call', _queue_id, 'leaving', now(), _call_id, 'banned', _list_comm_id);
-          raise exception 'number % banned', _call.from_number;
+          raise exception 'number % banned', _number;
   end if;
 
   if  _discard_abandoned_after > 0 then
@@ -1301,7 +1342,7 @@ BEGIN
         from cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
-            and log.destination->>'destination' = _call.from_number
+            and log.destination->>'destination' = _number
         order by log.leaving_at desc
         limit 1
         into _weight;
@@ -1328,10 +1369,8 @@ BEGIN
   end if;
 
   insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
-  values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _call.from_number),
-              _node_name, _sticky_agent_id, (select clc.id
-                            from cc_list_communications clc
-                            where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)))
+  values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _number),
+              _node_name, _sticky_agent_id, null)
   returning * into _attempt;
 
   update cc_calls
@@ -1363,7 +1402,7 @@ BEGIN
       _call.destination::varchar,
       cc_view_timestamp(_call.timestamp)::int8,
       _call.app_id::varchar,
-      _call.from_number::varchar,
+      _number::varchar,
       _call.from_name::varchar,
       cc_view_timestamp(_call.answered_at)::int8,
       cc_view_timestamp(_call.bridged_at)::int8,
@@ -2765,7 +2804,9 @@ CREATE TABLE call_center.cc_member_attempt_transferred (
     id bigint NOT NULL,
     from_id bigint NOT NULL,
     to_id bigint NOT NULL,
-    transferred_at timestamp with time zone DEFAULT now() NOT NULL
+    transferred_at timestamp with time zone DEFAULT now() NOT NULL,
+    from_agent_id integer NOT NULL,
+    to_agent_id integer
 );
 
 
@@ -3101,7 +3142,8 @@ CREATE VIEW call_center.cc_call_active_list AS
      LEFT JOIN call_center.cc_agent aa ON ((aa.user_id = c.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
-     LEFT JOIN call_center.cc_agent_with_user sup ON ((sup.id = aa.supervisor_id)));
+     LEFT JOIN call_center.cc_agent_with_user sup ON ((sup.id = aa.supervisor_id)))
+  WHERE ((c.hangup_at IS NULL) AND (c.direction IS NOT NULL));
 
 
 --
@@ -3478,10 +3520,11 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
     count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS br_cnt,
     COALESCE(date_part('epoch'::text, avg((att.answered_at - att.joined_at)) FILTER (WHERE (att.answered_at IS NOT NULL))), (0)::double precision) AS distr_t,
     count(*) FILTER (WHERE ((att.bridged_at IS NULL) AND (att.answered_at IS NOT NULL))) AS predict_abandoned_cnt,
+    GREATEST(
         CASE
             WHEN (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) > 0) THEN ((count(*))::double precision / (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)))::double precision)
-            ELSE (0)::double precision
-        END AS connect_rate
+            ELSE (1)::double precision
+        END, (1)::double precision) AS connect_rate
    FROM call_center.cc_member_attempt_history att
   WHERE (att.joined_at > (now() - '01:00:00'::interval))
   GROUP BY att.queue_id, att.bucket_id
@@ -6349,9 +6392,9 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
             WHEN (q.type = 1) THEN ( SELECT count(*) AS count
                FROM call_center.cc_member_attempt a1
               WHERE ((a1.queue_id = q.id) AND (a1.bridged_at IS NULL)))
-            ELSE ( SELECT sum(s.member_waiting) AS sum
-               FROM call_center.cc_queue_statistics s
-              WHERE (s.queue_id = q.id))
+            ELSE ( SELECT count(1) AS count
+               FROM call_center.cc_member m
+              WHERE ((m.stop_at IS NULL) AND (m.queue_id = q.id) AND ((m.ready_at IS NULL) OR (m.ready_at < now())) AND ((m.expire_at IS NULL) OR (m.expire_at > now()))))
         END, (0)::bigint) AS waiting_members,
     ( SELECT count(*) AS count
            FROM call_center.cc_member_attempt a_1

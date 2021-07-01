@@ -50,7 +50,7 @@ func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	if err := s.GetReplica().SelectOne(&agent, `
 			select a.id, a.user_id, a.domain_id, a.updated_at, coalesce( (u.name)::varchar, u.username) as name, 'sofia/sip/' || u.extension || '@' || d.name as destination, 
 			u.extension, a.status, a.status_payload, a.on_demand, 
-			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media
+			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media, a.team_id
 from cc_agent a
     inner join directory.wbt_user u on u.id = a.user_id
     inner join directory.wbt_domain d on d.dc = a.domain_id

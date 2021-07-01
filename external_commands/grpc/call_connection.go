@@ -91,7 +91,7 @@ func (c *CallConnection) GetServerVersion() (string, *model.AppError) {
 
 func (c *CallConnection) SetConnectionSps(sps int) (int, *model.AppError) {
 	if sps > 0 {
-		c.rateLimiter = ratelimit.New(sps)
+		c.rateLimiter = ratelimit.New(sps, ratelimit.Per(time.Second), ratelimit.WithSlack(1))
 	}
 	return sps, nil
 }

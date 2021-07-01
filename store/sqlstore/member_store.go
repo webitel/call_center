@@ -643,3 +643,34 @@ func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
 
 	return nil
 }
+
+func (s *SqlMemberStore) TransferredTo(id, toId int64) *model.AppError {
+	_, err := s.GetMaster().Exec(`select * from cc_attempt_transferred_to(:Id, :ToId)
+			as x (last_state_change timestamptz)`, map[string]interface{}{
+		"Id":   id,
+		"ToId": toId,
+	})
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.TransferredTo", "store.sql_member.set_attempt_trans_to.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError {
+	_, err := s.GetMaster().Exec(`select * from cc_attempt_transferred_from(:Id::int8, :ToId::int8, :ToAgentId::int, :ToAgentSessId::varchar)
+			as x (last_state_change timestamptz)`, map[string]interface{}{
+		"Id":            id,
+		"ToId":          toId,
+		"ToAgentId":     toAgentId,
+		"ToAgentSessId": toAgentSessId,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.TransferredFrom", "store.sql_member.set_attempt_trans_from.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}

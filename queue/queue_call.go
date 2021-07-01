@@ -116,3 +116,25 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 	}
 	return call
 }
+
+func (queue *CallingQueue) GetTransferredCall(id string) (call_manager.Call, *model.AppError) {
+	var call call_manager.Call
+	var err *model.AppError
+	var callInfo *model.Call
+	var ok bool
+
+	if call, ok = queue.queueManager.callManager.GetCall(id); ok && call.HangupAt() == 0 {
+		return call, nil
+	}
+
+	callInfo, err = queue.queueManager.store.Call().Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	call, err = queue.queueManager.callManager.ConnectCall(callInfo)
+	if err != nil {
+		return nil, err
+	}
+	return call, nil
+}

@@ -52,6 +52,10 @@ func (agent *Agent) CallNumber() string {
 	return agent.info.Extension
 }
 
+func (agent *Agent) TeamId() int {
+	return agent.info.TeamId
+}
+
 func (agent *Agent) Online(onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	return agent.manager.SetOnline(agent, onDemand)
 }

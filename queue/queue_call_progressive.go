@@ -89,6 +89,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
 				"ignore_early_media":     "true",
+				"absolute_codec_string":  "pcmu,pcma",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -184,7 +185,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 				top:
-					for agentCall.HangupCause() == "" && mCall.HangupCause() == "" {
+					for agentCall.HangupCause() == "" && mCall.HangupCause() == "" && agentCall.TransferTo() == nil {
 						select {
 						case state := <-agentCall.State():
 							attempt.Log(fmt.Sprintf("agent call state %d", state))
@@ -202,10 +203,34 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 								//team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_HANGUP:
-								if mCall.HangupAt() == 0 {
+
+								if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
+									attempt.Log("receive transfer")
+									if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
+										wlog.Error(err.Error())
+									} else {
+										if nc.HangupAt() == 0 {
+											if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
+												agent = newA
+												attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
+												//transferred = true
+											} else {
+												wlog.Error(err.Error())
+											}
+
+											agentCall = nc
+											break top
+										}
+									}
+								}
+
+								// check transfer to internal number
+								if mCall.HangupAt() == 0 && agentCall.TransferTo() == nil {
 									mCall.Hangup("", false, nil) //TODO
 									mCall.WaitForHangup()
 								}
+								// if internal transfer
+								calling = false
 								break top
 							}
 
@@ -223,9 +248,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 									} else {
 										agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 									}
+									agentCall.WaitForHangup()
 								}
-
-								agentCall.WaitForHangup()
 
 								attempt.Log(fmt.Sprintf("[%s] call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
 								break top
@@ -245,7 +269,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	} else {
 		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
-			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
 			//FIXME cancel if progressive cnt > 1
 			team.Missed(attempt, agent)

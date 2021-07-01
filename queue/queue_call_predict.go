@@ -91,6 +91,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
+				"absolute_codec_string":  "pcmu,pcma",
 				"park_timeout":           fmt.Sprintf("%d", queue.MaxWaitTime),
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
@@ -254,6 +255,25 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 						}
 
 					case call_manager.CALL_STATE_HANGUP:
+						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
+							attempt.Log("receive transfer")
+							if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
+								wlog.Error(err.Error())
+							} else {
+								if nc.HangupAt() == 0 {
+									if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
+										agent = newA
+										attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
+										//transferred = true
+									} else {
+										wlog.Error(err.Error())
+									}
+
+									agentCall = nc
+									goto top
+								}
+							}
+						}
 						break top
 					}
 				case s := <-mCall.State():
@@ -263,6 +283,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 						team.Bridged(attempt, agent)
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+
 						if agentCall.HangupAt() == 0 {
 							if mCall.BridgeAt() > 0 {
 								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
@@ -299,9 +320,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0)
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else if queue.RetryAbandoned {
 		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
 	} else {
 		queue.queueManager.Abandoned(attempt)
 	}

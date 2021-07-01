@@ -74,9 +74,10 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
 				model.CallVariableGatewayId:  fmt.Sprintf("%v", attempt.resource.Gateway().Id),
 
-				"hangup_after_bridge":   "true",
-				"ignore_early_media":    "true",
-				"absolute_codec_string": "pcma,pcmu",
+				"hangup_after_bridge":    "true",
+				"ignore_early_media":     "true",
+				"ignore_display_updates": "true",
+				"absolute_codec_string":  "pcma,pcmu",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",

@@ -216,7 +216,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 	if agent != nil {
 		if conv.BridgedAt() > 0 {
-			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0)
+			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
 		} else {
 			team.Missed(attempt, agent)
 		}
