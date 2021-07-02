@@ -2448,11 +2448,11 @@ CREATE TABLE call_center.cc_agent (
     allow_channels character varying[] DEFAULT '{call}'::character varying[],
     greeting_media_id integer,
     chat_count smallint DEFAULT 1,
-    supervisor_id integer,
     team_id integer,
     region_id integer,
     supervisor boolean DEFAULT false NOT NULL,
-    auditor_id bigint,
+    supervisor_ids integer[],
+    auditor_ids bigint[],
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_progress_count_c CHECK ((progressive_count > '-1'::integer))
 )
@@ -2702,8 +2702,12 @@ CREATE VIEW call_center.cc_agent_list AS
     call_center.cc_get_lookup((a.greeting_media_id)::bigint, g.name) AS greeting_media,
     a.allow_channels,
     a.chat_count,
-    sup."user" AS supervisor,
-    call_center.cc_get_lookup(aud.id, (COALESCE(aud.name, (aud.username)::text))::character varying) AS auditor,
+    ( SELECT jsonb_agg(sag."user") AS jsonb_agg
+           FROM call_center.cc_agent_with_user sag
+          WHERE (sag.id = ANY (a.supervisor_ids))) AS supervisor,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(aud.id, (COALESCE(aud.name, (aud.username)::text))::character varying)) AS jsonb_agg
+           FROM directory.wbt_user aud
+          WHERE (aud.id = ANY (a.auditor_ids))) AS auditor,
     call_center.cc_get_lookup(t.id, t.name) AS team,
     call_center.cc_get_lookup((r.id)::bigint, r.name) AS region,
     a.supervisor AS is_supervisor,
@@ -2713,13 +2717,11 @@ CREATE VIEW call_center.cc_agent_list AS
           WHERE (sa.agent_id = a.id)) AS skills,
     a.team_id,
     a.region_id,
-    a.supervisor_id,
-    a.auditor_id
-   FROM (((((((call_center.cc_agent a
+    a.supervisor_ids,
+    a.auditor_ids
+   FROM (((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
      LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
-     LEFT JOIN call_center.cc_agent_with_user sup ON ((sup.id = a.supervisor_id)))
-     LEFT JOIN directory.wbt_user aud ON ((aud.id = a.auditor_id)))
      LEFT JOIN call_center.cc_team t ON ((t.id = a.team_id)))
      LEFT JOIN flow.region r ON ((r.id = a.region_id)))
      LEFT JOIN LATERAL ( SELECT json_build_object('channel', c.channel, 'online', true, 'state', c.state, 'joined_at', ((date_part('epoch'::text, c.joined_at) * (1000)::double precision))::bigint) AS x
@@ -3130,10 +3132,12 @@ CREATE VIEW call_center.cc_call_active_list AS
     c.from_number,
     c.to_number,
     cma.display,
-    sup."user" AS supervisor,
-    aa.supervisor_id,
+    ( SELECT jsonb_agg(sag."user") AS jsonb_agg
+           FROM call_center.cc_agent_with_user sag
+          WHERE (sag.id = ANY (aa.supervisor_ids))) AS supervisor,
+    aa.supervisor_ids,
     c.grantee_id
-   FROM (((((((((call_center.cc_calls c
+   FROM ((((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -3142,8 +3146,7 @@ CREATE VIEW call_center.cc_call_active_list AS
      LEFT JOIN call_center.cc_agent aa ON ((aa.user_id = c.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
-     LEFT JOIN call_center.cc_agent_with_user sup ON ((sup.id = aa.supervisor_id)))
-  WHERE ((c.hangup_at IS NULL) AND (c.direction IS NOT NULL));
+  WHERE ((c.hangup_at IS NULL) AND (c.direction IS NOT NULL) AND (c.parent_id IS NULL));
 
 
 --
@@ -6767,14 +6770,6 @@ ALTER TABLE ONLY call_center.cc_agent_attempt
 
 
 --
--- Name: cc_agent cc_agent_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_agent
-    ADD CONSTRAINT cc_agent_cc_agent_id_fk FOREIGN KEY (supervisor_id) REFERENCES call_center.cc_agent(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
-
-
---
 -- Name: cc_agent cc_agent_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -6868,14 +6863,6 @@ ALTER TABLE ONLY call_center.cc_agent
 
 ALTER TABLE ONLY call_center.cc_agent
     ADD CONSTRAINT cc_agent_wbt_user_id_fk_3 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: cc_agent cc_agent_wbt_user_id_fk_4; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_agent
-    ADD CONSTRAINT cc_agent_wbt_user_id_fk_4 FOREIGN KEY (auditor_id) REFERENCES directory.wbt_user(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
@@ -7348,22 +7335,6 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
     ADD CONSTRAINT cc_outbound_resource_group_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
-
-
---
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
-    ADD CONSTRAINT cc_outbound_resource_group_acl_wbt_domain_dc_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
-
-
---
--- Name: cc_outbound_resource_group_acl cc_outbound_resource_group_acl_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
-    ADD CONSTRAINT cc_outbound_resource_group_acl_wbt_user_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_user(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
