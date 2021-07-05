@@ -40,7 +40,7 @@ type PredictCallQueue struct {
 func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettings) QueueObject {
 
 	if settings.MaxWaitTime == 0 {
-		settings.MaxWaitTime = 10
+		settings.MaxWaitTime = 30
 	}
 
 	return &PredictCallQueue{
@@ -54,17 +54,12 @@ func (queue *PredictCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 		return NewErrorResourceRequired(queue, attempt)
 	}
 
-	team, err := queue.GetTeam(attempt)
-	if err != nil {
-		return err
-	}
-
-	go queue.runPark(attempt, team)
+	go queue.runPark(attempt)
 
 	return nil
 }
 
-func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
+func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt)
@@ -92,7 +87,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
 				"absolute_codec_string":  "pcmu,pcma",
-				"park_timeout":           fmt.Sprintf("%d", queue.MaxWaitTime),
+				"park_timeout":           fmt.Sprintf("%d", queue.OriginateTimeout),
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
@@ -161,7 +156,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 					mCall.BroadcastPlaybackFile(queue.domainId, queue.Ringtone(), "both")
 				}
 
-				queue.runOfferingAgents(attempt, team, mCall)
+				queue.runOfferingAgents(attempt, mCall)
 				return
 			}
 		case <-mCall.HangupChan():
@@ -174,18 +169,22 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt, team *agentTeam) {
 
 }
 
-func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTeam, mCall call_manager.Call) {
+func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_manager.Call) {
+	var team *agentTeam
+	var agent agent_manager.AgentObject
+	var agentCall call_manager.Call
+
+	var err *model.AppError
+
 	attempt.Log("answer & wait agent")
-	if err := queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
-		//FIXME
-		panic(err.Error())
+	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
+		wlog.Error(err.Error())
+		time.Sleep(time.Second * 3)
+		return
 	}
 	attempt.SetState(model.MemberStateWaitAgent)
 
 	attempts := 0
-
-	var agent agent_manager.AgentObject
-	var agentCall call_manager.Call
 
 	var calling = mCall.HangupAt() == 0
 
@@ -210,6 +209,13 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 
 		case <-ags:
 			agent = attempt.Agent()
+			team, err = queue.GetTeam(attempt)
+			if err != nil {
+				wlog.Error(err.Error())
+				time.Sleep(time.Second * 3)
+				return
+			}
+
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			attempts++
@@ -309,6 +315,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, team *agentTe
 				}
 				agent = nil
 				agentCall = nil
+				team = nil
 			}
 
 			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
