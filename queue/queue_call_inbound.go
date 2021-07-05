@@ -144,6 +144,12 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						}
 
+					case call_manager.CALL_STATE_BRIDGE:
+						if attempt.state != model.MemberStateBridged {
+							timeout.Stop()
+							team.Bridged(attempt, agent)
+						}
+
 					case call_manager.CALL_STATE_HANGUP:
 						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
 							attempt.Log("receive transfer queue")
