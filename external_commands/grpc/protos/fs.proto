@@ -7,10 +7,24 @@ service Api {
     rpc Execute(ExecuteRequest) returns (ExecuteResponse) {}
     rpc SetVariables(SetVariablesRequest) returns (SetVariablesResponse) {}
     rpc Bridge(BridgeRequest) returns (BridgeResponse) {}
+    rpc BridgeCall(BridgeCallRequest) returns (BridgeCallResponse) {}
+    rpc StopPlayback(StopPlaybackRequest) returns (StopPlaybackResponse) {}
     rpc Hangup(HangupRequest) returns (HangupResponse) {}
     rpc HangupMatchingVars(HangupMatchingVarsReqeust) returns (HangupMatchingVarsResponse) {}
     rpc Queue(QueueRequest) returns (QueueResponse) {}
-    rpc StopPlayback(StopPlaybackRequest) returns (StopPlaybackResponse) {}
+    rpc HangupMany(HangupManyRequest) returns (HangupManyResponse) {}
+    rpc Hold(HoldRequest) returns (HoldResponse) {}
+    rpc UnHold(UnHoldRequest) returns (UnHoldResponse) {}
+    rpc SetProfileVar(SetProfileVarRequest) returns (SetProfileVarResponse) {}
+}
+
+message SetProfileVarRequest {
+    string id = 1;
+    map<string,string> variables = 2;
+}
+
+message SetProfileVarResponse {
+
 }
 
 message StopPlaybackRequest {
@@ -19,6 +33,41 @@ message StopPlaybackRequest {
 
 message StopPlaybackResponse {
 
+}
+
+message BridgeCallRequest {
+    string leg_a_id = 1;
+    string leg_b_id = 2;
+    map<string,string> variables = 3;
+}
+
+message BridgeCallResponse {
+    ErrorExecute error = 1;
+}
+
+message HoldRequest {
+    repeated string id = 1;
+}
+
+message HoldResponse {
+    repeated string id = 1;
+}
+
+message UnHoldRequest {
+    repeated string id = 1;
+}
+
+message UnHoldResponse {
+    repeated string id = 1;
+}
+
+message HangupManyRequest {
+    repeated string id = 1;
+    string cause = 2;
+}
+
+message HangupManyResponse {
+    repeated string id = 1;
 }
 
 message QueueRequest {

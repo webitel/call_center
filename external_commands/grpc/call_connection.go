@@ -338,6 +338,22 @@ func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppE
 	return nil
 }
 
+func (c *CallConnection) UpdateCid(id, number, name string) *model.AppError {
+	_, err := c.api.SetProfileVar(context.Background(), &fs.SetProfileVarRequest{
+		Id: id,
+		Variables: map[string]string{
+			"callee_id_number": number,
+			"callee_id_name":   name,
+		},
+	})
+
+	if err != nil {
+		return model.NewAppError("UpdateCid", "external.set_profile_var.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (c *CallConnection) close() {
 	c.client.Close()
 }

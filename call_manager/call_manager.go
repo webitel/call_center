@@ -167,8 +167,12 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 	}
 
 	if c, ok := cm.calls.Get(call.Id); ok {
+		cc := c.(Call)
+		if cc.Direction() == CALL_DIRECTION_OUTBOUND {
+			err = cc.UpdateCid()
+		}
 		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
-		return c.(Call), nil
+		return cc, err
 	}
 
 	res := &CallImpl{
@@ -187,7 +191,7 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 	res.info = model.CallActionInfo{
 		GatewayId:   nil,
 		UserId:      nil,
-		Direction:   "inbound",
+		Direction:   call.Direction,
 		Destination: call.Destination,
 		From: &model.CallEndpoint{
 			Type:   "dest",

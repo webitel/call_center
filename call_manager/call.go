@@ -16,6 +16,8 @@ type Call interface {
 	FromNumber() string
 	FromName() string
 
+	Direction() CallDirection
+
 	QueueId() *int
 	QueueCallPriority() int
 
@@ -66,6 +68,7 @@ type Call interface {
 	SerVariables(vars map[string]string) *model.AppError
 
 	SetRecordings(domainId int64, bridged, stereo bool)
+	UpdateCid() *model.AppError
 }
 
 type CallAction struct {
@@ -202,6 +205,10 @@ func (call *CallImpl) SetRecordings(domainId int64, bridged, stereo bool) {
 		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s", domainId,
 			call.Id(), call.Id(), "recordFile", "mp3"),
 	})
+}
+
+func (call *CallImpl) Direction() CallDirection {
+	return call.direction
 }
 
 func (call *CallImpl) setRinging(e *model.CallActionRinging) {
@@ -623,4 +630,11 @@ func (call *CallImpl) JoinQueue(ctx context.Context, id string, filePath string,
 
 func (call *CallImpl) SerVariables(vars map[string]string) *model.AppError {
 	return call.api.SetCallVariables(call.id, vars)
+}
+
+func (call *CallImpl) UpdateCid() *model.AppError {
+	if call.info.To == nil {
+		return nil
+	}
+	return call.api.UpdateCid(call.id, call.info.To.Number, call.info.To.Name)
 }

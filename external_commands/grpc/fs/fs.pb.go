@@ -46,7 +46,7 @@ func (x ErrorExecute_Type) String() string {
 }
 
 func (ErrorExecute_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{4, 0}
+	return fileDescriptor_7894a1a02fa2a211, []int{14, 0}
 }
 
 type OriginateRequest_Strategy int32
@@ -71,8 +71,86 @@ func (x OriginateRequest_Strategy) String() string {
 }
 
 func (OriginateRequest_Strategy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{9, 0}
+	return fileDescriptor_7894a1a02fa2a211, []int{19, 0}
 }
+
+type SetProfileVarRequest struct {
+	Id                   string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Variables            map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *SetProfileVarRequest) Reset()         { *m = SetProfileVarRequest{} }
+func (m *SetProfileVarRequest) String() string { return proto.CompactTextString(m) }
+func (*SetProfileVarRequest) ProtoMessage()    {}
+func (*SetProfileVarRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{0}
+}
+
+func (m *SetProfileVarRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetProfileVarRequest.Unmarshal(m, b)
+}
+func (m *SetProfileVarRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetProfileVarRequest.Marshal(b, m, deterministic)
+}
+func (m *SetProfileVarRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetProfileVarRequest.Merge(m, src)
+}
+func (m *SetProfileVarRequest) XXX_Size() int {
+	return xxx_messageInfo_SetProfileVarRequest.Size(m)
+}
+func (m *SetProfileVarRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetProfileVarRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetProfileVarRequest proto.InternalMessageInfo
+
+func (m *SetProfileVarRequest) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *SetProfileVarRequest) GetVariables() map[string]string {
+	if m != nil {
+		return m.Variables
+	}
+	return nil
+}
+
+type SetProfileVarResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetProfileVarResponse) Reset()         { *m = SetProfileVarResponse{} }
+func (m *SetProfileVarResponse) String() string { return proto.CompactTextString(m) }
+func (*SetProfileVarResponse) ProtoMessage()    {}
+func (*SetProfileVarResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{1}
+}
+
+func (m *SetProfileVarResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetProfileVarResponse.Unmarshal(m, b)
+}
+func (m *SetProfileVarResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetProfileVarResponse.Marshal(b, m, deterministic)
+}
+func (m *SetProfileVarResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetProfileVarResponse.Merge(m, src)
+}
+func (m *SetProfileVarResponse) XXX_Size() int {
+	return xxx_messageInfo_SetProfileVarResponse.Size(m)
+}
+func (m *SetProfileVarResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetProfileVarResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetProfileVarResponse proto.InternalMessageInfo
 
 type StopPlaybackRequest struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -85,7 +163,7 @@ func (m *StopPlaybackRequest) Reset()         { *m = StopPlaybackRequest{} }
 func (m *StopPlaybackRequest) String() string { return proto.CompactTextString(m) }
 func (*StopPlaybackRequest) ProtoMessage()    {}
 func (*StopPlaybackRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{0}
+	return fileDescriptor_7894a1a02fa2a211, []int{2}
 }
 
 func (m *StopPlaybackRequest) XXX_Unmarshal(b []byte) error {
@@ -123,7 +201,7 @@ func (m *StopPlaybackResponse) Reset()         { *m = StopPlaybackResponse{} }
 func (m *StopPlaybackResponse) String() string { return proto.CompactTextString(m) }
 func (*StopPlaybackResponse) ProtoMessage()    {}
 func (*StopPlaybackResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{1}
+	return fileDescriptor_7894a1a02fa2a211, []int{3}
 }
 
 func (m *StopPlaybackResponse) XXX_Unmarshal(b []byte) error {
@@ -144,6 +222,342 @@ func (m *StopPlaybackResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StopPlaybackResponse proto.InternalMessageInfo
 
+type BridgeCallRequest struct {
+	LegAId               string            `protobuf:"bytes,1,opt,name=leg_a_id,json=legAId,proto3" json:"leg_a_id,omitempty"`
+	LegBId               string            `protobuf:"bytes,2,opt,name=leg_b_id,json=legBId,proto3" json:"leg_b_id,omitempty"`
+	Variables            map[string]string `protobuf:"bytes,3,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *BridgeCallRequest) Reset()         { *m = BridgeCallRequest{} }
+func (m *BridgeCallRequest) String() string { return proto.CompactTextString(m) }
+func (*BridgeCallRequest) ProtoMessage()    {}
+func (*BridgeCallRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{4}
+}
+
+func (m *BridgeCallRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BridgeCallRequest.Unmarshal(m, b)
+}
+func (m *BridgeCallRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BridgeCallRequest.Marshal(b, m, deterministic)
+}
+func (m *BridgeCallRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BridgeCallRequest.Merge(m, src)
+}
+func (m *BridgeCallRequest) XXX_Size() int {
+	return xxx_messageInfo_BridgeCallRequest.Size(m)
+}
+func (m *BridgeCallRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BridgeCallRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BridgeCallRequest proto.InternalMessageInfo
+
+func (m *BridgeCallRequest) GetLegAId() string {
+	if m != nil {
+		return m.LegAId
+	}
+	return ""
+}
+
+func (m *BridgeCallRequest) GetLegBId() string {
+	if m != nil {
+		return m.LegBId
+	}
+	return ""
+}
+
+func (m *BridgeCallRequest) GetVariables() map[string]string {
+	if m != nil {
+		return m.Variables
+	}
+	return nil
+}
+
+type BridgeCallResponse struct {
+	Error                *ErrorExecute `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *BridgeCallResponse) Reset()         { *m = BridgeCallResponse{} }
+func (m *BridgeCallResponse) String() string { return proto.CompactTextString(m) }
+func (*BridgeCallResponse) ProtoMessage()    {}
+func (*BridgeCallResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{5}
+}
+
+func (m *BridgeCallResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BridgeCallResponse.Unmarshal(m, b)
+}
+func (m *BridgeCallResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BridgeCallResponse.Marshal(b, m, deterministic)
+}
+func (m *BridgeCallResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BridgeCallResponse.Merge(m, src)
+}
+func (m *BridgeCallResponse) XXX_Size() int {
+	return xxx_messageInfo_BridgeCallResponse.Size(m)
+}
+func (m *BridgeCallResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_BridgeCallResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BridgeCallResponse proto.InternalMessageInfo
+
+func (m *BridgeCallResponse) GetError() *ErrorExecute {
+	if m != nil {
+		return m.Error
+	}
+	return nil
+}
+
+type HoldRequest struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HoldRequest) Reset()         { *m = HoldRequest{} }
+func (m *HoldRequest) String() string { return proto.CompactTextString(m) }
+func (*HoldRequest) ProtoMessage()    {}
+func (*HoldRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{6}
+}
+
+func (m *HoldRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HoldRequest.Unmarshal(m, b)
+}
+func (m *HoldRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HoldRequest.Marshal(b, m, deterministic)
+}
+func (m *HoldRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HoldRequest.Merge(m, src)
+}
+func (m *HoldRequest) XXX_Size() int {
+	return xxx_messageInfo_HoldRequest.Size(m)
+}
+func (m *HoldRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HoldRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HoldRequest proto.InternalMessageInfo
+
+func (m *HoldRequest) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type HoldResponse struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HoldResponse) Reset()         { *m = HoldResponse{} }
+func (m *HoldResponse) String() string { return proto.CompactTextString(m) }
+func (*HoldResponse) ProtoMessage()    {}
+func (*HoldResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{7}
+}
+
+func (m *HoldResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HoldResponse.Unmarshal(m, b)
+}
+func (m *HoldResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HoldResponse.Marshal(b, m, deterministic)
+}
+func (m *HoldResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HoldResponse.Merge(m, src)
+}
+func (m *HoldResponse) XXX_Size() int {
+	return xxx_messageInfo_HoldResponse.Size(m)
+}
+func (m *HoldResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HoldResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HoldResponse proto.InternalMessageInfo
+
+func (m *HoldResponse) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type UnHoldRequest struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UnHoldRequest) Reset()         { *m = UnHoldRequest{} }
+func (m *UnHoldRequest) String() string { return proto.CompactTextString(m) }
+func (*UnHoldRequest) ProtoMessage()    {}
+func (*UnHoldRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{8}
+}
+
+func (m *UnHoldRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UnHoldRequest.Unmarshal(m, b)
+}
+func (m *UnHoldRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UnHoldRequest.Marshal(b, m, deterministic)
+}
+func (m *UnHoldRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnHoldRequest.Merge(m, src)
+}
+func (m *UnHoldRequest) XXX_Size() int {
+	return xxx_messageInfo_UnHoldRequest.Size(m)
+}
+func (m *UnHoldRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnHoldRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnHoldRequest proto.InternalMessageInfo
+
+func (m *UnHoldRequest) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type UnHoldResponse struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UnHoldResponse) Reset()         { *m = UnHoldResponse{} }
+func (m *UnHoldResponse) String() string { return proto.CompactTextString(m) }
+func (*UnHoldResponse) ProtoMessage()    {}
+func (*UnHoldResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{9}
+}
+
+func (m *UnHoldResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UnHoldResponse.Unmarshal(m, b)
+}
+func (m *UnHoldResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UnHoldResponse.Marshal(b, m, deterministic)
+}
+func (m *UnHoldResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnHoldResponse.Merge(m, src)
+}
+func (m *UnHoldResponse) XXX_Size() int {
+	return xxx_messageInfo_UnHoldResponse.Size(m)
+}
+func (m *UnHoldResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnHoldResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnHoldResponse proto.InternalMessageInfo
+
+func (m *UnHoldResponse) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+type HangupManyRequest struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	Cause                string   `protobuf:"bytes,2,opt,name=cause,proto3" json:"cause,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HangupManyRequest) Reset()         { *m = HangupManyRequest{} }
+func (m *HangupManyRequest) String() string { return proto.CompactTextString(m) }
+func (*HangupManyRequest) ProtoMessage()    {}
+func (*HangupManyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{10}
+}
+
+func (m *HangupManyRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HangupManyRequest.Unmarshal(m, b)
+}
+func (m *HangupManyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HangupManyRequest.Marshal(b, m, deterministic)
+}
+func (m *HangupManyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HangupManyRequest.Merge(m, src)
+}
+func (m *HangupManyRequest) XXX_Size() int {
+	return xxx_messageInfo_HangupManyRequest.Size(m)
+}
+func (m *HangupManyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HangupManyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HangupManyRequest proto.InternalMessageInfo
+
+func (m *HangupManyRequest) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *HangupManyRequest) GetCause() string {
+	if m != nil {
+		return m.Cause
+	}
+	return ""
+}
+
+type HangupManyResponse struct {
+	Id                   []string `protobuf:"bytes,1,rep,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HangupManyResponse) Reset()         { *m = HangupManyResponse{} }
+func (m *HangupManyResponse) String() string { return proto.CompactTextString(m) }
+func (*HangupManyResponse) ProtoMessage()    {}
+func (*HangupManyResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7894a1a02fa2a211, []int{11}
+}
+
+func (m *HangupManyResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HangupManyResponse.Unmarshal(m, b)
+}
+func (m *HangupManyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HangupManyResponse.Marshal(b, m, deterministic)
+}
+func (m *HangupManyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HangupManyResponse.Merge(m, src)
+}
+func (m *HangupManyResponse) XXX_Size() int {
+	return xxx_messageInfo_HangupManyResponse.Size(m)
+}
+func (m *HangupManyResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HangupManyResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HangupManyResponse proto.InternalMessageInfo
+
+func (m *HangupManyResponse) GetId() []string {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
 type QueueRequest struct {
 	Id                   string            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Variables            map[string]string `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
@@ -158,7 +572,7 @@ func (m *QueueRequest) Reset()         { *m = QueueRequest{} }
 func (m *QueueRequest) String() string { return proto.CompactTextString(m) }
 func (*QueueRequest) ProtoMessage()    {}
 func (*QueueRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{2}
+	return fileDescriptor_7894a1a02fa2a211, []int{12}
 }
 
 func (m *QueueRequest) XXX_Unmarshal(b []byte) error {
@@ -218,7 +632,7 @@ func (m *QueueResponse) Reset()         { *m = QueueResponse{} }
 func (m *QueueResponse) String() string { return proto.CompactTextString(m) }
 func (*QueueResponse) ProtoMessage()    {}
 func (*QueueResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{3}
+	return fileDescriptor_7894a1a02fa2a211, []int{13}
 }
 
 func (m *QueueResponse) XXX_Unmarshal(b []byte) error {
@@ -258,7 +672,7 @@ func (m *ErrorExecute) Reset()         { *m = ErrorExecute{} }
 func (m *ErrorExecute) String() string { return proto.CompactTextString(m) }
 func (*ErrorExecute) ProtoMessage()    {}
 func (*ErrorExecute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{4}
+	return fileDescriptor_7894a1a02fa2a211, []int{14}
 }
 
 func (m *ErrorExecute) XXX_Unmarshal(b []byte) error {
@@ -305,7 +719,7 @@ func (m *ExecuteRequest) Reset()         { *m = ExecuteRequest{} }
 func (m *ExecuteRequest) String() string { return proto.CompactTextString(m) }
 func (*ExecuteRequest) ProtoMessage()    {}
 func (*ExecuteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{5}
+	return fileDescriptor_7894a1a02fa2a211, []int{15}
 }
 
 func (m *ExecuteRequest) XXX_Unmarshal(b []byte) error {
@@ -352,7 +766,7 @@ func (m *ExecuteResponse) Reset()         { *m = ExecuteResponse{} }
 func (m *ExecuteResponse) String() string { return proto.CompactTextString(m) }
 func (*ExecuteResponse) ProtoMessage()    {}
 func (*ExecuteResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{6}
+	return fileDescriptor_7894a1a02fa2a211, []int{16}
 }
 
 func (m *ExecuteResponse) XXX_Unmarshal(b []byte) error {
@@ -401,7 +815,7 @@ func (m *HangupRequest) Reset()         { *m = HangupRequest{} }
 func (m *HangupRequest) String() string { return proto.CompactTextString(m) }
 func (*HangupRequest) ProtoMessage()    {}
 func (*HangupRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{7}
+	return fileDescriptor_7894a1a02fa2a211, []int{17}
 }
 
 func (m *HangupRequest) XXX_Unmarshal(b []byte) error {
@@ -461,7 +875,7 @@ func (m *HangupResponse) Reset()         { *m = HangupResponse{} }
 func (m *HangupResponse) String() string { return proto.CompactTextString(m) }
 func (*HangupResponse) ProtoMessage()    {}
 func (*HangupResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{8}
+	return fileDescriptor_7894a1a02fa2a211, []int{18}
 }
 
 func (m *HangupResponse) XXX_Unmarshal(b []byte) error {
@@ -509,7 +923,7 @@ func (m *OriginateRequest) Reset()         { *m = OriginateRequest{} }
 func (m *OriginateRequest) String() string { return proto.CompactTextString(m) }
 func (*OriginateRequest) ProtoMessage()    {}
 func (*OriginateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{9}
+	return fileDescriptor_7894a1a02fa2a211, []int{19}
 }
 
 func (m *OriginateRequest) XXX_Unmarshal(b []byte) error {
@@ -612,7 +1026,7 @@ func (m *OriginateRequest_Extension) Reset()         { *m = OriginateRequest_Ext
 func (m *OriginateRequest_Extension) String() string { return proto.CompactTextString(m) }
 func (*OriginateRequest_Extension) ProtoMessage()    {}
 func (*OriginateRequest_Extension) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{9, 0}
+	return fileDescriptor_7894a1a02fa2a211, []int{19, 0}
 }
 
 func (m *OriginateRequest_Extension) XXX_Unmarshal(b []byte) error {
@@ -660,7 +1074,7 @@ func (m *OriginateResponse) Reset()         { *m = OriginateResponse{} }
 func (m *OriginateResponse) String() string { return proto.CompactTextString(m) }
 func (*OriginateResponse) ProtoMessage()    {}
 func (*OriginateResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{10}
+	return fileDescriptor_7894a1a02fa2a211, []int{20}
 }
 
 func (m *OriginateResponse) XXX_Unmarshal(b []byte) error {
@@ -715,7 +1129,7 @@ func (m *BridgeRequest) Reset()         { *m = BridgeRequest{} }
 func (m *BridgeRequest) String() string { return proto.CompactTextString(m) }
 func (*BridgeRequest) ProtoMessage()    {}
 func (*BridgeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{11}
+	return fileDescriptor_7894a1a02fa2a211, []int{21}
 }
 
 func (m *BridgeRequest) XXX_Unmarshal(b []byte) error {
@@ -769,7 +1183,7 @@ func (m *BridgeResponse) Reset()         { *m = BridgeResponse{} }
 func (m *BridgeResponse) String() string { return proto.CompactTextString(m) }
 func (*BridgeResponse) ProtoMessage()    {}
 func (*BridgeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{12}
+	return fileDescriptor_7894a1a02fa2a211, []int{22}
 }
 
 func (m *BridgeResponse) XXX_Unmarshal(b []byte) error {
@@ -816,7 +1230,7 @@ func (m *SetVariablesRequest) Reset()         { *m = SetVariablesRequest{} }
 func (m *SetVariablesRequest) String() string { return proto.CompactTextString(m) }
 func (*SetVariablesRequest) ProtoMessage()    {}
 func (*SetVariablesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{13}
+	return fileDescriptor_7894a1a02fa2a211, []int{23}
 }
 
 func (m *SetVariablesRequest) XXX_Unmarshal(b []byte) error {
@@ -862,7 +1276,7 @@ func (m *SetVariablesResponse) Reset()         { *m = SetVariablesResponse{} }
 func (m *SetVariablesResponse) String() string { return proto.CompactTextString(m) }
 func (*SetVariablesResponse) ProtoMessage()    {}
 func (*SetVariablesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{14}
+	return fileDescriptor_7894a1a02fa2a211, []int{24}
 }
 
 func (m *SetVariablesResponse) XXX_Unmarshal(b []byte) error {
@@ -902,7 +1316,7 @@ func (m *HangupMatchingVarsReqeust) Reset()         { *m = HangupMatchingVarsReq
 func (m *HangupMatchingVarsReqeust) String() string { return proto.CompactTextString(m) }
 func (*HangupMatchingVarsReqeust) ProtoMessage()    {}
 func (*HangupMatchingVarsReqeust) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{15}
+	return fileDescriptor_7894a1a02fa2a211, []int{25}
 }
 
 func (m *HangupMatchingVarsReqeust) XXX_Unmarshal(b []byte) error {
@@ -948,7 +1362,7 @@ func (m *HangupMatchingVarsResponse) Reset()         { *m = HangupMatchingVarsRe
 func (m *HangupMatchingVarsResponse) String() string { return proto.CompactTextString(m) }
 func (*HangupMatchingVarsResponse) ProtoMessage()    {}
 func (*HangupMatchingVarsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7894a1a02fa2a211, []int{16}
+	return fileDescriptor_7894a1a02fa2a211, []int{26}
 }
 
 func (m *HangupMatchingVarsResponse) XXX_Unmarshal(b []byte) error {
@@ -979,8 +1393,20 @@ func (m *HangupMatchingVarsResponse) GetCount() int32 {
 func init() {
 	proto.RegisterEnum("fs.ErrorExecute_Type", ErrorExecute_Type_name, ErrorExecute_Type_value)
 	proto.RegisterEnum("fs.OriginateRequest_Strategy", OriginateRequest_Strategy_name, OriginateRequest_Strategy_value)
+	proto.RegisterType((*SetProfileVarRequest)(nil), "fs.SetProfileVarRequest")
+	proto.RegisterMapType((map[string]string)(nil), "fs.SetProfileVarRequest.VariablesEntry")
+	proto.RegisterType((*SetProfileVarResponse)(nil), "fs.SetProfileVarResponse")
 	proto.RegisterType((*StopPlaybackRequest)(nil), "fs.StopPlaybackRequest")
 	proto.RegisterType((*StopPlaybackResponse)(nil), "fs.StopPlaybackResponse")
+	proto.RegisterType((*BridgeCallRequest)(nil), "fs.BridgeCallRequest")
+	proto.RegisterMapType((map[string]string)(nil), "fs.BridgeCallRequest.VariablesEntry")
+	proto.RegisterType((*BridgeCallResponse)(nil), "fs.BridgeCallResponse")
+	proto.RegisterType((*HoldRequest)(nil), "fs.HoldRequest")
+	proto.RegisterType((*HoldResponse)(nil), "fs.HoldResponse")
+	proto.RegisterType((*UnHoldRequest)(nil), "fs.UnHoldRequest")
+	proto.RegisterType((*UnHoldResponse)(nil), "fs.UnHoldResponse")
+	proto.RegisterType((*HangupManyRequest)(nil), "fs.HangupManyRequest")
+	proto.RegisterType((*HangupManyResponse)(nil), "fs.HangupManyResponse")
 	proto.RegisterType((*QueueRequest)(nil), "fs.QueueRequest")
 	proto.RegisterMapType((map[string]string)(nil), "fs.QueueRequest.VariablesEntry")
 	proto.RegisterType((*QueueResponse)(nil), "fs.QueueResponse")
@@ -1007,68 +1433,80 @@ func init() {
 func init() { proto.RegisterFile("protos/fs.proto", fileDescriptor_7894a1a02fa2a211) }
 
 var fileDescriptor_7894a1a02fa2a211 = []byte{
-	// 969 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xdd, 0x6e, 0xe3, 0x44,
-	0x14, 0xae, 0xf3, 0xd3, 0xc6, 0xa7, 0x49, 0x36, 0x3d, 0xed, 0x82, 0xb1, 0xda, 0x12, 0x79, 0x45,
-	0x29, 0x12, 0x0a, 0x22, 0x20, 0xb1, 0xbb, 0x82, 0x4a, 0xd9, 0x25, 0x0b, 0x41, 0x2d, 0x5d, 0xdc,
-	0x6d, 0x6f, 0xab, 0x49, 0x3c, 0x35, 0xd6, 0x3a, 0xb6, 0xd7, 0x33, 0xae, 0x9a, 0x87, 0xe2, 0x09,
-	0xb8, 0xe6, 0x11, 0x78, 0x04, 0x6e, 0x79, 0x06, 0x34, 0x33, 0xfe, 0x6d, 0xd2, 0x8a, 0x55, 0xb5,
-	0x77, 0x73, 0xfe, 0x7f, 0xe6, 0x7c, 0x67, 0x06, 0x1e, 0x45, 0x71, 0xc8, 0x43, 0xf6, 0xd5, 0x15,
-	0x1b, 0xc8, 0x13, 0xd6, 0xae, 0x98, 0xf5, 0x19, 0x6c, 0x9f, 0xf1, 0x30, 0x7a, 0xed, 0x93, 0xc5,
-	0x94, 0xcc, 0xde, 0xda, 0xf4, 0x5d, 0x42, 0x19, 0xc7, 0x2e, 0xd4, 0x3c, 0xc7, 0xd0, 0xfa, 0xda,
-	0xa1, 0x6e, 0xd7, 0x3c, 0xc7, 0xfa, 0x08, 0x76, 0xaa, 0x6a, 0x2c, 0x0a, 0x03, 0x46, 0xad, 0x7f,
-	0x34, 0x68, 0xff, 0x96, 0xd0, 0x84, 0xde, 0x61, 0x88, 0x3f, 0x80, 0x7e, 0x4d, 0x62, 0x8f, 0x4c,
-	0x7d, 0xca, 0x8c, 0x5a, 0xbf, 0x7e, 0xb8, 0x39, 0xfc, 0x74, 0x70, 0xc5, 0x06, 0x65, 0xa3, 0xc1,
-	0x45, 0xa6, 0x31, 0x0e, 0x78, 0xbc, 0xb0, 0x0b, 0x0b, 0x7c, 0x02, 0x9d, 0x28, 0x8d, 0x79, 0x79,
-	0xe5, 0xf9, 0xd4, 0xa8, 0x4b, 0xcf, 0xed, 0x8c, 0xf9, 0xca, 0xf3, 0x69, 0x45, 0x89, 0xc4, 0x2e,
-	0x33, 0x1a, 0x7d, 0xed, 0xb0, 0x59, 0x28, 0x8d, 0x62, 0x97, 0x99, 0xdf, 0x43, 0xb7, 0x1a, 0x06,
-	0x7b, 0x50, 0x7f, 0x4b, 0x17, 0x69, 0xae, 0xe2, 0x88, 0x3b, 0xd0, 0xbc, 0x26, 0x7e, 0x42, 0x8d,
-	0x9a, 0xe4, 0x29, 0xe2, 0x79, 0xed, 0xa9, 0x66, 0x7d, 0x07, 0x9d, 0x34, 0x63, 0x55, 0x38, 0x1e,
-	0x40, 0x93, 0xc6, 0x71, 0x18, 0x4b, 0xf3, 0xcd, 0x61, 0x4f, 0xd4, 0x34, 0x16, 0x8c, 0xf1, 0x0d,
-	0x9d, 0x25, 0x9c, 0xda, 0x4a, 0x6c, 0xbd, 0x83, 0x76, 0x99, 0x8d, 0x06, 0x6c, 0xcc, 0x29, 0x63,
-	0xc4, 0xa5, 0x69, 0xe0, 0x8c, 0xc4, 0x2f, 0xa0, 0xc1, 0x17, 0x91, 0x8a, 0xdd, 0x1d, 0x3e, 0xbe,
-	0xed, 0x70, 0xf0, 0x66, 0x11, 0x51, 0x5b, 0xaa, 0x58, 0xbb, 0xd0, 0x10, 0x14, 0xea, 0xd0, 0x1c,
-	0xdb, 0xf6, 0xa9, 0xdd, 0x5b, 0x13, 0xc7, 0xf3, 0xb3, 0xd1, 0x4f, 0xe3, 0x9e, 0x66, 0x1d, 0x41,
-	0x37, 0x4b, 0x22, 0xbd, 0x14, 0x03, 0x36, 0x66, 0xe1, 0x7c, 0x4e, 0x82, 0xec, 0x66, 0x32, 0x12,
-	0x11, 0x1a, 0xb2, 0x63, 0xaa, 0x60, 0x79, 0xb6, 0x4e, 0xe0, 0x51, 0x6e, 0x9f, 0x56, 0x8b, 0xd0,
-	0x70, 0x08, 0x27, 0xa9, 0xb5, 0x3c, 0x17, 0x1d, 0xa8, 0xdd, 0xdf, 0x81, 0xbf, 0x35, 0xe8, 0xfc,
-	0x4c, 0x02, 0x37, 0x89, 0xb2, 0x74, 0x10, 0x1a, 0x49, 0x92, 0x4f, 0x89, 0x3c, 0x8b, 0xd6, 0xcf,
-	0x48, 0xc2, 0xf2, 0xd6, 0x4b, 0x02, 0x77, 0x41, 0x8f, 0x69, 0x14, 0xc6, 0xdc, 0x0b, 0x5c, 0x79,
-	0xf5, 0x2d, 0xbb, 0x60, 0xe0, 0x51, 0x79, 0xb6, 0x1a, 0x72, 0xb6, 0xfa, 0x22, 0x8b, 0x4a, 0xb4,
-	0xbb, 0x87, 0xeb, 0x81, 0x23, 0xf1, 0x14, 0xba, 0x59, 0xa0, 0xf7, 0x9c, 0x89, 0xbf, 0x1a, 0xd0,
-	0x3b, 0x8d, 0x3d, 0xd7, 0x0b, 0x48, 0x71, 0x47, 0xa3, 0x72, 0x31, 0x9a, 0x2c, 0xe6, 0x89, 0x70,
-	0x70, 0x5b, 0xf1, 0x1e, 0xb0, 0xec, 0x82, 0x4e, 0x03, 0x27, 0x0a, 0xbd, 0x80, 0x2b, 0xac, 0xe9,
-	0x76, 0xc1, 0xc0, 0x67, 0xd0, 0x62, 0x3c, 0x26, 0x9c, 0xba, 0x0b, 0xd9, 0xca, 0xee, 0x70, 0x6f,
-	0xa5, 0xff, 0xb3, 0x54, 0xc9, 0xce, 0xd5, 0xb1, 0x0f, 0x9b, 0x0e, 0x65, 0x5c, 0xa8, 0x79, 0x61,
-	0x20, 0xe1, 0xa5, 0xdb, 0x65, 0x96, 0x98, 0x30, 0xee, 0xcd, 0x69, 0x98, 0x70, 0xa3, 0x29, 0xc1,
-	0x97, 0x91, 0x68, 0x41, 0x7b, 0x46, 0x7c, 0x9f, 0xc6, 0xbf, 0x26, 0xf3, 0x29, 0x8d, 0x8d, 0x75,
-	0x05, 0xe0, 0x32, 0x0f, 0xf7, 0x01, 0x52, 0x9a, 0xcc, 0xa9, 0xb1, 0x21, 0x35, 0x4a, 0x1c, 0x35,
-	0xbf, 0x01, 0xa7, 0x37, 0xdc, 0x68, 0x65, 0xf3, 0x2b, 0x49, 0x34, 0xa1, 0xe5, 0x78, 0xc4, 0x8f,
-	0x7c, 0x12, 0x18, 0xba, 0x14, 0xe5, 0x34, 0x1e, 0x01, 0xd0, 0x1b, 0x4e, 0x03, 0xe6, 0x85, 0x01,
-	0x33, 0x40, 0xb6, 0x74, 0x7f, 0x65, 0xc9, 0xe3, 0x4c, 0xcd, 0x2e, 0x59, 0x98, 0xcf, 0x40, 0xcf,
-	0x05, 0x22, 0x05, 0x12, 0x45, 0x32, 0xbf, 0x14, 0x42, 0x29, 0xb9, 0x0a, 0x42, 0x0f, 0x9c, 0xac,
-	0x03, 0x68, 0x65, 0x97, 0x80, 0x6d, 0x68, 0xbd, 0x1a, 0x4d, 0x8e, 0x4f, 0x2f, 0xc6, 0x02, 0xe5,
-	0x6d, 0x68, 0x9d, 0x9c, 0x1f, 0xbf, 0x99, 0xbc, 0x3e, 0x16, 0x40, 0x0f, 0x60, 0xab, 0x54, 0x4a,
-	0x01, 0xd5, 0x25, 0x70, 0xfd, 0x4f, 0xa8, 0xe2, 0x1e, 0x80, 0x3c, 0x5c, 0xce, 0x42, 0x47, 0xad,
-	0xda, 0xa6, 0xad, 0x4b, 0xce, 0xcb, 0xd0, 0xa1, 0x96, 0x0f, 0x9d, 0x17, 0xb1, 0xe7, 0xb8, 0xa5,
-	0xbd, 0xd2, 0xf2, 0xa9, 0x7b, 0x49, 0x2e, 0xf3, 0x78, 0xeb, 0x3e, 0x75, 0x47, 0x13, 0x27, 0x93,
-	0x4c, 0x85, 0xa4, 0x96, 0x4b, 0x5e, 0x4c, 0x1c, 0xfc, 0x1c, 0x7a, 0x4a, 0x12, 0x53, 0x46, 0xe3,
-	0x6b, 0x2a, 0x34, 0xd4, 0x52, 0xef, 0x08, 0x0d, 0x5b, 0x71, 0x27, 0x8e, 0x75, 0x0c, 0xdd, 0x2c,
-	0xda, 0xc3, 0x4b, 0xb3, 0xfe, 0xd0, 0x60, 0xfb, 0x8c, 0xf2, 0xfc, 0x56, 0xee, 0xdb, 0x45, 0x3f,
-	0x2e, 0xbf, 0x59, 0x07, 0xc2, 0xef, 0x0a, 0xfb, 0x0f, 0xb6, 0x5d, 0x8e, 0x60, 0xa7, 0x1a, 0xee,
-	0x3d, 0x77, 0xcc, 0x9f, 0x1a, 0x7c, 0xa2, 0xd6, 0xd3, 0x09, 0xe1, 0xb3, 0xdf, 0xbd, 0xc0, 0xbd,
-	0x20, 0xb1, 0xc8, 0x9a, 0x26, 0x8c, 0x17, 0xdb, 0x56, 0x2b, 0x6f, 0xdb, 0x5f, 0x96, 0xeb, 0xfe,
-	0xb2, 0xd8, 0xa7, 0x2b, 0xfc, 0x7c, 0xb0, 0xea, 0x87, 0x60, 0xae, 0x0a, 0x9a, 0xf6, 0x40, 0x64,
-	0x1f, 0x26, 0x01, 0x97, 0xbe, 0x9a, 0xb6, 0x22, 0x86, 0xff, 0xd6, 0xa1, 0x3e, 0x8a, 0x3c, 0x7c,
-	0x0e, 0x7a, 0x8e, 0x0a, 0xdc, 0x59, 0x85, 0x77, 0xf3, 0xf1, 0x2d, 0x6e, 0xfa, 0x99, 0x59, 0xc3,
-	0x6f, 0x61, 0x23, 0x7b, 0xa8, 0x51, 0x76, 0xb6, 0xf2, 0x8e, 0x9a, 0xdb, 0x15, 0x5e, 0x6e, 0xf5,
-	0x12, 0xda, 0xe5, 0xbb, 0xc2, 0x8f, 0xef, 0x18, 0x16, 0xd3, 0x58, 0x16, 0xe4, 0x4e, 0xbe, 0x86,
-	0x75, 0x35, 0xee, 0xb8, 0x25, 0xb4, 0x2a, 0x40, 0x33, 0xb1, 0xcc, 0x2a, 0x9b, 0xa8, 0x2e, 0x29,
-	0x93, 0xca, 0xb3, 0xa7, 0x4c, 0xaa, 0x0f, 0x94, 0xb5, 0x86, 0xe7, 0x80, 0xcb, 0x8d, 0xc5, 0xbd,
-	0x7b, 0x6f, 0xd9, 0xdc, 0xbf, 0x4b, 0x9c, 0xbb, 0x1d, 0x40, 0x53, 0x7e, 0x8f, 0xb0, 0x77, 0xfb,
-	0x6f, 0x67, 0x6e, 0x95, 0x38, 0x95, 0x8e, 0x95, 0xbe, 0x93, 0x69, 0xc7, 0x96, 0xff, 0xa1, 0x69,
-	0xc7, 0x56, 0xfd, 0x3c, 0xd7, 0xa6, 0xeb, 0xf2, 0x17, 0xfb, 0xcd, 0x7f, 0x01, 0x00, 0x00, 0xff,
-	0xff, 0x82, 0x9a, 0x25, 0x32, 0xd8, 0x0a, 0x00, 0x00,
+	// 1168 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x57, 0xdb, 0x4e, 0xe3, 0x46,
+	0x18, 0xc6, 0x39, 0x40, 0xfc, 0x93, 0x84, 0x30, 0xc0, 0xae, 0xd7, 0x02, 0x36, 0xf2, 0x6e, 0x59,
+	0xaa, 0x56, 0xa9, 0x9a, 0x56, 0xea, 0xb2, 0xda, 0x45, 0x0a, 0x34, 0x74, 0xa9, 0xa0, 0x50, 0xb3,
+	0x70, 0x8b, 0x26, 0xf1, 0xe0, 0x5a, 0xeb, 0xd8, 0x5e, 0x7b, 0x8c, 0xc8, 0x7b, 0xf4, 0x2d, 0xaa,
+	0x3e, 0x41, 0xaf, 0x7b, 0xd1, 0x07, 0xe8, 0x23, 0xf4, 0x3d, 0xaa, 0x99, 0xf1, 0x31, 0x71, 0xa2,
+	0x45, 0x88, 0x3b, 0xff, 0xe7, 0xc3, 0xfc, 0xff, 0xcc, 0x67, 0x58, 0xf1, 0x7c, 0x97, 0xba, 0xc1,
+	0x37, 0x37, 0x41, 0x87, 0x7f, 0xa1, 0xd2, 0x4d, 0xa0, 0xfd, 0x21, 0xc1, 0xfa, 0x05, 0xa1, 0xe7,
+	0xbe, 0x7b, 0x63, 0xd9, 0xe4, 0x0a, 0xfb, 0x3a, 0xf9, 0x14, 0x92, 0x80, 0xa2, 0x26, 0x94, 0x2c,
+	0x43, 0x91, 0xda, 0xd2, 0xae, 0xac, 0x97, 0x2c, 0x03, 0xf5, 0x41, 0xbe, 0xc5, 0xbe, 0x85, 0x07,
+	0x36, 0x09, 0x94, 0x52, 0xbb, 0xbc, 0xbb, 0xdc, 0x7d, 0xd5, 0xb9, 0x09, 0x3a, 0x45, 0xc6, 0x9d,
+	0xab, 0x58, 0xb3, 0xef, 0x50, 0x7f, 0xac, 0xa7, 0x96, 0xea, 0x5b, 0x68, 0xe6, 0x85, 0xa8, 0x05,
+	0xe5, 0x8f, 0x64, 0x1c, 0x45, 0x62, 0x9f, 0x68, 0x1d, 0xaa, 0xb7, 0xd8, 0x0e, 0x89, 0x52, 0xe2,
+	0x3c, 0x41, 0xbc, 0x29, 0xbd, 0x96, 0xb4, 0xa7, 0xb0, 0x31, 0x11, 0x2f, 0xf0, 0x5c, 0x27, 0x20,
+	0xda, 0x17, 0xb0, 0x76, 0x41, 0x5d, 0xef, 0xdc, 0xc6, 0xe3, 0x01, 0x1e, 0x7e, 0x9c, 0x51, 0x84,
+	0xf6, 0x04, 0xd6, 0xf3, 0x6a, 0x91, 0xf9, 0x3f, 0x12, 0xac, 0x1e, 0xf8, 0x96, 0x61, 0x92, 0x43,
+	0x6c, 0xdb, 0xb1, 0xb5, 0x02, 0x35, 0x9b, 0x98, 0xd7, 0xf8, 0x3a, 0xf1, 0xb1, 0x68, 0x13, 0xb3,
+	0x77, 0x6c, 0xc4, 0x92, 0x01, 0x93, 0x94, 0x12, 0xc9, 0xc1, 0xb1, 0x81, 0x0e, 0xb2, 0x6d, 0x2a,
+	0xf3, 0x36, 0xbd, 0x64, 0x6d, 0x9a, 0xf2, 0xfe, 0x68, 0x3d, 0x7a, 0x0b, 0x28, 0x1b, 0x4c, 0x54,
+	0x88, 0x76, 0xa0, 0x4a, 0x7c, 0xdf, 0xf5, 0xb9, 0x8f, 0xe5, 0x6e, 0x8b, 0xe5, 0xd4, 0x67, 0x8c,
+	0xfe, 0x1d, 0x19, 0x86, 0x94, 0xe8, 0x42, 0xac, 0x6d, 0xc1, 0xf2, 0x7b, 0xd7, 0x36, 0x26, 0x1b,
+	0x58, 0x8e, 0x1a, 0xb8, 0x0d, 0x75, 0x21, 0x8e, 0xdc, 0x4e, 0xca, 0x9f, 0x43, 0xe3, 0xd2, 0x99,
+	0xe7, 0xa0, 0x0d, 0xcd, 0x58, 0x61, 0x86, 0x8b, 0x3d, 0x58, 0x7d, 0x8f, 0x1d, 0x33, 0xf4, 0x4e,
+	0xb1, 0x33, 0x9e, 0xe1, 0x86, 0x95, 0x3f, 0xc4, 0x61, 0x90, 0x94, 0xcf, 0x09, 0xed, 0x25, 0xa0,
+	0xac, 0xe9, 0x8c, 0x00, 0xff, 0x49, 0x50, 0xff, 0x35, 0x24, 0x21, 0x99, 0x35, 0xea, 0xef, 0xa6,
+	0x47, 0xfd, 0x39, 0xeb, 0x57, 0xd6, 0x68, 0xf6, 0xf1, 0xa1, 0x17, 0xd0, 0xf0, 0xa2, 0x01, 0xbb,
+	0x66, 0x73, 0xaa, 0x94, 0xb9, 0xe7, 0x7a, 0xcc, 0x3c, 0xb2, 0x6c, 0x92, 0x53, 0xc2, 0xbe, 0x19,
+	0x28, 0x95, 0xb6, 0xb4, 0x5b, 0x4d, 0x95, 0x7a, 0xbe, 0xf9, 0xd0, 0x41, 0xf8, 0x01, 0x1a, 0x51,
+	0xc6, 0xf7, 0x9c, 0x81, 0x4f, 0x50, 0xcf, 0xb2, 0x91, 0x02, 0x4b, 0x23, 0x12, 0x04, 0xd8, 0x24,
+	0x51, 0xe0, 0x98, 0x44, 0x5f, 0x42, 0x85, 0x8e, 0x3d, 0x11, 0xbb, 0xd9, 0xdd, 0x98, 0x74, 0xd8,
+	0xf9, 0x30, 0xf6, 0x88, 0xce, 0x55, 0xb4, 0x4d, 0xa8, 0x30, 0x0a, 0xc9, 0x50, 0xed, 0xeb, 0xfa,
+	0x99, 0xde, 0x5a, 0x60, 0x9f, 0x97, 0x17, 0xbd, 0x9f, 0xfa, 0x2d, 0x49, 0xdb, 0x87, 0x66, 0x9c,
+	0x44, 0xb2, 0x7c, 0x4b, 0x43, 0x77, 0x34, 0xc2, 0x4e, 0x7c, 0x32, 0x31, 0x89, 0x10, 0x54, 0x78,
+	0xc7, 0x44, 0xc1, 0xfc, 0x5b, 0x3b, 0x85, 0x95, 0xc4, 0x3e, 0xaa, 0x16, 0x41, 0xc5, 0xc0, 0x14,
+	0x47, 0xd6, 0xfc, 0x3b, 0xed, 0x40, 0x69, 0x7e, 0x07, 0xfe, 0x95, 0xa0, 0x21, 0x26, 0x29, 0x4e,
+	0x07, 0x41, 0x25, 0x0c, 0x93, 0x29, 0xe1, 0xdf, 0xc5, 0x43, 0x88, 0x36, 0x41, 0xf6, 0x89, 0xe7,
+	0xfa, 0xd4, 0x72, 0x4c, 0x7e, 0xf4, 0x35, 0x3d, 0x65, 0xa0, 0xfd, 0xec, 0x6c, 0x55, 0xf8, 0x6c,
+	0xb5, 0x59, 0x16, 0xb9, 0x68, 0x8f, 0x76, 0x37, 0xbc, 0x86, 0x66, 0x1c, 0xe8, 0x9e, 0x33, 0xf1,
+	0x77, 0x05, 0x5a, 0x67, 0xbe, 0x65, 0x5a, 0x0e, 0x4e, 0xcf, 0xa8, 0x97, 0x2d, 0x46, 0xe2, 0xc5,
+	0xbc, 0x60, 0x0e, 0x26, 0x15, 0xe7, 0x2c, 0xcb, 0x26, 0xc8, 0xc4, 0x31, 0x3c, 0xd7, 0x72, 0xa8,
+	0xd8, 0x35, 0x59, 0x4f, 0x19, 0x68, 0x0f, 0x6a, 0x01, 0xf5, 0x31, 0x25, 0xe6, 0x98, 0xb7, 0xb2,
+	0xd9, 0xdd, 0x2a, 0xf4, 0x7f, 0x11, 0x29, 0xe9, 0x89, 0x3a, 0x6a, 0xc3, 0xb2, 0x41, 0x02, 0xca,
+	0xd4, 0x2c, 0xd7, 0xe1, 0xeb, 0x25, 0xeb, 0x59, 0x16, 0x9b, 0x30, 0x6a, 0x8d, 0x88, 0x1b, 0x52,
+	0xa5, 0xca, 0x97, 0x2f, 0x26, 0x91, 0x06, 0xf5, 0x21, 0xb6, 0x6d, 0xe2, 0xff, 0x12, 0x8e, 0x06,
+	0xc4, 0x57, 0x16, 0xc5, 0x02, 0x67, 0x79, 0x68, 0x1b, 0x20, 0xa2, 0xf1, 0x88, 0x28, 0x4b, 0x5c,
+	0x23, 0xc3, 0x11, 0xf3, 0xeb, 0x50, 0x72, 0x47, 0x95, 0x5a, 0x3c, 0xbf, 0x9c, 0x44, 0x2a, 0xd4,
+	0x0c, 0x0b, 0xdb, 0x9e, 0x8d, 0x1d, 0x45, 0xe6, 0xa2, 0x84, 0x46, 0xfb, 0x00, 0xe4, 0x8e, 0x12,
+	0x27, 0xb0, 0x5c, 0x27, 0x50, 0x80, 0xb7, 0x74, 0xbb, 0xb0, 0xe4, 0x7e, 0xac, 0xa6, 0x67, 0x2c,
+	0xd4, 0x3d, 0x90, 0x13, 0x01, 0x4b, 0x01, 0x7b, 0x1e, 0xcf, 0x2f, 0x5a, 0xa1, 0x88, 0x2c, 0x5a,
+	0xa1, 0x07, 0x4e, 0xd6, 0x0e, 0xd4, 0xe2, 0x43, 0x40, 0x75, 0xa8, 0x1d, 0xf5, 0x8e, 0x4f, 0xce,
+	0xae, 0xfa, 0x6c, 0xcb, 0xeb, 0x50, 0x3b, 0xbd, 0x3c, 0xf9, 0x70, 0x7c, 0x7e, 0xc2, 0x16, 0xdd,
+	0x81, 0xd5, 0x4c, 0x29, 0xe9, 0xaa, 0x4e, 0x2d, 0xd7, 0x67, 0xae, 0x2a, 0xda, 0x02, 0xe0, 0x1f,
+	0xd7, 0x43, 0xd7, 0x10, 0x57, 0x6d, 0x55, 0x97, 0x39, 0xe7, 0xd0, 0x35, 0x88, 0x66, 0x43, 0x43,
+	0xbc, 0x86, 0x0f, 0x79, 0xd4, 0x5f, 0x41, 0x4b, 0x48, 0x7c, 0x12, 0x10, 0xff, 0x96, 0x30, 0x0d,
+	0x71, 0xa9, 0x37, 0x98, 0x86, 0x2e, 0xb8, 0xc7, 0x86, 0x76, 0x02, 0xcd, 0x38, 0xda, 0xc3, 0x4b,
+	0xd3, 0xfe, 0x94, 0x60, 0xed, 0x82, 0xd0, 0xe4, 0x54, 0xe6, 0xdd, 0x45, 0x3f, 0x4e, 0xbf, 0x59,
+	0x3b, 0x11, 0x3c, 0x9b, 0xb4, 0x7f, 0xb4, 0xdb, 0x65, 0x9f, 0x43, 0xc9, 0x4c, 0xb8, 0x7b, 0xde,
+	0x31, 0x7f, 0x49, 0xf0, 0x2c, 0x7e, 0xbf, 0xe9, 0xf0, 0x37, 0xcb, 0x31, 0xaf, 0xb0, 0xcf, 0xb2,
+	0x26, 0x61, 0x40, 0xd3, 0xdb, 0x56, 0xca, 0xde, 0xb6, 0x3f, 0x4f, 0xd7, 0xfd, 0x75, 0x7a, 0x9f,
+	0x16, 0xf8, 0x79, 0xb4, 0xea, 0xbb, 0xa0, 0x16, 0x05, 0x8d, 0x7a, 0xc0, 0xb2, 0x77, 0x43, 0x87,
+	0x72, 0x5f, 0x55, 0x5d, 0x10, 0xdd, 0xdf, 0x17, 0xa1, 0xdc, 0xf3, 0x2c, 0xf4, 0x06, 0xe4, 0x64,
+	0x2b, 0xd0, 0x7a, 0xd1, 0xbe, 0xab, 0x1b, 0x13, 0xdc, 0x08, 0xb9, 0x2e, 0xa0, 0xef, 0x61, 0x29,
+	0x7e, 0xa8, 0x11, 0xef, 0x6c, 0xee, 0x1d, 0x55, 0xd7, 0x72, 0xbc, 0xc4, 0xea, 0x10, 0xea, 0xd9,
+	0xb3, 0x42, 0x4f, 0x67, 0x0c, 0x8b, 0xaa, 0x4c, 0x0b, 0x12, 0x27, 0xdf, 0xc2, 0xa2, 0x18, 0x77,
+	0xb4, 0x9a, 0x62, 0xdc, 0xd8, 0x10, 0x65, 0x59, 0x89, 0xc9, 0x3b, 0x80, 0x14, 0x9d, 0xa2, 0x8d,
+	0x42, 0x68, 0xac, 0x3e, 0x99, 0x64, 0xe7, 0xd2, 0xce, 0x00, 0xf8, 0x28, 0xed, 0x69, 0xe4, 0x1f,
+	0xa5, 0x5d, 0x84, 0xf5, 0x79, 0xda, 0xe2, 0xa4, 0x44, 0xda, 0xb9, 0xa7, 0x57, 0xa4, 0x9d, 0x7f,
+	0x24, 0xb5, 0x05, 0x74, 0x99, 0x22, 0xcb, 0xf4, 0x70, 0xd1, 0xd6, 0xdc, 0x49, 0x53, 0xb7, 0x67,
+	0x89, 0x13, 0xb7, 0x1d, 0xa8, 0x72, 0x88, 0x86, 0x5a, 0x93, 0xf8, 0x52, 0x5d, 0xcd, 0x70, 0xb2,
+	0xdd, 0x4b, 0x01, 0xae, 0xe8, 0xde, 0x14, 0x56, 0x16, 0xdd, 0x9b, 0xc6, 0xc1, 0xda, 0x02, 0xfa,
+	0x0a, 0x2a, 0x0c, 0x7a, 0xa3, 0x15, 0xae, 0x91, 0xa2, 0x74, 0xb5, 0x95, 0x32, 0xb2, 0x5d, 0x12,
+	0x48, 0x5d, 0x74, 0x29, 0x07, 0xeb, 0x45, 0x97, 0xf2, 0x40, 0x5e, 0x5b, 0x40, 0x47, 0xd0, 0xc8,
+	0xfd, 0x9e, 0x21, 0x65, 0xd6, 0x1f, 0xa2, 0xfa, 0xac, 0x40, 0x12, 0xfb, 0x19, 0x2c, 0xf2, 0xff,
+	0xd3, 0xef, 0xfe, 0x0f, 0x00, 0x00, 0xff, 0xff, 0x15, 0xbe, 0xd5, 0xd8, 0xb2, 0x0e, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1087,10 +1525,15 @@ type ApiClient interface {
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (*ExecuteResponse, error)
 	SetVariables(ctx context.Context, in *SetVariablesRequest, opts ...grpc.CallOption) (*SetVariablesResponse, error)
 	Bridge(ctx context.Context, in *BridgeRequest, opts ...grpc.CallOption) (*BridgeResponse, error)
+	BridgeCall(ctx context.Context, in *BridgeCallRequest, opts ...grpc.CallOption) (*BridgeCallResponse, error)
+	StopPlayback(ctx context.Context, in *StopPlaybackRequest, opts ...grpc.CallOption) (*StopPlaybackResponse, error)
 	Hangup(ctx context.Context, in *HangupRequest, opts ...grpc.CallOption) (*HangupResponse, error)
 	HangupMatchingVars(ctx context.Context, in *HangupMatchingVarsReqeust, opts ...grpc.CallOption) (*HangupMatchingVarsResponse, error)
 	Queue(ctx context.Context, in *QueueRequest, opts ...grpc.CallOption) (*QueueResponse, error)
-	StopPlayback(ctx context.Context, in *StopPlaybackRequest, opts ...grpc.CallOption) (*StopPlaybackResponse, error)
+	HangupMany(ctx context.Context, in *HangupManyRequest, opts ...grpc.CallOption) (*HangupManyResponse, error)
+	Hold(ctx context.Context, in *HoldRequest, opts ...grpc.CallOption) (*HoldResponse, error)
+	UnHold(ctx context.Context, in *UnHoldRequest, opts ...grpc.CallOption) (*UnHoldResponse, error)
+	SetProfileVar(ctx context.Context, in *SetProfileVarRequest, opts ...grpc.CallOption) (*SetProfileVarResponse, error)
 }
 
 type apiClient struct {
@@ -1137,6 +1580,24 @@ func (c *apiClient) Bridge(ctx context.Context, in *BridgeRequest, opts ...grpc.
 	return out, nil
 }
 
+func (c *apiClient) BridgeCall(ctx context.Context, in *BridgeCallRequest, opts ...grpc.CallOption) (*BridgeCallResponse, error) {
+	out := new(BridgeCallResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/BridgeCall", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) StopPlayback(ctx context.Context, in *StopPlaybackRequest, opts ...grpc.CallOption) (*StopPlaybackResponse, error) {
+	out := new(StopPlaybackResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/StopPlayback", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) Hangup(ctx context.Context, in *HangupRequest, opts ...grpc.CallOption) (*HangupResponse, error) {
 	out := new(HangupResponse)
 	err := c.cc.Invoke(ctx, "/fs.Api/Hangup", in, out, opts...)
@@ -1164,9 +1625,36 @@ func (c *apiClient) Queue(ctx context.Context, in *QueueRequest, opts ...grpc.Ca
 	return out, nil
 }
 
-func (c *apiClient) StopPlayback(ctx context.Context, in *StopPlaybackRequest, opts ...grpc.CallOption) (*StopPlaybackResponse, error) {
-	out := new(StopPlaybackResponse)
-	err := c.cc.Invoke(ctx, "/fs.Api/StopPlayback", in, out, opts...)
+func (c *apiClient) HangupMany(ctx context.Context, in *HangupManyRequest, opts ...grpc.CallOption) (*HangupManyResponse, error) {
+	out := new(HangupManyResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/HangupMany", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) Hold(ctx context.Context, in *HoldRequest, opts ...grpc.CallOption) (*HoldResponse, error) {
+	out := new(HoldResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/Hold", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) UnHold(ctx context.Context, in *UnHoldRequest, opts ...grpc.CallOption) (*UnHoldResponse, error) {
+	out := new(UnHoldResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/UnHold", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) SetProfileVar(ctx context.Context, in *SetProfileVarRequest, opts ...grpc.CallOption) (*SetProfileVarResponse, error) {
+	out := new(SetProfileVarResponse)
+	err := c.cc.Invoke(ctx, "/fs.Api/SetProfileVar", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1179,10 +1667,15 @@ type ApiServer interface {
 	Execute(context.Context, *ExecuteRequest) (*ExecuteResponse, error)
 	SetVariables(context.Context, *SetVariablesRequest) (*SetVariablesResponse, error)
 	Bridge(context.Context, *BridgeRequest) (*BridgeResponse, error)
+	BridgeCall(context.Context, *BridgeCallRequest) (*BridgeCallResponse, error)
+	StopPlayback(context.Context, *StopPlaybackRequest) (*StopPlaybackResponse, error)
 	Hangup(context.Context, *HangupRequest) (*HangupResponse, error)
 	HangupMatchingVars(context.Context, *HangupMatchingVarsReqeust) (*HangupMatchingVarsResponse, error)
 	Queue(context.Context, *QueueRequest) (*QueueResponse, error)
-	StopPlayback(context.Context, *StopPlaybackRequest) (*StopPlaybackResponse, error)
+	HangupMany(context.Context, *HangupManyRequest) (*HangupManyResponse, error)
+	Hold(context.Context, *HoldRequest) (*HoldResponse, error)
+	UnHold(context.Context, *UnHoldRequest) (*UnHoldResponse, error)
+	SetProfileVar(context.Context, *SetProfileVarRequest) (*SetProfileVarResponse, error)
 }
 
 // UnimplementedApiServer can be embedded to have forward compatible implementations.
@@ -1201,6 +1694,12 @@ func (*UnimplementedApiServer) SetVariables(ctx context.Context, req *SetVariabl
 func (*UnimplementedApiServer) Bridge(ctx context.Context, req *BridgeRequest) (*BridgeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Bridge not implemented")
 }
+func (*UnimplementedApiServer) BridgeCall(ctx context.Context, req *BridgeCallRequest) (*BridgeCallResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BridgeCall not implemented")
+}
+func (*UnimplementedApiServer) StopPlayback(ctx context.Context, req *StopPlaybackRequest) (*StopPlaybackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopPlayback not implemented")
+}
 func (*UnimplementedApiServer) Hangup(ctx context.Context, req *HangupRequest) (*HangupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Hangup not implemented")
 }
@@ -1210,8 +1709,17 @@ func (*UnimplementedApiServer) HangupMatchingVars(ctx context.Context, req *Hang
 func (*UnimplementedApiServer) Queue(ctx context.Context, req *QueueRequest) (*QueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Queue not implemented")
 }
-func (*UnimplementedApiServer) StopPlayback(ctx context.Context, req *StopPlaybackRequest) (*StopPlaybackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StopPlayback not implemented")
+func (*UnimplementedApiServer) HangupMany(ctx context.Context, req *HangupManyRequest) (*HangupManyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HangupMany not implemented")
+}
+func (*UnimplementedApiServer) Hold(ctx context.Context, req *HoldRequest) (*HoldResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Hold not implemented")
+}
+func (*UnimplementedApiServer) UnHold(ctx context.Context, req *UnHoldRequest) (*UnHoldResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnHold not implemented")
+}
+func (*UnimplementedApiServer) SetProfileVar(ctx context.Context, req *SetProfileVarRequest) (*SetProfileVarResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetProfileVar not implemented")
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -1290,6 +1798,42 @@ func _Api_Bridge_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Api_BridgeCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BridgeCallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).BridgeCall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/BridgeCall",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).BridgeCall(ctx, req.(*BridgeCallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Api_StopPlayback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopPlaybackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).StopPlayback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/StopPlayback",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).StopPlayback(ctx, req.(*StopPlaybackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Api_Hangup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HangupRequest)
 	if err := dec(in); err != nil {
@@ -1344,20 +1888,74 @@ func _Api_Queue_Handler(srv interface{}, ctx context.Context, dec func(interface
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_StopPlayback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StopPlaybackRequest)
+func _Api_HangupMany_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HangupManyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).StopPlayback(ctx, in)
+		return srv.(ApiServer).HangupMany(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/fs.Api/StopPlayback",
+		FullMethod: "/fs.Api/HangupMany",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).StopPlayback(ctx, req.(*StopPlaybackRequest))
+		return srv.(ApiServer).HangupMany(ctx, req.(*HangupManyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Api_Hold_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HoldRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).Hold(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/Hold",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).Hold(ctx, req.(*HoldRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Api_UnHold_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnHoldRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).UnHold(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/UnHold",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).UnHold(ctx, req.(*UnHoldRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Api_SetProfileVar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetProfileVarRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServer).SetProfileVar(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fs.Api/SetProfileVar",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServer).SetProfileVar(ctx, req.(*SetProfileVarRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1383,6 +1981,14 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_Bridge_Handler,
 		},
 		{
+			MethodName: "BridgeCall",
+			Handler:    _Api_BridgeCall_Handler,
+		},
+		{
+			MethodName: "StopPlayback",
+			Handler:    _Api_StopPlayback_Handler,
+		},
+		{
 			MethodName: "Hangup",
 			Handler:    _Api_Hangup_Handler,
 		},
@@ -1395,8 +2001,20 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_Queue_Handler,
 		},
 		{
-			MethodName: "StopPlayback",
-			Handler:    _Api_StopPlayback_Handler,
+			MethodName: "HangupMany",
+			Handler:    _Api_HangupMany_Handler,
+		},
+		{
+			MethodName: "Hold",
+			Handler:    _Api_Hold_Handler,
+		},
+		{
+			MethodName: "UnHold",
+			Handler:    _Api_UnHold_Handler,
+		},
+		{
+			MethodName: "SetProfileVar",
+			Handler:    _Api_SetProfileVar_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
