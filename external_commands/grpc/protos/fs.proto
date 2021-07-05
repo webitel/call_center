@@ -42,7 +42,8 @@ message BridgeCallRequest {
 }
 
 message BridgeCallResponse {
-    ErrorExecute error = 1;
+    string uuid = 1;
+    ErrorExecute error = 2;
 }
 
 message HoldRequest {
