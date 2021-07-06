@@ -26,6 +26,8 @@ type AgentObject interface {
 	CallNumber() string
 	UpdatedAt() int64
 	TeamId() int
+	TeamUpdatedAt() int64
+	SetTeamUpdatedAt(at int64)
 
 	IsExpire(updatedAt int64) bool
 

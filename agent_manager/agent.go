@@ -56,6 +56,14 @@ func (agent *Agent) TeamId() int {
 	return agent.info.TeamId
 }
 
+func (agent *Agent) TeamUpdatedAt() int64 {
+	return agent.info.TeamUpdatedAt
+}
+
+func (agent *Agent) SetTeamUpdatedAt(at int64) {
+	agent.info.TeamUpdatedAt = at
+}
+
 func (agent *Agent) Online(onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	return agent.manager.SetOnline(agent, onDemand)
 }

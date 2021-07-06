@@ -52,6 +52,7 @@ type Agent struct {
 	Destination   string        `json:"destination" db:"destination"`
 	Extension     string        `json:"extension" db:"extension"`
 	TeamId        int           `json:"team_id" db:"team_id"`
+	TeamUpdatedAt int64         `json:"team_updated_at" db:"team_updated_at"`
 	OnDemand      bool          `json:"on_demand" db:"on_demand"`
 	GreetingMedia *RingtoneFile `json:"greeting_media" db:"greeting_media"`
 	AgentStatus
@@ -144,6 +145,8 @@ type AgentsForAttempt struct {
 	AttemptId      int64 `json:"attempt_id" db:"attempt_id"`
 	AgentId        int   `json:"agent_id" db:"agent_id"`
 	AgentUpdatedAt int64 `json:"agent_updated_at" db:"agent_updated_at"`
+	TeamId         int   `json:"team_id" db:"team_id"`
+	TeamUpdatedAt  int64 `json:"team_updated_at" db:"team_updated_at"`
 }
 
 type AgentState struct {

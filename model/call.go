@@ -96,7 +96,7 @@ type InboundCallQueue struct {
 	Destination    []byte            `json:"destination" db:"destination"`
 	Variables      map[string]string `json:"variables" db:"variables"`
 	Name           string            `json:"name" db:"name"`
-	TeamUpdatedAt  int64             `json:"team_updated_at" db:"team_updated_at"`
+	TeamUpdatedAt  *int64            `json:"team_updated_at" db:"team_updated_at"`
 	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
 
 	inboundCallData

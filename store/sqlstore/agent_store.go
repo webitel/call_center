@@ -25,9 +25,10 @@ func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsF
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update cc_member_attempt a
 set state = :Active
 from (
-    select a.id as attempt_id, a.agent_id, ca.updated_at as agent_updated_at
+    select a.id as attempt_id, a.agent_id, ca.updated_at as agent_updated_at, a.team_id, team.updated_at as team_updated_at
     from cc_member_attempt a
         inner join cc_agent ca on a.agent_id = ca.id
+		inner join cc_team team on team.id = a.team_id
     where a.state = :WaitAgent and a.agent_id notnull and a.node_id = :Node
     for update skip locked
 ) t
@@ -50,10 +51,11 @@ func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	if err := s.GetReplica().SelectOne(&agent, `
 			select a.id, a.user_id, a.domain_id, a.updated_at, coalesce( (u.name)::varchar, u.username) as name, 'sofia/sip/' || u.extension || '@' || d.name as destination, 
 			u.extension, a.status, a.status_payload, a.on_demand, 
-			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media, a.team_id
+			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media, a.team_id, team.updated_at as team_updated_at
 from cc_agent a
     inner join directory.wbt_user u on u.id = a.user_id
     inner join directory.wbt_domain d on d.dc = a.domain_id
+	inner join cc_team team on team.id = a.team_id
 	left join storage.media_files g on g.id = a.greeting_media_id
 where a.id = :Id and u.extension notnull		
 		`, map[string]interface{}{"Id": id}); err != nil {

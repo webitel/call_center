@@ -317,7 +317,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		BridgedAt:           0,
 		Destination:         res.Destination,
 		ListCommunicationId: nil,
-		TeamUpdatedAt:       model.NewInt64(res.TeamUpdatedAt),
+		TeamUpdatedAt:       res.TeamUpdatedAt,
 		Variables:           res.Variables,
 		Name:                res.Name,
 		MemberCallId:        &res.CallId,

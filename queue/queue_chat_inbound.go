@@ -57,11 +57,6 @@ func NewInboundChatQueue(base BaseQueue, settings InboundChatQueueSettings) Queu
 
 func (queue *InboundChatQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 
-	team, err := queue.GetTeam(attempt)
-	if err != nil {
-		return err
-	}
-
 	if attempt.MemberCallId() == nil {
 		return NewErrorCallRequired(queue, attempt)
 	}
@@ -79,12 +74,13 @@ func (queue *InboundChatQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	attempt.RemoveVariable(inviterChannelId)
 	attempt.RemoveVariable(inviterUserId)
 
-	go queue.process(attempt, team, inviterId, invUserId)
+	go queue.process(attempt, inviterId, invUserId)
 	return nil
 }
 
-func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, inviterId, invUserId string) {
+func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId string) {
 	var err *model.AppError
+	var team *agentTeam
 	defer attempt.Log("stopped queue")
 
 	queue.Hook(HookJoined, attempt)
@@ -122,6 +118,11 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 
 		case <-ags:
 			agent = attempt.Agent()
+			team, err = queue.GetTeam(attempt)
+			if err != nil {
+				wlog.Error(err.Error())
+				return
+			}
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			vars := map[string]string{
@@ -214,7 +215,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, team *agentTeam, invite
 		loop = conv.Active()
 	}
 
-	if agent != nil {
+	if agent != nil && team != nil {
 		if conv.BridgedAt() > 0 {
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
 		} else {

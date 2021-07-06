@@ -1280,7 +1280,7 @@ BEGIN
          q.sticky_agent
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
-    inner join cc_team ct on q.team_id = ct.id
+    left join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
       _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
@@ -1321,7 +1321,7 @@ BEGIN
   then
 --       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
 --           values ('call', _queue_id, 'leaving', now(), _call_id, 'now_working');
-      raise exception 'number % calendar not working', _number;
+      raise exception 'number % calendar not working [%]', _number, _calendar_id;
   end if;
 
 
@@ -1456,7 +1456,7 @@ BEGIN
          q.sticky_agent
   from cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
-    inner join cc_team ct on q.team_id = ct.id
+    left join cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
       _team_updated_at, _team_id_, _enabled, _q_type, _sticky;

@@ -138,6 +138,7 @@ func (d *DialingImpl) routeIdleAgents() {
 			wlog.Error(err.Error())
 			continue
 		}
+		agent.SetTeamUpdatedAt(v.TeamUpdatedAt)
 		d.routeAgentToAttempt(v.AttemptId, agent)
 	}
 }
