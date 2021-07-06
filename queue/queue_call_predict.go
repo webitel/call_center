@@ -87,7 +87,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
 				"absolute_codec_string":  "pcmu,pcma",
-				"park_timeout":           fmt.Sprintf("%d", queue.OriginateTimeout),
+				"park_timeout":           fmt.Sprintf("%d", queue.MaxWaitTime),
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",

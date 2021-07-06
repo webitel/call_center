@@ -536,6 +536,7 @@ begin
     set state = 'wait_agent',
         last_state_change = now(),
         agent_id = null ,
+        team_id = null,
         agent_call_id = null
     from cc_member_attempt a
     where a.id = n.id and a.id = attempt_id_
@@ -1016,9 +1017,10 @@ begin
     end if;
 
     with dis as MATERIALIZED (
-        select *
+        select x.*, a.team_id
         from cc_sys_distribute() x (agent_id int, queue_id int, bucket_id int, ins bool, id int8, resource_id int,
                                     resource_group_id int, comm_idx int)
+            left join cc_agent a on a.id= x.agent_id
     )
        , ins as (
         insert into cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
@@ -1032,7 +1034,7 @@ begin
                    x,
                    dis.comm_idx,
                    uuid_generate_v4(),
-                   q.team_id,
+                   dis.team_id,
                    dis.resource_group_id,
                    q.domain_id
             from dis
@@ -1042,10 +1044,12 @@ begin
             where dis.ins
     )
     update cc_member_attempt a
-    set agent_id = t.agent_id
+    set agent_id = t.agent_id,
+        team_id = t.team_id
     from (
-             select dis.id, dis.agent_id
+             select dis.id, dis.agent_id, dis.team_id
              from dis
+
              where not dis.ins is true
          ) t
     where t.id = a.id
@@ -6407,12 +6411,12 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
     a.domain_id,
     a.id AS agent_id
    FROM ((call_center.cc_agent a
-     JOIN call_center.cc_queue q ON ((q.team_id = a.team_id)))
+     JOIN call_center.cc_queue q ON ((q.domain_id = a.domain_id)))
      LEFT JOIN call_center.cc_queue_statistics cqs ON ((q.id = cqs.queue_id)))
-  WHERE (EXISTS ( SELECT qs.queue_id
+  WHERE (((q.team_id IS NULL) OR (a.team_id = q.team_id)) AND (EXISTS ( SELECT qs.queue_id
            FROM (call_center.cc_queue_skill qs
              JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
-          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity))))
+          WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a.id) AND (qs.queue_id = q.id) AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
   GROUP BY a.id, q.id, q.priority;
 
 

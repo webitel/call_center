@@ -18,19 +18,16 @@ func (queue *JoinAgentQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 		return NewErrorCallRequired(queue, attempt)
 	}
 
-	team, err := queue.GetTeam(attempt)
-	if err != nil {
-		return err
-	}
-
-	go queue.run(attempt, team, mCall)
+	go queue.run(attempt, mCall)
 
 	return nil
 }
 
-func (queue *JoinAgentQueue) run(attempt *Attempt, team *agentTeam, mCall call_manager.Call) {
+func (queue *JoinAgentQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 	var calling = true
+	var team *agentTeam
+	var err *model.AppError
 
 	defer attempt.Log("stopped queue")
 
@@ -38,6 +35,13 @@ func (queue *JoinAgentQueue) run(attempt *Attempt, team *agentTeam, mCall call_m
 
 	agent := attempt.Agent()
 	attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
+
+	team, err = queue.GetTeam(attempt)
+	if err != nil {
+		wlog.Error(err.Error())
+		//todo
+		return
+	}
 
 	if mCall.HangupCause() != "" {
 		attempt.Log(fmt.Sprintf("agent %s LOSE_RACE", agent.Name()))

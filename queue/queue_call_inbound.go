@@ -46,27 +46,23 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 
 func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	var err *model.AppError
-	var team *agentTeam
 	defer attempt.Log("stopped queue")
-
-	team, err = queue.GetTeam(attempt)
-	if err != nil {
-		wlog.Error(err.Error()) // todo
-		panic("FIXME")
-	}
 
 	attempt.SetState(model.MemberStateJoined)
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
-		//FIXME
-		panic(err.Error())
+		wlog.Error(err.Error())
+		//todo
+		return
 	}
+
 	attempt.SetState(model.MemberStateWaitAgent)
 
 	attempts := 0
 
 	var agent agent_manager.AgentObject
 	var agentCall call_manager.Call
+	var team *agentTeam
 
 	var calling = mCall.HangupAt() == 0
 
@@ -91,6 +87,12 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 		case <-ags:
 			agent = attempt.Agent()
+			team, err = queue.GetTeam(attempt)
+			if err != nil {
+				wlog.Error(err.Error()) // todo
+				time.Sleep(time.Second * 3)
+				continue
+			}
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			attempts++
@@ -211,6 +213,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				}
 				agent = nil
 				agentCall = nil
+				team = nil
 			}
 
 			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
