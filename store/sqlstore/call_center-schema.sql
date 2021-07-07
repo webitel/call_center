@@ -3451,7 +3451,7 @@ ALTER SEQUENCE call_center.cc_cluster_id_seq OWNED BY call_center.cc_cluster.id;
 CREATE TABLE call_center.cc_communication (
     id integer NOT NULL,
     name character varying(50) NOT NULL,
-    code character varying(10) NOT NULL,
+    code character varying(100) NOT NULL,
     type character varying(5),
     domain_id bigint,
     description character varying(200) DEFAULT ''::character varying
