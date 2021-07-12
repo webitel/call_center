@@ -212,7 +212,19 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 }
 
 func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError) {
-	cli, err := cm.getApiConnectionById(call.AppId)
+	var err *model.AppError
+	var cli model.CallCommands
+
+	if c, ok := cm.calls.Get(call.Id); ok {
+		cc := c.(Call)
+		if cc.Direction() == CALL_DIRECTION_OUTBOUND {
+			err = cc.UpdateCid()
+		}
+		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
+		return cc, err
+	}
+
+	cli, err = cm.getApiConnectionById(call.AppId)
 	if err != nil {
 		return nil, err
 	}

@@ -86,17 +86,49 @@ top:
 				})
 				//
 				time.Sleep(time.Millisecond * 250)
-				printfIfErr(agentCall.Bridge(mCall))
+				printfIfErr(mCall.Bridge(agentCall))
+
+			case call_manager.CALL_STATE_BRIDGE:
+				if attempt.state != model.MemberStateBridged {
+					team.Bridged(attempt, agent)
+				}
 
 			case call_manager.CALL_STATE_HANGUP:
+				if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
+					attempt.Log("receive transfer queue")
+					if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
+						wlog.Error(err.Error())
+					} else {
+						if nc.HangupAt() == 0 {
+							if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(),
+								*agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
+								agent = newA
+								attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
+							} else {
+								wlog.Error(err.Error())
+							}
+
+							agentCall = nc
+							continue
+						}
+					}
+				}
 				break top
 			}
 		case s := <-mCall.State():
 			switch s {
 			case call_manager.CALL_STATE_BRIDGE:
-				team.Bridged(attempt, agent)
+				if attempt.state != model.MemberStateBridged {
+					team.Bridged(attempt, agent)
+				}
 			case call_manager.CALL_STATE_HANGUP:
 				attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+				if mCall.TransferToAttemptId() != nil {
+					attempt.Log(fmt.Sprintf("transfer to %d, wait connect to attemt...", *mCall.TransferToAttemptId()))
+					queue.queueManager.TransferTo(attempt, *mCall.TransferToAttemptId())
+					return
+				}
+
 				if agentCall.HangupAt() == 0 {
 					if mCall.BridgeAt() > 0 {
 						agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
