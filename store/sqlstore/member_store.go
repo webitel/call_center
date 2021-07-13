@@ -387,7 +387,7 @@ func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint32
     set timeout  = case when :DeadlineSec::int > 0 then  now() + (:DeadlineSec::int || ' sec')::interval end,
         leaving_at = now(),
 	    last_state_change = now(),
-        state = :State
+        state = case when state <> 'leaving' then :State else state end
     where id = :Id
     returning agent_id, channel, state, leaving_at
 )

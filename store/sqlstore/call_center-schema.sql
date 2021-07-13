@@ -4471,7 +4471,7 @@ CREATE VIEW call_center.cc_queue_list AS
           WHERE (s_1.queue_id = q.id)) ss ON (true))
      LEFT JOIN LATERAL ( SELECT count(*) AS cnt
            FROM call_center.cc_member_attempt a
-          WHERE ((a.queue_id = q.id) AND (a.leaving_at IS NULL))) act ON (true));
+          WHERE ((a.queue_id = q.id) AND (a.leaving_at IS NULL) AND ((a.state)::text <> 'leaving'::text))) act ON (true));
 
 
 --
@@ -6538,7 +6538,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) l ON ((q.lim > 0)))
+          WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
   WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
 
 
