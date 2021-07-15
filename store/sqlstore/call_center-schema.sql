@@ -6526,7 +6526,10 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             WHEN (q.type = 7) THEN calend.l
             ELSE r.offset_ids
         END AS offset_ids,
-    ((q.lim - COALESCE(l.usage, (0)::bigint)))::integer AS lim,
+        CASE
+            WHEN (q.lim = '-1'::integer) THEN NULL::integer
+            ELSE GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0)
+        END AS lim,
     q.domain_id,
     q.priority,
     q.sticky_agent,
