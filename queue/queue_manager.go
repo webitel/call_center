@@ -392,12 +392,16 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		MemberCallId:   &res.CallId,
 	})
 
+	if in.QueueName == "" {
+		in.QueueName = "Agent"
+	}
+
 	settings := &model.Queue{
 		Id:                   0,
 		DomainId:             in.DomainId,
 		DomainName:           "TODO",
 		Type:                 10,
-		Name:                 "agent",
+		Name:                 in.QueueName,
 		Strategy:             "",
 		Payload:              nil,
 		TeamId:               &res.TeamId,
