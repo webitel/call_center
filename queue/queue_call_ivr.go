@@ -69,6 +69,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 			queue.Variables(),
 			attempt.resource.Variables(),
 			attempt.ExportSchemaVariables(),
+			attempt.ExportVariables(), // TODO deprecated
 			map[string]string{
 				model.CallVariableDomainName: queue.Domain(),
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
