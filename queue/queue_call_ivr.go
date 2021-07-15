@@ -68,7 +68,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.resource.Variables(),
-			attempt.ExportVariables(),
+			attempt.ExportSchemaVariables(),
 			map[string]string{
 				model.CallVariableDomainName: queue.Domain(),
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
