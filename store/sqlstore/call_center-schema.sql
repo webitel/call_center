@@ -3870,7 +3870,8 @@ CREATE TABLE call_center.cc_outbound_resource (
     error_ids character varying(50)[] DEFAULT '{}'::character varying[],
     gateway_id bigint,
     email_profile_id integer,
-    payload jsonb
+    payload jsonb,
+    description character varying
 );
 
 
@@ -4237,7 +4238,8 @@ CREATE VIEW call_center.cc_outbound_resource_view AS
     call_center.cc_get_lookup(c.id, (c.name)::character varying) AS created_by,
     call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
     call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
-    s.gateway_id
+    s.gateway_id,
+    s.description
    FROM (((call_center.cc_outbound_resource s
      LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)))
