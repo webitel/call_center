@@ -109,6 +109,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	loop := conv.Active()
 
 	mSess := conv.MemberSession()
+	attempt.memberChannel = mSess
 	var aSess *chat.ChatSession
 
 	for loop {

@@ -39,6 +39,7 @@ type MemberCommunication struct {
 	Type        Communication `json:"type"`
 	Priority    int           `json:"priority"`
 	Display     *string       `json:"display"`
+	Description string        `json:"description"`
 }
 
 type AttemptCallback struct {

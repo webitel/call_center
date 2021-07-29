@@ -169,3 +169,8 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 		team.Reporting(queue, attempt, agent, task.ReportingAt() > 0, false)
 	}
 }
+
+func (t *TaskChannel) Stats() map[string]string {
+	// todo
+	return map[string]string{}
+}

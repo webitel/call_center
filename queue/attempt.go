@@ -10,6 +10,7 @@ import (
 	"github.com/webitel/wlog"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type AttemptInfo interface {
@@ -236,6 +237,12 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 
 	res["destination"] = a.Destination()
 	res["attempt_id"] = fmt.Sprintf("%d", a.Id())
+	res["timestamp"] = fmt.Sprintf("%d", model.GetMillis())
+	res["joined_at"] = fmt.Sprintf("%d", a.JoinedAt())
+
+	if a.communication.Description != "" {
+		res["destination_description"] = a.communication.Description
+	}
 
 	if a.member.Name != "" {
 		res["member_name"] = a.member.Name
@@ -250,6 +257,7 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	}
 	if a.memberChannel != nil {
 		res["member_channel_id"] = a.memberChannel.Id()
+		res = model.UnionStringMaps(res, a.memberChannel.Stats())
 	}
 
 	if a.MemberStopCause() != "" {
@@ -330,4 +338,12 @@ func (a *Attempt) LogsData() []byte {
 func (a *Attempt) ToJSON() string {
 	data, _ := json.Marshal(a)
 	return string(data)
+}
+
+func (a *Attempt) JoinedAt() int64 {
+	if a.member != nil {
+		return a.member.CreatedAt.UnixNano() / int64(time.Millisecond)
+	}
+
+	return 0
 }

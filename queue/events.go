@@ -7,6 +7,7 @@ import (
 
 type Channel interface {
 	Id() string
+	Stats() map[string]string
 }
 
 type ChannelEvent struct {

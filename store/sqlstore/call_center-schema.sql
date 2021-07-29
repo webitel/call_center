@@ -5211,7 +5211,7 @@ ALTER TABLE ONLY call_center.cc_list
 --
 
 ALTER TABLE ONLY call_center.cc_calls_history
-    ADD CONSTRAINT cc_calls_history_pk PRIMARY KEY (domain_id, id);
+    ADD CONSTRAINT cc_calls_history_pk PRIMARY KEY (id, domain_id);
 
 
 --

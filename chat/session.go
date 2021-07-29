@@ -82,3 +82,8 @@ func (c *ChatSession) Leave() *model.AppError {
 
 	return nil
 }
+
+func (c *ChatSession) Stats() map[string]string {
+	// todo
+	return map[string]string{}
+}

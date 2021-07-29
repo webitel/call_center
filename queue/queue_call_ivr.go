@@ -132,6 +132,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	attempt.SetState(model.MemberStateJoined)
 
+	attempt.memberChannel = call
+
 	call.Invite()
 	if call.Err() != nil {
 		return

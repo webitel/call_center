@@ -69,6 +69,8 @@ type Call interface {
 
 	SetRecordings(domainId int64, bridged, stereo bool)
 	UpdateCid() *model.AppError
+
+	Stats() map[string]string
 }
 
 type CallAction struct {
@@ -637,4 +639,25 @@ func (call *CallImpl) UpdateCid() *model.AppError {
 		return nil
 	}
 	return call.api.UpdateCid(call.id, call.info.To.Number, call.info.To.Name)
+}
+
+func (call *CallImpl) Stats() map[string]string {
+	vars := map[string]string{
+		"call_bill_sec": fmt.Sprintf("%d", call.BillSeconds()),
+		"call_duration": fmt.Sprintf("%d", call.DurationSeconds()),
+		"call_cause":    call.HangupCause(),
+	}
+
+	code := call.HangupCauseCode()
+	if code > 0 {
+		vars["call_sip_code"] = fmt.Sprintf("%d", call.HangupCauseCode())
+	}
+
+	// fixme
+	var ansSec = int((call.HangupAt() - call.AcceptAt()) / 1000)
+	if ansSec > 0 {
+		vars["call_answer_sec"] = fmt.Sprintf("%d", ansSec)
+	}
+
+	return vars
 }

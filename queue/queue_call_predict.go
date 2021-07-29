@@ -136,7 +136,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 			AppName: "park",
 		})
 	}
-
+	attempt.memberChannel = mCall
 	mCall.Invite()
 
 	var calling = true

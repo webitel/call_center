@@ -143,6 +143,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	//FIXME update member call id
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, mCall))
+	attempt.memberChannel = mCall
 	mCall.Invite()
 
 	var calling = true

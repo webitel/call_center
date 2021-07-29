@@ -312,7 +312,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		QueueCount:          0, // TODO
 		QueueActiveCount:    0,
 		QueueWaitingCount:   0,
-		CreatedAt:           time.Time{},
+		CreatedAt:           time.Now(),
 		HangupAt:            0,
 		BridgedAt:           0,
 		Destination:         res.Destination,
@@ -381,7 +381,7 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 
 	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
 		Id:             res.AttemptId,
-		CreatedAt:      time.Time{},
+		CreatedAt:      time.Now(),
 		Result:         nil,
 		Destination:    res.Destination,
 		AgentId:        model.NewInt(int(in.AgentId)),
@@ -477,7 +477,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		QueueCount:          0,
 		QueueActiveCount:    0,
 		QueueWaitingCount:   0,
-		CreatedAt:           time.Time{},
+		CreatedAt:           time.Now(),
 		HangupAt:            0,
 		BridgedAt:           0,
 		Destination:         res.Destination,
