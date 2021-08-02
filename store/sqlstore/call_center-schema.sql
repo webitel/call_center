@@ -1029,7 +1029,7 @@ begin
                    dis.id,
                    dis.queue_id,
                    dis.resource_id,
-                   case when q.type != 5 then dis.agent_id end,
+                   dis.agent_id,
                    dis.bucket_id,
                    x,
                    dis.comm_idx,
@@ -3522,18 +3522,31 @@ SELECT
 CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
  SELECT att.queue_id,
     att.bucket_id,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (att.bridged_at IS NULL)) AS nbr_cnt,
-    count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS br_cnt,
-    COALESCE(date_part('epoch'::text, avg((att.answered_at - att.joined_at)) FILTER (WHERE (att.answered_at IS NOT NULL))), (0)::double precision) AS distr_t,
-    count(*) FILTER (WHERE ((att.bridged_at IS NULL) AND (att.answered_at IS NOT NULL))) AS predict_abandoned_cnt,
-    GREATEST(
+    min(att.joined_at) AS start_stat,
+    max(att.joined_at) AS stop_stat,
+    count(*) AS call_attempts,
+    COALESCE(avg(date_part('epoch'::text, (COALESCE(att.reporting_at, att.leaving_at) - att.offering_at))) FILTER (WHERE (att.bridged_at IS NOT NULL)), (0)::double precision) AS avg_handle,
+    COALESCE(avg(DISTINCT (round(date_part('epoch'::text, (COALESCE(att.reporting_at, att.leaving_at) - att.offering_at))))::real) FILTER (WHERE (att.bridged_at IS NOT NULL)), (0)::double precision) AS med_handle,
+    COALESCE(avg(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE (ch.answered_at IS NOT NULL)), (0)::double precision) AS avg_member_answer,
+    COALESCE(max(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE (ch.answered_at IS NOT NULL)), (0)::double precision) AS max_member_answer,
+    count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))) AS connected_calls,
+    count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS bridged_calls,
+    count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))) AS abandoned_calls,
+    ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS connection_rate,
         CASE
-            WHEN (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) > 0) THEN ((count(*))::double precision / (count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)))::double precision)
+            WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((count(DISTINCT att.agent_id))::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (count(DISTINCT att.agent_id))::double precision)
             ELSE (1)::double precision
-        END, (1)::double precision) AS connect_rate
-   FROM call_center.cc_member_attempt_history att
-  WHERE (att.joined_at > (now() - '01:00:00'::interval))
+        END AS over_dial,
+    (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate,
+    (((count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval))) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval))) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_30_14,
+    (((count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now())) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now())) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_15_n,
+    count(DISTINCT att.agent_id) AS agents,
+    array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
+   FROM (call_center.cc_member_attempt_history att
+     LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND ((ch.id)::text = (att.member_call_id)::text))))
+  WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - '00:45:00'::interval)) AND (att.queue_id IN ( SELECT q.id
+           FROM call_center.cc_queue q
+          WHERE (q.enabled AND (q.type = 5)))))
   GROUP BY att.queue_id, att.bucket_id
   WITH NO DATA;
 

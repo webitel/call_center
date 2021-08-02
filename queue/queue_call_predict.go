@@ -23,6 +23,10 @@ type PredictCallQueueSettings struct {
 	RetryAbandoned         bool                    `json:"retry_abandoned"`
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
+
+	MinAttempts      uint `json:"min_attempts"`
+	MaxAbandonedRate uint `json:"max_abandoned_rate"`
+	MaxAgentLine     uint `json:"max_agent_line"`
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
