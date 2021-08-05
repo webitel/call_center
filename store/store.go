@@ -105,6 +105,7 @@ type AgentStore interface {
 	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
 
 	OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError)
+	LosePredictAttempt(id int) *model.AppError
 }
 
 type TeamStore interface {

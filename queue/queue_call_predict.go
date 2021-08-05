@@ -179,6 +179,11 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	var err *model.AppError
 
+	var predictAgentId = 0
+	if attempt.agent != nil {
+		predictAgentId = attempt.agent.Id()
+	}
+
 	attempt.Log("answer & wait agent")
 	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
 		wlog.Error(err.Error())
@@ -331,11 +336,14 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
-	} else if queue.RetryAbandoned {
-		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
-		queue.queueManager.LeavingMember(attempt)
 	} else {
-		queue.queueManager.Abandoned(attempt)
+		queue.queueManager.LosePredictAgent(predictAgentId)
+		if queue.RetryAbandoned {
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+			queue.queueManager.LeavingMember(attempt)
+		} else {
+			queue.queueManager.Abandoned(attempt)
+		}
 	}
 
 	go func() {

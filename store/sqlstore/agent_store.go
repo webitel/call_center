@@ -274,3 +274,18 @@ for update skip locked`, map[string]interface{}{
 
 	return res, nil
 }
+
+func (s SqlAgentStore) LosePredictAttempt(id int) *model.AppError {
+	_, err := s.GetMaster().Exec(`update cc_agent_channel
+set lose_attempt = lose_attempt + 1
+where agent_id = :AgentId and state != 'waiting'`, map[string]interface{}{
+		"AgentId": id,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlAgentStore.LosePredictAttempt", "store.sql_agent.lose_predict.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}

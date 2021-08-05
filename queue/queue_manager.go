@@ -769,3 +769,9 @@ func (queueManager *QueueManager) TransferFrom(team *agentTeam, attempt *Attempt
 
 	return a, nil
 }
+
+func (queueManager *QueueManager) LosePredictAgent(id int) {
+	if err := queueManager.store.Agent().LosePredictAttempt(id); err != nil {
+		wlog.Error(err.Error())
+	}
+}
