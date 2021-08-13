@@ -2686,7 +2686,7 @@ CREATE TABLE call_center.cc_team (
     created_at bigint,
     created_by bigint,
     updated_by bigint,
-    admin_id integer
+    admin_ids integer[]
 );
 
 
@@ -3543,17 +3543,17 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
             WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (1)::double precision)
             ELSE (1)::double precision
         END AS over_dial,
-    (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate,
+    COALESCE((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
     ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS hit_rate,
-    (((count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval))) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval))) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_30_14,
-    (((count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now())) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE (((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now())) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_15_n,
+    (((count(*) FILTER (WHERE ((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval)) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE ((att.joined_at >= (now() - '00:30:00'::interval)) AND (att.joined_at <= (now() - '00:14:00'::interval)) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_30_14,
+    (((count(*) FILTER (WHERE ((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now()) AND (ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (NULLIF(count(*) FILTER (WHERE ((att.joined_at >= (now() - '00:15:00'::interval)) AND (att.joined_at <= now()) AND (ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision) AS abandoned_rate_15_n,
     count(DISTINCT att.agent_id) AS agents,
     array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
    FROM (call_center.cc_member_attempt_history att
      LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND ((ch.id)::text = (att.member_call_id)::text))))
   WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - '01:00:00'::interval)) AND (att.queue_id IN ( SELECT q.id
            FROM call_center.cc_queue q
-          WHERE (q.enabled AND (q.type = 5)))))
+          WHERE ((q.type = 5) AND q.enabled))))
   GROUP BY att.queue_id, att.bucket_id
   WITH NO DATA;
 
@@ -4861,11 +4861,12 @@ CREATE VIEW call_center.cc_team_list AS
     t.no_answer_delay_time,
     t.call_timeout,
     t.updated_at,
-    adm."user" AS admin,
+    ( SELECT jsonb_agg(adm."user") AS jsonb_agg
+           FROM call_center.cc_agent_with_user adm
+          WHERE (adm.id = ANY (t.admin_ids))) AS admin,
     t.domain_id,
-    t.admin_id
-   FROM (call_center.cc_team t
-     LEFT JOIN call_center.cc_agent_with_user adm ON ((adm.id = t.admin_id)));
+    t.admin_ids
+   FROM call_center.cc_team t;
 
 
 --
@@ -6323,10 +6324,10 @@ CREATE UNIQUE INDEX cc_team_acl_subject_object_udx ON call_center.cc_team_acl US
 
 
 --
--- Name: cc_team_admin_id_index; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_admin_ids_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_team_admin_id_index ON call_center.cc_team USING btree (admin_id);
+CREATE INDEX cc_team_admin_ids_index ON call_center.cc_team USING gin (admin_ids gin__int_ops);
 
 
 --
@@ -7771,14 +7772,6 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 ALTER TABLE ONLY call_center.cc_team_acl
     ADD CONSTRAINT cc_team_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
-
-
---
--- Name: cc_team cc_team_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_cc_agent_id_fk FOREIGN KEY (admin_id) REFERENCES call_center.cc_agent(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
