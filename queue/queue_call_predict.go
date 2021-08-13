@@ -233,12 +233,21 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				break
 			}
 
-			cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
-				{
-					AppName: "park",
-					Args:    "",
-				},
+			apps := []*model.CallRequestApplication{}
+
+			if v, ok := queue.variables["wbt_auto_answer"]; ok && v == "true" {
+				apps = append(apps, &model.CallRequestApplication{
+					AppName: "playback",
+					Args:    "tone_stream://%(2000,4000,440,480)",
+				})
+			}
+
+			apps = append(apps, &model.CallRequestApplication{
+				AppName: "park",
+				Args:    "",
 			})
+
+			cr := queue.AgentCallRequest(agent, team, attempt, apps)
 
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 
