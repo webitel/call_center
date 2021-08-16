@@ -268,7 +268,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		team.Cancel(attempt, agent, uint(queue.MaxAttempts), uint64(queue.WaitBetweenRetries))
 		queue.queueManager.LeavingMember(attempt)
 	} else {
-		if agentCall.AnswerSeconds() > 0 { //FIXME Accept or Bridge ?
+		if agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
