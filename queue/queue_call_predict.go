@@ -238,7 +238,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			if v, ok := queue.variables["wbt_auto_answer"]; ok && v == "true" {
 				apps = append(apps, &model.CallRequestApplication{
 					AppName: "playback",
-					Args:    "tone_stream://%(2000,4000,440,480)",
+					Args:    "tone_stream://L=1;%(1850,1750,1000)",
 				})
 			}
 

@@ -482,7 +482,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		BridgedAt:           0,
 		Destination:         res.Destination,
 		ListCommunicationId: nil,
-		TeamUpdatedAt:       model.NewInt64(res.TeamUpdatedAt),
+		TeamUpdatedAt:       res.TeamUpdatedAt,
 		Variables:           res.Variables,
 		Name:                res.Name,
 		MemberCallId:        &res.ConversationId,
