@@ -27,6 +27,7 @@ type PredictCallQueueSettings struct {
 	MinAttempts      uint `json:"min_attempts"`
 	MaxAbandonedRate uint `json:"max_abandoned_rate"`
 	MaxAgentLine     uint `json:"max_agent_line"`
+	PlaybackSilence  uint `json:"playback_silence"`
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
@@ -156,7 +157,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 				}
 
 				if queue.HasRingtone() {
-					mCall.BroadcastPlaybackFile(queue.domainId, queue.Ringtone(), "both")
+					mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, queue.PlaybackSilence, queue.Ringtone(), "both")
 				}
 
 				queue.runOfferingAgents(attempt, mCall)
