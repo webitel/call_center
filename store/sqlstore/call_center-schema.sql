@@ -2724,7 +2724,9 @@ CREATE VIEW call_center.cc_agent_list AS
     a.team_id,
     a.region_id,
     a.supervisor_ids,
-    a.auditor_ids
+    a.auditor_ids,
+    a.user_id,
+    ct.extension
    FROM (((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
      LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
@@ -5112,7 +5114,7 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
     ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS connection_rate,
         CASE
             WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (1)::double precision)
-            ELSE (1)::double precision
+            ELSE (((count(*) / GREATEST(count(DISTINCT att.agent_id), (1)::bigint)) - 1))::double precision
         END AS over_dial,
     COALESCE(((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision - (COALESCE(((q.payload -> 'abandon_rate_adjustment'::text))::integer, 0))::double precision) / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
     ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS hit_rate,
