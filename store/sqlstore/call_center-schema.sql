@@ -1199,9 +1199,9 @@ BEGIN
   end if;
 
 
-  insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id)
+  insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id)
   values (_domain_id, 'waiting', _team_id_, _call_id, jsonb_build_object('destination', _call.from_number),
-              _node_name, _agent_id)
+              _node_name, _agent_id, _call.attempt_id)
   returning * into _attempt;
 
   update cc_calls
@@ -1372,9 +1372,9 @@ BEGIN
       _sticky_agent_id = null;
   end if;
 
-  insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
+  insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id, parent_id)
   values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id, jsonb_build_object('destination', _number),
-              _node_name, _sticky_agent_id, null)
+              _node_name, _sticky_agent_id, null, _call.attempt_id)
   returning * into _attempt;
 
   update cc_calls
@@ -3017,7 +3017,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     domain_id bigint NOT NULL,
     transferred_at timestamp with time zone,
     transferred_agent_id integer,
-    transferred_attempt_id bigint
+    transferred_attempt_id bigint,
+    parent_id bigint
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3275,7 +3276,11 @@ CREATE TABLE call_center.cc_member_attempt_history (
     resource_group_id integer,
     answered_at timestamp with time zone,
     region_id integer,
-    supervisor_ids integer[]
+    supervisor_ids integer[],
+    transferred_at timestamp with time zone,
+    transferred_agent_id integer,
+    transferred_attempt_id bigint,
+    parent_id bigint
 );
 
 
@@ -5896,6 +5901,13 @@ CREATE INDEX cc_member_attempt_history_member_id_index ON call_center.cc_member_
 
 
 --
+-- Name: cc_member_attempt_history_parent_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_parent_id_index ON call_center.cc_member_attempt_history USING btree (parent_id) WHERE (parent_id IS NOT NULL);
+
+
+--
 -- Name: cc_member_attempt_history_queue_id_leaving_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -7218,7 +7230,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_history
-    ADD CONSTRAINT cc_member_attempt_history_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT cc_member_attempt_history_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id);
 
 
 --
