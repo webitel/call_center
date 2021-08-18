@@ -60,6 +60,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	var callerIdNumber = attempt.Display()
 
 	callRequest := &model.CallRequest{
+		Id:           attempt.MemberCallId(),
 		Endpoints:    []string{dst},
 		CallerNumber: attempt.Destination(),
 		CallerName:   attempt.Name(),
