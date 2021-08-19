@@ -373,6 +373,7 @@ func (call *CallImpl) FromName() string {
 	return ""
 }
 
+// FIXME PLEASE
 func (call *CallImpl) NodeName() string {
 	// FIXME крешиться коли сфвіч падає
 	return call.api.Name()

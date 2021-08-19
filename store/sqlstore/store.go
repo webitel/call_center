@@ -20,4 +20,5 @@ type SqlStore interface {
 	Team() store.TeamStore
 	Gateway() store.GatewayStore
 	Call() store.CallStore
+	Statistic() store.StatisticStore
 }

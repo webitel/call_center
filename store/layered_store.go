@@ -57,3 +57,7 @@ func (s *LayeredStore) Gateway() GatewayStore {
 func (s *LayeredStore) Call() CallStore {
 	return s.DatabaseLayer.Call()
 }
+
+func (s *LayeredStore) Statistic() StatisticStore {
+	return s.DatabaseLayer.Statistic()
+}

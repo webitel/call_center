@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
@@ -39,18 +40,26 @@ func (s *StatisticsManager) Stop() {
 
 func (s *StatisticsManager) refresh() {
 	st := time.Now()
-	if err := s.store.Agent().RefreshAgentPauseCauses(); err != nil {
+	var err *model.AppError
+	if err = s.store.Agent().RefreshAgentPauseCauses(); err != nil {
 		wlog.Error(err.Error())
 	}
 
 	wlog.Debug(fmt.Sprintf("refresh pause_cause statistics time: %s", time.Now().Sub(st)))
 
 	st = time.Now()
-	if err := s.store.Member().RefreshQueueStatsLast2H(); err != nil {
+	if err = s.store.Member().RefreshQueueStatsLast2H(); err != nil {
 		wlog.Error(err.Error())
 	}
 
-	wlog.Debug(fmt.Sprintf("refresh queue statistics time: %s", time.Now().Sub(st)))
+	wlog.Debug(fmt.Sprintf("refresh outbound queue statistics time: %s", time.Now().Sub(st)))
+
+	st = time.Now()
+	if err = s.store.Statistic().RefreshInbound1H(); err != nil {
+		wlog.Error(err.Error())
+	}
+
+	wlog.Debug(fmt.Sprintf("refresh inbound queue statistics time: %s", time.Now().Sub(st)))
 
 	return
 }

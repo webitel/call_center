@@ -39,6 +39,7 @@ type SqlSupplierOldStores struct {
 	cluster          store.ClusterStore
 	gateway          store.GatewayStore
 	call             store.CallStore
+	statistic        store.StatisticStore
 }
 
 type SqlSupplier struct {
@@ -71,6 +72,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.team = NewSqlTeamStore(supplier)
 	supplier.oldStores.gateway = NewSqlGatewayStore(supplier)
 	supplier.oldStores.call = NewSqlCallStore(supplier)
+	supplier.oldStores.statistic = NewSqlStatisticStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -213,6 +215,10 @@ func (ss *SqlSupplier) Gateway() store.GatewayStore {
 
 func (ss *SqlSupplier) Call() store.CallStore {
 	return ss.oldStores.call
+}
+
+func (ss *SqlSupplier) Statistic() store.StatisticStore {
+	return ss.oldStores.statistic
 }
 
 type typeConverter struct{}

@@ -14,6 +14,7 @@ type Store interface {
 	Team() TeamStore
 	Gateway() GatewayStore
 	Call() CallStore
+	Statistic() StatisticStore
 }
 
 type CallStore interface {
@@ -114,4 +115,8 @@ type TeamStore interface {
 
 type GatewayStore interface {
 	Get(id int64) (*model.SipGateway, *model.AppError)
+}
+
+type StatisticStore interface {
+	RefreshInbound1H() *model.AppError
 }
