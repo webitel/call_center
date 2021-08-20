@@ -7,5 +7,12 @@ func (a *App) GetOutboundResourceById(id int64) (*model.OutboundResource, *model
 }
 
 func (a *App) GetGateway(id int64) (*model.SipGateway, *model.AppError) {
-	return a.Store.Gateway().Get(id)
+	gw, err := a.Store.Gateway().Get(id)
+	if err != nil {
+		return nil, err
+	}
+
+	gw.UseBridgeAnswerTimeout = a.Config().CallSettings.UseBridgeAnswerTimeout
+
+	return gw, nil
 }

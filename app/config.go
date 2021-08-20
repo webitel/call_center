@@ -7,12 +7,13 @@ import (
 )
 
 var (
-	appId          = flag.String("id", "1", "Service id")
-	consulHost     = flag.String("consul", "172.0.0.1:8500", "Host to consul")
-	dataSource     = flag.String("data_source", "postgres://opensips:webitel@postgres:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10&search_path=call_center", "Data source")
-	amqpSource     = flag.String("amqp", "amqp://webitel:webitel@rabbit:5672?heartbeat=10", "AMQP connection")
-	grpcServerPort = flag.Int("grpc_port", 0, "GRPC port")
-	grpcServerAddr = flag.String("grpc_addr", "", "GRPC host")
+	appId                  = flag.String("id", "1", "Service id")
+	consulHost             = flag.String("consul", "172.0.0.1:8500", "Host to consul")
+	dataSource             = flag.String("data_source", "postgres://opensips:webitel@postgres:5432/webitel?fallback_application_name=call_center&sslmode=disable&connect_timeout=10&search_path=call_center", "Data source")
+	amqpSource             = flag.String("amqp", "amqp://webitel:webitel@rabbit:5672?heartbeat=10", "AMQP connection")
+	grpcServerPort         = flag.Int("grpc_port", 0, "GRPC port")
+	grpcServerAddr         = flag.String("grpc_addr", "", "GRPC host")
+	useBridgeAnswerTimeout = flag.Bool("use_bridge_answer_timeout", false, "bridge_answer_timeout")
 )
 
 func (a *App) Config() *model.Config {
@@ -39,6 +40,9 @@ func loadConfig() (*model.Config, error) {
 		},
 		DiscoverySettings: model.DiscoverySettings{
 			Url: *consulHost,
+		},
+		CallSettings: model.CallSettings{
+			UseBridgeAnswerTimeout: *useBridgeAnswerTimeout,
 		},
 		ServerSettings: model.ServerSettings{
 			Address: *grpcServerAddr,

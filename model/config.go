@@ -32,6 +32,10 @@ type ServiceSettings struct {
 	//ListenInternalAddress *string
 }
 
+type CallSettings struct {
+	UseBridgeAnswerTimeout bool
+}
+
 type SqlSettings struct {
 	DriverName                  *string
 	DataSource                  *string
@@ -71,4 +75,5 @@ type Config struct {
 	ServerSettings       ServerSettings
 	SqlSettings          SqlSettings
 	MessageQueueSettings MessageQueueSettings
+	CallSettings         CallSettings
 }

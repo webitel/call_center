@@ -37,16 +37,17 @@ type OutboundResource struct {
 }
 
 type SipGateway struct {
-	Id        int64   `json:"id" db:"id"`
-	Name      string  `json:"name" db:"name"`
-	UpdatedAt int64   `json:"updated_at" db:"updated_at"`
-	Register  bool    `json:"register" db:"register"`
-	Proxy     string  `json:"proxy" db:"proxy"`
-	HostName  *string `json:"host_name" db:"host_name"`
-	UserName  *string `json:"username" db:"username"`
-	Account   *string `json:"account" db:"account"`
-	Password  *string `json:"password" db:"password"`
-	DomainId  int64   `json:"domain_id" db:"domain_id"`
+	Id                     int64   `json:"id" db:"id"`
+	Name                   string  `json:"name" db:"name"`
+	UpdatedAt              int64   `json:"updated_at" db:"updated_at"`
+	Register               bool    `json:"register" db:"register"`
+	Proxy                  string  `json:"proxy" db:"proxy"`
+	HostName               *string `json:"host_name" db:"host_name"`
+	UserName               *string `json:"username" db:"username"`
+	Account                *string `json:"account" db:"account"`
+	Password               *string `json:"password" db:"password"`
+	DomainId               int64   `json:"domain_id" db:"domain_id"`
+	UseBridgeAnswerTimeout bool    `json:"use_bridge_answer_timeout" db:"-"`
 	//SipVariables map[string]interface{} `json:"envar,omitempty" db:"envar"`
 }
 
@@ -93,6 +94,10 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",
 		"sip_copy_custom_headers=false",
+	}
+
+	if g.UseBridgeAnswerTimeout {
+		res = append(res, fmt.Sprintf("bridge_answer_timeout=%d", timeout))
 	}
 
 	vars := g.Variables()
