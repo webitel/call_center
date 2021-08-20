@@ -18,8 +18,8 @@ type CallingQueue struct {
 	params model.QueueDialingSettings
 }
 
-func (queue *CallingQueue) SetRecordings(call call_manager.Call, bridged, stereo bool) {
-	call.SetRecordings(queue.domainId, bridged, stereo)
+func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
+	call.SetRecordings(queue.domainId, all, mono)
 }
 
 func (queue *CallingQueue) HasRingtone() bool {

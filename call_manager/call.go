@@ -68,7 +68,7 @@ type Call interface {
 	StopPlayback() *model.AppError
 	SerVariables(vars map[string]string) *model.AppError
 
-	SetRecordings(domainId int64, bridged, stereo bool)
+	SetRecordings(domainId int64, all, mono bool)
 	UpdateCid() *model.AppError
 
 	Stats() map[string]string
@@ -190,16 +190,20 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	return call
 }
 
-func (call *CallImpl) SetRecordings(domainId int64, bridged, stereo bool) {
+func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
 
 	call.callRequest.Variables["RECORD_MIN_SEC"] = "2"
 	call.callRequest.Variables["recording_follow_transfer"] = "true"
 
-	if bridged {
+	if all {
+		call.callRequest.Variables["RECORD_BRIDGE_REQ"] = "false"
+	} else {
 		call.callRequest.Variables["RECORD_BRIDGE_REQ"] = "true"
 	}
 
-	if stereo {
+	if mono {
+		call.callRequest.Variables["RECORD_STEREO"] = "false"
+	} else {
 		call.callRequest.Variables["RECORD_STEREO"] = "true"
 	}
 
