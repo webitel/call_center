@@ -115,9 +115,6 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
 	}
 
-	// todo
-	callRequest.Variables["call_timeout"] = fmt.Sprintf("%d", queue.OriginateTimeout)
-
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
 		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
