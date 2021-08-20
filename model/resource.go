@@ -77,8 +77,6 @@ func (g *SipGateway) Endpoint(destination string) string {
 func (g *SipGateway) Bridge(parentId string, name, destination string, display string, timeout uint16) string {
 	res := []string{
 		fmt.Sprintf("leg_timeout=%d", timeout),
-		"ringback=%(2000,4000,440,480)",
-		"instant_ringback=true",
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
 		fmt.Sprintf("origination_caller_id_number=%s", display),
 
@@ -102,7 +100,7 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		res = append(res, fmt.Sprintf("%s='%s'", k, v))
 	}
 
-	return fmt.Sprintf("{call_timeout=%d,media_bug_answer_req=true}[%s]%s", timeout, strings.Join(res, ","), g.Endpoint(destination))
+	return fmt.Sprintf("[%s]%s", strings.Join(res, ","), g.Endpoint(destination))
 }
 
 type OutboundResourceGroup struct {
