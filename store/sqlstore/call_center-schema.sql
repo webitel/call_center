@@ -3660,9 +3660,9 @@ ALTER SEQUENCE call_center.cc_email_profiles_id_seq OWNED BY call_center.cc_emai
 CREATE MATERIALIZED VIEW call_center.cc_inbound_stats AS
  SELECT h.queue_id,
     h.bucket_id,
-    avg(date_part('epoch'::text, (COALESCE(h.bridged_at, h.reporting_at, h.leaving_at) - h.joined_at))) AS ata,
+    COALESCE(avg(date_part('epoch'::text, (COALESCE(h.bridged_at, h.reporting_at, h.leaving_at) - h.joined_at))) FILTER (WHERE (h.bridged_at IS NOT NULL)), (0)::double precision) AS ata,
     count(DISTINCT h.agent_id) AS agent_cnt,
-    avg(date_part('epoch'::text, (COALESCE(h.reporting_at, h.leaving_at) - h.joined_at))) AS aha,
+    COALESCE(avg(date_part('epoch'::text, (COALESCE(h.reporting_at, h.leaving_at) - h.joined_at))) FILTER (WHERE (h.bridged_at IS NOT NULL)), (0)::double precision) AS aha,
     count(*) AS cnt,
     count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS cntb,
     (((count(*) FILTER (WHERE ((h.bridged_at - h.joined_at) < '00:00:20'::interval)))::double precision * (100)::double precision) / (count(*))::double precision) AS sl20,
