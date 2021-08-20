@@ -102,7 +102,7 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		res = append(res, fmt.Sprintf("%s='%s'", k, v))
 	}
 
-	return fmt.Sprintf("{call_timeout=%d}[%s]%s", timeout, strings.Join(res, ","), g.Endpoint(destination))
+	return fmt.Sprintf("{call_timeout=%d,media_bug_answer_req=true}[%s]%s", timeout, strings.Join(res, ","), g.Endpoint(destination))
 }
 
 type OutboundResourceGroup struct {
