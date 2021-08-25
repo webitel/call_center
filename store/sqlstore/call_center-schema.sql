@@ -819,7 +819,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     amd_duration interval,
     tags character varying[],
     region_id integer,
-    grantee_id integer
+    grantee_id integer,
+    hold jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -962,6 +963,16 @@ BEGIN
 
         else if old.state = 'hold' then
             new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision;
+            if new.hold isnull then
+                new.hold = '[]';
+            end if;
+
+            new.hold = new.hold || jsonb_build_object(
+                'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
+                'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
+                'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
+            );
+
 
 --             if new.parent_id notnull then
 --                 update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
@@ -3145,7 +3156,8 @@ CREATE VIEW call_center.cc_call_active_list AS
            FROM call_center.cc_agent_with_user sag
           WHERE (sag.id = ANY (aa.supervisor_ids))) AS supervisor,
     aa.supervisor_ids,
-    c.grantee_id
+    c.grantee_id,
+    c.hold
    FROM ((((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
@@ -3240,7 +3252,8 @@ CREATE TABLE call_center.cc_calls_history (
     transfer_to character varying,
     amd_result character varying,
     amd_duration interval,
-    grantee_id bigint
+    grantee_id bigint,
+    hold jsonb
 );
 
 
@@ -3367,7 +3380,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
            FROM call_center.cc_calls_history hp
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
     cma.description AS agent_description,
-    c.grantee_id
+    c.grantee_id,
+    c.hold
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM ( SELECT f1.id,
@@ -6333,6 +6347,13 @@ CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_
 --
 
 CREATE INDEX cc_skill_in_agent_updated_by_index ON call_center.cc_skill_in_agent USING btree (updated_by);
+
+
+--
+-- Name: cc_stat_agent_awt_dev; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_stat_agent_awt_dev ON call_center.cc_member_attempt_history USING btree (leaving_at DESC, agent_id, queue_id, bucket_id) INCLUDE (bridged_at, joined_at, reporting_at) WHERE ((agent_id IS NOT NULL) AND (bridged_at IS NOT NULL));
 
 
 --
