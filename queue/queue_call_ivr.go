@@ -182,6 +182,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		}
 	}
 
+	queue.CallCheckResourceError(attempt.resource, call)
+
 	if res, ok := queue.queueManager.AfterDistributeSchema(&queue.BaseQueue, attempt, call); ok {
 		if res.Status == "success" {
 			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)

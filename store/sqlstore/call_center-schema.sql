@@ -2108,35 +2108,9 @@ BEGIN
     successively_errors = case when successively_errors + 1 >= max_successively_errors then 0 else successively_errors + 1 end,
     enabled = case when successively_errors + 1 >= max_successively_errors then false else enabled end
   where id = _id and "enabled" is true
-  returning successively_errors >= max_successively_errors, successively_errors into _stopped, _successively_errors
+  returning not enabled, successively_errors
+      into _stopped, _successively_errors
   ;
-
-  if _stopped is true then
-    update cc_outbound_resource o
-    set reserve = false,
-        successively_errors = 0
-    from (
-      select id
-      from cc_outbound_resource r
-      where r.enabled is true
-        and r.reserve is true
---         and exists(
---           select *
---           from cc_resource_in_routing crir
---           where crir.routing_id = _routing_id
---             and crir.resource_id = r.id
---         )
-      order by case when _strategy = 'top_down' then r.last_error_at else null end asc,
-               case _strategy
-                 when 'by_limit' then r."limit"
-                 when 'random' then random()
-               else null
-               end desc
-      limit 1
-    ) r
-    where r.id = o.id
-    returning o.id::bigint into _un_reserved_id;
-  end if;
 
   select _successively_errors::smallint, _stopped::boolean, _un_reserved_id::bigint into _res;
   return _res;

@@ -89,7 +89,6 @@ type CallImpl struct {
 	hangupCause     string
 	hangupCauseCode int
 	hangupCh        chan struct{}
-	err             *model.AppError
 	state           CallState
 	cancel          string
 
@@ -533,10 +532,12 @@ func (call *CallImpl) WaitSeconds() int {
 }
 
 func (call *CallImpl) Err() *model.AppError {
-	call.RLock()
-	defer call.RUnlock()
+	code := call.HangupCauseCode()
+	if code != 0 && code != 200 {
+		return model.NewAppError("Call", "call.app.error", nil, "error", http.StatusInternalServerError)
+	}
 
-	return call.err
+	return nil
 }
 
 func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]string) *model.AppError {

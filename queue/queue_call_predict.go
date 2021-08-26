@@ -168,6 +168,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 			calling = false
 		}
 	}
+	queue.CallCheckResourceError(attempt.resource, mCall)
 
 	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 	queue.queueManager.LeavingMember(attempt)

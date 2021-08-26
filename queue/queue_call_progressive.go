@@ -264,6 +264,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		}
 	}
 
+	queue.CallCheckResourceError(attempt.resource, mCall)
+
 	if agentCall == nil {
 		team.Cancel(attempt, agent, uint(queue.MaxAttempts), uint64(queue.WaitBetweenRetries))
 		queue.queueManager.LeavingMember(attempt)

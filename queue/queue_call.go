@@ -108,13 +108,15 @@ func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, re
 		resource.Gateway().Variables(),
 	)
 
-	call := queue.queueManager.callManager.NewCall(callRequest)
+	return queue.queueManager.callManager.NewCall(callRequest)
+}
+
+func (queue *CallingQueue) CallCheckResourceError(resource ResourceObject, call call_manager.Call) {
 	if call.Err() != nil {
 		queue.queueManager.SetResourceError(resource, fmt.Sprintf("%d", call.HangupCauseCode()))
 	} else {
 		queue.queueManager.SetResourceSuccessful(resource)
 	}
-	return call
 }
 
 func (queue *CallingQueue) GetTransferredCall(id string) (call_manager.Call, *model.AppError) {
