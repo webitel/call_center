@@ -4174,7 +4174,9 @@ CREATE VIEW call_center.cc_outbound_resource_group_view AS
 CREATE TABLE call_center.cc_outbound_resource_in_group (
     id bigint NOT NULL,
     resource_id bigint NOT NULL,
-    group_id bigint NOT NULL
+    group_id bigint NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    reserve_resource_id bigint
 );
 
 
@@ -4205,12 +4207,15 @@ CREATE VIEW call_center.cc_outbound_resource_in_group_view AS
  SELECT s.id,
     s.group_id,
     call_center.cc_get_lookup((cor.id)::bigint, cor.name) AS resource,
+    call_center.cc_get_lookup((res.id)::bigint, res.name) AS reserve_resource,
     s.resource_id,
     cor.name AS resource_name,
+    s.priority,
     cor.domain_id
-   FROM ((call_center.cc_outbound_resource_in_group s
+   FROM (((call_center.cc_outbound_resource_in_group s
      LEFT JOIN call_center.cc_outbound_resource cor ON ((s.resource_id = cor.id)))
-     LEFT JOIN call_center.cc_outbound_resource_group corg ON ((s.group_id = corg.id)));
+     LEFT JOIN call_center.cc_outbound_resource_group corg ON ((s.group_id = corg.id)))
+     LEFT JOIN call_center.cc_outbound_resource res ON ((res.id = s.reserve_resource_id)));
 
 
 --
@@ -6072,10 +6077,10 @@ CREATE UNIQUE INDEX cc_outbound_resource_domain_udx ON call_center.cc_outbound_r
 
 
 --
--- Name: cc_outbound_resource_gateway_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_gateway_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_outbound_resource_gateway_id_uindex ON call_center.cc_outbound_resource USING btree (gateway_id);
+CREATE INDEX cc_outbound_resource_gateway_id_index ON call_center.cc_outbound_resource USING btree (gateway_id);
 
 
 --
@@ -6153,6 +6158,13 @@ CREATE INDEX cc_outbound_resource_group_updated_by_index ON call_center.cc_outbo
 --
 
 CREATE INDEX cc_outbound_resource_in_group_group_id_index ON call_center.cc_outbound_resource_in_group USING btree (group_id);
+
+
+--
+-- Name: cc_outbound_resource_in_group_reserve_resource_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_outbound_resource_in_group_reserve_resource_id_index ON call_center.cc_outbound_resource_in_group USING btree (reserve_resource_id);
 
 
 --
@@ -6454,6 +6466,39 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
 
 
 --
+-- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t,
+            cor.patterns
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
+
+
+--
 -- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
@@ -6522,19 +6567,68 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
           WHERE (NOT (a.disabled IS TRUE))
           GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id
         ), resources AS MATERIALIZED (
-         SELECT cqr.queue_id,
-            array_agg(DISTINCT ROW(corg.communication_id, (cor.id)::bigint, ((l_1.l & (l2.x)::integer[]))::smallint[], (corg.id)::integer)::call_center.cc_sys_distribute_type) AS types,
-            array_agg(DISTINCT ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer, cor.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+         SELECT l_1.queue_id,
+            array_agg(ROW(cor.communication_id, (cor.id)::bigint, ((l_1.l & (l2.x)::integer[]))::smallint[], (cor.resource_group_id)::integer)::call_center.cc_sys_distribute_type) AS types,
+            array_agg(ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer, cor.patterns)::call_center.cc_sys_distribute_resource) AS resources,
             call_center.cc_array_merge_agg((l_1.l & (l2.x)::integer[])) AS offset_ids
-           FROM ((((((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-             JOIN calend l_1 ON ((l_1.queue_id = cqr.queue_id)))
+           FROM (((calend l_1
+             JOIN ( SELECT corg.queue_id,
+                    corg.priority,
+                    corg.resource_group_id,
+                    corg.communication_id,
+                    corg."time",
+                    (corg.cor).id AS id,
+                    (corg.cor)."limit" AS "limit",
+                    (corg.cor).enabled AS enabled,
+                    (corg.cor).updated_at AS updated_at,
+                    (corg.cor).rps AS rps,
+                    (corg.cor).domain_id AS domain_id,
+                    (corg.cor).reserve AS reserve,
+                    (corg.cor).variables AS variables,
+                    (corg.cor).number AS number,
+                    (corg.cor).max_successively_errors AS max_successively_errors,
+                    (corg.cor).name AS name,
+                    (corg.cor).last_error_id AS last_error_id,
+                    (corg.cor).successively_errors AS successively_errors,
+                    (corg.cor).last_error_at AS last_error_at,
+                    (corg.cor).created_at AS created_at,
+                    (corg.cor).created_by AS created_by,
+                    (corg.cor).updated_by AS updated_by,
+                    (corg.cor).error_ids AS error_ids,
+                    (corg.cor).gateway_id AS gateway_id,
+                    (corg.cor).email_profile_id AS email_profile_id,
+                    (corg.cor).payload AS payload,
+                    (corg.cor).description AS description,
+                    (corg.cor).patterns AS patterns
+                   FROM (calend calend_1
+                     JOIN ( SELECT DISTINCT cqr.queue_id,
+                            corig.priority,
+                            corg_1.id AS resource_group_id,
+                            corg_1.communication_id,
+                            corg_1."time",
+                                CASE
+                                    WHEN (cor_1.enabled AND gw.enable) THEN ROW(cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.last_error_at, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns)::call_center.cc_outbound_resource
+                                    WHEN (cor2.enabled AND gw2.enable) THEN ROW(cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.last_error_at, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns)::call_center.cc_outbound_resource
+                                    ELSE NULL::call_center.cc_outbound_resource
+                                END AS cor
+                           FROM ((((((call_center.cc_queue_resource cqr
+                             JOIN call_center.cc_outbound_resource_group corg_1 ON ((cqr.resource_group_id = corg_1.id)))
+                             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg_1.id = corig.group_id)))
+                             JOIN call_center.cc_outbound_resource cor_1 ON ((cor_1.id = (corig.resource_id)::integer)))
+                             JOIN directory.sip_gateway gw ON ((gw.id = cor_1.gateway_id)))
+                             LEFT JOIN call_center.cc_outbound_resource cor2 ON (((cor2.id = corig.reserve_resource_id) AND cor2.enabled)))
+                             LEFT JOIN directory.sip_gateway gw2 ON (((gw2.id = cor2.gateway_id) AND cor2.enabled)))
+                          WHERE (
+                                CASE
+                                    WHEN (cor_1.enabled AND gw.enable) THEN cor_1.id
+                                    WHEN (cor2.enabled AND gw2.enable) THEN cor2.id
+                                    ELSE NULL::integer
+                                END IS NOT NULL)
+                          ORDER BY cqr.queue_id, corig.priority DESC) corg ON ((corg.queue_id = calend_1.queue_id)))) cor ON ((cor.queue_id = l_1.queue_id)))
              JOIN LATERAL ( WITH times AS (
                          SELECT ((e.value -> 'start_time_of_day'::text))::integer AS start,
                             ((e.value -> 'end_time_of_day'::text))::integer AS "end"
-                           FROM jsonb_array_elements(corg."time") e(value)
+                           FROM jsonb_array_elements(cor."time") e(value)
                         )
                  SELECT array_agg(DISTINCT t.id) AS x
                    FROM flow.calendar_timezone_offsets t,
@@ -6545,8 +6639,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                    FROM ( SELECT 1 AS cnt
                            FROM call_center.cc_member_attempt c_1
                           WHERE ((c_1.resource_id = cor.id) AND ((c_1.state)::text <> ALL (ARRAY[('leaving'::character varying)::text, ('processing'::character varying)::text])))) c) used ON (true))
-          WHERE (cor.enabled AND (NOT cor.reserve) AND ((cor."limit" - used.cnt) > 0))
-          GROUP BY cqr.queue_id
+          WHERE (cor.enabled AND ((cor."limit" - used.cnt) > 0))
+          GROUP BY l_1.queue_id
         )
  SELECT q.id,
     q.type,
@@ -6576,39 +6670,6 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
   WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
-
-
---
--- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t,
-            cor.patterns
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
 
 
 --
@@ -7456,6 +7517,14 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
     ADD CONSTRAINT cc_outbound_resource_in_group_cc_outbound_resource_id_fk FOREIGN KEY (resource_id) REFERENCES call_center.cc_outbound_resource(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_sip_gateway_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
+    ADD CONSTRAINT cc_outbound_resource_in_group_sip_gateway_id_fk FOREIGN KEY (reserve_resource_id) REFERENCES directory.sip_gateway(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
