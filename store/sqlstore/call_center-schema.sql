@@ -2104,7 +2104,7 @@ BEGIN
 
   update cc_outbound_resource
   set last_error_id = _error_id,
-      last_error_at = ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint,
+      last_error_at = now(),
     successively_errors = case when successively_errors + 1 >= max_successively_errors then 0 else successively_errors + 1 end,
     enabled = case when successively_errors + 1 >= max_successively_errors then false else enabled end
   where id = _id and "enabled" is true
@@ -3861,7 +3861,6 @@ CREATE TABLE call_center.cc_outbound_resource (
     name character varying(50) NOT NULL,
     last_error_id character varying(50),
     successively_errors smallint DEFAULT 0 NOT NULL,
-    last_error_at bigint DEFAULT 0,
     created_at bigint NOT NULL,
     created_by bigint NOT NULL,
     updated_by bigint NOT NULL,
@@ -3870,7 +3869,9 @@ CREATE TABLE call_center.cc_outbound_resource (
     email_profile_id integer,
     payload jsonb,
     description character varying,
-    patterns character varying[]
+    patterns character varying[],
+    failure_dial_delay integer DEFAULT 0,
+    last_error_at timestamp with time zone
 );
 
 
@@ -4244,7 +4245,8 @@ CREATE VIEW call_center.cc_outbound_resource_view AS
     call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
     s.gateway_id,
     s.description,
-    s.patterns
+    s.patterns,
+    s.failure_dial_delay
    FROM (((call_center.cc_outbound_resource s
      LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)))
@@ -6590,7 +6592,6 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                     (corg.cor).name AS name,
                     (corg.cor).last_error_id AS last_error_id,
                     (corg.cor).successively_errors AS successively_errors,
-                    (corg.cor).last_error_at AS last_error_at,
                     (corg.cor).created_at AS created_at,
                     (corg.cor).created_by AS created_by,
                     (corg.cor).updated_by AS updated_by,
@@ -6599,7 +6600,9 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                     (corg.cor).email_profile_id AS email_profile_id,
                     (corg.cor).payload AS payload,
                     (corg.cor).description AS description,
-                    (corg.cor).patterns AS patterns
+                    (corg.cor).patterns AS patterns,
+                    (corg.cor).failure_dial_delay AS failure_dial_delay,
+                    (corg.cor).last_error_at AS last_error_at
                    FROM (calend calend_1
                      JOIN ( SELECT DISTINCT cqr.queue_id,
                             corig.priority,
@@ -6607,8 +6610,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                             corg_1.communication_id,
                             corg_1."time",
                                 CASE
-                                    WHEN (cor_1.enabled AND gw.enable) THEN ROW(cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.last_error_at, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns)::call_center.cc_outbound_resource
-                                    WHEN (cor2.enabled AND gw2.enable) THEN ROW(cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.last_error_at, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns)::call_center.cc_outbound_resource
+                                    WHEN (cor_1.enabled AND gw.enable) THEN ROW(cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns, cor_1.failure_dial_delay, cor_1.last_error_at)::call_center.cc_outbound_resource
+                                    WHEN (cor2.enabled AND gw2.enable) THEN ROW(cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns, cor2.failure_dial_delay, cor2.last_error_at)::call_center.cc_outbound_resource
                                     ELSE NULL::call_center.cc_outbound_resource
                                 END AS cor
                            FROM ((((((call_center.cc_queue_resource cqr
@@ -6639,7 +6642,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                    FROM ( SELECT 1 AS cnt
                            FROM call_center.cc_member_attempt c_1
                           WHERE ((c_1.resource_id = cor.id) AND ((c_1.state)::text <> ALL (ARRAY[('leaving'::character varying)::text, ('processing'::character varying)::text])))) c) used ON (true))
-          WHERE (cor.enabled AND ((cor."limit" - used.cnt) > 0))
+          WHERE (cor.enabled AND ((cor.last_error_at IS NULL) OR (cor.last_error_at <= (now() - ((cor.failure_dial_delay || ' s'::text))::interval))) AND ((cor."limit" - used.cnt) > 0))
           GROUP BY l_1.queue_id
         )
  SELECT q.id,
