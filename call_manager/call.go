@@ -673,10 +673,19 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["call_sip_code"] = fmt.Sprintf("%d", call.HangupCauseCode())
 	}
 
-	// fixme
-	var ansSec = int((call.HangupAt() - call.AcceptAt()) / 1000)
-	if ansSec > 0 {
-		vars["call_answer_sec"] = fmt.Sprintf("%d", ansSec)
+	var ans int64
+	if call.acceptAt != 0 {
+		ans = call.acceptAt
+	} else if call.bridgeAt != 0 {
+		ans = call.bridgeAt
+	}
+
+	if ans > 0 {
+		h := call.hangupAt
+		if h == 0 {
+			h = model.GetMillis()
+		}
+		vars["call_voice_sec"] = fmt.Sprintf("%d", int((h-ans)/1000))
 	}
 
 	return vars
