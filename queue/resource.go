@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	MASK_CHAR = 'X'
+	MASK_CHAR_UPPER = 'X'
+	MASK_CHAR_LOWER = 'x'
 )
 
 type ResourceObject interface {
@@ -120,7 +121,7 @@ func (r *Resource) CheckCodeError(errorCode string) bool {
 
 	e := []rune(errorCode)
 	for _, v := range r.errorIds {
-		if checkCodeMask(v, e) {
+		if !checkCodeMask(v, e) {
 			return true
 		}
 	}
@@ -133,7 +134,7 @@ func checkCodeMask(maskCode string, code []rune) bool {
 	}
 
 	for i, v := range maskCode {
-		if v == MASK_CHAR {
+		if v == MASK_CHAR_UPPER || v == MASK_CHAR_LOWER {
 			continue
 		}
 		if v != code[i] {
