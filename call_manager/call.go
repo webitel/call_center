@@ -196,8 +196,10 @@ func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
 
 	if all {
 		call.callRequest.Variables["RECORD_BRIDGE_REQ"] = "false"
+		call.callRequest.Variables["media_bug_answer_req"] = "false"
 	} else {
 		call.callRequest.Variables["RECORD_BRIDGE_REQ"] = "true"
+		call.callRequest.Variables["media_bug_answer_req"] = "true"
 	}
 
 	if mono {
