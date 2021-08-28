@@ -77,7 +77,6 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				model.CallVariableGatewayId:  fmt.Sprintf("%v", attempt.resource.Gateway().Id),
 
 				"hangup_after_bridge":    "true",
-				"ignore_early_media":     "true",
 				"ignore_display_updates": "true",
 				"absolute_codec_string":  "pcma,pcmu",
 
