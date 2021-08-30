@@ -17,7 +17,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 			attempt.ExportVariables(),
 			map[string]string{
 				//"ignore_early_media": "true",
-				"absolute_codec_string": "opus,pcmu,pcma",
+				//"absolute_codec_string": "opus,pcmu,pcma",
 				//"sip_h_X-Webitel-Display-Direction": "inbound",
 				"hangup_after_bridge":       "true",
 				"ignore_display_updates":    "true",

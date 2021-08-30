@@ -69,9 +69,9 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableUserId:     fmt.Sprintf("%v", agent.UserId()),
 				model.CallVariableDirection:  "internal",
 
-				"hangup_after_bridge":   "true",
-				"absolute_codec_string": "opus,pcmu,pcma",
-				"cc_reporting":          fmt.Sprintf("%v", queue.Processing()),
+				"hangup_after_bridge": "true",
+				//"absolute_codec_string": "opus,pcmu,pcma",
+				"cc_reporting": fmt.Sprintf("%v", queue.Processing()),
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",

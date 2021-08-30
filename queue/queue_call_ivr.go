@@ -78,7 +78,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
-				"absolute_codec_string":  "pcma,pcmu",
+				//"absolute_codec_string":  "pcma,pcmu",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
