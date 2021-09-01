@@ -3296,10 +3296,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.destination,
     json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
     json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
-        CASE
-            WHEN (c.payload IS NULL) THEN '{}'::jsonb
-            ELSE c.payload
-        END AS variables,
+    c.payload AS variables,
     c.created_at,
     c.answered_at,
     c.bridged_at,
@@ -5719,6 +5716,13 @@ CREATE INDEX cc_calls_history_member_id_index ON call_center.cc_calls_history US
 --
 
 CREATE INDEX cc_calls_history_parent_id_index ON call_center.cc_calls_history USING btree (parent_id);
+
+
+--
+-- Name: cc_calls_history_payload_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_payload_idx ON call_center.cc_calls_history USING gin (domain_id, payload jsonb_path_ops) WHERE (payload IS NOT NULL);
 
 
 --
