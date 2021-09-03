@@ -159,7 +159,11 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				}
 
 				if cnt, err := queue.queueManager.store.Agent().ConfirmAttempt(agent.Id(), attempt.Id()); err != nil || len(cnt) == 0 {
-					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
+					// todo fixme
+					if err != nil {
+						attempt.Log(err.Error())
+					}
+					printfIfErr(mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil))
 				} else if len(cnt) > 0 {
 
 					go queue.HangupManyCall(mCall.Id(), model.CALL_HANGUP_ORIGINATOR_CANCEL, cnt...)
@@ -257,6 +261,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 							}
 						}
 					}
+				} else {
+					attempt.Log(fmt.Sprintf("error logic"))
 				}
 			}
 		case <-mCall.HangupChan():

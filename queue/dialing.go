@@ -90,6 +90,7 @@ func (d *DialingImpl) routeIdleAttempts() {
 	for _, v := range members {
 		v.CreatedAt = time.Now()
 		att, _ := d.queueManager.CreateAttemptIfNotExists(context.Background(), v) //todo check err
+		att.Log("state: " + att.state)
 		d.queueManager.input <- att
 	}
 }

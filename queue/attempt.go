@@ -67,6 +67,7 @@ type LogItem struct {
 
 func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 	return &Attempt{
+		state:         model.MemberStateIdle,
 		member:        member,
 		Context:       ctx,
 		communication: model.MemberDestinationFromBytes(member.Destination),

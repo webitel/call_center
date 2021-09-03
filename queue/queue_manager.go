@@ -220,10 +220,9 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 		return nil, nil
 	}
 
-	if attempt.IsTimeout() {
-		//panic("CHANGE TO SET MEMBER FUNCTION")
-		return nil, nil
-	}
+	//if attempt.IsTimeout() {
+	//	return nil, nil
+	//}
 
 	//todo new event instance
 
