@@ -120,7 +120,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	call := queue.NewCallUseResource(callRequest, attempt.resource)
 
 	if queue.Recordings {
-		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
+		queue.SetRecordings(call, true, queue.RecordMono)
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, queue.CallManager().GetFlowUri()) {
