@@ -1678,24 +1678,6 @@ $$;
 
 
 --
--- Name: cc_member_attempt_dev_tgf(); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_member_attempt_dev_tgf() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-
-        if old.result isnull then
-            raise exception 'not allow';
-        end if;
-
-        RETURN NULL;
-    END;
-$$;
-
-
---
 -- Name: cc_member_attempt_log_day_f(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -6705,13 +6687,6 @@ CREATE TRIGGER cc_calls_set_timing_trigger_updated BEFORE INSERT OR UPDATE ON ca
 --
 
 CREATE TRIGGER cc_list_set_rbac_acl AFTER INSERT ON call_center.cc_list FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_list');
-
-
---
--- Name: cc_member_attempt cc_member_attempt_dev_tg; Type: TRIGGER; Schema: call_center; Owner: -
---
-
-CREATE TRIGGER cc_member_attempt_dev_tg AFTER DELETE ON call_center.cc_member_attempt FOR EACH ROW EXECUTE FUNCTION call_center.cc_member_attempt_dev_tgf();
 
 
 --
