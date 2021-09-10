@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.7 (Debian 12.7-1.pgdg100+1)
--- Dumped by pg_dump version 12.7 (Debian 12.7-1.pgdg100+1)
+-- Dumped from database version 12.8 (Debian 12.8-1.pgdg100+1)
+-- Dumped by pg_dump version 12.8 (Debian 12.8-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -31,7 +31,7 @@ CREATE FUNCTION storage.file_decrement_profile_size() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  update file_backend_profiles p
+  update storage.file_backend_profiles p
       SET data_size = data_size - f.sum_size,
         data_count = data_count - f.count_files
       from (
@@ -56,7 +56,7 @@ CREATE FUNCTION storage.file_increment_profile_size() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  update file_backend_profiles p
+  update storage.file_backend_profiles p
       SET data_size = data_size + f.sum_size,
       data_count = data_count + f.count_files
       from (
@@ -82,7 +82,7 @@ CREATE FUNCTION storage.file_statistics_trigger_deleted() RETURNS trigger
     AS $$
 BEGIN
 
-    insert into files_statistics (domain_id, profile_id, mime_type, count, size, not_exists_count)
+    insert into storage.files_statistics (domain_id, profile_id, mime_type, count, size, not_exists_count)
     select s.domain_id, s.profile_id, s.mime_type, s.cnt, s.size, not_exists_count
     from (
         select f.domain_id, f.profile_id, f.mime_type, count(*) cnt, sum(f.size) size,
@@ -92,9 +92,9 @@ BEGIN
     ) s
     on conflict (domain_id, coalesce(profile_id, 0), mime_type)
             do update
-            set count = files_statistics.count - EXCLUDED.count,
-                size = files_statistics.size - EXCLUDED.size,
-                not_exists_count = files_statistics.not_exists_count - EXCLUDED.not_exists_count;
+            set count = storage.files_statistics.count - EXCLUDED.count,
+                size = storage.files_statistics.size - EXCLUDED.size,
+                not_exists_count = storage.files_statistics.not_exists_count - EXCLUDED.not_exists_count;
 
     RETURN NULL;
 END
@@ -109,7 +109,7 @@ CREATE FUNCTION storage.file_statistics_trigger_inserted() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    insert into files_statistics (domain_id, profile_id, mime_type, count, size, not_exists_count)
+    insert into storage.files_statistics (domain_id, profile_id, mime_type, count, size, not_exists_count)
     select s.domain_id, s.profile_id, s.mime_type, s.cnt, s.size, not_exists_count
     from (
         select f.domain_id, f.profile_id, f.mime_type, count(*) cnt, sum(f.size) size,
@@ -119,9 +119,9 @@ BEGIN
     ) s
     on conflict (domain_id, coalesce(profile_id, 0), mime_type)
             do update
-            set count   = EXCLUDED.count + files_statistics.count,
-                size = EXCLUDED.size + files_statistics.size,
-                not_exists_count = EXCLUDED.not_exists_count + files_statistics.not_exists_count;
+            set count   = EXCLUDED.count + storage.files_statistics.count,
+                size = EXCLUDED.size + storage.files_statistics.size,
+                not_exists_count = EXCLUDED.not_exists_count + storage.files_statistics.not_exists_count;
     RETURN NULL;
 END
 $$;
@@ -135,7 +135,7 @@ CREATE FUNCTION storage.file_trigger_decrement_profile_size() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  update file_backend_profiles p
+  update storage.file_backend_profiles p
       SET data_size = data_size - f.sum_size,
         data_count = data_count - f.count_files
       from (
@@ -160,7 +160,7 @@ CREATE FUNCTION storage.file_trigger_increment_profile_size() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  update file_backend_profiles p
+  update storage.file_backend_profiles p
       SET data_size = data_size + f.sum_size,
       data_count = data_count + f.count_files
       from (

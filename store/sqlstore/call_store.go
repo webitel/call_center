@@ -22,15 +22,15 @@ func (s SqlCallStore) Get(id string) (*model.Call, *model.AppError) {
        direction,
        destination,
        parent_id,
-       cc_view_timestamp(timestamp) as timestamp,
+       call_center.cc_view_timestamp(timestamp) as timestamp,
        app_id,
        from_number,
        from_name,
        domain_id,
-       cc_view_timestamp(answered_at) as answered_at,
-       cc_view_timestamp(bridged_at) as bridged_at,
-       cc_view_timestamp(created_at) as created_at
-from cc_calls c
+       call_center.cc_view_timestamp(answered_at) as answered_at,
+       call_center.cc_view_timestamp(bridged_at) as bridged_at,
+       call_center.cc_view_timestamp(created_at) as created_at
+from call_center.cc_calls c
 where c.hangup_at isnull and c.Id = :Id
 for update`, map[string]interface{}{
 		"Id": id,

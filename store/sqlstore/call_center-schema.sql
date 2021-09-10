@@ -93,8 +93,8 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 CREATE FUNCTION call_center.cc_agent_init_channel() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    BEGIN
-        insert into cc_agent_channel (agent_id, state)
+BEGIN
+        insert into call_center.cc_agent_channel (agent_id, state)
         values (new.id, 'waiting');
         RETURN NEW;
     END;
@@ -114,14 +114,14 @@ declare attempt_id_ int8;
 begin
     select a.id, a.state
     into attempt_id_, state_
-    from cc_member_attempt a
+    from call_center.cc_member_attempt a
     where a.agent_id = agent_id_ and a.state != 'leaving' and a.channel = 'call';
 
     if attempt_id_ notnull then
         raise exception 'agent % has task % in the status of %', agent_id_, attempt_id_, state_;
     end if;
 
-    update cc_agent_channel c
+    update call_center.cc_agent_channel c
     set state = 'waiting',
         channel = null,
         joined_at = now(),
@@ -145,30 +145,30 @@ CREATE FUNCTION call_center.cc_agent_set_login(agent_id_ integer, on_demand_ boo
 declare
     res_ jsonb;
 begin
-    update cc_agent
+    update call_center.cc_agent
     set status            = 'online', -- enum added
         status_payload = null,
         on_demand = on_demand_,
 --         updated_at = case when on_demand != on_demand_ then cc_view_timestamp(now()) else updated_at end,
         last_state_change = now()     -- todo rename to status
-    where cc_agent.id = agent_id_;
+    where call_center.cc_agent.id = agent_id_;
 
-    update cc_agent_channel c
+    update call_center.cc_agent_channel c
         set  channel = case when x.x = 1 then c.channel end,
             state = case when x.x = 1 then c.state else 'waiting' end,
             online = true,
             no_answers = 0
-    from cc_agent_channel c2
+    from call_center.cc_agent_channel c2
         left join LATERAL (
             select 1 x
-            from cc_member_attempt a where a.agent_id = agent_id_
+            from call_center.cc_member_attempt a where a.agent_id = agent_id_
             limit 1
         ) x on true
     where c2.agent_id = agent_id_ and c.agent_id = c2.agent_id
-    returning jsonb_build_object('channel', c.channel, 'joined_at', cc_view_timestamp(c.joined_at), 'state', c.state, 'no_answers', c.no_answers)
+    returning jsonb_build_object('channel', c.channel, 'joined_at', call_center.cc_view_timestamp(c.joined_at), 'state', c.state, 'no_answers', c.no_answers)
         into res_;
 
-    return row(res_::jsonb, cc_view_timestamp(now()));
+    return row(res_::jsonb, call_center.cc_view_timestamp(now()));
 end;
 $$;
 
@@ -209,10 +209,10 @@ CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count 
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt  cc_member_attempt%rowtype;
+    attempt  call_center.cc_member_attempt%rowtype;
     member_stop_cause varchar;
 begin
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set leaving_at = now(),
             last_state_change = now(),
             result = 'abandoned',
@@ -221,7 +221,7 @@ begin
     returning * into attempt;
 
     if attempt.member_id notnull then
-        update cc_member
+        update call_center.cc_member
         set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
             last_agent      = coalesce(attempt.agent_id, last_agent),
             stop_at = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else  attempt.leaving_at end,
@@ -251,10 +251,10 @@ CREATE FUNCTION call_center.cc_attempt_agent_cancel(attempt_id_ bigint, result_ 
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
     no_answers_ int4;
 begin
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set leaving_at = now(),
             result = result_,
             state = 'leaving'
@@ -262,7 +262,7 @@ begin
     returning * into attempt;
 
     if attempt.agent_id notnull then
-        update cc_agent_channel c
+        update call_center.cc_agent_channel c
         set state = agent_status_,
             joined_at = attempt.leaving_at,
             channel = case when agent_hold_sec_ > 0 then attempt.channel else null end,
@@ -286,10 +286,10 @@ CREATE FUNCTION call_center.cc_attempt_bridged(attempt_id_ bigint) RETURNS recor
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
 begin
 
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set state = 'bridged',
         bridged_at = now(),
         last_state_change = now()
@@ -298,7 +298,7 @@ begin
 
 
     if attempt.agent_id notnull then
-        update cc_agent_channel ch
+        update call_center.cc_agent_channel ch
         set state = attempt.state,
             no_answers = 0,
             joined_at = attempt.bridged_at,
@@ -319,9 +319,9 @@ CREATE PROCEDURE call_center.cc_attempt_distribute_cancel(attempt_id_ bigint, de
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt  cc_member_attempt%rowtype;
+    attempt  call_center.cc_member_attempt%rowtype;
 begin
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set leaving_at = now(),
             description = description_,
             last_state_change = now(),
@@ -330,7 +330,7 @@ begin
     where id = attempt_id_
     returning * into attempt;
 
-    update cc_member
+    update call_center.cc_member
     set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
         last_agent      = coalesce(attempt.agent_id, last_agent),
         variables = case when vars_ notnull  then coalesce(variables, '{}'::jsonb) || vars_ else variables end,
@@ -351,7 +351,7 @@ CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
     agent_timeout_ timestamptz;
     time_ int8 = extract(EPOCH  from now()) * 1000;
     user_id_ int8 = null;
@@ -366,7 +366,7 @@ begin
     end if;
 
 
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set state  =  'leaving',
             reporting_at = now(),
             leaving_at = case when leaving_at isnull then now() else leaving_at end,
@@ -381,7 +381,7 @@ begin
     end if;
 
     if attempt.member_id notnull then
-        update cc_member
+        update call_center.cc_member
         set last_hangup_at  = time_,
             variables = case when variables_ isnull then variables else variables_ end,
             expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
@@ -404,7 +404,7 @@ begin
         from (
             -- fixme
             select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
-            from cc_queue q
+            from call_center.cc_queue q
             where q.id = attempt.queue_id
         ) q
         where id = attempt.member_id
@@ -414,12 +414,12 @@ begin
     if attempt.agent_id notnull then
         select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
         into user_id_, domain_id_, wrap_time_
-        from cc_agent a
-            left join cc_team tm on tm.id = attempt.team_id
+        from call_center.cc_agent a
+            left join call_center.cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.agent_id;
 
         if wrap_time_ > 0 or wrap_time_ isnull then
-            update cc_agent_channel c
+            update call_center.cc_agent_channel c
             set state = 'wrap_time',
                 joined_at = now(),
                 timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
@@ -427,7 +427,7 @@ begin
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
             returning timeout into agent_timeout_;
         else
-            update cc_agent_channel c
+            update call_center.cc_agent_channel c
             set state = 'waiting',
                 joined_at = now(),
                 timeout = null,
@@ -439,14 +439,14 @@ begin
         end if;
     end if;
 
-    return row(cc_view_timestamp(now()),
+    return row(call_center.cc_view_timestamp(now()),
         attempt.channel,
         attempt.queue_id,
         attempt.agent_call_id,
         attempt.agent_id,
         user_id_,
         domain_id_,
-        cc_view_timestamp(agent_timeout_),
+        call_center.cc_view_timestamp(agent_timeout_),
         stop_cause_
         );
 end;
@@ -461,14 +461,14 @@ CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ chara
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
     no_answers_ int;
     member_stop_cause varchar;
 begin
     /*
      FIXME
      */
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set leaving_at = now(),
         result = result_,
         state = 'leaving'
@@ -476,7 +476,7 @@ begin
     returning * into attempt;
 
     if attempt.member_id notnull then
-        update cc_member m
+        update call_center.cc_member m
         set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
             last_agent      = coalesce(attempt.agent_id, last_agent),
 
@@ -495,7 +495,7 @@ begin
         from (
             -- fixme
             select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
-            from cc_queue q
+            from call_center.cc_queue q
             where q.id = attempt.queue_id
         ) q
         where id = attempt.member_id
@@ -503,7 +503,7 @@ begin
     end if;
 
     if attempt.agent_id notnull then
-        update cc_agent_channel c
+        update call_center.cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
             channel = case when agent_hold_sec_ > 0 or agent_status_ != 'waiting' then channel else null end,
@@ -532,18 +532,18 @@ declare
     agent_id_ int4;
     no_answers_ int4;
 begin
-    update cc_member_attempt  n
+    update call_center.cc_member_attempt  n
     set state = 'wait_agent',
         last_state_change = now(),
         agent_id = null ,
         team_id = null,
         agent_call_id = null
-    from cc_member_attempt a
+    from call_center.cc_member_attempt a
     where a.id = n.id and a.id = attempt_id_
     returning n.last_state_change, a.agent_id, n.channel into last_state_change_, agent_id_, channel_;
 
     if agent_id_ notnull then
-        update cc_agent_channel c
+        update call_center.cc_agent_channel c
         set state = 'missed',
             joined_at = last_state_change_,
             timeout  = now() + (agent_hold_::varchar || ' sec')::interval,
@@ -566,10 +566,10 @@ CREATE FUNCTION call_center.cc_attempt_offering(attempt_id_ bigint, agent_id_ in
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
 begin
 
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set state             = 'offering',
         last_state_change = now(),
 --         destination = dest_,
@@ -588,7 +588,7 @@ begin
 
 
     if attempt.agent_id notnull then
-        update cc_agent_channel ch
+        update call_center.cc_agent_channel ch
         set state            = attempt.state,
             joined_at        = now(),
             last_offering_at = now(),
@@ -611,16 +611,16 @@ CREATE FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, hold_sec inte
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
 begin
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set reporting_at = now(),
             result = 'timeout',
             state = 'leaving'
     where id = attempt_id_
     returning * into attempt;
 
-    update cc_member
+    update call_center.cc_member
     set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
         last_agent      = coalesce(attempt.agent_id, last_agent),
 
@@ -639,13 +639,13 @@ begin
     from (
         -- fixme
         select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
-        from cc_queue q
+        from call_center.cc_queue q
         where q.id = attempt.queue_id
     ) q
     where id = attempt.member_id;
 
     if attempt.agent_id notnull then
-        update cc_agent_channel c
+        update call_center.cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
             channel = null,
@@ -667,32 +667,32 @@ CREATE FUNCTION call_center.cc_attempt_transferred_from(attempt_id_ bigint, to_a
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
         user_id_ int8 = null;
     domain_id_ int8;
     wrap_time_ int;
      agent_timeout_ timestamptz;
 begin
 
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set transferred_agent_id = agent_id,
         agent_id = to_agent_id_,
         agent_call_id = agent_sess_id_
     where id = attempt_id_
     returning * into attempt;
 
-    insert into cc_member_attempt_transferred (from_id, to_id, from_agent_id, to_agent_id)
+    insert into call_center.cc_member_attempt_transferred (from_id, to_id, from_agent_id, to_agent_id)
     values (to_attempt_id_, attempt_id_, attempt.transferred_agent_id, attempt.agent_id);
 
     if attempt.transferred_agent_id notnull then
         select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
         into user_id_, domain_id_, wrap_time_
-        from cc_agent a
-            left join cc_team tm on tm.id = attempt.team_id
+        from call_center.cc_agent a
+            left join call_center.cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.transferred_agent_id;
 
         if wrap_time_ > 0 or wrap_time_ isnull then
-            update cc_agent_channel c
+            update call_center.cc_agent_channel c
             set state = 'wrap_time',
                 joined_at = now(),
                 timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
@@ -700,7 +700,7 @@ begin
             where (c.agent_id, c.channel) = (attempt.transferred_agent_id, attempt.channel)
             returning timeout into agent_timeout_;
         else
-            update cc_agent_channel c
+            update call_center.cc_agent_channel c
             set state = 'waiting',
                 joined_at = now(),
                 timeout = null,
@@ -726,10 +726,10 @@ CREATE FUNCTION call_center.cc_attempt_transferred_to(attempt_id_ bigint, to_att
     LANGUAGE plpgsql
     AS $$
 declare
-    attempt cc_member_attempt%rowtype;
+    attempt call_center.cc_member_attempt%rowtype;
 begin
 
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set transferred_attempt_id = to_attempt_id_,
         result = 'transferred',
         leaving_at = now(),
@@ -751,11 +751,11 @@ CREATE FUNCTION call_center.cc_call_active_numbers() RETURNS SETOF character var
     LANGUAGE plpgsql
     AS $$
 declare
-        c cc_calls;
+        c call_center.cc_calls;
 BEGIN
 
     for c in select *
-            from cc_calls cc where cc.hangup_at isnull and not cc.direction isnull
+            from call_center.cc_calls cc where cc.hangup_at isnull and not cc.direction isnull
             and ( (cc.gateway_id notnull and cc.direction = 'outbound') or (cc.gateway_id notnull and cc.direction = 'inbound') )
             for update skip locked
     loop
@@ -835,6 +835,7 @@ CREATE FUNCTION call_center.cc_call_get_owner_leg(c_ call_center.cc_calls, OUT n
 begin
     if c_.direction = 'inbound' or (c_.direction = 'outbound' and c_.gateway_id notnull ) then
         number_ := c_.to_number;
+--         number_ := 'xxxxxx';
         name_ := c_.to_name;
         type_ := c_.to_type;
         id_ := c_.to_id;
@@ -860,7 +861,7 @@ declare
         transfer_to_ varchar;
         transfer_from_ varchar;
 begin
-    update cc_calls cc
+    update call_center.cc_calls cc
     set bridged_id = c.bridged_id,
         state      = state_,
         timestamp  = timestamp_,
@@ -886,16 +887,16 @@ begin
                     b2.id parent_id,
                     b2.id bridged_id,
                     b2o.*
-             from cc_calls b
-                      left join cc_calls b2 on b2.id = call_id_
-                      left join lateral cc_call_get_owner_leg(b2) b2o on true
+             from call_center.cc_calls b
+                      left join call_center.cc_calls b2 on b2.id = call_id_
+                      left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
              where b.id = call_bridged_id_
          ) c
     where c.id = cc.id
     returning c.transfer_to into transfer_to_;
 
 
-    update cc_calls cc
+    update call_center.cc_calls cc
     set bridged_id    = c.bridged_id,
         state         = state_,
         timestamp     = timestamp_,
@@ -927,15 +928,15 @@ begin
                     b2.id parent_id,
                     b2.id bridged_id,
                     b2o.*
-             from cc_calls b
-                      left join cc_calls b2 on b2.id = call_bridged_id_
-                      left join lateral cc_call_get_owner_leg(b2) b2o on true
+             from call_center.cc_calls b
+                      left join call_center.cc_calls b2 on b2.id = call_bridged_id_
+                      left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
              where b.id = call_id_
          ) c
     where c.id = cc.id
     returning cc.transfer_from into transfer_from_;
 
-    update cc_calls set
+    update call_center.cc_calls set
      transfer_from =  case when id = transfer_from_ then transfer_to_ end,
      transfer_to =  case when id = transfer_to_ then transfer_from_ end
     where id in (transfer_from_, transfer_to_);
@@ -1001,12 +1002,12 @@ CREATE FUNCTION call_center.cc_confirm_agent_attempt(_agent_id bigint, _attempt_
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    return query update cc_member_attempt
+    return query update call_center.cc_member_attempt
     set result = case when id = _attempt_id then null else 'cancel' end,
         leaving_at = case when id = _attempt_id then null else now() end
     where agent_id = _agent_id and not exists(
        select 1
-       from cc_member_attempt a
+       from call_center.cc_member_attempt a
        where a.agent_id = _agent_id and a.leaving_at notnull and a.result = 'cancel'
        for update
     )
@@ -1029,12 +1030,12 @@ begin
 
     with dis as MATERIALIZED (
         select x.*, a.team_id
-        from cc_sys_distribute() x (agent_id int, queue_id int, bucket_id int, ins bool, id int8, resource_id int,
+        from call_center.cc_sys_distribute() x (agent_id int, queue_id int, bucket_id int, ins bool, id int8, resource_id int,
                                     resource_group_id int, comm_idx int)
-            left join cc_agent a on a.id= x.agent_id
+            left join call_center.cc_agent a on a.id= x.agent_id
     )
        , ins as (
-        insert into cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
+        insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
                                        communication_idx, member_call_id, team_id, resource_group_id, domain_id)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
@@ -1049,12 +1050,12 @@ begin
                    dis.resource_group_id,
                    q.domain_id
             from dis
-                     inner join cc_queue q on q.id = dis.queue_id
-                     inner join cc_member m on m.id = dis.id
+                     inner join call_center.cc_queue q on q.id = dis.queue_id
+                     inner join call_center.cc_member m on m.id = dis.id
                      inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx)::text) x on true
             where dis.ins
     )
-    update cc_member_attempt a
+    update call_center.cc_member_attempt a
     set agent_id = t.agent_id,
         team_id = t.team_id
     from (
@@ -1083,7 +1084,7 @@ declare
 BEGIN
 
     return query with attempts as (
-        insert into cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id,
+        insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id,
                                        bucket_id, seq, team_id, domain_id)
             select 1,
                    m.queue_id,
@@ -1096,22 +1097,22 @@ BEGIN
                    m.attempts + 1,
                    q.team_id,
                    q.domain_id
-            from cc_member m
-                     inner join cc_queue q on q.id = m.queue_id
+            from call_center.cc_member m
+                     inner join call_center.cc_queue q on q.id = m.queue_id
                      inner join lateral (
                 select (t::cc_sys_distribute_type).resource_id
-                from cc_sys_queue_distribute_resources r,
+                from call_center.cc_sys_queue_distribute_resources r,
                      unnest(r.types) t
                 where r.queue_id = m.queue_id
                   and (t::cc_sys_distribute_type).type_id =
                       (m.communications -> (_communication_id::int2) -> 'type' -> 'id')::int4
                 limit 1
                 ) r on true
-                     inner join cc_team ct on q.team_id = ct.id
-                     left join cc_outbound_resource cor on cor.id = r.resource_id
+                     inner join call_center.cc_team ct on q.team_id = ct.id
+                     left join call_center.cc_outbound_resource cor on cor.id = r.resource_id
             where m.id = _member_id
               and m.communications -> (_communication_id::int2) notnull
-            returning cc_member_attempt.*
+            returning call_center.cc_member_attempt.*
     )
                  select a.id,
                         a.member_id,
@@ -1133,11 +1134,11 @@ BEGIN
                         t.updated_at::bigint   team_updated_at,
                         a.seq::int seq
                  from attempts a
-                          left join cc_member cm on a.member_id = cm.id
-                          inner join cc_queue cq on a.queue_id = cq.id
-                          inner join cc_team t on t.id = cq.team_id
-                          left join cc_outbound_resource r on r.id = a.resource_id
-                          left join cc_agent ag on ag.id = a.agent_id;
+                          left join call_center.cc_member cm on a.member_id = cm.id
+                          inner join call_center.cc_queue cq on a.queue_id = cq.id
+                          inner join call_center.cc_team t on t.id = cq.team_id
+                          left join call_center.cc_outbound_resource r on r.id = a.resource_id
+                          left join call_center.cc_agent ag on ag.id = a.agent_id;
 
     --raise notice '%', _attempt_id;
 
@@ -1166,14 +1167,12 @@ declare
 BEGIN
 
   select *
-  from cc_calls c
+  from call_center.cc_calls c
   where c.id = _call_id
 --   for update
   into _call;
 
   if _call.id isnull or _call.direction isnull then
---       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
---           values ('call', _queue_id, 'leaving', now(), _call_id, 'abandoned');
       raise exception 'not found call';
   end if;
 
@@ -1184,9 +1183,9 @@ BEGIN
     cac.channel,
     a.domain_id,
     a.updated_at
-  from cc_agent a
-      inner join cc_team t on t.id = a.team_id
-      inner join cc_agent_channel cac on a.id = cac.agent_id
+  from call_center.cc_agent a
+      inner join call_center.cc_team t on t.id = a.team_id
+      inner join call_center.cc_agent_channel cac on a.id = cac.agent_id
   where a.id = _agent_id -- check attempt
   for update
   into _team_id_,
@@ -1215,7 +1214,7 @@ BEGIN
               _node_name, _agent_id, _call.attempt_id)
   returning * into _attempt;
 
-  update cc_calls
+  update call_center.cc_calls
   set team_id = _team_id_,
       attempt_id = _attempt.id,
       payload = variables_
@@ -1223,8 +1222,6 @@ BEGIN
   returning * into _call;
 
   if _call.id isnull or _call.direction isnull then
---       insert into cc_member_attempt(channel, queue_id, state, leaving_at, result, member_call_id)
---       values ('call', _queue_id, 'leaving', now(), 'abandoned', _call_id);
       raise exception 'not found call';
   end if;
 
@@ -1241,13 +1238,13 @@ BEGIN
       _call.state::varchar,
       _call.direction::varchar,
       _call.destination::varchar,
-      cc_view_timestamp(_call.timestamp)::int8,
+      call_center.cc_view_timestamp(_call.timestamp)::int8,
       _call.app_id::varchar,
       _call.from_number::varchar,
       _call.from_name::varchar,
-      cc_view_timestamp(_call.answered_at)::int8,
-      cc_view_timestamp(_call.bridged_at)::int8,
-      cc_view_timestamp(_call.created_at)::int8
+      call_center.cc_view_timestamp(_call.answered_at)::int8,
+      call_center.cc_view_timestamp(_call.bridged_at)::int8,
+      call_center.cc_view_timestamp(_call.created_at)::int8
   );
 END;
 $$;
@@ -1289,9 +1286,9 @@ BEGIN
          q.enabled,
          q.type,
          q.sticky_agent
-  from cc_queue q
+  from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
-    left join cc_team ct on q.team_id = ct.id
+    left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
       _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
@@ -1305,7 +1302,7 @@ BEGIN
   end if;
 
   select *
-  from cc_calls c
+  from call_center.cc_calls c
   where c.id = _call_id
 --   for update
   into _call;
@@ -1330,8 +1327,6 @@ BEGIN
             as x (name varchar, excepted varchar, accept bool, expire bool)
             where accept and excepted is null and not expire)
   then
---       insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result)
---           values ('call', _queue_id, 'leaving', now(), _call_id, 'now_working');
       raise exception 'number % calendar not working [%]', _number, _calendar_id;
   end if;
 
@@ -1339,13 +1334,11 @@ BEGIN
   --TODO
   select clc.id
     into _list_comm_id
-    from cc_list_communications clc
+    from call_center.cc_list_communications clc
     where (clc.list_id = dnc_list_id_ and clc.number = _number)
   limit 1;
 
   if _list_comm_id notnull then
---           insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result, list_communication_id)
---           values ('call', _queue_id, 'leaving', now(), _call_id, 'banned', _list_comm_id);
           raise exception 'number % banned', _number;
   end if;
 
@@ -1354,7 +1347,7 @@ BEGIN
             case when log.result = 'abandoned' then
                  extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
             else coalesce(_priority, 0) end
-        from cc_member_attempt_history log
+        from call_center.cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
             and log.destination->>'destination' = _number
@@ -1365,13 +1358,13 @@ BEGIN
 
   if _sticky_agent_id notnull and _sticky then
       if not exists(select 1
-                    from cc_agent a
+                    from call_center.cc_agent a
                     where a.id = _sticky_agent_id
                       and a.domain_id = _domain_id
                       and a.status = 'online'
                       and exists(select 1
-                                 from cc_skill_in_agent sa
-                                          inner join cc_queue_skill qs
+                                 from call_center.cc_skill_in_agent sa
+                                          inner join call_center.cc_queue_skill qs
                                                      on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
                                  where sa.agent_id = _sticky_agent_id
                                    and sa.enabled
@@ -1388,7 +1381,7 @@ BEGIN
               _node_name, _sticky_agent_id, null, _call.attempt_id)
   returning * into _attempt;
 
-  update cc_calls
+  update call_center.cc_calls
   set queue_id  = _attempt.queue_id,
       team_id = _team_id_,
       attempt_id = _attempt.id,
@@ -1397,8 +1390,6 @@ BEGIN
   returning * into _call;
 
   if _call.id isnull or _call.direction isnull then
---       insert into cc_member_attempt(channel, queue_id, state, leaving_at, result, member_call_id)
---       values ('call', _queue_id, 'leaving', now(), 'abandoned', _call_id);
       raise exception 'not found call';
   end if;
 
@@ -1415,13 +1406,13 @@ BEGIN
       _call.state::varchar,
       _call.direction::varchar,
       _call.destination::varchar,
-      cc_view_timestamp(_call.timestamp)::int8,
+      call_center.cc_view_timestamp(_call.timestamp)::int8,
       _call.app_id::varchar,
       _number::varchar,
       _call.from_name::varchar,
-      cc_view_timestamp(_call.answered_at)::int8,
-      cc_view_timestamp(_call.bridged_at)::int8,
-      cc_view_timestamp(_call.created_at)::int8
+      call_center.cc_view_timestamp(_call.answered_at)::int8,
+      call_center.cc_view_timestamp(_call.bridged_at)::int8,
+      call_center.cc_view_timestamp(_call.created_at)::int8
   );
 
 END;
@@ -1465,9 +1456,9 @@ BEGIN
          q.enabled,
          q.type,
          q.sticky_agent
-  from cc_queue q
+  from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
-    left join cc_team ct on q.team_id = ct.id
+    left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
       _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
@@ -1515,7 +1506,7 @@ BEGIN
             case when log.result = 'abandoned' then
                  extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
             else coalesce(_priority, 0) end
-        from cc_member_attempt_history log
+        from call_center.cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
             and log.destination->>'destination' = _con_name
@@ -1526,13 +1517,13 @@ BEGIN
 
   if _sticky_agent_id notnull and _sticky then
       if not exists(select 1
-                    from cc_agent a
+                    from call_center.cc_agent a
                     where a.id = _sticky_agent_id
                       and a.domain_id = _domain_id
                       and a.status = 'online'
                       and exists(select 1
-                                 from cc_skill_in_agent sa
-                                          inner join cc_queue_skill qs
+                                 from call_center.cc_skill_in_agent sa
+                                          inner join call_center.cc_queue_skill qs
                                                      on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
                                  where sa.agent_id = _sticky_agent_id
                                    and sa.enabled
@@ -1547,7 +1538,7 @@ BEGIN
   insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
   values (_domain_id, 'chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id, jsonb_build_object('destination', _con_name),
               _node_name, _sticky_agent_id, (select clc.id
-                            from cc_list_communications clc
+                            from call_center.cc_list_communications clc
                             where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)))
   returning * into _attempt;
 
@@ -1562,7 +1553,7 @@ BEGIN
       _team_updated_at::int8,
 
       _conversation_id::varchar,
-      cc_view_timestamp(_con_created)::int8
+      call_center.cc_view_timestamp(_con_created)::int8
   );
 END;
 $$;
@@ -1637,17 +1628,17 @@ CREATE FUNCTION call_center.cc_list_statistics_trigger_deleted() RETURNS trigger
     AS $$
 BEGIN
 
-    insert into cc_list_statistics (list_id, count)
+    insert into call_center.cc_list_statistics (list_id, count)
     select l.list_id, l.cnt
     from (
              select l.list_id, count(*) cnt
              from deleted l
-                inner join cc_list li on li.id = l.list_id
+                inner join call_center.cc_list li on li.id = l.list_id
              group by l.list_id
          ) l
     on conflict (list_id)
         do update
-        set count = cc_list_statistics.count - EXCLUDED.count ;
+        set count = call_center.cc_list_statistics.count - EXCLUDED.count ;
 
     RETURN NULL;
 END
@@ -1662,7 +1653,7 @@ CREATE FUNCTION call_center.cc_list_statistics_trigger_inserted() RETURNS trigge
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    insert into cc_list_statistics (list_id, count)
+    insert into call_center.cc_list_statistics (list_id, count)
     select l.list_id, l.cnt
     from (
              select l.list_id, count(*) cnt
@@ -1671,7 +1662,7 @@ BEGIN
          ) l
     on conflict (list_id)
         do update
-        set count = EXCLUDED.count + cc_list_statistics.count;
+        set count = EXCLUDED.count + call_center.cc_list_statistics.count;
     RETURN NULL;
 END
 $$;
@@ -1708,22 +1699,24 @@ $_$;
 
 CREATE FUNCTION call_center.cc_member_communications(jsonb) RETURNS jsonb
     LANGUAGE sql IMMUTABLE
-    AS $_$select (select json_agg(x)
+    AS $_$
+select (select json_agg(x)
                 from (
                          select x ->> 'destination'                destination,
-                                cc_get_lookup(c.id, c.name)       as type,
+                                call_center.cc_get_lookup(c.id, c.name)       as type,
                                 (x -> 'priority')::int          as priority,
                                 (x -> 'state')::int             as state,
                                 x -> 'description'              as description,
                                 (x -> 'last_activity_at')::int8 as last_activity_at,
                                 (x -> 'attempts')::int          as attempts,
                                 x ->> 'last_cause'              as last_cause,
-                                cc_get_lookup(r.id, r.name)       as resource,
+                                call_center.cc_get_lookup(r.id, r.name)       as resource,
                                 x ->> 'display'                 as display
                          from jsonb_array_elements($1) x
-                                  left join cc_communication c on c.id = (x -> 'type' -> 'id')::int
-                                  left join cc_outbound_resource r on r.id = (x -> 'resource' -> 'id')::int
-                     ) x)::jsonb$_$;
+                                  left join call_center.cc_communication c on c.id = (x -> 'type' -> 'id')::int
+                                  left join call_center.cc_outbound_resource r on r.id = (x -> 'resource' -> 'id')::int
+                     ) x)::jsonb
+$_$;
 
 
 --
@@ -1751,7 +1744,7 @@ BEGIN
     end if;
 
     if new.communications notnull and jsonb_typeof(new.communications) = 'array' then
-        new.sys_destinations = (select array(select cc_destination_in(idx::int4 - 1, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
+        new.sys_destinations = (select array(select call_center.cc_destination_in(idx::int4 - 1, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
          from jsonb_array_elements(new.communications) with ordinality as x(x, idx)
          where coalesce((x.x -> 'stopped_at')::int8, 0) = 0
          and idx > -1));
@@ -1788,8 +1781,8 @@ BEGIN
     where t.skill_id notnull
     on conflict (queue_id, skill_id)
         do update
-        set member_count   = cc_queue_skill_statistics.member_count - EXCLUDED.member_count,
-            member_waiting = cc_queue_skill_statistics.member_waiting - EXCLUDED.member_waiting
+        set member_count   = call_center.cc_queue_skill_statistics.member_count - EXCLUDED.member_count,
+            member_waiting = call_center.cc_queue_skill_statistics.member_waiting - EXCLUDED.member_waiting
     ;
 
     RETURN NULL;
@@ -1874,18 +1867,18 @@ CREATE FUNCTION call_center.cc_member_statistic_trigger_deleted() RETURNS trigge
     AS $$
 BEGIN
 
-    insert into cc_queue_statistics (bucket_id, queue_id, member_count, member_waiting)
+    insert into call_center.cc_queue_statistics (bucket_id, queue_id, member_count, member_waiting)
     select t.bucket_id, t.queue_id, t.cnt, t.cntwait
     from (
              select queue_id, bucket_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
              from deleted m
-                inner join cc_queue q on q.id = m.queue_id
+                inner join call_center.cc_queue q on q.id = m.queue_id
              group by queue_id, bucket_id
          ) t
     on conflict (queue_id, coalesce(bucket_id, 0))
         do update
-        set member_count   = cc_queue_statistics.member_count - EXCLUDED.member_count,
-            member_waiting = cc_queue_statistics.member_waiting - EXCLUDED.member_waiting;
+        set member_count   = call_center.cc_queue_statistics.member_count - EXCLUDED.member_count,
+            member_waiting = call_center.cc_queue_statistics.member_waiting - EXCLUDED.member_waiting;
 
     RETURN NULL;
 END
@@ -1900,7 +1893,7 @@ CREATE FUNCTION call_center.cc_member_statistic_trigger_inserted() RETURNS trigg
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    insert into cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
+    insert into call_center.cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
     select t.queue_id, t.bucket_id, t.cnt, t.cntwait
     from (
              select queue_id, bucket_id, count(*) cnt, count(*) filter ( where m.stop_at isnull ) cntwait
@@ -1909,8 +1902,8 @@ BEGIN
          ) t
     on conflict (queue_id, coalesce(bucket_id, 0))
         do update
-        set member_count   = EXCLUDED.member_count + cc_queue_statistics.member_count,
-            member_waiting = EXCLUDED.member_waiting + cc_queue_statistics.member_waiting;
+        set member_count   = EXCLUDED.member_count + call_center.cc_queue_statistics.member_count,
+            member_waiting = EXCLUDED.member_waiting + call_center.cc_queue_statistics.member_waiting;
 
 
     --    raise notice '% % %', TG_TABLE_NAME, TG_OP, (select count(*) from inserted );
@@ -1928,7 +1921,7 @@ CREATE FUNCTION call_center.cc_member_statistic_trigger_updated() RETURNS trigge
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    insert into cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
+    insert into call_center.cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
     select t.queue_id, t.bucket_id, t.cnt, t.cntwait
     from (
         select queue_id, bucket_id, sum(cnt) cnt, sum(cntwait) cntwait
@@ -1952,8 +1945,8 @@ BEGIN
     ) t
     --where t.cntwait != 0
     on conflict (queue_id, coalesce(bucket_id, 0)) do update
-        set member_waiting = excluded.member_waiting + cc_queue_statistics.member_waiting,
-            member_count = excluded.member_count + cc_queue_statistics.member_count;
+        set member_waiting = excluded.member_waiting + call_center.cc_queue_statistics.member_waiting,
+            member_count = excluded.member_count + call_center.cc_queue_statistics.member_count;
 
    RETURN NULL;
 END
@@ -1970,11 +1963,11 @@ CREATE FUNCTION call_center.cc_member_sys_offset_id_trigger_inserted() RETURNS t
 declare res int4[];
 BEGIN
     if new.timezone_id isnull or new.timezone_id = 0 then
-        res = cc_queue_default_timezone_offset_id(new.queue_id);
+        res = call_center.cc_queue_default_timezone_offset_id(new.queue_id);
         new.timezone_id = res[1];
         new.sys_offset_id = res[2];
     else
-        new.sys_offset_id = cc_timezone_offset_id(new.timezone_id);
+        new.sys_offset_id = call_center.cc_timezone_offset_id(new.timezone_id);
     end if;
 
     if new.timezone_id isnull or new.sys_offset_id isnull then
@@ -1993,9 +1986,9 @@ $$;
 CREATE FUNCTION call_center.cc_member_sys_offset_id_trigger_update() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    declare res int4[];
+declare res int4[];
 BEGIN
-    new.sys_offset_id = cc_timezone_offset_id(new.timezone_id);
+    new.sys_offset_id = call_center.cc_timezone_offset_id(new.timezone_id);
 
     if new.timezone_id isnull or new.sys_offset_id isnull then
         raise exception 'not found timezone';
@@ -2038,7 +2031,7 @@ CREATE FUNCTION call_center.cc_queue_default_timezone_offset_id(integer) RETURNS
     LANGUAGE sql IMMUTABLE
     AS $_$
 select array[c.timezone_id, z.offset_id]::int4[]
-    from cc_queue q
+    from call_center.cc_queue q
         inner join flow.calendar c on c.id = q.calendar_id
         inner join flow.calendar_timezones z on z.id = c.timezone_id
     where q.id = $1;
@@ -2084,7 +2077,7 @@ DECLARE _res record;
   _un_reserved_id bigint;
 BEGIN
 
-  update cc_outbound_resource
+  update call_center.cc_outbound_resource
   set last_error_id = _error_id,
       last_error_at = now(),
     successively_errors = case when successively_errors + 1 >= max_successively_errors then 0 else successively_errors + 1 end,
@@ -2108,7 +2101,7 @@ CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURN
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    return query update cc_member_attempt a
+    return query update call_center.cc_member_attempt a
         set state = 'waiting'
             ,node_id = node
             ,last_state_change = now()
@@ -2118,7 +2111,7 @@ BEGIN
             select c.id,
                    cq.updated_at                                   as queue_updated_at,
                    r.updated_at                                    as resource_updated_at,
-                   cc_view_timestamp(gw.updated_at)             as gateway_updated_at,
+                   call_center.cc_view_timestamp(gw.updated_at)             as gateway_updated_at,
                    c.destination as destination,
                    cm.variables                                    as variables,
                    cm.name                                         as member_name,
@@ -2130,20 +2123,20 @@ BEGIN
                    tm.updated_at                                   as team_updated_at,
                    cq.dnc_list_id,
                    cm.attempts
-            from cc_member_attempt c
-                     inner join cc_member cm on c.member_id = cm.id
-                     inner join cc_queue cq on cm.queue_id = cq.id
-                     left join cc_team tm on tm.id = cq.team_id
-                     left join cc_outbound_resource r on r.id = c.resource_id
+            from call_center.cc_member_attempt c
+                     inner join call_center.cc_member cm on c.member_id = cm.id
+                     inner join call_center.cc_queue cq on cm.queue_id = cq.id
+                     left join call_center.cc_team tm on tm.id = cq.team_id
+                     left join call_center.cc_outbound_resource r on r.id = c.resource_id
                      left join directory.sip_gateway gw on gw.id = r.gateway_id
-                     left join cc_agent ca on c.agent_id = ca.id
-                     left join cc_queue_statistics cqs on cq.id = cqs.queue_id
+                     left join call_center.cc_agent ca on c.agent_id = ca.id
+                     left join call_center.cc_queue_statistics cqs on cq.id = cqs.queue_id
             where c.state = 'idle'
               and c.leaving_at isnull
             order by cq.priority desc, c.weight desc
                 for update of c skip locked
         ) c
-            left join cc_list_communications lc on lc.list_id = c.dnc_list_id and
+            left join call_center.cc_list_communications lc on lc.list_id = c.dnc_list_id and
                                                    lc.number = c.destination ->> 'destination'
         where a.id = c.id --and node = 'call_center-igor'
         returning
@@ -2183,7 +2176,7 @@ BEGIN
     if TG_OP = 'INSERT' then
         return new;
     end if;
-    insert into cc_agent_state_history (agent_id, joined_at, state, duration, payload)
+    insert into call_center.cc_agent_state_history (agent_id, joined_at, state, duration, payload)
     values (old.id, old.last_state_change, old.status,  new.last_state_change - old.last_state_change, old.status_payload);
 --     update cc_agent_channel
 --     set online = case when new.status = 'online' then true else false end
@@ -2234,12 +2227,12 @@ BEGIN
   end if;
 
   if old.channel = 'chat' then
-      insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
+      insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
       values (old.agent_id, old.channel_changed_at, 'chat', old.channel, new.channel_changed_at - old.channel_changed_at, old.queue_id);
       return new;
   end if;
 
-  insert into cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
+  insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
   values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id);
 
   RETURN new;
@@ -2258,13 +2251,13 @@ declare res int4[];
 begin
     select array_agg(a.id order by b.lvl asc, a.last_state_change)
     into res
-    from cc_agent_channel cac
-             inner join cc_agent a on a.id = cac.agent_id
-             inner join cc_sys_agent_group_team_bucket b on b.agent_id = cac.agent_id
+    from call_center.cc_agent_channel cac
+             inner join call_center.cc_agent a on a.id = cac.agent_id
+             inner join call_center.cc_sys_agent_group_team_bucket b on b.agent_id = cac.agent_id
     where (cac.agent_id, cac.channel) = (a.id, $1) and cac.state = 'waiting' and cac.timeout isnull
       and a.status = 'online'
       and b.team_id = $2::int4
-      and not exists(select 1 from cc_member_attempt att where att.agent_id = cac.agent_id)
+      and not exists(select 1 from call_center.cc_member_attempt att where att.agent_id = cac.agent_id)
       and case when $3 isnull then true else b.bucket_id = $3 end ;
 
     return res;
@@ -2295,7 +2288,7 @@ CREATE FUNCTION call_center.cc_un_reserve_members_with_resources(node character 
 DECLARE
     count integer;
 BEGIN
-    update cc_member_attempt
+    update call_center.cc_member_attempt
       set state  =  'leaving',
           leaving_at = now(),
           result = res
@@ -2305,6 +2298,15 @@ BEGIN
     return count;
 END;
 $$;
+
+
+--
+-- Name: cc_version(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_version() RETURNS text
+    LANGUAGE c IMMUTABLE
+    AS '$libdir/cc_sql.so', 'cc_version';
 
 
 --

@@ -30,7 +30,7 @@ func (s SqlTeamStore) Get(id int) (*model.Team, *model.AppError) {
 			   no_answer_delay_time,
 			   call_timeout,
 			   updated_at
-		from cc_team	
+		from call_center.cc_team	
 		where id = :Id
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {

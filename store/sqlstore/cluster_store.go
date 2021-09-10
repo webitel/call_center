@@ -22,7 +22,7 @@ func (s *SqlClusterStore) CreateTableIfNotExists() {
 func (s SqlClusterStore) CreateOrUpdate(nodeId string) (*discovery.ClusterData, error) {
 	var info *discovery.ClusterData
 	if err := s.GetMaster().SelectOne(&info, `
-           insert into cc_cluster (node_name, updated_at, master)
+           insert into call_center.cc_cluster (node_name, updated_at, master)
            values (:NodeId, :Time, false)
             on conflict (node_name)
               do update
@@ -30,7 +30,7 @@ func (s SqlClusterStore) CreateOrUpdate(nodeId string) (*discovery.ClusterData, 
                 started_at = :Time,
                 master = coalesce((select true
                  where not exists(select 1
-                                  from cc_cluster c1
+                                  from call_center.cc_cluster c1
                                   where c1.master and to_timestamp((c1.updated_at::bigint/1000)::bigint) <= to_timestamp(:Time::bigint/1000) - '30s'::interval)), false)
             returning *`, map[string]interface{}{"NodeId": nodeId, "Time": model.GetMillis()}); err != nil {
 		return nil, model.NewAppError("SqlClusterStore.CreateOrUpdate", "store.sql_cluster.create_or_update.app_error",
@@ -45,7 +45,7 @@ func (s SqlClusterStore) UpdateClusterInfo(nodeId string, started bool) (*discov
 	var info *discovery.ClusterData
 	//FIXME
 	if err := s.GetMaster().SelectOne(&info, `with u as (
-    update cc_cluster c
+    update call_center.cc_cluster c
          set updated_at = case when :NodeId = c.node_name then :Time else c.updated_at end,
              master = case when t.ms isnull then  t.rn = 1 else c.master end,
              started_at = case when :IsStarted then :Time else c.started_at end
@@ -54,9 +54,12 @@ func (s SqlClusterStore) UpdateClusterInfo(nodeId string, started bool) (*discov
                row_number() over (order by c2.updated_at desc) rn,
                c2.updated_at,
                (select 1 where exists(
-                    select 1 from cc_cluster c3 where c3.master and to_timestamp(c3.updated_at/1000) > now() - '40 sec'::interval
+                    select 1
+                    from call_center.cc_cluster c3
+                    where c3.master
+                      and now() - to_timestamp(c3.updated_at::double precision/1000) < '40 sec'::interval
                )) as ms
-        from cc_cluster c2
+        from call_center.cc_cluster c2
     ) t
     where t.id = c.id
     returning c.*

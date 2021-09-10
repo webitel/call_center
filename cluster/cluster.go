@@ -81,8 +81,15 @@ func (c *cluster) Setup() error {
 		return err
 	} else {
 		c.info = info
-		wlog.Debug(fmt.Sprintf("cluster [%s] %v", c.nodeId, info))
 	}
+
+	if info, err := c.store.UpdateClusterInfo(c.nodeId, true); err != nil {
+		return err
+	} else {
+		c.info = info
+		wlog.Debug(fmt.Sprintf("cluster [%s] master = %v", c.nodeId, info.Master))
+	}
+
 	return nil
 }
 

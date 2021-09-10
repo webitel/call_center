@@ -22,7 +22,7 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 }
 
 func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppError) {
-	if i, err := s.GetMaster().SelectNullInt(`call cc_distribute(null)`); err != nil {
+	if i, err := s.GetMaster().SelectNullInt(`call call_center.cc_distribute(null)`); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
@@ -33,7 +33,7 @@ func (s SqlMemberStore) ReserveMembersByNode(nodeId string) (int64, *model.AppEr
 
 func (s SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) (int64, *model.AppError) {
 	if i, err := s.GetMaster().SelectInt(`select s as count
-			from cc_un_reserve_members_with_resources($1, $2) s`, nodeId, cause); err != nil {
+			from call_center.cc_un_reserve_members_with_resources($1, $2) s`, nodeId, cause); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.UnReserveMembers", "store.sql_member.un_reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()}, err.Error(), http.StatusInternalServerError)
 	} else {
@@ -44,7 +44,7 @@ func (s SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) (int64, *mo
 func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError) {
 	var members []*model.MemberAttempt
 	if _, err := s.GetMaster().Select(&members, `select *
-			from cc_set_active_members($1) s`, nodeId); err != nil {
+			from call_center.cc_set_active_members($1) s`, nodeId); err != nil {
 		return nil, model.NewAppError("SqlMemberStore.GetActiveMembersAttempt", "store.sql_member.get_active.app_error",
 			map[string]interface{}{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
@@ -54,7 +54,7 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) ([]*model.MemberA
 }
 
 func (s SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update cc_member_attempt
+	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State
 			where id = :Id`, map[string]interface{}{"Id": id, "State": state}); err != nil {
 		return model.NewAppError("SqlMemberStore.SetAttemptState", "store.sql_member.set_attempt_state.app_error", nil,
@@ -65,7 +65,7 @@ func (s SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
 }
 
 func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update cc_member_attempt
+	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State,
 				agent_id = null,
 				team_id = null
@@ -82,7 +82,7 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 }
 
 func (s SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update cc_member_attempt
+	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State,
 				agent_id = null,
 				answered_at = now()
@@ -99,7 +99,7 @@ func (s SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
 }
 
 func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError {
-	_, err := s.GetMaster().Exec(`call cc_attempt_distribute_cancel(:Id::int8, :Desc::varchar, :NextSec::int4, :Stop::bool, :Vars::jsonb)`,
+	_, err := s.GetMaster().Exec(`call call_center.cc_attempt_distribute_cancel(:Id::int8, :Desc::varchar, :NextSec::int4, :Stop::bool, :Vars::jsonb)`,
 		map[string]interface{}{
 			"Id":      id,
 			"Desc":    description,
@@ -119,7 +119,7 @@ func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDi
 func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError) {
 	var att *model.InboundCallQueue
 	err := s.GetMaster().SelectOne(&att, `select *
-from cc_distribute_inbound_call_to_queue(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
+from call_center.cc_distribute_inbound_call_to_queue(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
 	:BucketId::int, :Priority::int, :StickyAgentId::int4)
 as x (
     attempt_id int8,
@@ -163,7 +163,7 @@ func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars m
 	var att *model.InboundCallAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
-from cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId)
+from call_center.cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId)
 as x (
     attempt_id int8,
     destination jsonb,
@@ -185,7 +185,7 @@ as x (
     call_bridged_at int8,
     call_created_at int8
 )
-where not exists(select 1 from cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
+where not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
 		"Node":         node,
 		"MemberCallId": callId,
 		"Variables":    model.MapToJson(vars),
@@ -201,7 +201,7 @@ where not exists(select 1 from cc_member_attempt a where a.agent_id = :AgentId a
 }
 
 func (s SqlMemberStore) DistributeCallToQueueCancel(id int64) *model.AppError {
-	_, err := s.GetMaster().Exec(`update cc_member_attempt
+	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set result = 'cancel',
     state = 'leaving',
     leaving_at = now()
@@ -228,7 +228,7 @@ func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId
 	}
 
 	if err := s.GetMaster().SelectOne(&attempt, `select *
-		from cc_distribute_inbound_chat_to_queue(:AppId::varchar, :QueueId::int8, :ConvId::varchar, :Variables::jsonb,
+		from call_center.cc_distribute_inbound_chat_to_queue(:AppId::varchar, :QueueId::int8, :ConvId::varchar, :Variables::jsonb,
 	:BucketId::int, :Priority::int, :StickyAgentId::int) 
 as x (
     attempt_id int8,
@@ -260,7 +260,7 @@ as x (
 
 func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
-	err := s.GetMaster().SelectOne(&res, `select * from cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
+	err := s.GetMaster().SelectOne(&res, `select * from call_center.cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
 		map[string]interface{}{
 			"AppId":           node,
 			"MemberId":        memberId,
@@ -278,8 +278,8 @@ func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicat
 }
 
 func (s *SqlMemberStore) SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
-from cc_attempt_offering(:AttemptId::int8, :AgentId::int4, :AgentCallId::varchar, :MemberCallId::varchar, :Dest::varchar, :Displ::varchar)
+	timestamp, err := s.GetMaster().SelectInt(`select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from call_center.cc_attempt_offering(:AttemptId::int8, :AgentId::int4, :AgentCallId::varchar, :MemberCallId::varchar, :Dest::varchar, :Displ::varchar)
     as x (last_state_change timestamptz)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":    attemptId,
@@ -299,8 +299,8 @@ where x.last_state_change notnull `, map[string]interface{}{
 }
 
 func (s *SqlMemberStore) SetAttemptBridged(attemptId int64) (int64, *model.AppError) {
-	timestamp, err := s.GetMaster().SelectInt(`select cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
-from cc_attempt_bridged(:AttemptId)
+	timestamp, err := s.GetMaster().SelectInt(`select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp"
+from call_center.cc_attempt_bridged(:AttemptId)
     as x (last_state_change timestamptz)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId": attemptId,
@@ -316,8 +316,8 @@ where x.last_state_change notnull `, map[string]interface{}{
 
 func (s *SqlMemberStore) SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError) {
 	var res *model.AttemptLeaving
-	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
-from cc_attempt_abandoned(:AttemptId)
+	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
+from call_center.cc_attempt_abandoned(:AttemptId)
     as x (last_state_change timestamptz, member_stop_cause varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId": attemptId,
@@ -345,8 +345,8 @@ func mapToJson(m map[string]string) *string {
 
 func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string) (*model.AttemptLeaving, *model.AppError) {
 	var res *model.AttemptLeaving
-	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
-from cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep, :Vars::jsonb)
+	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
+from call_center.cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep, :Vars::jsonb)
     as x (last_state_change timestamptz, member_stop_cause varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":   attemptId,
@@ -365,8 +365,8 @@ where x.last_state_change notnull `, map[string]interface{}{
 
 func (s *SqlMemberStore) SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError) {
 	var res *model.MissedAgent
-	err := s.GetMaster().SelectOne(&res, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers
-from cc_attempt_missed_agent(:AttemptId, :AgentHoldSec)
+	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers
+from call_center.cc_attempt_missed_agent(:AttemptId, :AgentHoldSec)
     as x (last_state_change timestamptz, no_answers int)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":    attemptId,
@@ -383,7 +383,7 @@ where x.last_state_change notnull `, map[string]interface{}{
 
 func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`with att as (
-    update cc_member_attempt
+    update call_center.cc_member_attempt
     set timeout  = case when :DeadlineSec::int > 0 then  now() + (:DeadlineSec::int || ' sec')::interval end,
         leaving_at = now(),
 	    last_state_change = now(),
@@ -391,12 +391,12 @@ func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint32
     where id = :Id
     returning agent_id, channel, state, leaving_at
 )
-update cc_agent_channel c
+update call_center.cc_agent_channel c
 set state = att.state,
     joined_at = att.leaving_at
 from att
 where (att.agent_id, att.channel) = (c.agent_id, c.channel)
-returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
+returning call_center.cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
 		"State":       model.ChannelStateProcessing,
 		"Id":          attemptId,
 		"DeadlineSec": deadlineSec,
@@ -413,11 +413,11 @@ returning cc_view_timestamp(c.joined_at) as timestamp`, map[string]interface{}{
 // fixme queue_id
 func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
 	var res *model.RenewalProcessing
-	err := s.GetMaster().SelectOne(&res, `update cc_member_attempt a
+	err := s.GetMaster().SelectOne(&res, `update call_center.cc_member_attempt a
  set timeout = now() + (:Renewal::int || ' sec')::interval
-from cc_member_attempt a2
-    inner join cc_agent ca on ca.id = a2.agent_id
-    left join cc_queue cq on cq.id = a2.queue_id
+from call_center.cc_member_attempt a2
+    inner join call_center.cc_agent ca on ca.id = a2.agent_id
+    left join call_center.cc_queue cq on cq.id = a2.queue_id
 where a2.id = :Id::int8
 	and a2.id = a.id
 	and (cq.id isnull or cq.processing_renewal_sec > 0)
@@ -426,8 +426,8 @@ where a2.id = :Id::int8
 returning
     a.id attempt_id,
 	coalesce(a.queue_id,0) as queue_id,
-    cc_view_timestamp(a.timeout) timeout,
-    cc_view_timestamp(now()) "timestamp",
+    call_center.cc_view_timestamp(a.timeout) timeout,
+    call_center.cc_view_timestamp(now()) "timestamp",
 	coalesce(cq.processing_renewal_sec, (:Renewal::int / 2)::int) as renewal_sec,
     a.channel,
     ca.user_id,
@@ -447,8 +447,8 @@ returning
 
 func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
-	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers, member_stop_cause 
-		from cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
+	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers, member_stop_cause 
+		from call_center.cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
@@ -466,8 +466,8 @@ func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int) (*model.M
 
 func (s *SqlMemberStore) CancelAgentAttempt(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
-	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers
-from cc_attempt_agent_cancel(:AttemptId::int8, :Result::varchar, :AgentState::varchar, :AgentHoldSec::int4)
+	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers
+from call_center.cc_attempt_agent_cancel(:AttemptId::int8, :Result::varchar, :AgentState::varchar, :AgentHoldSec::int4)
     as x (last_state_change timestamptz, no_answers int)
 where x.last_state_change notnull `,
 		map[string]interface{}{
@@ -487,14 +487,14 @@ where x.last_state_change notnull `,
 
 func (s *SqlMemberStore) SetBarred(id int64) *model.AppError {
 	_, err := s.GetMaster().Exec(`with u as (
-    update cc_member_attempt
+    update call_center.cc_member_attempt
         set leaving_at = now(),
             result = 'barred',
             state = 'leaving'
     where id = :AttemptId
     returning member_id, result
 )
-update cc_member m
+update call_center.cc_member m
 set stop_at = now(),
     stop_cause = u.result
 from u
@@ -512,8 +512,8 @@ where m.id = u.member_id`, map[string]interface{}{
 
 func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
-	err := s.GetMaster().SelectOne(&missed, `select cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers,  member_stop_cause
-		from cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb) 
+	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers,  member_stop_cause
+		from call_center.cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"Result":        result,
@@ -535,16 +535,16 @@ func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTi
 	var attempts []*model.AttemptReportingTimeout
 	_, err := s.GetMaster().Select(&attempts, `select
        a.id attempt_id,
-       cc_view_timestamp(cc_attempt_timeout(a.id, 0, 'abandoned', 'waiting', 0)) as timestamp,
+       call_center.cc_view_timestamp(call_center.cc_attempt_timeout(a.id, 0, 'abandoned', 'waiting', 0)) as timestamp,
        a.agent_id,
        ag.updated_at agent_updated_at,
        ag.user_id,
        ag.domain_id,
        a.channel
-from cc_member_attempt a
-    inner join cc_agent ag on ag.id = a.agent_id
-    left join cc_queue cq on a.queue_id = cq.id
-    left join cc_team ct on cq.team_id = ct.id
+from call_center.cc_member_attempt a
+    inner join call_center.cc_agent ag on ag.id = a.agent_id
+    left join call_center.cc_queue cq on a.queue_id = cq.id
+    left join call_center.cc_team ct on cq.team_id = ct.id
 where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 		"NodeId": nodeId,
 	})
@@ -560,7 +560,7 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, :NextCallAt::timestamptz, :StickyAgentId::int) as
+from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, :NextCallAt::timestamptz, :StickyAgentId::int) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar)
 where x.channel notnull`, map[string]interface{}{
 		"AttemptId":     attemptId,
@@ -591,12 +591,12 @@ func (s SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppErro
 
 	_, err := s.GetMaster().Select(&res, `with del as (
     delete
-        from cc_member_attempt a
+        from call_center.cc_member_attempt a
     where a.state = 'leaving'
     returning *
 )
 insert
-into cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, resource_id, result,
+into call_center.cc_member_attempt_history (id, domain_id, queue_id, member_id, weight, resource_id, result,
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
                                 bridged_at, channel, seq, resource_group_id, answered_at, team_id, 
@@ -606,7 +606,7 @@ select a.id, a.domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.re
        a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq, a.resource_group_id, a.answered_at, a.team_id, 
 	   a.transferred_at, a.transferred_agent_id, a.transferred_attempt_id, a.parent_id, a.node_id
 from del a
-returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
+returning call_center.cc_member_attempt_history.id, call_center.cc_member_attempt_history.result`)
 
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.SaveToHistory", "store.sql_member.save_history.app_error", nil,
@@ -616,10 +616,10 @@ returning cc_member_attempt_history.id, cc_member_attempt_history.result`)
 }
 
 func (s SqlMemberStore) CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError) {
-	res, err := s.GetMaster().SelectStr(`insert into cc_msg_participants (name, conversation_id, attempt_id)
+	res, err := s.GetMaster().SelectStr(`insert into call_center.cc_msg_participants (name, conversation_id, attempt_id)
 select :Name, parent.conversation_id, :AttemptId
-from cc_msg_participants parent
-    inner join cc_msg_conversation cmc on parent.conversation_id = cmc.id
+from call_center.cc_msg_participants parent
+    inner join call_center.cc_msg_conversation cmc on parent.conversation_id = cmc.id
 where parent.channel_id = :Parent and cmc.closed_at is null
 returning channel_id`, map[string]interface{}{
 		"Name":      name,
@@ -637,7 +637,7 @@ returning channel_id`, map[string]interface{}{
 }
 
 func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
-	_, err := s.GetMaster().Exec(`refresh materialized view cc_distribute_stats`)
+	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_distribute_stats`)
 
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshAgentPauseCauses", "store.sql_agent.refresh_pause_cause.app_error", nil,
@@ -648,7 +648,7 @@ func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
 }
 
 func (s *SqlMemberStore) TransferredTo(id, toId int64) *model.AppError {
-	_, err := s.GetMaster().Exec(`select * from cc_attempt_transferred_to(:Id, :ToId)
+	_, err := s.GetMaster().Exec(`select * from call_center.cc_attempt_transferred_to(:Id, :ToId)
 			as x (last_state_change timestamptz)`, map[string]interface{}{
 		"Id":   id,
 		"ToId": toId,
@@ -662,7 +662,7 @@ func (s *SqlMemberStore) TransferredTo(id, toId int64) *model.AppError {
 }
 
 func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError {
-	_, err := s.GetMaster().Exec(`select * from cc_attempt_transferred_from(:Id::int8, :ToId::int8, :ToAgentId::int, :ToAgentSessId::varchar)
+	_, err := s.GetMaster().Exec(`select * from call_center.cc_attempt_transferred_from(:Id::int8, :ToId::int8, :ToAgentId::int, :ToAgentSessId::varchar)
 			as x (last_state_change timestamptz)`, map[string]interface{}{
 		"Id":            id,
 		"ToId":          toId,
