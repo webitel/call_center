@@ -2301,15 +2301,6 @@ $$;
 
 
 --
--- Name: cc_version(); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_version() RETURNS text
-    LANGUAGE c IMMUTABLE
-    AS '$libdir/cc_sql.so', 'cc_version';
-
-
---
 -- Name: cc_view_timestamp(timestamp with time zone); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -3492,7 +3483,8 @@ SELECT
     NULL::boolean AS sticky_agent,
     NULL::integer AS sticky_agent_sec,
     NULL::boolean AS recall_calendar,
-    NULL::boolean AS wait_between_retries_desc;
+    NULL::boolean AS wait_between_retries_desc,
+    NULL::boolean AS strict_circuit;
 
 
 --
@@ -6456,39 +6448,6 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
 
 
 --
--- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t,
-            cor.patterns
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
-
-
---
 -- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
@@ -6512,6 +6471,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             q_1.team_id,
             ((q_1.payload -> 'max_calls'::text))::integer AS lim,
             ((q_1.payload -> 'wait_between_retries_desc'::text))::boolean AS wait_between_retries_desc,
+            COALESCE(((q_1.payload -> 'strict_circuit'::text))::boolean, false) AS strict_circuit,
             array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
             m.op
            FROM ((( WITH mem AS MATERIALIZED (
@@ -6653,7 +6613,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     q.sticky_agent,
     q.sticky_agent_sec,
     calend.recall_calendar,
-    q.wait_between_retries_desc
+    q.wait_between_retries_desc,
+    q.strict_circuit
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))
@@ -6661,6 +6622,39 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
   WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+
+
+--
+-- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t,
+            cor.patterns
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
 
 
 --
