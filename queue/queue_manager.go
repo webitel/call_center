@@ -334,8 +334,6 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 	// FIXME add domain
 	var agent agent_manager.AgentObject
 
-	in.CancelDistribute = true
-
 	res, err := queueManager.store.Member().DistributeCallToAgent(
 		queueManager.app.GetInstanceId(),
 		in.GetMemberCallId(),
