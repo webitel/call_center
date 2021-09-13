@@ -108,3 +108,12 @@ func (api *memberApi) CallJoinToAgent(ctx context.Context, in *proto.CallJoinToA
 
 	return cli.member.CallJoinToAgent(ctx, in)
 }
+
+func (api *memberApi) CancelAgentDistribute(ctx context.Context, in *proto.CancelAgentDistributeRequest) (*proto.CancelAgentDistributeResponse, error) {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.member.CancelAgentDistribute(ctx, in)
+}
