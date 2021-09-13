@@ -334,16 +334,26 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 	// FIXME add domain
 	var agent agent_manager.AgentObject
 
+	in.CancelDistribute = true
+
 	res, err := queueManager.store.Member().DistributeCallToAgent(
 		queueManager.app.GetInstanceId(),
 		in.GetMemberCallId(),
 		in.GetVariables(),
 		in.GetAgentId(),
+		in.CancelDistribute,
 	)
 
 	if err != nil {
 		wlog.Error(err.Error())
 		return nil, err
+	}
+
+	if in.CancelDistribute {
+		err = queueManager.CancelAgentDistribute(in.GetAgentId())
+		if err != nil {
+			wlog.Error(err.Error())
+		}
 	}
 
 	agent, err = queueManager.agentManager.GetAgent(int(in.GetAgentId()), res.AgentUpdatedAt)
@@ -773,4 +783,20 @@ func (queueManager *QueueManager) LosePredictAgent(id int) {
 	if err := queueManager.store.Agent().LosePredictAttempt(id); err != nil {
 		wlog.Error(err.Error())
 	}
+}
+
+func (queueManager *QueueManager) CancelAgentDistribute(agentId int32) *model.AppError {
+	attempts, err := queueManager.store.Member().CancelAgentDistribute(agentId)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range attempts {
+		att, _ := queueManager.GetAttempt(v)
+		if att != nil && !att.canceled {
+			att.SetCancel()
+		}
+	}
+
+	return nil
 }

@@ -150,6 +150,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	for calling {
 		select {
+		case <-attempt.Cancel():
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 		case state := <-mCall.State():
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT, call_manager.CALL_STATE_DETECT_AMD:

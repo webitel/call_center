@@ -58,6 +58,9 @@ type Attempt struct {
 	Logs    []LogItem   `json:"logs"`
 	Context context.Context
 	sync.RWMutex
+
+	cancel   chan struct{}
+	canceled bool
 }
 
 type LogItem struct {
@@ -70,6 +73,7 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 		state:         model.MemberStateIdle,
 		member:        member,
 		Context:       ctx,
+		cancel:        make(chan struct{}),
 		communication: model.MemberDestinationFromBytes(member.Destination),
 	}
 }
@@ -347,4 +351,18 @@ func (a *Attempt) JoinedAt() int64 {
 	}
 
 	return 0
+}
+
+func (a *Attempt) SetCancel() {
+	a.Log("cancel")
+	a.Lock()
+	defer a.Unlock()
+	if !a.canceled {
+		a.canceled = true
+		close(a.cancel)
+	}
+}
+
+func (a *Attempt) Cancel() <-chan struct{} {
+	return a.cancel
 }

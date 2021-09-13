@@ -305,7 +305,6 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 		call.setState(CALL_STATE_HANGUP)
 	} else {
 		call.Unlock()
-		fmt.Println("FIXME setHangup", e)
 	}
 
 }

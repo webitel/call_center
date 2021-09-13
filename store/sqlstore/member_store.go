@@ -159,7 +159,7 @@ as x (
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32) (*model.InboundCallAgent, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool) (*model.InboundCallAgent, *model.AppError) {
 	var att *model.InboundCallAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
@@ -185,11 +185,12 @@ as x (
     call_bridged_at int8,
     call_created_at int8
 )
-where not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
+where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
 		"Node":         node,
 		"MemberCallId": callId,
 		"Variables":    model.MapToJson(vars),
 		"AgentId":      agentId,
+		"Force":        force,
 	})
 
 	if err != nil {
@@ -676,4 +677,36 @@ func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentS
 	}
 
 	return nil
+}
+
+func (s *SqlMemberStore) CancelAgentDistribute(agentId int32) ([]int64, *model.AppError) {
+	var res []int64
+	_, err := s.GetMaster().Select(&res, `
+		update call_center.cc_member_attempt att
+		set result = 'cancel'
+		from (
+			select a.id
+			from call_center.cc_member_attempt a
+				inner join call_center.cc_queue q on q.id = a.queue_id
+			where a.agent_id = :AgentId
+			  and q.type != 5
+			  and not exists(
+					select 1
+					from call_center.cc_member_attempt a2
+					where a2.agent_id = :AgentId
+					  and a2.agent_call_id notnull
+						for update
+				)
+		) t
+		where t.id = att.id
+		returning att.id`, map[string]interface{}{
+		"AgentId": agentId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.CancelAgentDistribute", "store.sql_member.cancel_agent_distribute.app_error", nil,
+			fmt.Sprintf("AgentId=%v %s", agentId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return res, nil
 }

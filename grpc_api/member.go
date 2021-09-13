@@ -16,6 +16,15 @@ func NewMemberApi(app *app.App) *member {
 	return &member{app}
 }
 
+func (api *member) CancelAgentDistribute(_ context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error) {
+	err := api.app.Queue().Manager().CancelAgentDistribute(in.AgentId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.CancelAgentDistributeResponse{}, nil
+}
+
 func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
 	result := model.AttemptCallback{
 		Status:        in.GetStatus(),
