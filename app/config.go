@@ -14,6 +14,9 @@ var (
 	grpcServerPort         = flag.Int("grpc_port", 0, "GRPC port")
 	grpcServerAddr         = flag.String("grpc_addr", "", "GRPC host")
 	useBridgeAnswerTimeout = flag.Bool("use_bridge_answer_timeout", false, "bridge_answer_timeout")
+
+	resourceCidType          = flag.String("resource_cid_type", "", "CID Type: none / Remote-Party-ID / P-Asserted-Identity")
+	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
 )
 
 func (a *App) Config() *model.Config {
@@ -42,7 +45,9 @@ func loadConfig() (*model.Config, error) {
 			Url: *consulHost,
 		},
 		CallSettings: model.CallSettings{
-			UseBridgeAnswerTimeout: *useBridgeAnswerTimeout,
+			UseBridgeAnswerTimeout:   *useBridgeAnswerTimeout,
+			ResourceSipCidType:       *resourceCidType,
+			ResourceIgnoreEarlyMedia: *resourceIgnoreEarlyMedia,
 		},
 		ServerSettings: model.ServerSettings{
 			Address: *grpcServerAddr,

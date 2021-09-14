@@ -33,7 +33,9 @@ type ServiceSettings struct {
 }
 
 type CallSettings struct {
-	UseBridgeAnswerTimeout bool
+	UseBridgeAnswerTimeout   bool
+	ResourceSipCidType       string `json:"sip_cid_type"`
+	ResourceIgnoreEarlyMedia string `json:"ignore_early_media"`
 }
 
 type SqlSettings struct {

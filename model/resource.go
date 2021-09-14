@@ -48,6 +48,8 @@ type SipGateway struct {
 	Password               *string `json:"password" db:"password"`
 	DomainId               int64   `json:"domain_id" db:"domain_id"`
 	UseBridgeAnswerTimeout bool    `json:"use_bridge_answer_timeout" db:"-"`
+	SipCidType             string  `json:"sip_cid_type" db:"-"`
+	IgnoreEarlyMedia       string  `json:"ignore_early_media" db:"-"`
 	//SipVariables map[string]interface{} `json:"envar,omitempty" db:"envar"`
 }
 
@@ -98,6 +100,14 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 
 	if g.UseBridgeAnswerTimeout {
 		res = append(res, fmt.Sprintf("bridge_answer_timeout=%d", timeout))
+	}
+
+	if g.SipCidType != "" {
+		res = append(res, fmt.Sprintf("sip_cid_type=%s", g.SipCidType))
+	}
+
+	if g.IgnoreEarlyMedia != "" {
+		res = append(res, fmt.Sprintf("ignore_early_media=%s", g.IgnoreEarlyMedia))
 	}
 
 	vars := g.Variables()

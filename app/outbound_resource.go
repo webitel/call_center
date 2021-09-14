@@ -12,7 +12,11 @@ func (a *App) GetGateway(id int64) (*model.SipGateway, *model.AppError) {
 		return nil, err
 	}
 
-	gw.UseBridgeAnswerTimeout = a.Config().CallSettings.UseBridgeAnswerTimeout
+	conf := a.Config()
+
+	gw.UseBridgeAnswerTimeout = conf.CallSettings.UseBridgeAnswerTimeout
+	gw.SipCidType = conf.CallSettings.ResourceSipCidType
+	gw.IgnoreEarlyMedia = conf.CallSettings.ResourceIgnoreEarlyMedia
 
 	return gw, nil
 }
