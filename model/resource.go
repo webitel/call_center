@@ -69,6 +69,14 @@ func (g *SipGateway) Variables() map[string]string {
 		vars["sip_invite_domain"] = *g.HostName
 	}
 
+	if g.SipCidType != "" {
+		vars["sip_cid_type"] = g.SipCidType
+	}
+
+	if g.IgnoreEarlyMedia != "" {
+		vars["ignore_early_media"] = g.IgnoreEarlyMedia
+	}
+
 	return vars
 }
 
@@ -100,14 +108,6 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 
 	if g.UseBridgeAnswerTimeout {
 		res = append(res, fmt.Sprintf("bridge_answer_timeout=%d", timeout))
-	}
-
-	if g.SipCidType != "" {
-		res = append(res, fmt.Sprintf("sip_cid_type=%s", g.SipCidType))
-	}
-
-	if g.IgnoreEarlyMedia != "" {
-		res = append(res, fmt.Sprintf("ignore_early_media=%s", g.IgnoreEarlyMedia))
 	}
 
 	vars := g.Variables()
