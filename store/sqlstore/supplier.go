@@ -243,6 +243,18 @@ func (me typeConverter) ToDb(val interface{}) (interface{}, error) {
 
 func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	switch target.(type) {
+	case *model.OutboundResourceParameters:
+		binder := func(holder, target interface{}) error {
+			s, ok := holder.(*[]byte)
+			if !ok {
+				return errors.New("store.sql.convert_object")
+			}
+			if *s == nil {
+				return nil
+			}
+			return json.Unmarshal(*s, target)
+		}
+		return gorp.CustomScanner{Holder: &[]byte{}, Target: target, Binder: binder}, true
 	case *model.Lookup,
 		*model.RingtoneFile,
 		*model.AgentChannel:

@@ -19,21 +19,26 @@ var (
 
 type OutboundResourceUnReserveStrategy string
 
+type OutboundResourceParameters struct {
+	SipCidType       string `json:"cid_type" db:"-"`
+	IgnoreEarlyMedia string `json:"ignore_early_media" db:"-"`
+}
+
 type OutboundResource struct {
-	Id                    int                    `json:"id" db:"id"`
-	Name                  string                 `json:"name" db:"name"`
-	Enabled               bool                   `json:"enabled" db:"enabled"`
-	Limit                 uint16                 `json:"limit" db:"limit"`
-	Rps                   uint16                 `json:"rps" db:"rps"`
-	Reserve               bool                   `json:"reserve" db:"reserve"`
-	UpdatedAt             int64                  `json:"updated_at,omitempty" db:"updated_at"`
-	Variables             map[string]interface{} `json:"variables,omitempty" db:"variables"`
-	DisplayNumbers        StringArray            `json:"display_numbers" db:"display_numbers" `
-	SuccessivelyErrors    uint16                 `json:"successively_errors" db:"successively_errors"`
-	MaxSuccessivelyErrors uint16                 `json:"max_successively_errors" db:"max_successively_errors"`
-	ErrorIds              StringArray            `json:"error_ids" db:"error_ids"`
-	GatewayId             int64                  `json:"gateway_id" db:"gateway_id"`
-	Codecs                []string
+	Id                    int                        `json:"id" db:"id"`
+	Name                  string                     `json:"name" db:"name"`
+	Enabled               bool                       `json:"enabled" db:"enabled"`
+	Limit                 uint16                     `json:"limit" db:"limit"`
+	Rps                   uint16                     `json:"rps" db:"rps"`
+	Reserve               bool                       `json:"reserve" db:"reserve"`
+	UpdatedAt             int64                      `json:"updated_at,omitempty" db:"updated_at"`
+	Variables             map[string]interface{}     `json:"variables,omitempty" db:"variables"`
+	DisplayNumbers        StringArray                `json:"display_numbers" db:"display_numbers" `
+	SuccessivelyErrors    uint16                     `json:"successively_errors" db:"successively_errors"`
+	MaxSuccessivelyErrors uint16                     `json:"max_successively_errors" db:"max_successively_errors"`
+	ErrorIds              StringArray                `json:"error_ids" db:"error_ids"`
+	GatewayId             int64                      `json:"gateway_id" db:"gateway_id"`
+	Parameters            OutboundResourceParameters `json:"parameters" db:"parameters"`
 }
 
 type SipGateway struct {

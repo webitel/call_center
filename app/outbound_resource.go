@@ -3,7 +3,21 @@ package app
 import "github.com/webitel/call_center/model"
 
 func (a *App) GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError) {
-	return a.Store.OutboundResource().GetById(id)
+	r, err := a.Store.OutboundResource().GetById(id)
+	if err != nil {
+		return nil, err
+	}
+	conf := a.Config().CallSettings
+
+	if r.Parameters.IgnoreEarlyMedia == "" && conf.ResourceIgnoreEarlyMedia != "" {
+		r.Parameters.IgnoreEarlyMedia = conf.ResourceIgnoreEarlyMedia
+	}
+
+	if r.Parameters.SipCidType == "" && conf.ResourceSipCidType != "" {
+		r.Parameters.SipCidType = conf.ResourceSipCidType
+	}
+
+	return r, nil
 }
 
 func (a *App) GetGateway(id int64) (*model.SipGateway, *model.AppError) {
@@ -12,11 +26,7 @@ func (a *App) GetGateway(id int64) (*model.SipGateway, *model.AppError) {
 		return nil, err
 	}
 
-	conf := a.Config()
-
-	gw.UseBridgeAnswerTimeout = conf.CallSettings.UseBridgeAnswerTimeout
-	gw.SipCidType = conf.CallSettings.ResourceSipCidType
-	gw.IgnoreEarlyMedia = conf.CallSettings.ResourceIgnoreEarlyMedia
+	gw.UseBridgeAnswerTimeout = a.Config().CallSettings.UseBridgeAnswerTimeout
 
 	return gw, nil
 }

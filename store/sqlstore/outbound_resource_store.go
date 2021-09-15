@@ -22,7 +22,7 @@ func (s SqlOutboundResourceStore) GetById(id int64) (*model.OutboundResource, *m
 	if err := s.GetReplica().SelectOne(&resource, `
 			select r.id, r.name, r."limit", r.enabled, r.updated_at, r.rps, r.reserve, r.variables, r.max_successively_errors,
     r.successively_errors, r.gateway_id, coalesce(r.error_ids, '{}'::varchar[]) error_ids, array( select d.display
-        from call_center.cc_outbound_resource_display d where d.resource_id = r.id)::varchar[] display_numbers
+        from call_center.cc_outbound_resource_display d where d.resource_id = r.id)::varchar[] display_numbers, r.parameters
 from call_center.cc_outbound_resource r
     left join directory.sip_gateway g on r.gateway_id = g.id
 			where r.id = :Id		

@@ -65,6 +65,9 @@ func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceO
 		r.errorIds = config.ErrorIds
 	}
 
+	r.gateway.IgnoreEarlyMedia = config.Parameters.IgnoreEarlyMedia
+	r.gateway.SipCidType = config.Parameters.SipCidType
+
 	if r.rps > 0 {
 		r.rateLimiter = ratelimit.New(int(config.Rps), ratelimit.Per(time.Second), ratelimit.WithSlack(1))
 	}
