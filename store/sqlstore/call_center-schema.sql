@@ -192,7 +192,7 @@ $_$;
 CREATE FUNCTION call_center.cc_array_merge(arr1 anyarray, arr2 anyarray) RETURNS anyarray
     LANGUAGE sql IMMUTABLE
     AS $$
-    select array_agg(distinct elem order by elem)
+select array_agg(distinct elem order by elem)
     from (
         select unnest(arr1) elem
         union
@@ -1164,6 +1164,7 @@ declare
 
     _a_status varchar;
     _a_channel varchar;
+    _number varchar;
 BEGIN
 
   select *
@@ -1174,6 +1175,14 @@ BEGIN
 
   if _call.id isnull or _call.direction isnull then
       raise exception 'not found call';
+  end if;
+
+    if _call.id isnull or _call.direction isnull then
+      raise exception 'not found call';
+  ELSIF _call.direction <> 'outbound' then
+      _number = _call.from_number;
+  else
+      _number = _call.destination;
   end if;
 
   select
@@ -1210,7 +1219,7 @@ BEGIN
 
 
   insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id)
-  values (_domain_id, 'waiting', _team_id_, _call_id, jsonb_build_object('destination', _call.from_number),
+  values (_domain_id, 'waiting', _team_id_, _call_id, jsonb_build_object('destination', _number),
               _node_name, _agent_id, _call.attempt_id)
   returning * into _attempt;
 
@@ -1240,8 +1249,12 @@ BEGIN
       _call.destination::varchar,
       call_center.cc_view_timestamp(_call.timestamp)::int8,
       _call.app_id::varchar,
-      _call.from_number::varchar,
-      _call.from_name::varchar,
+      _number::varchar,
+            case when (_call.direction <> 'outbound'
+                    and _call.to_name::varchar <> ''
+                    and _call.to_name::varchar notnull)
+        then _call.from_name::varchar
+        else _call.to_name::varchar end,
       call_center.cc_view_timestamp(_call.answered_at)::int8,
       call_center.cc_view_timestamp(_call.bridged_at)::int8,
       call_center.cc_view_timestamp(_call.created_at)::int8
@@ -1409,7 +1422,11 @@ BEGIN
       call_center.cc_view_timestamp(_call.timestamp)::int8,
       _call.app_id::varchar,
       _number::varchar,
-      _call.from_name::varchar,
+      case when (_call.direction <> 'outbound'
+                    and _call.to_name::varchar <> ''
+                    and _call.to_name::varchar notnull)
+        then _call.from_name::varchar
+        else _call.to_name::varchar end,
       call_center.cc_view_timestamp(_call.answered_at)::int8,
       call_center.cc_view_timestamp(_call.bridged_at)::int8,
       call_center.cc_view_timestamp(_call.created_at)::int8
@@ -3202,7 +3219,12 @@ CREATE TABLE call_center.cc_calls_history (
     amd_result character varying,
     amd_duration interval,
     grantee_id bigint,
-    hold jsonb
+    hold jsonb,
+    agent_ids integer[],
+    user_ids bigint[],
+    queue_ids integer[],
+    gateway_ids bigint[],
+    team_ids integer[]
 );
 
 
@@ -3327,7 +3349,12 @@ CREATE VIEW call_center.cc_calls_history_list AS
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
     cma.description AS agent_description,
     c.grantee_id,
-    c.hold
+    c.hold,
+    c.gateway_ids,
+    c.user_ids,
+    c.agent_ids,
+    c.queue_ids,
+    c.team_ids
    FROM ((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM ( SELECT f1.id,
@@ -3844,7 +3871,8 @@ CREATE TABLE call_center.cc_outbound_resource (
     description character varying,
     patterns character varying[],
     failure_dial_delay integer DEFAULT 0,
-    last_error_at timestamp with time zone
+    last_error_at timestamp with time zone,
+    parameters jsonb
 );
 
 
@@ -5630,6 +5658,13 @@ CREATE INDEX cc_calls_history_agent_id_index ON call_center.cc_calls_history USI
 
 
 --
+-- Name: cc_calls_history_agent_ids_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_agent_ids_index ON call_center.cc_calls_history USING gin (agent_ids gin__int_ops) WHERE (agent_ids IS NOT NULL);
+
+
+--
 -- Name: cc_calls_history_attempt_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5681,6 +5716,13 @@ CREATE INDEX cc_calls_history_from_number_idx ON call_center.cc_calls_history US
 
 
 --
+-- Name: cc_calls_history_gateway_ids_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_gateway_ids_index ON call_center.cc_calls_history USING gin (((gateway_ids)::integer[]) gin__int_ops) WHERE (gateway_ids IS NOT NULL);
+
+
+--
 -- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -5709,10 +5751,24 @@ CREATE INDEX cc_calls_history_queue_id_index ON call_center.cc_calls_history USI
 
 
 --
+-- Name: cc_calls_history_queue_ids_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_queue_ids_index ON call_center.cc_calls_history USING gin (queue_ids gin__int_ops) WHERE (queue_ids IS NOT NULL);
+
+
+--
 -- Name: cc_calls_history_team_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_calls_history_team_id_index ON call_center.cc_calls_history USING btree (team_id);
+
+
+--
+-- Name: cc_calls_history_team_ids_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_team_ids_index ON call_center.cc_calls_history USING gin (team_ids gin__int_ops) WHERE (team_ids IS NOT NULL);
 
 
 --
@@ -5741,6 +5797,13 @@ CREATE INDEX cc_calls_history_transfer_to_index ON call_center.cc_calls_history 
 --
 
 CREATE INDEX cc_calls_history_user_id_index ON call_center.cc_calls_history USING btree (user_id);
+
+
+--
+-- Name: cc_calls_history_user_ids_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_user_ids_index ON call_center.cc_calls_history USING gin (((user_ids)::integer[]) gin__int_ops) WHERE (user_ids IS NOT NULL);
 
 
 --
@@ -6558,8 +6621,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                             corg_1.communication_id,
                             corg_1."time",
                                 CASE
-                                    WHEN (cor_1.enabled AND gw.enable) THEN ROW(cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns, cor_1.failure_dial_delay, cor_1.last_error_at)::call_center.cc_outbound_resource
-                                    WHEN (cor2.enabled AND gw2.enable) THEN ROW(cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns, cor2.failure_dial_delay, cor2.last_error_at)::call_center.cc_outbound_resource
+                                    WHEN (cor_1.enabled AND gw.enable) THEN ROW(cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns, cor_1.failure_dial_delay, cor_1.last_error_at, NULL)::call_center.cc_outbound_resource
+                                    WHEN (cor2.enabled AND gw2.enable) THEN ROW(cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns, cor2.failure_dial_delay, cor2.last_error_at, NULL)::call_center.cc_outbound_resource
                                     ELSE NULL::call_center.cc_outbound_resource
                                 END AS cor
                            FROM ((((((call_center.cc_queue_resource cqr
@@ -7103,6 +7166,14 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 ALTER TABLE ONLY call_center.cc_calls_history
     ADD CONSTRAINT cc_calls_history_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: cc_calls_history cc_calls_history_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_history
+    ADD CONSTRAINT cc_calls_history_wbt_user_id_fk FOREIGN KEY (user_id) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
