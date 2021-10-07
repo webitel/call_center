@@ -2403,13 +2403,6 @@ CREATE AGGREGATE call_center.cc_array_merge_agg(anyarray) (
 
 
 --
--- Name: gin_cc_pair_test2_ops; Type: OPERATOR FAMILY; Schema: call_center; Owner: -
---
-
-CREATE OPERATOR FAMILY call_center.gin_cc_pair_test2_ops USING gin;
-
-
---
 -- Name: cc_agent; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3319,7 +3312,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup((cm.id)::bigint, cm.name) AS member,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    cag."user" AS agent,
+    call_center.cc_get_lookup((aa.id)::bigint, (COALESCE(cag.username, (cag.name)::name))::character varying) AS agent,
     cma.joined_at,
     cma.leaving_at,
     cma.reporting_at,
@@ -3357,7 +3350,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.agent_ids,
     c.queue_ids,
     c.team_ids
-   FROM ((((((((call_center.cc_calls_history c
+   FROM (((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
            FROM ( SELECT f1.id,
                     f1.size,
@@ -3376,7 +3369,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
      LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
-     LEFT JOIN call_center.cc_agent_with_user cag ON ((cma.agent_id = cag.id)))
+     LEFT JOIN call_center.cc_agent aa ON ((cma.agent_id = aa.id)))
+     LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
 

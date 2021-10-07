@@ -308,7 +308,8 @@ CREATE TABLE flow.acr_routing_scheme (
     description character varying(200) DEFAULT ''::character varying NOT NULL,
     debug boolean DEFAULT false NOT NULL,
     state smallint,
-    type character varying DEFAULT 'call'::character varying NOT NULL
+    type character varying DEFAULT 'call'::character varying NOT NULL,
+    editor boolean DEFAULT false NOT NULL
 );
 
 
@@ -435,7 +436,9 @@ CREATE VIEW flow.acr_routing_scheme_view AS
     flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     s.debug,
     s.scheme AS schema,
-    s.payload
+    s.payload,
+    s.type,
+    s.editor
    FROM ((flow.acr_routing_scheme s
      LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)));
@@ -629,6 +632,38 @@ CREATE VIEW flow.region_list AS
 
 
 --
+-- Name: scheme_log; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.scheme_log (
+    id bigint NOT NULL,
+    schema_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    log jsonb NOT NULL,
+    conn_id character varying(100) NOT NULL
+);
+
+
+--
+-- Name: scheme_log_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.scheme_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: scheme_log_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.scheme_log_id_seq OWNED BY flow.scheme_log.id;
+
+
+--
 -- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
@@ -685,6 +720,13 @@ ALTER TABLE ONLY flow.region ALTER COLUMN id SET DEFAULT nextval('flow.region_id
 
 
 --
+-- Name: scheme_log id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_log ALTER COLUMN id SET DEFAULT nextval('flow.scheme_log_id_seq'::regclass);
+
+
+--
 -- Name: acr_routing_outbound_call acr_routing_outbound_call_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
@@ -738,6 +780,14 @@ ALTER TABLE ONLY flow.calendar_timezones
 
 ALTER TABLE ONLY flow.region
     ADD CONSTRAINT region_pk PRIMARY KEY (id);
+
+
+--
+-- Name: scheme_log scheme_log_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_log
+    ADD CONSTRAINT scheme_log_pk PRIMARY KEY (id);
 
 
 --
@@ -892,6 +942,13 @@ CREATE INDEX calendar_updated_by_index ON flow.calendar USING btree (updated_by)
 --
 
 CREATE UNIQUE INDEX region_domain_id_name_uindex ON flow.region USING btree (domain_id, name);
+
+
+--
+-- Name: scheme_log_conn_id_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX scheme_log_conn_id_uindex ON flow.scheme_log USING btree (conn_id);
 
 
 --
