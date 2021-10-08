@@ -215,7 +215,7 @@ begin
     update call_center.cc_member_attempt
         set leaving_at = now(),
             last_state_change = now(),
-            result = 'abandoned',
+            result = case when offering_at isnull and resource_id notnull then 'failed' else 'abandoned' end,
             state = 'leaving'
     where id = attempt_id_
     returning * into attempt;
@@ -3282,7 +3282,10 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.transfer_from,
     c.transfer_to,
     call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
-    u.extension,
+        CASE
+            WHEN (cq.type = ANY (ARRAY[4, 5])) THEN cag.extension
+            ELSE u.extension
+        END AS extension,
     call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
     c.direction,
     c.destination,
