@@ -61,7 +61,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 	}
 
 	if agent.Status == model.AgentStatusPause && getString(agent.StatusPayload) == getString(payload) {
-		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "", http.StatusBadRequest)
+		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "already payload", http.StatusBadRequest)
 	}
 
 	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId); chs != nil {

@@ -88,7 +88,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
-				"ignore_early_media":     "true",
+				"ignore_early_media":     "true", // ???
 				//"absolute_codec_string":  "pcmu,pcma",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
@@ -174,6 +174,10 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					if mCall.HangupCause() != "" {
 						calling = false
 						continue
+					}
+
+					if queue.HasRingtone() {
+						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 0, queue.Ringtone(), "both")
 					}
 
 					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
