@@ -551,6 +551,10 @@ func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]strin
 		return nil
 	}
 
+	if cause == "" {
+		cause = model.CALL_HANGUP_NORMAL_CLEARING
+	}
+
 	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
 	// todo set variables
 	err := call.api.HangupCall(call.id, cause, reporting, vars)
@@ -561,8 +565,8 @@ func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]strin
 				Timestamp: model.GetMillis(),
 				Event:     model.CALL_HANGUP_APPLICATION,
 			},
-			Cause:   model.CALL_HANGUP_NORMAL_UNSPECIFIED,
-			SipCode: model.NewInt(500),
+			Cause:   cause,
+			SipCode: nil, // todo model.NewInt(500),
 		})
 	}
 	return err

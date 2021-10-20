@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
+	"time"
 )
 
 type DoDistributeResult struct {
@@ -28,11 +29,15 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 		return true
 	}
 
+	st := time.Now()
+
 	res, err := qm.app.FlowManager().Queue().DoDistributeAttempt(&flow.DistributeAttemptRequest{
 		DomainId:  queue.domainId,
 		SchemaId:  *queue.doSchema,
 		Variables: att.ExportSchemaVariables(),
 	})
+
+	att.Log(fmt.Sprintf("DoDistributeAttempt duration %s", time.Since(st)))
 
 	if err != nil {
 		// TODO
