@@ -37,13 +37,13 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 		Variables: att.ExportSchemaVariables(),
 	})
 
-	att.Log(fmt.Sprintf("DoDistributeAttempt duration %s", time.Since(st)))
-
 	if err != nil {
-		// TODO
+		att.Log(fmt.Sprintf("DoDistributeAttempt error=%s duration=%s", err.Error(), time.Since(st)))
 		wlog.Error(fmt.Sprintf("%s", err.Error()))
 		return true
 	}
+
+	att.Log(fmt.Sprintf("DoDistributeAttempt job_id=%s duration=%s", res.Id, time.Since(st)))
 
 	switch res.Result.(type) {
 	case *flow.DistributeAttemptResponse_Cancel_:

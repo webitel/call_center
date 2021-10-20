@@ -90,7 +90,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 
 				"hangup_after_bridge":    "true",
 				"ignore_display_updates": "true",
-				"ignore_early_media":     "true",
+				"ignore_early_media":     "true", // ???
 				//"absolute_codec_string":  "pcmu,pcma",
 				"park_timeout": fmt.Sprintf("%d", queue.MaxWaitTime),
 
