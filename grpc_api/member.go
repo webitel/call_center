@@ -2,6 +2,7 @@ package grpc_api
 
 import (
 	"context"
+	"fmt"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/queue"
@@ -67,6 +68,7 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 
 	bridged := attempt.On(queue.AttemptHookBridgedAgent)
 	leaving := attempt.On(queue.AttemptHookLeaving)
+	offering := attempt.On(queue.AttemptHookOfferingAgent)
 
 	for {
 		select {
@@ -79,6 +81,19 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 				},
 			})
 			goto stop
+		case id, ok := <-offering:
+			a := attempt.Agent()
+			if a != nil && ok && len(id.Args) > 0 {
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Offering{
+						Offering: &cc.QueueEvent_OfferingData{
+							AgentId:     int32(a.Id()),
+							AgentCallId: fmt.Sprintf("%s", id.Args[0]),
+							AgentName:   a.Name(),
+						},
+					},
+				})
+			}
 		case _, ok := <-bridged:
 			if ok {
 				out.Send(&cc.QueueEvent{

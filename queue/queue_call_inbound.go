@@ -126,6 +126,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
 					case call_manager.CALL_STATE_RINGING:
+						attempt.Emit(AttemptHookOfferingAgent, agentCall.Id())
 						team.Offering(attempt, agent, agentCall, mCall)
 
 					case call_manager.CALL_STATE_ACCEPT:
