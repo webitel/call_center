@@ -141,7 +141,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
-						printfIfErr(mCall.Bridge(agentCall))
+						printfIfErr(agentCall.Bridge(mCall))
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")

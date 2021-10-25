@@ -36,13 +36,13 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"wbt_from_type":   "member",
 				"wbt_from_number": attempt.Destination(),
 
-				"effective_caller_id_name":   attempt.Name(),
-				"effective_caller_id_number": attempt.Destination(),
-
-				"origination_callee_id_name":   agent.Name(),
-				"origination_callee_id_number": agent.CallNumber(),
-				"origination_caller_id_name":   attempt.Name(),
-				"origination_caller_id_number": attempt.Destination(),
+				//"effective_caller_id_name":   attempt.Name(),
+				//"effective_caller_id_number": attempt.Destination(),
+				//
+				//"origination_callee_id_name":   agent.Name(),
+				//"origination_callee_id_number": agent.CallNumber(),
+				//"origination_caller_id_name":   attempt.Name(),
+				//"origination_caller_id_number": attempt.Destination(),
 
 				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),
@@ -52,8 +52,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 			},
 		),
 		Timeout:      at.CallTimeout(),
-		CallerName:   attempt.Name(),
-		CallerNumber: attempt.Destination(),
+		CallerName:   agent.Name(),
+		CallerNumber: agent.CallNumber(),
 	}
 
 	if queue.id > 0 {

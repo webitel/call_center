@@ -1326,7 +1326,7 @@ BEGIN
 
   if _call.id isnull or _call.direction isnull then
       raise exception 'not found call';
-  ELSIF _call.direction <> 'outbound' then
+  ELSIF _call.direction <> 'outbound' or _call.user_id notnull then
       _number = _call.from_number;
   else
       _number = _call.destination;
@@ -2912,7 +2912,7 @@ CREATE VIEW call_center.cc_bucket_in_queue_view AS
 
 CREATE VIEW call_center.cc_bucket_view AS
  SELECT b.id,
-    b.name,
+    (b.name)::character varying AS name,
     b.description,
     b.domain_id
    FROM call_center.cc_bucket b;
@@ -5554,6 +5554,13 @@ CREATE INDEX cc_agent_domain_id_index ON call_center.cc_agent USING btree (domai
 --
 
 CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id, domain_id);
+
+
+--
+-- Name: cc_agent_state_history_dev_g; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id) INCLUDE (state) WHERE ((channel IS NULL) AND ((state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])));
 
 
 --

@@ -85,8 +85,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				"wbt_destination":                   attempt.Destination(),
 				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), //FIXME gateway id ?
 				"wbt_from_number":                   callerIdNumber,                                   //display number
-				"wbt_from_name":                     attempt.resource.Gateway().Name,
-				"wbt_from_type":                     "gateway",
+				//"wbt_from_name":                     attempt.resource.Gateway().Name,
+				"wbt_from_type": "gateway",
 
 				"wbt_to_id":     fmt.Sprintf("%d", attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
@@ -94,12 +94,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				"wbt_to_number": attempt.Destination(),
 
 				"effective_caller_id_number": callerIdNumber,
-				"effective_caller_id_name":   attempt.resource.Name(),
+				//"effective_caller_id_name":   attempt.resource.Name(),
 
 				"effective_callee_id_name":   attempt.Name(),
 				"effective_callee_id_number": attempt.Destination(),
 
-				"origination_caller_id_name":   attempt.resource.Name(),
+				//"origination_caller_id_name":   attempt.resource.Name(),
 				"origination_caller_id_number": callerIdNumber,
 				"origination_callee_id_name":   attempt.Name(),
 				"origination_callee_id_number": attempt.Destination(),
