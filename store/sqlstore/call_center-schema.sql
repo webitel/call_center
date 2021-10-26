@@ -820,7 +820,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     tags character varying[],
     region_id integer,
     grantee_id integer,
-    hold jsonb
+    hold jsonb,
+    params jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3219,7 +3220,8 @@ CREATE TABLE call_center.cc_calls_history (
     user_ids bigint[],
     queue_ids integer[],
     gateway_ids bigint[],
-    team_ids integer[]
+    team_ids integer[],
+    params jsonb
 );
 
 
@@ -3354,7 +3356,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.queue_ids,
     c.team_ids
    FROM (((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type)) AS files
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (c.params -> 'record_start'::text), 'stop_at', (c.params -> 'record_stop'::text))) AS files
            FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
