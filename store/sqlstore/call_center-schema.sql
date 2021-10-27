@@ -3133,6 +3133,42 @@ CREATE VIEW call_center.cc_call_active_list AS
 
 
 --
+-- Name: cc_calls_annotation; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_annotation (
+    id bigint NOT NULL,
+    call_id character varying NOT NULL,
+    created_by bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    note text NOT NULL,
+    start_sec integer DEFAULT 0 NOT NULL,
+    end_sec integer DEFAULT 0 NOT NULL,
+    updated_by bigint NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: cc_call_annotation_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_call_annotation_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_call_annotation_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_call_annotation_id_seq OWNED BY call_center.cc_calls_annotation.id;
+
+
+--
 -- Name: cc_list; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3354,7 +3390,22 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.user_ids,
     c.agent_ids,
     c.queue_ids,
-    c.team_ids
+    c.team_ids,
+    ( SELECT json_agg(row_to_json(annotations.*)) AS json_agg
+           FROM ( SELECT a.id,
+                    a.call_id,
+                    a.created_at,
+                    call_center.cc_get_lookup(cc.id, (COALESCE(cc.name, (cc.username)::text))::character varying) AS created_by,
+                    a.updated_at,
+                    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS updated_by,
+                    a.note,
+                    a.start_sec,
+                    a.end_sec
+                   FROM ((call_center.cc_calls_annotation a
+                     LEFT JOIN directory.wbt_user cc ON ((cc.id = a.created_by)))
+                     LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
+                  WHERE ((a.call_id)::text = (c.id)::text)
+                  ORDER BY a.created_at DESC) annotations) AS annotations
    FROM (((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (c.params -> 'record_start'::text), 'stop_at', (c.params -> 'record_stop'::text))) AS files
            FROM ( SELECT f1.id,
@@ -4963,6 +5014,13 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: cc_calls_annotation id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_annotation ALTER COLUMN id SET DEFAULT nextval('call_center.cc_call_annotation_id_seq'::regclass);
+
+
+--
 -- Name: cc_calls_transcribe id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -5243,6 +5301,14 @@ ALTER TABLE ONLY call_center.cc_bucket_in_queue
 
 ALTER TABLE ONLY call_center.cc_bucket
     ADD CONSTRAINT cc_bucket_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_calls_annotation cc_call_annotation_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_annotation
+    ADD CONSTRAINT cc_call_annotation_pk PRIMARY KEY (id);
 
 
 --
@@ -5677,6 +5743,13 @@ CREATE UNIQUE INDEX cc_bucket_in_queue_queue_id_bucket_id_uindex ON call_center.
 --
 
 CREATE INDEX cc_bucket_updated_by_index ON call_center.cc_bucket USING btree (updated_by);
+
+
+--
+-- Name: cc_calls_annotation_call_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_annotation_call_id_index ON call_center.cc_calls_annotation USING btree (call_id);
 
 
 --
@@ -7181,6 +7254,22 @@ ALTER TABLE ONLY call_center.cc_bucket
 
 ALTER TABLE ONLY call_center.cc_bucket
     ADD CONSTRAINT cc_bucket_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_calls_annotation cc_calls_annotation_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_annotation
+    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+
+
+--
+-- Name: cc_calls_annotation cc_calls_annotation_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_annotation
+    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
 
 
 --
