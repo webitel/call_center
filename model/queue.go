@@ -84,6 +84,7 @@ type Queue struct {
 	Processing           bool              `json:"processing" db:"processing"`
 	ProcessingSec        uint32            `json:"processing_sec" db:"processing_sec"`
 	ProcessingRenewalSec uint32            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
+	Endless              bool              `json:"endless" db:"endless"`
 	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`
 }

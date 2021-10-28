@@ -140,6 +140,8 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		s := "success"
 		if transfer {
 			s = "transfer"
+		} else if queue.Endless() {
+			s = "endless"
 		}
 
 		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), s,

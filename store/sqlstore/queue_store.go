@@ -48,7 +48,8 @@ select q.id,
             inner join flow.acr_routing_scheme s on s.id = qe.schema_id and q.domain_id = s.domain_id
         where qe.queue_id = q.id and qe.enabled
        ) hooks,
-	   q.grantee_id	
+	   q.grantee_id,
+	   coalesce((q.payload->'endless')::bool, false) as endless
 from call_center.cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id

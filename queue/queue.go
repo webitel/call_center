@@ -32,6 +32,7 @@ type QueueObject interface {
 	ProcessingSec() uint32
 	ProcessingRenewalSec() uint32
 	Hook(name string, at *Attempt)
+	Endless() bool
 }
 
 type BaseQueue struct {
@@ -54,6 +55,7 @@ type BaseQueue struct {
 	processing           bool
 	processingSec        uint32
 	processingRenewalSec uint32
+	endless              bool
 	hooks                HookHub
 }
 
@@ -76,6 +78,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 		processing:           settings.Processing,
 		processingSec:        settings.ProcessingSec,
 		processingRenewalSec: settings.ProcessingRenewalSec,
+		endless:              settings.Endless,
 		hooks:                NewHookHub(settings.Hooks),
 	}
 
@@ -234,6 +237,10 @@ func (queue *BaseQueue) Channel() string {
 	return queue.channel
 }
 
+func (queue *BaseQueue) Endless() bool {
+	return queue.endless
+}
+
 // todo config
 func (qeueu *BaseQueue) ProcessingTransfer() bool {
 	return false
@@ -271,6 +278,7 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 	}
 }
 
+// TODO!!!!! ADD FAILED
 func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject, maxAttempts uint, sleep uint64) {
 	//SetAttemptAbandonedWithParams
 	//timestamp, err := tm.teamManager.store.Member().SetAttemptAbandoned(attempt.Id())
