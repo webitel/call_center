@@ -224,8 +224,8 @@ begin
         update call_center.cc_member
         set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
             last_agent      = coalesce(attempt.agent_id, last_agent),
-            stop_at = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else  attempt.leaving_at end,
-            stop_cause = case when _max_count > 0 and (attempts + 1 < _max_count)  then null else attempt.result end,
+            stop_at = case when (stop_cause notnull or (_max_count > 0 and (attempts + 1 < _max_count)))  then stop_at else  attempt.leaving_at end,
+            stop_cause = case when (stop_cause notnull or (_max_count > 0 and (attempts + 1 < _max_count))) then stop_cause else attempt.result end,
             ready_at = now() + (_next_after || ' sec')::interval,
             -- fixme
             communications  = jsonb_set(
@@ -335,8 +335,8 @@ begin
         last_agent      = coalesce(attempt.agent_id, last_agent),
         variables = case when vars_ notnull  then coalesce(variables, '{}'::jsonb) || vars_ else variables end,
         ready_at = case when next_distribute_sec_ > 0 then now() + (next_distribute_sec_::text || ' sec')::interval else now() end,
-        stop_at = case when stop_ is true then attempt.leaving_at end,
-        stop_cause = case when stop_ is true then attempt.result end
+        stop_at = case when stop_ is true and stop_at isnull then attempt.leaving_at else stop_at end,
+        stop_cause = case when stop_ is true and stop_cause isnull then attempt.result else stop_cause end
     where id = attempt.member_id;
 
 end;
@@ -387,8 +387,10 @@ begin
             expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
             agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
-            stop_at = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count))  then null else  attempt.leaving_at end,
-            stop_cause = case when not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) then null else attempt.result end,
+            stop_at = case when stop_at notnull or (not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) )
+                then stop_at else  attempt.leaving_at end,
+            stop_cause = case when stop_cause notnull or (not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) )
+                then stop_cause else attempt.result end,
 
             ready_at = case when next_offering_at_ notnull then next_offering_at_
                 else now() + (q._next_after || ' sec')::interval end,
@@ -480,8 +482,10 @@ begin
         set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
             last_agent      = coalesce(attempt.agent_id, last_agent),
 
-            stop_at = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
-            stop_cause = case when not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+            stop_at = case when stop_at notnull or (not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count))
+                then stop_at else  attempt.leaving_at end,
+            stop_cause = case when stop_cause notnull or (not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count))
+                then stop_cause else attempt.result end,
             ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
 
             communications = jsonb_set(
@@ -625,8 +629,10 @@ begin
         last_agent      = coalesce(attempt.agent_id, last_agent),
 
 
-        stop_at = case when  q._max_count > 0 and (attempts + 1 < q._max_count)  then null else  attempt.leaving_at end,
-        stop_cause = case when q._max_count > 0 and (attempts + 1 < q._max_count)  then null else attempt.result end,
+        stop_at = case when stop_at notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
+            then stop_at else  attempt.leaving_at end,
+        stop_cause = case when stop_cause notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
+            then stop_cause else attempt.result end,
         ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
 
         communications = jsonb_set(
