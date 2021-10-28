@@ -3385,7 +3385,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
     cma.description AS agent_description,
     c.grantee_id,
-    c.hold,
+    holds.res AS hold,
     c.gateway_ids,
     c.user_ids,
     c.agent_ids,
@@ -3406,7 +3406,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
                   WHERE ((a.call_id)::text = (c.id)::text)
                   ORDER BY a.created_at DESC) annotations) AS annotations
-   FROM (((((((((call_center.cc_calls_history c
+   FROM ((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (c.params -> 'record_start'::text), 'stop_at', (c.params -> 'record_stop'::text))) AS files
            FROM ( SELECT f1.id,
                     f1.size,
@@ -3421,6 +3421,13 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.name
                    FROM storage.files f1
                   WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+     LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
+           FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
+                   FROM call_center.cc_calls_history chh
+                  WHERE (((chh.parent_id)::text = (c.id)::text) AND (chh.hold IS NOT NULL))
+                UNION
+                 SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
+          WHERE (x.hi IS NOT NULL)) holds ON ((c.parent_id IS NULL)))
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
