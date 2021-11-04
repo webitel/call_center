@@ -588,7 +588,8 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 }
 
 func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {
-	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0, vars)
+	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0,
+		vars, attempt.maxAttempts, attempt.waitBetween)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else {
@@ -664,7 +665,23 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] callback: %v", attemptId, result))
 
-	res, err := queueManager.store.Member().CallbackReporting(attemptId, &result)
+	attempt, _ := queueManager.GetAttempt(attemptId)
+
+	var waitBetween uint64 = 0
+	var maxAttempts uint = 0
+
+	if attempt != nil {
+		if r, ok := attempt.AfterDistributeSchema(); ok {
+			result.Status = r.Status
+			if r.Variables != nil {
+				result.Variables = model.UnionStringMaps(result.Variables, r.Variables)
+			}
+		}
+		waitBetween = attempt.waitBetween
+		maxAttempts = attempt.maxAttempts
+	}
+
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, &result, maxAttempts, waitBetween)
 	if err != nil {
 		return err
 	}
@@ -692,7 +709,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		err = queueManager.mq.AgentChannelEvent("", *res.DomainId, q, *res.UserId, ev)
 	}
 
-	if attempt, ok := queueManager.GetAttempt(attemptId); ok {
+	if attempt != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 		attempt.SetCallback(&result)
 		queueManager.LeavingMember(attempt)

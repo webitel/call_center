@@ -20,9 +20,9 @@ type ProgressiveCallQueueSettings struct {
 	RecordMono bool `json:"record_mono"`
 	RecordAll  bool `json:"record_all"`
 
-	WaitBetweenRetries     int                     `json:"wait_between_retries"`
+	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
 	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
-	MaxAttempts            int                     `json:"max_attempts"`
+	MaxAttempts            uint                    `json:"max_attempts"`
 	OriginateTimeout       uint16                  `json:"originate_timeout"`
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
@@ -54,6 +54,9 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 	if err != nil {
 		return err
 	}
+
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
 
 	go queue.run(attempt, team, attempt.Agent())
 
@@ -191,6 +194,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					})
 					cr.Variables["wbt_parent_id"] = mCall.Id()
 					agentCall = mCall.NewCall(cr)
+					attempt.agentChannel = agentCall
+
 					printfIfErr(agentCall.Invite())
 
 					wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
@@ -230,6 +235,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 											}
 
 											agentCall = nc
+											attempt.agentChannel = agentCall
 											break top
 										}
 									}
@@ -279,7 +285,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	queue.CallCheckResourceError(attempt.resource, mCall)
 
 	if agentCall == nil {
-		team.Cancel(attempt, agent, uint(queue.MaxAttempts), uint64(queue.WaitBetweenRetries))
+		team.Cancel(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)
 	} else {
 		if agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?

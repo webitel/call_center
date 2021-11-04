@@ -58,6 +58,9 @@ func (queue *PredictCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 		return NewErrorResourceRequired(queue, attempt)
 	}
 
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
+
 	go queue.runPark(attempt)
 
 	return nil
@@ -170,8 +173,10 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 	}
 	queue.CallCheckResourceError(attempt.resource, mCall)
 
-	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
-	queue.queueManager.LeavingMember(attempt)
+	if !queue.queueManager.SendAfterDistributeSchema(attempt) {
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+	}
 
 }
 
@@ -350,11 +355,14 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		queue.queueManager.LosePredictAgent(predictAgentId)
-		if queue.RetryAbandoned {
-			queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
-			queue.queueManager.LeavingMember(attempt)
-		} else {
-			queue.queueManager.Abandoned(attempt)
+
+		if !queue.queueManager.SendAfterDistributeSchema(attempt) {
+			if queue.RetryAbandoned {
+				queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+				queue.queueManager.LeavingMember(attempt)
+			} else {
+				queue.queueManager.Abandoned(attempt)
+			}
 		}
 	}
 

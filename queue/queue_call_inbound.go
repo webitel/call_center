@@ -79,6 +79,18 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			calling = false
 		case c := <-mCall.State():
 			if c == call_manager.CALL_STATE_HANGUP {
+				if agentCall != nil && agentCall.BridgeAt() == 0 {
+					team.MissedAgentAndWaitingAttempt(attempt, agent)
+					attempt.SetState(model.MemberStateWaitAgent)
+					if agentCall != nil && agentCall.HangupAt() == 0 {
+						//TODO WaitForHangup
+						//panic(agentCall.Id())
+					}
+					agent = nil
+					agentCall = nil
+					team = nil
+				}
+
 				calling = false
 				break
 			} else {
@@ -227,7 +239,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
-	} else {
+	} else if !queue.queueManager.SendAfterDistributeSchema(attempt) {
 		queue.queueManager.Abandoned(attempt)
 	}
 

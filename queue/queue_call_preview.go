@@ -21,7 +21,8 @@ type PreviewSettings struct {
 	RecordAll  bool `json:"record_all"`
 
 	OriginateTimeout       uint16 `json:"originate_timeout"`
-	WaitBetweenRetries     int    `json:"wait_between_retries"`
+	WaitBetweenRetries     uint64 `json:"wait_between_retries"`
+	MaxAttempts            uint   `json:"max_attempts"`
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
 }
@@ -52,6 +53,9 @@ func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	if err != nil {
 		return err
 	}
+
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
 
 	go queue.run(team, attempt, attempt.Agent())
 
@@ -126,6 +130,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	call := queue.NewCall(callRequest)
+
+	attempt.memberChannel = call
 
 	if queue.Recordings {
 		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)

@@ -44,6 +44,9 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 		return NewErrorResourceRequired(queue, attempt)
 	}
 
+	attempt.maxAttempts = queue.MaxAttempts
+	attempt.waitBetween = queue.WaitBetweenRetries
+
 	go queue.run(attempt)
 
 	return nil
@@ -183,11 +186,11 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	queue.CallCheckResourceError(attempt.resource, call)
 
-	if res, ok := queue.queueManager.AfterDistributeSchema(&queue.BaseQueue, attempt, call); ok {
+	if res, ok := attempt.AfterDistributeSchema(); ok {
 		if res.Status == "success" {
 			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
 		} else {
-			queue.queueManager.SetAttemptAbandonedWithParams(attempt, uint(res.MaxAttempts), uint64(res.WaitBetweenRetries), res.Variables)
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
 		}
 
 		queue.queueManager.LeavingMember(attempt)

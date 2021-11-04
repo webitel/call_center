@@ -15,6 +15,7 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 	TypeName() string
+	Manager() *QueueManager
 
 	DistributeAttempt(attempt *Attempt) *model.AppError
 
@@ -33,6 +34,9 @@ type QueueObject interface {
 	ProcessingRenewalSec() uint32
 	Hook(name string, at *Attempt)
 	Endless() bool
+
+	DoSchemaId() *int32
+	AfterSchemaId() *int32
 }
 
 type BaseQueue struct {
@@ -140,6 +144,18 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
 	}
+}
+
+func (queue *BaseQueue) Manager() *QueueManager {
+	return queue.queueManager
+}
+
+func (queue *BaseQueue) DoSchemaId() *int32 {
+	return queue.doSchema
+}
+
+func (queue *BaseQueue) AfterSchemaId() *int32 {
+	return queue.afterSchemaId
 }
 
 func (queue *BaseQueue) AppId() string {
@@ -279,10 +295,13 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 }
 
 // TODO!!!!! ADD FAILED
-func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject, maxAttempts uint, sleep uint64) {
-	//SetAttemptAbandonedWithParams
-	//timestamp, err := tm.teamManager.store.Member().SetAttemptAbandoned(attempt.Id())
-	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, nil)
+func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
+
+	if _, ok := attempt.AfterDistributeSchema(); ok {
+		//TODO
+	}
+
+	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), attempt.maxAttempts, attempt.waitBetween, nil)
 	if err != nil {
 		wlog.Error(err.Error())
 

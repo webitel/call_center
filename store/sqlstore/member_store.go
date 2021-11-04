@@ -446,15 +446,17 @@ returning
 	return res, nil
 }
 
-func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
 	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers, member_stop_cause 
-		from call_center.cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime) 
+		from call_center.cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime, null::jsonb, , :MaxAttempts::int, :WaitBetween::int) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
 			"Id":            id,
 			"AgentHoldTime": agentHoldTime,
+			"MaxAttempts":   maxAttempts,
+			"WaitBetween":   waitBetween,
 		})
 
 	if err != nil {
@@ -511,10 +513,11 @@ where m.id = u.member_id`, map[string]interface{}{
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string) (*model.MissedAgent, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
+	maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
 	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers,  member_stop_cause
-		from call_center.cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb) 
+		from call_center.cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb, :MaxAttempts::int, :WaitBetween::int) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"Result":        result,
@@ -522,6 +525,8 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState 
 			"Id":            id,
 			"AgentHoldTime": agentHoldTime,
 			"Vars":          mapToJson(vars),
+			"MaxAttempts":   maxAttempts,
+			"WaitBetween":   waitBetween,
 		})
 
 	if err != nil {
@@ -558,10 +563,11 @@ where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 	return attempts, nil
 }
 
-func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback) (*model.AttemptReportingResult, *model.AppError) {
+func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
-from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, :NextCallAt::timestamptz, :StickyAgentId::int) as
+from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, 
+	:NextCallAt::timestamptz, :StickyAgentId::int, null::jsonb, :MaxAttempts::int, :WaitBetween::int) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar)
 where x.channel notnull`, map[string]interface{}{
 		"AttemptId":     attemptId,
@@ -570,6 +576,8 @@ where x.channel notnull`, map[string]interface{}{
 		"ExpireAt":      callback.ExpireAt,
 		"NextCallAt":    callback.NextCallAt,
 		"StickyAgentId": callback.StickyAgentId,
+		"MaxAttempts":   maxAttempts,
+		"WaitBetween":   waitBetween,
 	})
 
 	if err != nil {

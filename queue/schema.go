@@ -75,22 +75,43 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	return true
 }
 
-func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, call call_manager.Call) (*SchemaResult, bool) {
-	if queue.afterSchemaId == nil {
+func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
+	if res, ok := attempt.AfterDistributeSchema(); ok {
+		if res.Status == "success" {
+			qm.SetAttemptSuccess(attempt, res.Variables)
+		} else {
+			qm.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+		}
+
+		qm.LeavingMember(attempt)
+		return true
+	}
+
+	return false
+}
+
+func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool) {
+	if att.queue == nil || att.queue.AfterSchemaId() == nil {
 
 		return nil, false
 	}
 
-	vars := call.Stats()
+	var vars map[string]string
+
+	if att.memberChannel != nil {
+		vars = att.memberChannel.Stats()
+	}
 
 	call_manager.DUMP(model.UnionStringMaps(
 		att.ExportSchemaVariables(),
 		vars,
 	))
 
+	st := time.Now()
+
 	res, err := qm.app.FlowManager().Queue().ResultAttempt(&flow.ResultAttemptRequest{
-		DomainId: queue.domainId,
-		SchemaId: *queue.afterSchemaId,
+		DomainId: att.queue.DomainId(),
+		SchemaId: *att.queue.AfterSchemaId(),
 		Variables: model.UnionStringMaps(
 			att.ExportSchemaVariables(),
 			vars,
@@ -99,9 +120,11 @@ func (qm *QueueManager) AfterDistributeSchema(queue *BaseQueue, att *Attempt, ca
 
 	if err != nil {
 		// TODO
-		wlog.Error(fmt.Sprintf("%s", err.Error()))
+		wlog.Error(fmt.Sprintf("AfterDistributeSchema error: %s duration=%s", err.Error(), time.Since(st)))
 		return nil, false
 	}
+
+	att.Log(fmt.Sprintf("AfterDistributeSchema job_id=%s duration=%s", res.Id, time.Since(st)))
 
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:

@@ -14,7 +14,9 @@ type OfflineQueueSettings struct {
 	RecordMono bool `json:"record_mono"`
 	RecordAll  bool `json:"record_all"`
 
-	OriginateTimeout uint16 `json:"originate_timeout"`
+	OriginateTimeout   uint16 `json:"originate_timeout"`
+	WaitBetweenRetries uint64 `json:"wait_between_retries"`
+	MaxAttempts        uint   `json:"max_attempts"`
 }
 
 type OfflineCallQueue struct {
@@ -48,6 +50,9 @@ func (queue *OfflineCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	if err != nil {
 		return err
 	}
+
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
 
 	go queue.run(team, attempt, attempt.agent)
 	return nil

@@ -144,8 +144,15 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 			s = "endless"
 		}
 
+		var vars map[string]string = nil
+
+		if res, ok := attempt.AfterDistributeSchema(); ok {
+			s = res.Status
+			vars = res.Variables
+		}
+
 		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), s,
-			model.ChannelStateWrapTime, t, nil); err == nil {
+			model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween); err == nil {
 			if res.MemberStopCause != nil {
 				attempt.SetMemberStopCause(res.MemberStopCause)
 			}
@@ -186,7 +193,13 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
-	missed, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), int(tm.NoAnswerDelayTime()))
+
+	if _, ok := attempt.AfterDistributeSchema(); ok {
+		//TODO
+	}
+
+	missed, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), int(tm.NoAnswerDelayTime()),
+		attempt.maxAttempts, attempt.waitBetween)
 	if err != nil {
 		wlog.Error(err.Error())
 		return

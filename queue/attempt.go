@@ -52,7 +52,7 @@ type Attempt struct {
 	agentChannel  Channel
 	memberChannel Channel
 
-	agentCallback *model.AttemptCallback
+	result *model.AttemptCallback
 
 	Info    AttemptInfo `json:"info"`
 	Logs    []LogItem   `json:"logs"`
@@ -61,6 +61,9 @@ type Attempt struct {
 
 	cancel   chan struct{}
 	canceled bool
+
+	maxAttempts uint
+	waitBetween uint64
 }
 
 type LogItem struct {
@@ -76,6 +79,28 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 		cancel:        make(chan struct{}),
 		communication: model.MemberDestinationFromBytes(member.Destination),
 	}
+}
+
+// Change attempt settings
+func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
+	if a.queue == nil {
+		return nil, false
+	}
+
+	res, ok := a.queue.Manager().AfterDistributeSchema(a)
+	if !ok {
+		return nil, false
+	}
+	if res.MaxAttempts > 0 {
+		a.maxAttempts = uint(res.MaxAttempts)
+		a.Log(fmt.Sprintf("set distribute max attempts %d", a.maxAttempts))
+	}
+	if res.WaitBetweenRetries > 0 {
+		a.waitBetween = uint64(res.WaitBetweenRetries)
+		a.Log(fmt.Sprintf("set distribute wait between %d", a.waitBetween))
+	}
+
+	return res, true
 }
 
 func (a *Attempt) SetMemberStopCause(cause *string) {
@@ -97,14 +122,14 @@ func (a *Attempt) MemberStopCause() string {
 
 func (a *Attempt) SetCallback(callback *model.AttemptCallback) {
 	a.Lock()
-	a.agentCallback = callback
+	a.result = callback
 	a.Unlock()
 }
 
 func (a *Attempt) Callback() *model.AttemptCallback {
 	a.RLock()
 	defer a.RUnlock()
-	return a.agentCallback
+	return a.result
 }
 
 func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
@@ -329,10 +354,10 @@ func (a *Attempt) SetResult(result string) {
 
 func (a *Attempt) Log(info string) {
 	wlog.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), info))
-	a.Logs = append(a.Logs, LogItem{
-		Time: model.GetMillis(),
-		Info: info,
-	})
+	//a.Logs = append(a.Logs, LogItem{
+	//	Time: model.GetMillis(),
+	//	Info: info,
+	//})
 }
 
 func (a *Attempt) LogsData() []byte {

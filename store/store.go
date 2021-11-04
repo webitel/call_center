@@ -66,9 +66,10 @@ type MemberStore interface {
 	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string) (*model.AttemptLeaving, *model.AppError)
 
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
-	SetAttemptMissed(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError)
-	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string) (*model.MissedAgent, *model.AppError)
-	CallbackReporting(attemptId int64, callback *model.AttemptCallback) (*model.AttemptReportingResult, *model.AppError)
+	SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError)
+	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
+		maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError)
+	CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64) (*model.AttemptReportingResult, *model.AppError)
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError)
