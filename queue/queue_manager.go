@@ -672,7 +672,9 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 
 	if attempt != nil {
 		if r, ok := attempt.AfterDistributeSchema(); ok {
-			result.Status = r.Status
+			if r.Status != "" {
+				result.Status = r.Status
+			}
 			if r.Variables != nil {
 				result.Variables = model.UnionStringMaps(result.Variables, r.Variables)
 			}
