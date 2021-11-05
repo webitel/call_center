@@ -139,7 +139,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), display, queue.OriginateTimeout),
+		Args:    attempt.resource.Gateway().Bridge(attempt.MemberCallId(), call.Id(), attempt.Name(), attempt.Destination(), display, queue.OriginateTimeout),
 	})
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{

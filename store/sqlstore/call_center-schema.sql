@@ -456,10 +456,116 @@ $$;
 
 
 --
--- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer, vars_ jsonb DEFAULT NULL::jsonb) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, next_offering_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+declare
+    attempt call_center.cc_member_attempt%rowtype;
+    agent_timeout_ timestamptz;
+    time_ int8 = extract(EPOCH  from now()) * 1000;
+    user_id_ int8 = null;
+    domain_id_ int8;
+    wrap_time_ int;
+    stop_cause_ varchar;
+begin
+
+    if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < now() then
+        -- todo move to application
+        raise exception 'bad parameter: next distribute at';
+    end if;
+
+
+    update call_center.cc_member_attempt
+        set state  =  'leaving',
+            reporting_at = now(),
+            leaving_at = case when leaving_at isnull then now() else leaving_at end,
+            result = status_,
+            description = description_
+    where id = attempt_id_ and state != 'leaving'
+    returning * into attempt;
+
+    if attempt.id isnull then
+        return null;
+--         raise exception  'not found %', attempt_id_;
+    end if;
+
+    if attempt.member_id notnull then
+        update call_center.cc_member
+        set last_hangup_at  = time_,
+            variables = case when variables_ isnull then variables else variables_ end,
+            expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
+            agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
+
+            stop_at = case when stop_at notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
+                then stop_at else  attempt.leaving_at end,
+            stop_cause = case when stop_cause notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
+                then stop_cause else attempt.result end,
+
+            ready_at = case when next_offering_at_ notnull then next_offering_at_
+                else now() + (wait_between_retries_ || ' sec')::interval end,
+
+            last_agent      = coalesce(attempt.agent_id, last_agent),
+            communications = jsonb_set(
+                    jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                              attempt_id_::text::jsonb, true)
+                , array [attempt.communication_idx, 'last_activity_at']::text[],
+                    case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
+                ),
+            attempts        = attempts + 1                     --TODO
+        where id = attempt.member_id
+        returning stop_cause into stop_cause_;
+    end if;
+
+    if attempt.agent_id notnull then
+        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
+        into user_id_, domain_id_, wrap_time_
+        from call_center.cc_agent a
+            left join call_center.cc_team tm on tm.id = attempt.team_id
+        where a.id = attempt.agent_id;
+
+        if wrap_time_ > 0 or wrap_time_ isnull then
+            update call_center.cc_agent_channel c
+            set state = 'wrap_time',
+                joined_at = now(),
+                timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
+                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
+            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
+            returning timeout into agent_timeout_;
+        else
+            update call_center.cc_agent_channel c
+            set state = 'waiting',
+                joined_at = now(),
+                timeout = null,
+                channel = null,
+                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
+                queue_id = null
+            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
+            returning timeout into agent_timeout_;
+        end if;
+    end if;
+
+    return row(call_center.cc_view_timestamp(now()),
+        attempt.channel,
+        attempt.queue_id,
+        attempt.agent_call_id,
+        attempt.agent_id,
+        user_id_,
+        domain_id_,
+        call_center.cc_view_timestamp(agent_timeout_),
+        stop_cause_
+        );
+end;
+$$;
+
+
+--
+-- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer, vars_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -482,11 +588,11 @@ begin
         set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
             last_agent      = coalesce(attempt.agent_id, last_agent),
 
-            stop_at = case when stop_at notnull or (not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count))
+            stop_at = case when stop_at notnull or (not attempt.result = 'success' and max_attempts_ > 0 and (attempts + 1 < max_attempts_))
                 then stop_at else  attempt.leaving_at end,
-            stop_cause = case when stop_cause notnull or (not attempt.result = 'success' and q._max_count > 0 and (attempts + 1 < q._max_count))
+            stop_cause = case when stop_cause notnull or (not attempt.result = 'success' and max_attempts_ > 0 and (attempts + 1 < max_attempts_))
                 then stop_cause else attempt.result end,
-            ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
+            ready_at = now() + (coalesce(wait_between_retries_, 0) || ' sec')::interval,
 
             communications = jsonb_set(
                     jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
@@ -496,12 +602,6 @@ begin
                 ),
             attempts        = attempts + 1,
             variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end
-        from (
-            -- fixme
-            select cast((q.payload->>'max_attempts') as int) as _max_count, cast((q.payload->>'wait_between_retries') as int) as _next_after
-            from call_center.cc_queue q
-            where q.id = attempt.queue_id
-        ) q
         where id = attempt.member_id
         returning stop_cause into member_stop_cause;
     end if;
@@ -3413,7 +3513,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                   WHERE ((a.call_id)::text = (c.id)::text)
                   ORDER BY a.created_at DESC) annotations) AS annotations
    FROM ((((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (c.params -> 'record_start'::text), 'stop_at', (c.params -> 'record_stop'::text))) AS files
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (((c.params -> 'record_start'::text))::bigint + 700), 'stop_at', (((c.params -> 'record_stop'::text))::bigint + 700))) AS files
            FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,

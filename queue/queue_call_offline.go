@@ -122,7 +122,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
+		Args:    attempt.resource.Gateway().Bridge(attempt.MemberCallId(), call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
 	})
 
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))

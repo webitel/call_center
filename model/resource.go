@@ -90,7 +90,7 @@ func (g *SipGateway) Endpoint(destination string) string {
 	return fmt.Sprintf(SIP_ENDPOINT_TEMPLATE, strings.Replace(destination, " ", "", -1), g.Proxy)
 }
 
-func (g *SipGateway) Bridge(parentId string, name, destination string, display string, timeout uint16) string {
+func (g *SipGateway) Bridge(id *string, parentId string, name, destination string, display string, timeout uint16) string {
 	res := []string{
 		fmt.Sprintf("leg_timeout=%d", timeout),
 		fmt.Sprintf("wbt_parent_id=%s", parentId),
@@ -109,6 +109,10 @@ func (g *SipGateway) Bridge(parentId string, name, destination string, display s
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
 		"sip_route_uri=sip:$${outbound_sip_proxy}",
 		"sip_copy_custom_headers=false",
+	}
+
+	if id != nil {
+		res = append(res, fmt.Sprintf("%s=%s", CALL_ORIGINATION_UUID, *id))
 	}
 
 	if g.UseBridgeAnswerTimeout {
