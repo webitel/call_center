@@ -678,6 +678,10 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["call_sip_code"] = fmt.Sprintf("%d", call.HangupCauseCode())
 	}
 
+	if call.amdResult != "" {
+		vars["amd_result"] = call.amdResult
+	}
+
 	var ans int64
 	if call.acceptAt != 0 {
 		ans = call.acceptAt
