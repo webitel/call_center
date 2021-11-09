@@ -3511,7 +3511,9 @@ CREATE VIEW call_center.cc_calls_history_list AS
                      LEFT JOIN directory.wbt_user cc ON ((cc.id = a.created_by)))
                      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
                   WHERE ((a.call_id)::text = (c.id)::text)
-                  ORDER BY a.created_at DESC) annotations) AS annotations
+                  ORDER BY a.created_at DESC) annotations) AS annotations,
+    c.amd_result,
+    c.amd_duration
    FROM ((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (((c.params -> 'record_start'::text))::bigint + 700), 'stop_at', (((c.params -> 'record_stop'::text))::bigint + 700))) AS files
            FROM ( SELECT f1.id,
@@ -4171,15 +4173,17 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
     t.queue_id,
     t.bucket_id,
     t.member_id,
-    t.agent_id
-   FROM (((((((call_center.cc_member_attempt_history t
+    t.agent_id,
+    c.amd_result
+   FROM ((((((((call_center.cc_member_attempt_history t
      LEFT JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))
      LEFT JOIN call_center.cc_member cm ON ((t.member_id = cm.id)))
      LEFT JOIN call_center.cc_agent a ON ((t.agent_id = a.id)))
      LEFT JOIN directory.wbt_user u ON (((u.id = a.user_id) AND (u.dc = a.domain_id))))
      LEFT JOIN call_center.cc_outbound_resource r ON ((r.id = t.resource_id)))
      LEFT JOIN call_center.cc_bucket cb ON ((cb.id = t.bucket_id)))
-     LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)));
+     LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)))
+     LEFT JOIN call_center.cc_calls_history c ON (((c.domain_id = t.domain_id) AND ((c.id)::text = (t.member_call_id)::text))));
 
 
 --
