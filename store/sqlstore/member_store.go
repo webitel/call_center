@@ -449,7 +449,7 @@ returning
 func (s *SqlMemberStore) SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
 	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers, member_stop_cause 
-		from call_center.cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime, null::jsonb, , :MaxAttempts::int, :WaitBetween::int) 
+		from call_center.cc_attempt_leaving(:Id::int8, 'missed', :State, :AgentHoldTime, null::jsonb, :MaxAttempts::int, :WaitBetween::int) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"State":         model.ChannelStateMissed,
