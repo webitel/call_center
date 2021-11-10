@@ -162,7 +162,13 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
-						printfIfErr(agentCall.Bridge(mCall))
+						if err = agentCall.Bridge(mCall); err != nil {
+							printfIfErr(err)
+						} else if mCall.Direction() == model.CallDirectionOutbound && attempt.state != model.MemberStateBridged {
+							timeout.Stop()
+							team.Bridged(attempt, agent)
+						}
+
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
