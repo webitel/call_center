@@ -7830,11 +7830,11 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 
 --
--- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_sip_gateway_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_in_group cc_outbound_resource_in_group_cc_outbound_resource_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
-    ADD CONSTRAINT cc_outbound_resource_in_group_sip_gateway_id_fk FOREIGN KEY (reserve_resource_id) REFERENCES directory.sip_gateway(id) ON UPDATE SET NULL ON DELETE SET NULL;
+    ADD CONSTRAINT cc_outbound_resource_in_group_cc_outbound_resource_id_fk_2 FOREIGN KEY (reserve_resource_id) REFERENCES call_center.cc_outbound_resource(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
