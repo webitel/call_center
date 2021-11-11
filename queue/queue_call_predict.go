@@ -367,7 +367,6 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 	}
 
 	go func() {
-		attempt.Emit(AttemptHookLeaving)
 		attempt.Off("*")
 	}()
 }

@@ -157,7 +157,6 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 				attempt.SetMemberStopCause(res.MemberStopCause)
 			}
 			attempt.SetResult(AttemptResultSuccess)
-			attempt.SetState(HookLeaving)
 
 			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), res.Timestamp, res.Timestamp+(int64(tm.WrapUpTime()*1000)))
 			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
