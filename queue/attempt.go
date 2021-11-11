@@ -274,6 +274,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["destination_description"] = a.communication.Description
 	}
 
+	if a.result != nil && a.result.Description != "" {
+		res["agent_description"] = a.result.Description
+	}
+
 	if a.member.Name != "" {
 		res["member_name"] = a.member.Name
 	}
