@@ -714,6 +714,15 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	if attempt != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 		attempt.SetCallback(&result)
+		// FIXME
+		if attempt.queue.TypeName() == "predictive" && attempt.memberChannel != nil {
+			select {
+			case <-attempt.memberChannel.(*call_manager.CallImpl).HangupChan():
+				break
+			case <-time.After(time.Second):
+				break
+			}
+		}
 		queueManager.LeavingMember(attempt)
 	}
 

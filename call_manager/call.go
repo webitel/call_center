@@ -80,17 +80,15 @@ type CallAction struct {
 }
 
 type CallImpl struct {
-	callRequest     *model.CallRequest
-	api             model.CallCommands
-	direction       CallDirection
-	cm              *CallManagerImpl
-	actions         chan CallAction
-	id              string
-	hangupCause     string
-	hangupCauseCode int
-	hangupCh        chan struct{}
-	state           CallState
-	cancel          string
+	callRequest *model.CallRequest
+	api         model.CallCommands
+	direction   CallDirection
+	cm          *CallManagerImpl
+	actions     chan CallAction
+	id          string
+	hangupCh    chan struct{}
+	state       CallState
+	cancel      string
 
 	chState chan CallState
 
