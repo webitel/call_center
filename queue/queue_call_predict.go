@@ -355,11 +355,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
 	}
 
-	if agentCall != nil && agentCall.BridgeAt() > 0 {
-		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
-	} else {
-		queue.queueManager.LosePredictAgent(predictAgentId)
-
+	if mCall.HangupCause() == "" && (agentCall == nil || !agentCall.Transferred()) {
 		//TODO
 		select {
 		case <-mCall.HangupChan():
@@ -367,6 +363,12 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		case <-time.After(time.Second):
 			break
 		}
+	}
+
+	if agentCall != nil && agentCall.BridgeAt() > 0 {
+		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
+	} else {
+		queue.queueManager.LosePredictAgent(predictAgentId)
 
 		if !queue.queueManager.SendAfterDistributeSchema(attempt) {
 			if queue.RetryAbandoned {
