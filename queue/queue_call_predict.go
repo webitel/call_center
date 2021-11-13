@@ -213,8 +213,12 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		select {
 		case <-timeout.C:
 			calling = false
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.WaitForHangup()
 		case <-attempt.Context.Done():
 			calling = false
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.WaitForHangup()
 		case c := <-mCall.State():
 			if c == call_manager.CALL_STATE_HANGUP {
 				calling = false
@@ -355,6 +359,14 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		queue.queueManager.LosePredictAgent(predictAgentId)
+
+		//TODO
+		select {
+		case <-mCall.HangupChan():
+			break
+		case <-time.After(time.Second):
+			break
+		}
 
 		if !queue.queueManager.SendAfterDistributeSchema(attempt) {
 			if queue.RetryAbandoned {
