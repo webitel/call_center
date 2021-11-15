@@ -8194,7 +8194,7 @@ ALTER TABLE ONLY call_center.cc_team
 --
 
 ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -8202,7 +8202,7 @@ ALTER TABLE ONLY call_center.cc_team
 --
 
 ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
