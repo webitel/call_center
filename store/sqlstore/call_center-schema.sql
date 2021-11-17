@@ -227,10 +227,10 @@ begin
             stop_at = case when (stop_cause notnull or (_max_count > 0 and (attempts + 1 < _max_count)))  then stop_at else  attempt.leaving_at end,
             stop_cause = case when (stop_cause notnull or (_max_count > 0 and (attempts + 1 < _max_count))) then stop_cause else attempt.result end,
             ready_at = now() + (_next_after || ' sec')::interval,
-            -- fixme
-            communications  = jsonb_set(
-                    jsonb_set(communications, array[attempt.communication_idx::text, 'attempt_id']::text[], attempt_id_::text::jsonb, true)
-                , array[attempt.communication_idx::text, 'last_activity_at']::text[], ((extract(EPOCH from now() ) * 1000)::int8)::text::jsonb),
+            communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+                jsonb_build_object('last_activity_at', (extract(epoch  from attempt.leaving_at) * 1000)::int8::text::jsonb) ||
+                jsonb_build_object('attempt_id', attempt_id_)
+            ),
             variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
             attempts        = attempts + 1                     --TODO
         where id = attempt.member_id
@@ -397,7 +397,7 @@ begin
 
             last_agent      = coalesce(attempt.agent_id, last_agent),
             communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
-                jsonb_build_object('last_activity_at', case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end) ||
+                jsonb_build_object('last_activity_at', case when next_offering_at_ notnull then '0'::text::jsonb else time_::text::jsonb end) ||
                 jsonb_build_object('attempt_id', attempt_id_) ||
                 case when exclude_dest then jsonb_build_object('stop_at', time_) else '{}'::jsonb end
             ),
