@@ -43,13 +43,14 @@ type MemberCommunication struct {
 }
 
 type AttemptCallback struct {
-	Status        string
-	NextCallAt    *time.Time
-	ExpireAt      *time.Time
-	Description   string
-	Display       bool
-	Variables     map[string]string
-	StickyAgentId *int
+	Status                      string
+	NextCallAt                  *time.Time
+	ExpireAt                    *time.Time
+	Description                 string
+	Display                     bool
+	Variables                   map[string]string
+	StickyAgentId               *int
+	ExcludeCurrentCommunication *bool
 }
 
 type AttemptLeaving struct {

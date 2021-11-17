@@ -52,28 +52,10 @@ func (api *memberApi) DirectAgentToMember(domainId int64, memberId int64, commun
 	return res.AttemptId, nil
 }
 
-func (api *memberApi) AttemptResult(attemptId int64, status, description string, nextOffering *int64, expireAt *int64, vars map[string]string,
-	stickyDisplay bool, agentId int32) error {
+func (api *memberApi) AttemptResult(result *proto.AttemptResultRequest) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
-	}
-
-	result := &proto.AttemptResultRequest{
-		AttemptId:   attemptId,
-		Status:      status,
-		Variables:   vars,
-		Display:     stickyDisplay,
-		Description: description,
-		AgentId:     agentId,
-	}
-
-	if nextOffering != nil {
-		result.NextDistributeAt = *nextOffering
-	}
-
-	if expireAt != nil {
-		result.ExpireAt = *expireAt
 	}
 
 	_, err = cli.member.AttemptResult(context.Background(), result)

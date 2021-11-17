@@ -49,6 +49,10 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		result.StickyAgentId = model.NewInt(int(in.AgentId))
 	}
 
+	if in.ExcludeCurrentCommunication {
+		result.ExcludeCurrentCommunication = model.NewBool(true)
+	}
+
 	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result)
 	if err != nil {
 		return nil, err

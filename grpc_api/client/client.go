@@ -26,8 +26,7 @@ type AgentApi interface {
 }
 
 type MemberApi interface {
-	AttemptResult(attemptId int64, status, description string, nextOffering *int64, expireAt *int64, vars map[string]string,
-		stickyDisplay bool, agentId int32) error
+	AttemptResult(result *cc.AttemptResultRequest) error
 	RenewalResult(domainId, attemptId int64, renewal uint32) error
 
 	JoinCallToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (cc.MemberService_CallJoinToQueueClient, error)

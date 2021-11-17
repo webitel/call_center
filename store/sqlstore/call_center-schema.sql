@@ -344,10 +344,10 @@ $$;
 
 
 --
--- Name: cc_attempt_end_reporting(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_end_reporting(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb, integer, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, next_offering_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, next_offering_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60, exclude_dest boolean DEFAULT NULL::boolean) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -387,133 +387,20 @@ begin
             expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
             agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
-            stop_at = case when stop_at notnull or (not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) )
+            stop_at = case when next_offering_at_ notnull or stop_at notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
                 then stop_at else  attempt.leaving_at end,
-            stop_cause = case when stop_cause notnull or (not attempt.result in ('success', 'cancel') and (q._max_count > 0 and (attempts + 1 < q._max_count)) )
-                then stop_cause else attempt.result end,
-
-            ready_at = case when next_offering_at_ notnull then next_offering_at_
-                else now() + (q._next_after || ' sec')::interval end,
-
-            last_agent      = coalesce(attempt.agent_id, last_agent),
-            communications = jsonb_set(
-                    jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
-                              attempt_id_::text::jsonb, true)
-                , array [attempt.communication_idx, 'last_activity_at']::text[],
-                    case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
-                ),
-            attempts        = attempts + 1                     --TODO
-        from (
-            -- fixme
-            select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
-            from call_center.cc_queue q
-            where q.id = attempt.queue_id
-        ) q
-        where id = attempt.member_id
-        returning stop_cause into stop_cause_;
-    end if;
-
-    if attempt.agent_id notnull then
-        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
-        into user_id_, domain_id_, wrap_time_
-        from call_center.cc_agent a
-            left join call_center.cc_team tm on tm.id = attempt.team_id
-        where a.id = attempt.agent_id;
-
-        if wrap_time_ > 0 or wrap_time_ isnull then
-            update call_center.cc_agent_channel c
-            set state = 'wrap_time',
-                joined_at = now(),
-                timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
-                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
-            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
-        else
-            update call_center.cc_agent_channel c
-            set state = 'waiting',
-                joined_at = now(),
-                timeout = null,
-                channel = null,
-                last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
-                queue_id = null
-            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
-        end if;
-    end if;
-
-    return row(call_center.cc_view_timestamp(now()),
-        attempt.channel,
-        attempt.queue_id,
-        attempt.agent_call_id,
-        attempt.agent_id,
-        user_id_,
-        domain_id_,
-        call_center.cc_view_timestamp(agent_timeout_),
-        stop_cause_
-        );
-end;
-$$;
-
-
---
--- Name: cc_attempt_end_reporting(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_attempt_end_reporting(attempt_id_ bigint, status_ character varying, description_ character varying DEFAULT NULL::character varying, expire_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, next_offering_at_ timestamp with time zone DEFAULT NULL::timestamp with time zone, sticky_agent_id_ integer DEFAULT NULL::integer, variables_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60) RETURNS record
-    LANGUAGE plpgsql
-    AS $$
-declare
-    attempt call_center.cc_member_attempt%rowtype;
-    agent_timeout_ timestamptz;
-    time_ int8 = extract(EPOCH  from now()) * 1000;
-    user_id_ int8 = null;
-    domain_id_ int8;
-    wrap_time_ int;
-    stop_cause_ varchar;
-begin
-
-    if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < now() then
-        -- todo move to application
-        raise exception 'bad parameter: next distribute at';
-    end if;
-
-
-    update call_center.cc_member_attempt
-        set state  =  'leaving',
-            reporting_at = now(),
-            leaving_at = case when leaving_at isnull then now() else leaving_at end,
-            result = status_,
-            description = description_
-    where id = attempt_id_ and state != 'leaving'
-    returning * into attempt;
-
-    if attempt.id isnull then
-        return null;
---         raise exception  'not found %', attempt_id_;
-    end if;
-
-    if attempt.member_id notnull then
-        update call_center.cc_member
-        set last_hangup_at  = time_,
-            variables = case when variables_ isnull then variables else variables_ end,
-            expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
-            agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
-
-            stop_at = case when stop_at notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
-                then stop_at else  attempt.leaving_at end,
-            stop_cause = case when stop_cause notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
+            stop_cause = case when next_offering_at_ notnull or stop_cause notnull or (not attempt.result in ('success', 'cancel') and (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) )
                 then stop_cause else attempt.result end,
 
             ready_at = case when next_offering_at_ notnull then next_offering_at_
                 else now() + (wait_between_retries_ || ' sec')::interval end,
 
             last_agent      = coalesce(attempt.agent_id, last_agent),
-            communications = jsonb_set(
-                    jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
-                              attempt_id_::text::jsonb, true)
-                , array [attempt.communication_idx, 'last_activity_at']::text[],
-                    case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end
-                ),
+            communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+                jsonb_build_object('last_activity_at', case when next_offering_at_ isnull then '0'::text::jsonb else time_::text::jsonb end) ||
+                jsonb_build_object('attempt_id', attempt_id_) ||
+                case when exclude_dest then jsonb_build_object('stop_at', time_) else '{}'::jsonb end
+            ),
             attempts        = attempts + 1                     --TODO
         where id = attempt.member_id
         returning stop_cause into stop_cause_;
@@ -1870,11 +1757,16 @@ BEGIN
     if new.communications notnull and jsonb_typeof(new.communications) = 'array' then
         new.sys_destinations = (select array(select call_center.cc_destination_in(idx::int4 - 1, (x -> 'type' ->> 'id')::int4, (x ->> 'last_activity_at')::int8,  (x -> 'resource' ->> 'id')::int, (x ->> 'priority')::int)
          from jsonb_array_elements(new.communications) with ordinality as x(x, idx)
-         where coalesce((x.x -> 'stopped_at')::int8, 0) = 0
+         where coalesce((x.x -> 'stop_at')::int8, 0) = 0
          and idx > -1));
 
         new.search_destinations = (select array_agg( distinct x->>'destination'::varchar)
             from jsonb_array_elements(new.communications) x);
+
+        if new.stop_at isnull and coalesce(array_length(new.sys_destinations, 1), 0 ) = 0 then
+            new.stop_at = now();
+            new.stop_cause = 'no_communications';
+        end if;
 
     else
         new.sys_destinations = null;
@@ -8194,7 +8086,7 @@ ALTER TABLE ONLY call_center.cc_team
 --
 
 ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
@@ -8202,7 +8094,7 @@ ALTER TABLE ONLY call_center.cc_team
 --
 
 ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
