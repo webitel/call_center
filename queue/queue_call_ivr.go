@@ -126,7 +126,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		queue.SetRecordings(call, true, queue.RecordMono)
 	}
 
-	if !queue.SetAmdCall(callRequest, queue.Amd, queue.CallManager().GetFlowUri()) {
+	if !queue.SetAmdCall(callRequest, queue.Amd, fmt.Sprintf("transfer::%s", attempt.Destination())) {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "socket",
 			Args:    "$${acr_srv}",
