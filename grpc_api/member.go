@@ -53,7 +53,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		result.ExcludeCurrentCommunication = model.NewBool(true)
 	}
 
-	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result)
+	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false)
 	if err != nil {
 		return nil, err
 	}

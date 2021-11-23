@@ -17,4 +17,5 @@ type App interface {
 	ChatManager() *chat.ChatManager
 	GetCall(id string) (*model.Call, *model.AppError)
 	GetChat(id string) (*chat.Conversation, *model.AppError)
+	QueueSettings() model.QueueSettings
 }

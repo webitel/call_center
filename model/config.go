@@ -70,8 +70,13 @@ type DiscoverySettings struct {
 	Url string
 }
 
+type QueueSettings struct {
+	WaitChannelClose bool
+}
+
 type Config struct {
 	DiscoverySettings    DiscoverySettings `json:"discovery_settings"`
+	QueueSettings        QueueSettings     `json:"queue_settings"`
 	LocalizationSettings LocalizationSettings
 	ServiceSettings      ServiceSettings
 	ServerSettings       ServerSettings

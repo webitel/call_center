@@ -7,6 +7,7 @@ import (
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/call_center/queue"
@@ -123,6 +124,10 @@ func (app *App) Queue() queue.Dialing {
 
 func (app *App) Master() bool {
 	return app.cluster.Master()
+}
+
+func (app *App) QueueSettings() model.QueueSettings {
+	return app.Config().QueueSettings
 }
 
 func (app *App) Shutdown() {

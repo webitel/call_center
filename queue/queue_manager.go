@@ -24,37 +24,43 @@ const (
 )
 
 type QueueManager struct {
-	wg              sync.WaitGroup
-	app             App
-	attemptCount    int64
-	mq              mq.MQ
-	stop            chan struct{}
-	stopped         chan struct{}
-	input           chan *Attempt
-	queuesCache     utils.ObjectCache
-	membersCache    utils.ObjectCache
-	store           store.Store
-	resourceManager *ResourceManager
-	agentManager    agent_manager.AgentManager
-	callManager     call_manager.CallManager
-	teamManager     *teamManager
+	wg               sync.WaitGroup
+	app              App
+	attemptCount     int64
+	mq               mq.MQ
+	stop             chan struct{}
+	stopped          chan struct{}
+	input            chan *Attempt
+	queuesCache      utils.ObjectCache
+	membersCache     utils.ObjectCache
+	store            store.Store
+	resourceManager  *ResourceManager
+	agentManager     agent_manager.AgentManager
+	callManager      call_manager.CallManager
+	teamManager      *teamManager
+	waitChannelClose bool
 	sync.Mutex
 }
 
+var (
+	errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
+)
+
 func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
 	return &QueueManager{
-		store:           s,
-		app:             app,
-		callManager:     callManager,
-		resourceManager: resourceManager,
-		agentManager:    agentManager,
-		mq:              m,
-		teamManager:     NewTeamManager(s, m),
-		input:           make(chan *Attempt),
-		stop:            make(chan struct{}),
-		stopped:         make(chan struct{}),
-		queuesCache:     utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
-		membersCache:    utils.NewLruWithParams(MAX_MEMBERS_CACHE, "Members", MAX_QUEUES_EXPIRE_CACHE, ""),
+		store:            s,
+		app:              app,
+		callManager:      callManager,
+		resourceManager:  resourceManager,
+		agentManager:     agentManager,
+		mq:               m,
+		teamManager:      NewTeamManager(s, m),
+		input:            make(chan *Attempt),
+		stop:             make(chan struct{}),
+		stopped:          make(chan struct{}),
+		waitChannelClose: app.QueueSettings().WaitChannelClose,
+		queuesCache:      utils.NewLruWithParams(MAX_QUEUES_CACHE, "QueueManager", MAX_QUEUES_EXPIRE_CACHE, ""),
+		membersCache:     utils.NewLruWithParams(MAX_MEMBERS_CACHE, "Members", MAX_QUEUES_EXPIRE_CACHE, ""),
 	}
 }
 
@@ -646,6 +652,42 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 	return
 }
 
+func (queueManager *QueueManager) setChannelReporting(attempt *Attempt, ccCause string) (err *model.AppError) {
+
+	if attempt.agentChannel == nil {
+		return errNotFoundConnection
+	}
+
+	switch attempt.channel {
+	case model.QueueChannelCall:
+		if call, ok := queueManager.callManager.GetCall(attempt.agentChannel.Id()); ok {
+			err = call.SerVariables(map[string]string{
+				"cc_result":       ccCause,
+				"cc_reporting_at": fmt.Sprintf("%d", model.GetMillis()),
+			})
+		} else {
+			return errNotFoundConnection
+		}
+		break
+	case model.QueueChannelChat:
+		var conv *chat.Conversation
+		if conv, err = queueManager.GetChat(attempt.agentChannel.Id()); err == nil {
+			err = conv.Reporting()
+		} else {
+			return errNotFoundConnection
+		}
+	case model.QueueChannelTask:
+		var task *TaskChannel
+		if task, err = queueManager.getAgentTaskFromAttemptId(attempt.Id()); err == nil {
+			err = task.Reporting()
+		} else {
+			return errNotFoundConnection
+		}
+	}
+
+	return
+}
+
 func (queueManager *QueueManager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (err *model.AppError) {
 	var data *model.RenewalProcessing
 
@@ -658,7 +700,7 @@ func (queueManager *QueueManager) RenewalAttempt(domainId, attemptId int64, rene
 	return queueManager.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 
-func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptCallback) *model.AppError {
+func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model.AttemptCallback, system bool) *model.AppError {
 	if result.Status == "" {
 		result.Status = "abandoned"
 	}
@@ -671,6 +713,15 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	var maxAttempts uint = 0
 
 	if attempt != nil {
+		// TODO [biz]
+		if queueManager.waitChannelClose != system {
+			attempt.SetCallback(&result)
+			err := queueManager.setChannelReporting(attempt, result.Status)
+			if err != errNotFoundConnection {
+				return err
+			}
+		}
+
 		if r, ok := attempt.AfterDistributeSchema(); ok {
 			if r.Status != "" {
 				result.Status = r.Status
@@ -688,8 +739,15 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		return err
 	}
 
-	err = queueManager.closeBeforeReporting(attemptId, res, result.Status)
+	if !system {
+		err = queueManager.closeBeforeReporting(attemptId, res, result.Status)
+	}
 
+	return queueManager.doLeavingReporting(attemptId, attempt, res, &result)
+}
+
+func (queueManager *QueueManager) doLeavingReporting(attemptId int64, attempt *Attempt, res *model.AttemptReportingResult, result *model.AttemptCallback) *model.AppError {
+	var err *model.AppError
 	if res.UserId != nil && res.DomainId != nil {
 		var ev model.Event
 		ch := ""
@@ -713,7 +771,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 
 	if attempt != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
-		attempt.SetCallback(&result)
+		attempt.SetCallback(result)
 		// FIXME
 		if attempt.queue.TypeName() == "predictive" && attempt.memberChannel != nil {
 			select {
