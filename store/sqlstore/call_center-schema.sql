@@ -6109,6 +6109,13 @@ CREATE INDEX cc_member_attempt_history_member_id_index ON call_center.cc_member_
 
 
 --
+-- Name: cc_member_attempt_history_member_id_index_drop; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_member_id_index_drop ON call_center.cc_member_attempt_history USING btree (member_id) WHERE (member_id IS NOT NULL);
+
+
+--
 -- Name: cc_member_attempt_history_parent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6603,6 +6610,20 @@ CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (update
 --
 
 CREATE STATISTICS call_center.cc_calls_history_domain_created_user_ids_st ON domain_id, created_at, user_ids FROM call_center.cc_calls_history;
+
+
+--
+-- Name: cc_calls_history_user_id_st; Type: STATISTICS; Schema: call_center; Owner: -
+--
+
+CREATE STATISTICS call_center.cc_calls_history_user_id_st ON domain_id, user_id, created_at FROM call_center.cc_calls_history;
+
+
+--
+-- Name: cc_calls_history_user_ids_st; Type: STATISTICS; Schema: call_center; Owner: -
+--
+
+CREATE STATISTICS call_center.cc_calls_history_user_ids_st ON domain_id, user_ids FROM call_center.cc_calls_history;
 
 
 --
@@ -7323,14 +7344,6 @@ ALTER TABLE ONLY call_center.cc_calls_annotation
 
 ALTER TABLE ONLY call_center.cc_calls_annotation
     ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
-
-
---
--- Name: cc_calls cc_calls_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_calls
-    ADD CONSTRAINT cc_calls_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
