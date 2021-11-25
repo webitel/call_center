@@ -123,6 +123,9 @@ func (a *Attempt) MemberStopCause() string {
 func (a *Attempt) SetCallback(callback *model.AttemptCallback) {
 	a.Lock()
 	a.result = callback
+	if callback.Status != "" {
+		a.SetResult(callback.Status)
+	}
 	a.Unlock()
 }
 
@@ -296,6 +299,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 
 	if a.MemberStopCause() != "" {
 		res["member_stop_cause"] = a.MemberStopCause()
+	}
+
+	if ccResult := a.Result(); ccResult != "" {
+		res["cc_result"] = ccResult
 	}
 
 	if a.queue != nil {

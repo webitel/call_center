@@ -56,6 +56,7 @@ type AttemptCallback struct {
 type AttemptLeaving struct {
 	Timestamp       int64   `json:"timestamp" db:"timestamp"`
 	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
+	Result          *string `json:"result" db:"result"`
 }
 
 type MemberAttempt struct {

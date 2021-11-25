@@ -214,12 +214,16 @@ func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
 	if missed.MemberStopCause != nil {
 		attempt.SetMemberStopCause(missed.MemberStopCause)
 	}
+	//TODO
+	attempt.SetResult(model.MemberStateCancel)
 
 	tm.MissedAgent(missed, attempt, agent)
 }
 
 func (tm *agentTeam) CancelAgentAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
 	// todo missed or waiting ?
+
+	attempt.SetResult(model.MemberStateCancel)
 
 	missed, err := tm.teamManager.store.Member().CancelAgentAttempt(attempt.Id(), int(tm.NoAnswerDelayTime()))
 	if err != nil {

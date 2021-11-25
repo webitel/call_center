@@ -238,7 +238,7 @@ begin
     end if;
 
 
-    return row(attempt.last_state_change::timestamptz, member_stop_cause::varchar);
+    return row(attempt.last_state_change::timestamptz, member_stop_cause::varchar, attempt.result::varchar);
 end;
 $$;
 
@@ -1159,6 +1159,7 @@ declare
     _a_status varchar;
     _a_channel varchar;
     _number varchar;
+    _busy_ext bool;
 BEGIN
 
   select *
@@ -1185,7 +1186,8 @@ BEGIN
     a.status,
     cac.channel,
     a.domain_id,
-    a.updated_at
+    a.updated_at,
+    exists (select 1 from call_center.cc_calls c where c.user_id = a.user_id and c.queue_id isnull and c.hangup_at isnull ) busy_ext
   from call_center.cc_agent a
       inner join call_center.cc_team t on t.id = a.team_id
       inner join call_center.cc_agent_channel cac on a.id = cac.agent_id
@@ -1196,7 +1198,8 @@ BEGIN
       _a_status,
       _a_channel,
       _domain_id,
-      _agent_updated_at
+      _agent_updated_at,
+      _busy_ext
       ;
 
   if _call.domain_id != _domain_id then
@@ -1209,6 +1212,10 @@ BEGIN
 
   if not _a_channel isnull  then
       raise exception 'agent is busy';
+  end if;
+
+  if _busy_ext then
+      raise exception 'agent has external call';
   end if;
 
 
@@ -1760,7 +1767,7 @@ BEGIN
          where coalesce((x.x -> 'stop_at')::int8, 0) = 0
          and idx > -1));
 
-        new.search_destinations = (select array_agg( distinct x->>'destination'::varchar)
+        new.search_destinations = (select array_agg( x->>'destination'::varchar)
             from jsonb_array_elements(new.communications) x);
 
         if new.stop_at isnull and coalesce(array_length(new.sys_destinations, 1), 0 ) = 0 then
@@ -2314,6 +2321,22 @@ BEGIN
     return count;
 END;
 $$;
+
+
+--
+-- Name: cc_update_array_elements(jsonb, text[], jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_update_array_elements(target jsonb, path text[], new_value jsonb) RETURNS jsonb
+    LANGUAGE sql
+    AS $$
+    -- aggregate the jsonb from parts created in LATERAL
+    SELECT jsonb_agg(updated_jsonb)
+    -- split the target array to individual objects...
+    FROM jsonb_array_elements(target) individual_object,
+    -- operate on each object and apply jsonb_set to it. The results are aggregated in SELECT
+    LATERAL jsonb_set(individual_object, path, new_value) updated_jsonb
+  $$;
 
 
 --
@@ -5918,6 +5941,20 @@ CREATE INDEX cc_calls_history_user_ids_index ON call_center.cc_calls_history USI
 
 
 --
+-- Name: cc_calls_history_user_ids_index2; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_user_ids_index2 ON call_center.cc_calls_history USING gin (((user_ids)::integer[])) WHERE (user_ids IS NOT NULL);
+
+
+--
+-- Name: cc_calls_history_user_ids_index3; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_user_ids_index3 ON call_center.cc_calls_history USING gin (created_at, ((user_ids)::integer[]));
+
+
+--
 -- Name: cc_calls_transcribe_call_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6559,6 +6596,13 @@ CREATE UNIQUE INDEX cc_team_domain_udx ON call_center.cc_team USING btree (id, d
 --
 
 CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (updated_by);
+
+
+--
+-- Name: cc_calls_history_domain_created_user_ids_st; Type: STATISTICS; Schema: call_center; Owner: -
+--
+
+CREATE STATISTICS call_center.cc_calls_history_domain_created_user_ids_st ON domain_id, created_at, user_ids FROM call_center.cc_calls_history;
 
 
 --

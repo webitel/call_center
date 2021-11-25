@@ -317,9 +317,9 @@ where x.last_state_change notnull `, map[string]interface{}{
 
 func (s *SqlMemberStore) SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError) {
 	var res *model.AttemptLeaving
-	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
+	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause, x.result
 from call_center.cc_attempt_abandoned(:AttemptId)
-    as x (last_state_change timestamptz, member_stop_cause varchar)
+    as x (last_state_change timestamptz, member_stop_cause varchar, result varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId": attemptId,
 	})
@@ -346,9 +346,9 @@ func mapToJson(m map[string]string) *string {
 
 func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string) (*model.AttemptLeaving, *model.AppError) {
 	var res *model.AttemptLeaving
-	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause
+	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause, x.result
 from call_center.cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep, :Vars::jsonb)
-    as x (last_state_change timestamptz, member_stop_cause varchar)
+    as x (last_state_change timestamptz, member_stop_cause varchar, result varchar)
 where x.last_state_change notnull `, map[string]interface{}{
 		"AttemptId":   attemptId,
 		"MaxAttempts": maxAttempts,

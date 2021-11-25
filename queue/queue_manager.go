@@ -616,7 +616,12 @@ func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt
 	if res.MemberStopCause != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 	}
-	attempt.SetResult(AttemptResultAbandoned)
+
+	if res.Result != nil {
+		attempt.SetResult(*res.Result)
+	} else {
+		attempt.SetResult(AttemptResultAbandoned)
+	}
 }
 
 func (queueManager *QueueManager) GetChat(id string) (*chat.Conversation, *model.AppError) {
