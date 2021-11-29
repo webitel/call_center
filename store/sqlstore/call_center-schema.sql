@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.8 (Debian 12.8-1.pgdg100+1)
--- Dumped by pg_dump version 12.8 (Debian 12.8-1.pgdg100+1)
+-- Dumped from database version 12.9 (Debian 12.9-1.pgdg100+1)
+-- Dumped by pg_dump version 12.9 (Debian 12.9-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2737,7 +2737,7 @@ CREATE VIEW call_center.cc_agent_list AS
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
  SELECT a.id,
-    ((now())::date + age(now(), (timezone(t.sys_name, now()))::timestamp with time zone)) AS today,
+    ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone)) AS today,
     p.payload AS cause,
     p.d AS duration
    FROM (((call_center.cc_agent a
@@ -2746,7 +2746,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
      LEFT JOIN LATERAL ( SELECT cc_agent_state_history.payload,
             sum(cc_agent_state_history.duration) AS d
            FROM call_center.cc_agent_state_history
-          WHERE ((cc_agent_state_history.joined_at > ((now())::date + age(now(), (timezone(t.sys_name, now()))::timestamp with time zone))) AND (cc_agent_state_history.agent_id = a.id) AND ((cc_agent_state_history.state)::text = 'pause'::text) AND (cc_agent_state_history.channel IS NULL))
+          WHERE ((cc_agent_state_history.joined_at > ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone))) AND (cc_agent_state_history.agent_id = a.id) AND ((cc_agent_state_history.state)::text = 'pause'::text) AND (cc_agent_state_history.channel IS NULL))
           GROUP BY cc_agent_state_history.payload) p ON (true))
   WHERE (p.d IS NOT NULL)
   WITH NO DATA;
