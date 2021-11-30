@@ -2691,7 +2691,7 @@ CREATE TABLE call_center.cc_team (
 CREATE VIEW call_center.cc_agent_list AS
  SELECT a.domain_id,
     a.id,
-    (COALESCE(((ct.name)::character varying)::name, ct.username))::character varying AS name,
+    (COALESCE(((ct.name)::character varying)::name, (ct.username COLLATE "default")))::character varying AS name,
     a.status,
     a.description,
     ((date_part('epoch'::text, a.last_state_change) * (1000)::double precision))::bigint AS last_status_change,
@@ -2934,7 +2934,7 @@ CREATE VIEW call_center.cc_bucket_in_queue_view AS
 
 CREATE VIEW call_center.cc_bucket_view AS
  SELECT b.id,
-    (b.name)::character varying AS name,
+    ((b.name)::character varying COLLATE "default") AS name,
     b.description,
     b.domain_id
    FROM call_center.cc_bucket b;
