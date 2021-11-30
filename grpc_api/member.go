@@ -26,6 +26,15 @@ func (api *member) CancelAgentDistribute(_ context.Context, in *cc.CancelAgentDi
 	return &cc.CancelAgentDistributeResponse{}, nil
 }
 
+func terminateMember(status string) bool {
+	switch status {
+	case "success", "terminate", "cancel":
+		return true
+	}
+
+	return false
+}
+
 func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
 	result := model.AttemptCallback{
 		Status:        in.GetStatus(),
@@ -41,7 +50,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		result.ExpireAt = model.Int64ToTime(in.GetExpireAt())
 	}
 
-	if in.NextDistributeAt > 0 {
+	if in.NextDistributeAt > 0 && !terminateMember(result.Status) {
 		result.NextCallAt = model.Int64ToTime(in.NextDistributeAt)
 	}
 
