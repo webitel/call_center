@@ -129,7 +129,14 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Applications: make([]*model.CallRequestApplication, 0, 3),
 	}
 
-	call := queue.NewCall(callRequest)
+	call, err := queue.NewCall(callRequest)
+	if err != nil {
+		attempt.Log(err.Error())
+		// TODO
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
 
 	attempt.memberChannel = call
 

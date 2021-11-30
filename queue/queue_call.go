@@ -77,7 +77,7 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 	return true
 }
 
-func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) call_manager.Call {
+func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager.Call, *model.AppError) {
 	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
@@ -99,7 +99,7 @@ func (queue *CallingQueue) HangupManyCall(skipId, cause string, ids ...string) {
 	}
 }
 
-func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, resource ResourceObject) call_manager.Call {
+func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, resource ResourceObject) (call_manager.Call, *model.AppError) {
 	resource.Take() // rps
 
 	callRequest.Variables = model.UnionStringMaps(

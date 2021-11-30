@@ -134,7 +134,14 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
-	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
+	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	if err != nil {
+		attempt.Log(err.Error())
+		// TODO
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
 
 	if queue.Recordings {
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)

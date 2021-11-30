@@ -120,7 +120,14 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Applications: make([]*model.CallRequestApplication, 0, 1),
 	}
 
-	call := queue.NewCallUseResource(callRequest, attempt.resource)
+	call, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	if err != nil {
+		attempt.Log(err.Error())
+		// TODO
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
 
 	if queue.Recordings {
 		queue.SetRecordings(call, true, queue.RecordMono)

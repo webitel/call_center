@@ -131,7 +131,15 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
-	mCall := queue.NewCallUseResource(callRequest, attempt.resource)
+	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	if err != nil {
+		attempt.Log(err.Error())
+		// TODO
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
+
 	var agentCall call_manager.Call
 
 	if queue.Recordings {

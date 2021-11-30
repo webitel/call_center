@@ -25,7 +25,7 @@ type CallManager interface {
 	Start()
 	Stop()
 	ActiveCalls() int
-	NewCall(callRequest *model.CallRequest) Call
+	NewCall(callRequest *model.CallRequest) (Call, *model.AppError)
 	GetCall(id string) (Call, bool)
 	InboundCallQueue(call *model.Call, ringtone string) (Call, *model.AppError)
 	ConnectCall(call *model.Call) (Call, *model.AppError)
@@ -121,9 +121,12 @@ func DUMP(i interface{}) string {
 	return string(s)
 }
 
-func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) Call {
-	api, _ := cm.getApiConnection() //FIXME!!! check error
-	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api)
+func (cm *CallManagerImpl) NewCall(callRequest *model.CallRequest) (Call, *model.AppError) {
+	api, err := cm.getApiConnection()
+	if err != nil {
+		return nil, err
+	}
+	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, cm, api), nil
 }
 
 func (cm *CallManagerImpl) HangupManyCall(cause string, ids ...string) {
