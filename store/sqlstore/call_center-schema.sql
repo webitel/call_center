@@ -2953,7 +2953,7 @@ CREATE TABLE call_center.cc_member (
     stop_cause character varying(50),
     attempts integer DEFAULT 0 NOT NULL,
     agent_id integer,
-    communications jsonb NOT NULL,
+    communications jsonb,
     bucket_id integer,
     timezone_id integer,
     last_agent integer,
@@ -7355,14 +7355,6 @@ ALTER TABLE ONLY call_center.cc_calls_history
 
 
 --
--- Name: cc_calls_history cc_calls_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_calls_history
-    ADD CONSTRAINT cc_calls_history_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE SET NULL ON DELETE SET NULL;
-
-
---
 -- Name: cc_calls_history cc_calls_history_cc_queue_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -7560,14 +7552,6 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 
 ALTER TABLE ONLY call_center.cc_member_attempt
     ADD CONSTRAINT cc_member_attempt_cc_queue_id_fk FOREIGN KEY (queue_id) REFERENCES call_center.cc_queue(id);
-
-
---
--- Name: cc_member_attempt_history cc_member_attempt_history_cc_member_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_member_attempt_history
-    ADD CONSTRAINT cc_member_attempt_history_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
