@@ -76,6 +76,8 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
 	var callerIdNumber = attempt.Display()
 
+	attempt.Log("JOINED")
+
 	callRequest := &model.CallRequest{
 		Id:           attempt.MemberCallId(),
 		Endpoints:    []string{dst},
