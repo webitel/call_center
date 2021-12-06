@@ -49,11 +49,15 @@ select q.id,
         where qe.queue_id = q.id and qe.enabled
        ) hooks,
 	   q.grantee_id,
-	   coalesce((q.payload->'endless')::bool, false) as endless
+	   coalesce((q.payload->'endless')::bool, false) as endless,
+       case when fh.id notnull then
+           jsonb_build_object('id', fh.id, 'type', fh.mime_type)
+       end as hold_music
 from call_center.cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id
-where q.id = :Id		
+    left join storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
+where q.id = :Id
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,

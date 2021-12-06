@@ -21,6 +21,7 @@ const (
 
 const (
 	SocketVariable = "acr_srv"
+	CdrVariable    = "cdr_url"
 )
 
 var patternSps = regexp.MustCompile(`\D+`)
@@ -32,6 +33,7 @@ type CallConnection struct {
 	rateLimiter ratelimit.Limiter
 	client      *grpc.ClientConn
 	api         fs.ApiClient
+	cdrUri      string
 }
 
 func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {
@@ -114,6 +116,32 @@ func (c *CallConnection) GetSocketUri() (string, *model.AppError) {
 
 	if res.Data == "" {
 		return "", model.NewAppError("GetSocketUri", "external.get_flow_socket.not_found", nil, fmt.Sprintf("global '%s' not found", SocketVariable),
+			http.StatusInternalServerError)
+	}
+
+	c.cdrUri = res.Data
+
+	return res.Data, nil
+}
+
+func (c *CallConnection) GetCdrUri() (string, *model.AppError) {
+	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "global_getvar",
+		Args:    CdrVariable,
+	})
+
+	if err != nil {
+		return "", model.NewAppError("GetCdrUri", "external.get_flow_cdr.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Error != nil {
+		return "", model.NewAppError("GetCdrUri", "external.get_flow_cdr.app_error", nil, res.Error.String(),
+			http.StatusInternalServerError)
+	}
+
+	if res.Data == "" {
+		return "", model.NewAppError("GetCdrUri", "external.get_flow_cdr.not_found", nil, fmt.Sprintf("global '%s' not found", CdrVariable),
 			http.StatusInternalServerError)
 	}
 

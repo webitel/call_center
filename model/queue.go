@@ -46,8 +46,8 @@ const (
 )
 
 type RingtoneFile struct {
-	Id   int
-	Type string
+	Id   int    `json:"id"`
+	Type string `json:"type"`
 }
 
 func (r *RingtoneFile) Uri(domainId int64) string {
@@ -87,6 +87,7 @@ type Queue struct {
 	Endless              bool              `json:"endless" db:"endless"`
 	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`
+	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
 }
 
 //FIXME  enum & queue_type

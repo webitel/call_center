@@ -123,6 +123,8 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		return
 	}
 
+	queue.SetHoldMusic(callRequest)
+
 	if queue.Recordings {
 		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
 	}

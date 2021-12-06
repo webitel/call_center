@@ -15,7 +15,8 @@ type CallingQueueObject interface {
 
 type CallingQueue struct {
 	BaseQueue
-	params model.QueueDialingSettings
+	HoldMusic *model.RingtoneFile
+	params    model.QueueDialingSettings
 }
 
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
@@ -28,6 +29,14 @@ func (queue *CallingQueue) HasRingtone() bool {
 
 func (queue *CallingQueue) Ringtone() *model.RingtoneFile {
 	return queue.ringtone
+}
+
+func (queue *CallingQueue) SetHoldMusic(callRequest *model.CallRequest) {
+	if queue.HoldMusic != nil {
+		hm := queue.CallManager().RingtoneUri(queue.domainId, queue.HoldMusic.Id, queue.HoldMusic.Type)
+		callRequest.Variables["hold_music"] = hm
+		callRequest.Variables["transfer_ringback"] = hm
+	}
 }
 
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {

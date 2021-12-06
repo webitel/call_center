@@ -31,6 +31,7 @@ type CallManager interface {
 	ConnectCall(call *model.Call) (Call, *model.AppError)
 	CountConnection() int
 	GetFlowUri() string
+	RingtoneUri(domainId int64, id int, mimeType string) string
 	HangupManyCall(cause string, ids ...string)
 	HangupById(id, node string) *model.AppError
 }
@@ -49,6 +50,7 @@ type CallManagerImpl struct {
 	stopped   chan struct{}
 	watcher   *utils.Watcher
 	proxy     string
+	cdr       string
 	startOnce sync.Once
 }
 
@@ -289,8 +291,19 @@ func (cm *CallManagerImpl) GetFlowUri() string {
 	return "socket " + cm.flowSocketUri
 }
 
+func (cm *CallManagerImpl) RingtoneUri(domainId int64, id int, mimeType string) string {
+	switch mimeType {
+	case "audio/mp3", "audio/mpeg":
+		return fmt.Sprintf("shout://%s/sys/media/%d/stream?domain_id=%d&.mp3", cm.cdr, id, domainId)
+	case "audio/wav":
+		return fmt.Sprintf("http_cache://http://%s/sys/media/%d/stream?domain_id=%d&.wav", cm.cdr, id, domainId)
+	default:
+		return ""
+	}
+}
+
 func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
-	var version string
+	var version, cdr string
 	var sps int
 	client, err := external_commands.NewCallConnection(v.Id, fmt.Sprintf("%s:%d", v.Host, v.Port))
 	if err != nil {
@@ -307,6 +320,16 @@ func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 		wlog.Error(fmt.Sprintf("connection %s get SPS error: %s", v.Id, err.Error()))
 		return
 	}
+
+	if cdr, err = client.GetCdrUri(); err != nil {
+		wlog.Error(fmt.Sprintf("connection %s get CDR error: %s", v.Id, err.Error()))
+		return
+	}
+
+	if cm.cdr == "" {
+		cm.cdr = cdr
+	}
+
 	client.SetConnectionSps(sps)
 
 	//FIXME add connection proxy value

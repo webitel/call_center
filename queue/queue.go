@@ -108,31 +108,37 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	case model.QUEUE_TYPE_OFFLINE:
 		return NewOfflineCallQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, QueueOfflineSettingsFromBytes(settings.Payload)), nil
 	case model.QUEUE_TYPE_INBOUND:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, inboundSettings), nil
 
 	case model.QUEUE_TYPE_IVR:
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, QueueIVRSettingsFromBytes(settings.Payload)), nil
 
 	case model.QUEUE_TYPE_PREVIEW:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, PreviewSettingsFromBytes(settings.Payload)), nil
 
 	case model.QUEUE_TYPE_PROGRESSIVE:
 		return NewProgressiveCallQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
 	case model.QUEUE_TYPE_PREDICT:
 		return NewPredictCallQueue(CallingQueue{
 			BaseQueue: base,
+			HoldMusic: settings.HoldMusic,
 		}, PredictCallQueueSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeChat:

@@ -120,6 +120,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		Applications: make([]*model.CallRequestApplication, 0, 1),
 	}
 
+	queue.SetHoldMusic(callRequest)
+
 	call, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
 		attempt.Log(err.Error())

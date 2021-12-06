@@ -15,6 +15,7 @@ type CallCommands interface {
 	SetConnectionSps(sps int) (int, *AppError)
 	GetRemoteSps() (int, *AppError)
 	GetParameter(name string) (string, *AppError)
+	GetCdrUri() (string, *AppError)
 	GetSocketUri() (string, *AppError)
 
 	NewCall(settings *CallRequest) (string, string, *AppError)

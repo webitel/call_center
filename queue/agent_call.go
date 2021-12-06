@@ -19,6 +19,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				//"ignore_early_media": "true",
 				//"absolute_codec_string": "opus,pcmu,pcma",
 				//"sip_h_X-Webitel-Display-Direction": "inbound",
+				//"bypass_media_resume_on_hold": "true",
 				"hangup_after_bridge":       "true",
 				"ignore_display_updates":    "true",
 				"cc_reporting":              fmt.Sprintf("%v", queue.Processing()),
@@ -55,6 +56,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		CallerName:   agent.Name(),
 		CallerNumber: agent.CallNumber(),
 	}
+
+	queue.SetHoldMusic(cr)
 
 	if queue.id > 0 {
 		cr.Variables[model.QUEUE_ID_FIELD] = fmt.Sprintf("%d", queue.Id())
