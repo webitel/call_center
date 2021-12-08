@@ -1729,7 +1729,8 @@ select (select json_agg(x)
                                 (x -> 'attempts')::int          as attempts,
                                 x ->> 'last_cause'              as last_cause,
                                 call_center.cc_get_lookup(r.id, r.name)       as resource,
-                                x ->> 'display'                 as display
+                                x ->> 'display'                 as display,
+                                (x -> 'stop_at')::int8                 as stop_at
                          from jsonb_array_elements($1) x
                                   left join call_center.cc_communication c on c.id = (x -> 'type' -> 'id')::int
                                   left join call_center.cc_outbound_resource r on r.id = (x -> 'resource' -> 'id')::int
