@@ -117,12 +117,14 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 }
 
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool, transfer bool) {
-	if queue.Manager().waitChannelClose && agentSendReporting && attempt != nil && attempt.Callback() != nil {
+	if queue.Manager().waitChannelClose && attempt != nil && attempt.Callback() != nil {
 		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true); err != nil {
 			attempt.Log(err.Error())
 		}
 		return
 	}
+
+	attempt.Log(fmt.Sprintf("reporting %v", agentSendReporting))
 
 	if agentSendReporting {
 		attempt.SetResult(AttemptResultSuccess)

@@ -722,6 +722,9 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		if queueManager.waitChannelClose && !system {
 			attempt.SetCallback(&result)
 			err := queueManager.setChannelReporting(attempt, result.Status)
+			if err != nil {
+				attempt.Log(err.Error())
+			}
 			if err != errNotFoundConnection {
 				return err
 			}
