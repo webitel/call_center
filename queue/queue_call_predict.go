@@ -136,7 +136,18 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
-	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	attempt.resource.Take() // rps
+
+	callRequest.Variables = model.UnionStringMaps(
+		callRequest.Variables,
+		attempt.resource.Variables(),
+		attempt.resource.Gateway().Variables(),
+	)
+
+	attempt.Log("make member call")
+
+	mCall, err := queue.queueManager.callManager.NewCall(callRequest)
+	//mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
 		attempt.Log(err.Error())
 		// TODO
@@ -144,6 +155,8 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 		queue.queueManager.LeavingMember(attempt)
 		return
 	}
+
+	attempt.Log("make call")
 
 	if queue.Recordings {
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)

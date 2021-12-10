@@ -2,9 +2,8 @@ package queue
 
 import (
 	"github.com/webitel/call_center/model"
-	"go.uber.org/ratelimit"
+	"github.com/webitel/call_center/utils"
 	"math/rand"
-	"time"
 )
 
 const (
@@ -36,7 +35,7 @@ type Resource struct {
 	updatedAt             int64
 	name                  string
 	rps                   uint16
-	rateLimiter           ratelimit.Limiter
+	rateLimiter           *utils.RateLimiter
 	variables             map[string]string
 	displayNumbers        []string
 	errorIds              model.StringArray
@@ -69,7 +68,7 @@ func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceO
 	r.gateway.SipCidType = config.Parameters.SipCidType
 
 	if r.rps > 0 {
-		r.rateLimiter = ratelimit.New(int(config.Rps), ratelimit.Per(time.Second), ratelimit.WithSlack(1))
+		r.rateLimiter = utils.NewRateLimiter(config.Rps)
 	}
 
 	return r, nil

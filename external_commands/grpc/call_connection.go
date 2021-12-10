@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
-	"go.uber.org/ratelimit"
+	"github.com/webitel/call_center/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"net/http"
@@ -30,7 +30,7 @@ var patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
 type CallConnection struct {
 	name        string
 	host        string
-	rateLimiter ratelimit.Limiter
+	rateLimiter *utils.RateLimiter
 	client      *grpc.ClientConn
 	api         fs.ApiClient
 	cdrUri      string
@@ -93,7 +93,7 @@ func (c *CallConnection) GetServerVersion() (string, *model.AppError) {
 
 func (c *CallConnection) SetConnectionSps(sps int) (int, *model.AppError) {
 	if sps > 0 {
-		c.rateLimiter = ratelimit.New(sps, ratelimit.Per(time.Second), ratelimit.WithSlack(1))
+		c.rateLimiter = utils.NewRateLimiter(uint16(sps))
 	}
 	return sps, nil
 }
