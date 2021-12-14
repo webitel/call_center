@@ -5800,6 +5800,13 @@ CREATE INDEX cc_calls_history_agent_ids_index ON call_center.cc_calls_history US
 
 
 --
+-- Name: cc_calls_history_amd_result; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_amd_result ON call_center.cc_calls_history USING btree (amd_result) WHERE (amd_result IS NOT NULL);
+
+
+--
 -- Name: cc_calls_history_attempt_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
