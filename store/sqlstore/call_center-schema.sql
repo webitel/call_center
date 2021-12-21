@@ -3405,7 +3405,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
-    cma.description AS agent_description,
+    COALESCE(cma.description, ''::character varying) AS agent_description,
     c.grantee_id,
     holds.res AS hold,
     c.gateway_ids,
@@ -3648,8 +3648,8 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
             array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
            FROM (call_center.cc_member_attempt_history att
              LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND ((ch.id)::text = (att.member_call_id)::text))))
-          WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - ((COALESCE(((q.payload -> 'statistic_time'::text))::integer, 60) || ' min'::text))::interval)) AND (att.queue_id = q.id))
-          GROUP BY att.queue_id, att.bucket_id, q.id) s ON ((s.queue_id IS NOT NULL)))
+          WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - ((COALESCE(((q.payload -> 'statistic_time'::text))::integer, 60) || ' min'::text))::interval)) AND (att.queue_id = q.id) AND (att.domain_id = q.domain_id))
+          GROUP BY att.queue_id, att.bucket_id) s ON ((s.queue_id IS NOT NULL)))
   WHERE ((q.type = 5) AND q.enabled)
   WITH NO DATA;
 
