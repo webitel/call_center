@@ -2890,7 +2890,9 @@ CREATE TABLE call_center.cc_bucket_in_queue (
     id integer NOT NULL,
     queue_id integer NOT NULL,
     ratio integer DEFAULT 0 NOT NULL,
-    bucket_id integer NOT NULL
+    bucket_id integer NOT NULL,
+    disabled boolean DEFAULT false NOT NULL,
+    priority integer DEFAULT 0 NOT NULL
 );
 
 
@@ -2920,11 +2922,13 @@ ALTER SEQUENCE call_center.cc_bucket_in_queue_id_seq OWNED BY call_center.cc_buc
 CREATE VIEW call_center.cc_bucket_in_queue_view AS
  SELECT q.id,
     q.ratio,
+    q.priority,
     call_center.cc_get_lookup(cb.id, ((cb.name)::text)::character varying) AS bucket,
     q.queue_id,
     q.bucket_id,
     cb.domain_id,
-    cb.name AS bucket_name
+    cb.name AS bucket_name,
+    q.disabled
    FROM (call_center.cc_bucket_in_queue q
      LEFT JOIN call_center.cc_bucket cb ON ((q.bucket_id = cb.id)));
 
@@ -6690,7 +6694,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             ((q_1.payload -> 'max_calls'::text))::integer AS lim,
             ((q_1.payload -> 'wait_between_retries_desc'::text))::boolean AS wait_between_retries_desc,
             COALESCE(((q_1.payload -> 'strict_circuit'::text))::boolean, false) AS strict_circuit,
-            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
+            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.priority DESC, cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
             m.op
            FROM ((( WITH mem AS MATERIALIZED (
                          SELECT a.queue_id,
@@ -6716,7 +6720,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                    FROM mem) m
              JOIN call_center.cc_queue q_1 ON ((q_1.id = m.queue_id)))
              LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((cbiq.queue_id = m.queue_id) AND (cbiq.bucket_id = m.bucket_id))))
-          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0) AND (m.pos = 1))
+          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0) AND (m.pos = 1) AND ((cbiq.bucket_id IS NULL) OR (NOT cbiq.disabled)))
           GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type, m.op
          LIMIT 1024
         ), calend AS MATERIALIZED (
