@@ -979,6 +979,24 @@ BEGIN
         new.bridged_at = coalesce(new.bridged_at, new.timestamp);
     else if new.state = 'hangup' then
         new.hangup_at = new.timestamp;
+        -- TODO
+        if old.state = 'hold' then
+            new.hold_sec =  coalesce(old.hold_sec, 0) + extract ('epoch' from new.timestamp - old.timestamp)::double precision;
+            if new.hold isnull then
+                new.hold = '[]';
+            end if;
+
+            new.hold = new.hold || jsonb_build_object(
+                'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
+                'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
+                'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
+            );
+
+
+--             if new.parent_id notnull then
+--                 update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
+--             end if;
+        end if;
     end if;
     end if;
     end if;
