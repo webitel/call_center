@@ -4729,10 +4729,12 @@ CREATE VIEW call_center.cc_queue_resource_view AS
  SELECT q.id,
     q.queue_id,
     call_center.cc_get_lookup(g.id, ((g.name)::text)::character varying) AS resource_group,
+    call_center.cc_get_lookup((c.id)::bigint, ((c.name)::text)::character varying) AS communication,
     g.name AS resource_group_name,
     g.domain_id
-   FROM (call_center.cc_queue_resource q
-     LEFT JOIN call_center.cc_outbound_resource_group g ON ((q.resource_group_id = g.id)));
+   FROM ((call_center.cc_queue_resource q
+     LEFT JOIN call_center.cc_outbound_resource_group g ON ((q.resource_group_id = g.id)))
+     LEFT JOIN call_center.cc_communication c ON ((c.id = g.communication_id)));
 
 
 --
