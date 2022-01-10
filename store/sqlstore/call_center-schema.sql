@@ -3451,7 +3451,17 @@ CREATE VIEW call_center.cc_calls_history_list AS
                   WHERE ((a.call_id)::text = (c.id)::text)
                   ORDER BY a.created_at DESC) annotations) AS annotations,
     c.amd_result,
-    c.amd_duration
+    c.amd_duration,
+        CASE
+            WHEN ((c.cause)::text = ANY ((ARRAY['USER_BUSY'::character varying, 'NO_ANSWER'::character varying])::text[])) THEN 'not_answered'::text
+            WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
+            WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
+            CASE
+                WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)))) THEN 'agent_dropped'::text
+                ELSE 'client_dropped'::text
+            END
+            ELSE 'error'::text
+        END AS hangup_disposition
    FROM ((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (((c.params -> 'record_start'::text))::bigint + 700), 'stop_at', (((c.params -> 'record_stop'::text))::bigint + 700))) AS files
            FROM ( SELECT f1.id,
