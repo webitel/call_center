@@ -156,8 +156,9 @@ func (s SqlAgentStore) GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, 
 	var res []*model.CallNoAnswer
 	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
 from call_center.cc_member_attempt at
-    inner join call_center.cc_calls c on c.id = at.agent_call_id
-where at.agent_id = :AgentId and c.answered_at isnull`, map[string]interface{}{
+    left join call_center.cc_queue q on q.id = at.queue_id
+    left join call_center.cc_calls c on case when q.type = 4 then  c.id = at.member_call_id else c.id = at.agent_call_id end
+where at.agent_id = :AgentId and c.answered_at isnull and c.id notnull`, map[string]interface{}{
 		"AgentId": agentId,
 	})
 
