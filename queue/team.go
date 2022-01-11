@@ -161,7 +161,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		}
 
 		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), s,
-			model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween); err == nil {
+			model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers); err == nil {
 			if res.MemberStopCause != nil {
 				attempt.SetMemberStopCause(res.MemberStopCause)
 			}
@@ -207,7 +207,7 @@ func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
 	}
 
 	missed, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), int(tm.NoAnswerDelayTime()),
-		attempt.maxAttempts, attempt.waitBetween)
+		attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers)
 	if err != nil {
 		wlog.Error(err.Error())
 		return

@@ -19,6 +19,7 @@ type PredictCallQueueSettings struct {
 	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
 	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
 	MaxAttempts            uint                    `json:"max_attempts"`
+	PerNumbers             bool                    `json:"per_numbers"`
 	OriginateTimeout       uint16                  `json:"originate_timeout"`
 	RetryAbandoned         bool                    `json:"retry_abandoned"`
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
@@ -60,6 +61,7 @@ func (queue *PredictCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 
 	attempt.waitBetween = queue.WaitBetweenRetries
 	attempt.maxAttempts = queue.MaxAttempts
+	attempt.perNumbers = queue.PerNumbers
 
 	go queue.runPark(attempt)
 

@@ -62,14 +62,14 @@ type MemberStore interface {
 	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError)
-	SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError)
-	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string) (*model.AttemptLeaving, *model.AppError)
+	//SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError)
+	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string, perNum bool) (*model.AttemptLeaving, *model.AppError)
 
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
-	SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError)
+	SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64, perNum bool) (*model.MissedAgent, *model.AppError)
 	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
-		maxAttempts uint, waitBetween uint64) (*model.MissedAgent, *model.AppError)
-	CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64) (*model.AttemptReportingResult, *model.AppError)
+		maxAttempts uint, waitBetween uint64, perNum bool) (*model.MissedAgent, *model.AppError)
+	CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, byNum bool) (*model.AttemptReportingResult, *model.AppError)
 
 	SaveToHistory() ([]*model.HistoryAttempt, *model.AppError)
 	GetTimeouts(nodeId string) ([]*model.AttemptReportingTimeout, *model.AppError)

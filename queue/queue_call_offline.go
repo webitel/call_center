@@ -17,6 +17,7 @@ type OfflineQueueSettings struct {
 	OriginateTimeout   uint16 `json:"originate_timeout"`
 	WaitBetweenRetries uint64 `json:"wait_between_retries"`
 	MaxAttempts        uint   `json:"max_attempts"`
+	PerNumbers         bool   `json:"per_numbers"`
 }
 
 type OfflineCallQueue struct {
@@ -53,6 +54,7 @@ func (queue *OfflineCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 
 	attempt.waitBetween = queue.WaitBetweenRetries
 	attempt.maxAttempts = queue.MaxAttempts
+	attempt.perNumbers = queue.PerNumbers
 
 	go queue.run(team, attempt, attempt.agent)
 	return nil

@@ -64,6 +64,7 @@ type Attempt struct {
 
 	maxAttempts uint
 	waitBetween uint64
+	perNumbers  bool
 }
 
 type LogItem struct {

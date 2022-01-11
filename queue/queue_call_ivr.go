@@ -18,6 +18,7 @@ type QueueIVRSettings struct {
 	MaxAttempts            uint                    `json:"max_attempts"`
 	OriginateTimeout       int                     `json:"originate_timeout"`
 	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
+	PerNumbers             bool                    `json:"per_numbers"`
 	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
 }
 
@@ -46,6 +47,7 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 
 	attempt.maxAttempts = queue.MaxAttempts
 	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.perNumbers = queue.PerNumbers
 
 	go queue.run(attempt)
 

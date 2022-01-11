@@ -577,7 +577,7 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 }
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
-	res, err := queueManager.store.Member().SetAttemptAbandoned(attempt.Id())
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil, attempt.perNumbers)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else if res.MemberStopCause != nil {
@@ -595,7 +595,7 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 
 func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {
 	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0,
-		vars, attempt.maxAttempts, attempt.waitBetween)
+		vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else {
@@ -607,7 +607,7 @@ func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[s
 }
 
 func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64, vars map[string]string) {
-	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, vars)
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, vars, attempt.perNumbers)
 	if err != nil {
 		wlog.Error(err.Error())
 
@@ -716,6 +716,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 
 	var waitBetween uint64 = 0
 	var maxAttempts uint = 0
+	var perNumbers = false
 
 	if attempt != nil {
 		// TODO [biz]
@@ -740,9 +741,10 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		}
 		waitBetween = attempt.waitBetween
 		maxAttempts = attempt.maxAttempts
+		perNumbers = attempt.perNumbers
 	}
 
-	res, err := queueManager.store.Member().CallbackReporting(attemptId, &result, maxAttempts, waitBetween)
+	res, err := queueManager.store.Member().CallbackReporting(attemptId, &result, maxAttempts, waitBetween, perNumbers)
 	if err != nil {
 		return err
 	}

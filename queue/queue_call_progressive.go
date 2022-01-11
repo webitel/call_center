@@ -23,6 +23,7 @@ type ProgressiveCallQueueSettings struct {
 	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
 	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
 	MaxAttempts            uint                    `json:"max_attempts"`
+	PerNumbers             bool                    `json:"per_numbers"`
 	OriginateTimeout       uint16                  `json:"originate_timeout"`
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
@@ -57,6 +58,7 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 
 	attempt.waitBetween = queue.WaitBetweenRetries
 	attempt.maxAttempts = queue.MaxAttempts
+	attempt.perNumbers = queue.PerNumbers
 
 	go queue.run(attempt, team, attempt.Agent())
 
