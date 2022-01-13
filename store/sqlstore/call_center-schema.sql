@@ -3393,7 +3393,10 @@ CREATE VIEW call_center.cc_calls_history_list AS
     'call'::character varying AS type,
     c.parent_id,
     c.transfer_from,
-    c.transfer_to,
+        CASE
+            WHEN ((c.parent_id IS NOT NULL) AND (c.transfer_to IS NULL) AND ((c.id)::text <> (lega.bridged_id)::text)) THEN lega.bridged_id
+            ELSE c.transfer_to
+        END AS transfer_to,
     call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
         CASE
             WHEN (cq.type = ANY (ARRAY[4, 5])) THEN cag.extension
@@ -3484,7 +3487,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.amd_result,
     c.amd_duration,
         CASE
-            WHEN ((c.cause)::text = ANY ((ARRAY['USER_BUSY'::character varying, 'NO_ANSWER'::character varying])::text[])) THEN 'not_answered'::text
+            WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
             WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
@@ -3493,7 +3496,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
             END
             ELSE 'error'::text
         END AS hangup_disposition
-   FROM ((((((((((call_center.cc_calls_history c
+   FROM (((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (((c.params -> 'record_start'::text))::bigint + 700), 'stop_at', (((c.params -> 'record_stop'::text))::bigint + 700))) AS files
            FROM ( SELECT f1.id,
                     f1.size,
@@ -3522,7 +3525,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_agent aa ON ((cma.agent_id = aa.id)))
      LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
-     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)));
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
+     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))));
 
 
 --
