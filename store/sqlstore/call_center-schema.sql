@@ -918,7 +918,7 @@ begin
         state         = state_,
         timestamp     = timestamp_,
         parent_id     = case
-                            when cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
+                            when c.is_leg_a is true and cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
                             else cc.parent_id end,
         transfer_from = case
                             when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id
@@ -944,6 +944,7 @@ begin
              select b.id,
                     b2.id parent_id,
                     b2.id bridged_id,
+                    b.parent_id isnull as is_leg_a,
                     b2o.*
              from call_center.cc_calls b
                       left join call_center.cc_calls b2 on b2.id = call_bridged_id_
@@ -1135,11 +1136,11 @@ BEGIN
             from call_center.cc_member m
                      inner join call_center.cc_queue q on q.id = m.queue_id
                      inner join lateral (
-                select (t::cc_sys_distribute_type).resource_id
+                select (t::call_center.cc_sys_distribute_type).resource_id
                 from call_center.cc_sys_queue_distribute_resources r,
                      unnest(r.types) t
                 where r.queue_id = m.queue_id
-                  and (t::cc_sys_distribute_type).type_id =
+                  and (t::call_center.cc_sys_distribute_type).type_id =
                       (m.communications -> (_communication_id::int2) -> 'type' -> 'id')::int4
                 limit 1
                 ) r on true
@@ -3214,12 +3215,12 @@ CREATE VIEW call_center.cc_call_active_list AS
 CREATE TABLE call_center.cc_calls_annotation (
     id bigint NOT NULL,
     call_id character varying NOT NULL,
-    created_by bigint NOT NULL,
+    created_by bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     note text NOT NULL,
     start_sec integer DEFAULT 0 NOT NULL,
     end_sec integer DEFAULT 0 NOT NULL,
-    updated_by bigint NOT NULL,
+    updated_by bigint,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
@@ -3254,9 +3255,9 @@ CREATE TABLE call_center.cc_list (
     description character varying,
     domain_id bigint NOT NULL,
     created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
+    created_by bigint,
     updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL
+    updated_by bigint
 );
 
 
@@ -3487,6 +3488,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.amd_result,
     c.amd_duration,
         CASE
+            WHEN (c.parent_id IS NOT NULL) THEN ''::text
             WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
             WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
@@ -3497,7 +3499,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
             ELSE 'error'::text
         END AS hangup_disposition
    FROM (((((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', (((c.params -> 'record_start'::text))::bigint + 700), 'stop_at', (((c.params -> 'record_stop'::text))::bigint + 700))) AS files
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
            FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
@@ -4069,8 +4071,8 @@ CREATE TABLE call_center.cc_outbound_resource (
     last_error_id character varying(50),
     successively_errors smallint DEFAULT 0 NOT NULL,
     created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_by bigint NOT NULL,
+    created_by bigint,
+    updated_by bigint,
     error_ids character varying(50)[] DEFAULT '{}'::character varying[],
     gateway_id bigint,
     email_profile_id integer,
@@ -7308,7 +7310,7 @@ ALTER TABLE ONLY call_center.cc_agent
 --
 
 ALTER TABLE ONLY call_center.cc_agent
-    ADD CONSTRAINT cc_agent_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_agent_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7316,7 +7318,7 @@ ALTER TABLE ONLY call_center.cc_agent
 --
 
 ALTER TABLE ONLY call_center.cc_agent
-    ADD CONSTRAINT cc_agent_wbt_user_id_fk_3 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_agent_wbt_user_id_fk_3 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7396,7 +7398,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
-    ADD CONSTRAINT cc_bucket_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_bucket_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7404,7 +7406,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 --
 
 ALTER TABLE ONLY call_center.cc_bucket
-    ADD CONSTRAINT cc_bucket_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_bucket_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7412,7 +7414,7 @@ ALTER TABLE ONLY call_center.cc_bucket
 --
 
 ALTER TABLE ONLY call_center.cc_calls_annotation
-    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7420,7 +7422,7 @@ ALTER TABLE ONLY call_center.cc_calls_annotation
 --
 
 ALTER TABLE ONLY call_center.cc_calls_annotation
-    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7588,7 +7590,7 @@ ALTER TABLE ONLY call_center.cc_list
 --
 
 ALTER TABLE ONLY call_center.cc_list
-    ADD CONSTRAINT cc_list_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_list_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7596,7 +7598,7 @@ ALTER TABLE ONLY call_center.cc_list
 --
 
 ALTER TABLE ONLY call_center.cc_list
-    ADD CONSTRAINT cc_list_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_list_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7868,7 +7870,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
-    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -7876,7 +7878,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
-    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
