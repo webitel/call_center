@@ -4217,7 +4217,7 @@ ALTER SEQUENCE call_center.cc_notification_id_seq OWNED BY call_center.cc_notifi
 CREATE TABLE call_center.cc_outbound_resource_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     object bigint NOT NULL,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL
@@ -4312,7 +4312,7 @@ CREATE TABLE call_center.cc_outbound_resource_group (
 CREATE TABLE call_center.cc_outbound_resource_group_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     object bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL
@@ -4533,7 +4533,7 @@ CREATE VIEW call_center.cc_pause_cause_list AS
 CREATE TABLE call_center.cc_queue_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL,
     object bigint NOT NULL
@@ -5001,7 +5001,7 @@ SELECT
 CREATE TABLE call_center.cc_team_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL,
     object bigint NOT NULL
@@ -7534,7 +7534,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
 
 
 --
@@ -7550,7 +7550,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE SET NULL;
 
 
 --
@@ -7702,7 +7702,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
-    ADD CONSTRAINT cc_outbound_resource_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_outbound_resource_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE SET NULL;
 
 
 --
@@ -7710,7 +7710,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_acl
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_acl
-    ADD CONSTRAINT cc_outbound_resource_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_outbound_resource_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE CASCADE;
 
 
 --
@@ -7766,7 +7766,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
-    ADD CONSTRAINT cc_outbound_resource_group_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_outbound_resource_group_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE SET NULL;
 
 
 --
@@ -7774,7 +7774,7 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
 --
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_group_acl
-    ADD CONSTRAINT cc_outbound_resource_group_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_outbound_resource_group_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE CASCADE;
 
 
 --
@@ -7902,7 +7902,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
-    ADD CONSTRAINT cc_queue_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_queue_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE SET NULL;
 
 
 --
@@ -7910,7 +7910,7 @@ ALTER TABLE ONLY call_center.cc_queue_acl
 --
 
 ALTER TABLE ONLY call_center.cc_queue_acl
-    ADD CONSTRAINT cc_queue_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_queue_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE CASCADE;
 
 
 --
@@ -8166,7 +8166,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
-    ADD CONSTRAINT cc_team_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_team_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE SET NULL;
 
 
 --
@@ -8174,7 +8174,7 @@ ALTER TABLE ONLY call_center.cc_team_acl
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl
-    ADD CONSTRAINT cc_team_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_team_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE CASCADE;
 
 
 --
