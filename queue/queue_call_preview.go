@@ -92,7 +92,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"cc_reporting": fmt.Sprintf("%v", queue.Processing()),
 
 				"hangup_after_bridge": "true",
-				"bridge_early_media":  "true",
+				//"bridge_early_media":  "true",
 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
