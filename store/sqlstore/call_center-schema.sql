@@ -6146,6 +6146,13 @@ CREATE INDEX cc_member_agent_id_index ON call_center.cc_member USING btree (agen
 
 
 --
+-- Name: cc_member_attempt_history_agent_call_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_agent_call_id_index ON call_center.cc_member_attempt_history USING btree (agent_call_id);
+
+
+--
 -- Name: cc_member_attempt_history_agent_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6761,7 +6768,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             ((q_1.payload -> 'max_calls'::text))::integer AS lim,
             ((q_1.payload -> 'wait_between_retries_desc'::text))::boolean AS wait_between_retries_desc,
             COALESCE(((q_1.payload -> 'strict_circuit'::text))::boolean, false) AS strict_circuit,
-            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.priority DESC, cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
+            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.priority DESC NULLS LAST, cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
             m.op
            FROM ((( WITH mem AS MATERIALIZED (
                          SELECT a.queue_id,
