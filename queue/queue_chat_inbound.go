@@ -165,6 +165,12 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 							aSess.Leave()
 							break
 						}
+
+						if aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient {
+							attempt.Log("max idle client")
+							aSess.Leave()
+							break
+						}
 						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 					} else {
 						attempt.Log("timeout")
@@ -177,7 +183,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 					switch state {
 					case chat.ChatStateInvite:
 						attempt.Log("invited")
-						team.Offering(attempt, agent, conv.LastSession(), conv.MemberSession())
+						team.Offering(attempt, agent, aSess, conv.MemberSession())
 					case chat.ChatStateDeclined:
 						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
 						team.MissedAgentAndWaitingAttempt(attempt, agent)

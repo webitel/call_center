@@ -46,11 +46,12 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		UserId:         0,
 		Direction:      ChatDirectionInbound,
 		ConversationId: id,
-		ChannelId:      id,
+		ChannelId:      inviterId,
 		InviteId:       "",
 		InviteAt:       0,
 		CreatedAt:      0,
 		AnsweredAt:     0,
+		ActivityAt:     model.GetMillis(),
 		StopAt:         0,
 		cli:            cli,
 		variables:      variables,
@@ -211,7 +212,7 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 	var sess *ChatSession
 	//todo bug: event joined must be send invite_id
 	for _, v := range c.sessions {
-		if v != nil && v.StopAt == 0 {
+		if v != nil && v.InviteId == channelId && v.StopAt == 0 {
 			sess = v
 		}
 	}
