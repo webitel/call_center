@@ -52,6 +52,9 @@ func OutboundChat(cli chat_manager.Chat, userId int64, conversationId, inviterId
 }
 
 func (c *ChatSession) Id() string {
+	if c.Direction == ChatDirectionOutbound {
+		return c.SessionId()
+	}
 	return c.ConversationId
 }
 

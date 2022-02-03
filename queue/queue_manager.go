@@ -628,7 +628,7 @@ func (queueManager *QueueManager) GetChat(id string) (*chat.Conversation, *model
 	return queueManager.app.GetChat(id)
 }
 
-func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult, ccCause string) (err *model.AppError) {
+func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult, ccCause string, a *Attempt) (err *model.AppError) {
 
 	if res.Channel == nil || res.AgentCallId == nil {
 		return
@@ -644,8 +644,10 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 		break
 	case model.QueueChannelChat:
 		var conv *chat.Conversation
-		if conv, err = queueManager.GetChat(*res.AgentCallId); err == nil {
-			err = conv.Reporting()
+		if a != nil {
+			if conv, err = queueManager.GetChat(a.memberChannel.Id()); err == nil {
+				err = conv.Reporting()
+			}
 		}
 	case model.QueueChannelTask:
 		var task *TaskChannel
@@ -750,7 +752,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 	}
 
 	if !system {
-		err = queueManager.closeBeforeReporting(attemptId, res, result.Status)
+		err = queueManager.closeBeforeReporting(attemptId, res, result.Status, attempt)
 	}
 
 	return queueManager.doLeavingReporting(attemptId, attempt, res, &result)
