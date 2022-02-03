@@ -176,6 +176,7 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (
 		if cc.Direction() == CALL_DIRECTION_OUTBOUND {
 			err = cc.UpdateCid()
 		}
+		cc.ResetBridge()
 		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
 		return cc, err
 	}
@@ -225,6 +226,7 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError)
 		if cc.Direction() == CALL_DIRECTION_OUTBOUND {
 			err = cc.UpdateCid()
 		}
+		cc.ResetBridge()
 		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
 		return cc, err
 	}

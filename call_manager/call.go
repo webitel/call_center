@@ -70,6 +70,7 @@ type Call interface {
 
 	SetRecordings(domainId int64, all, mono bool)
 	UpdateCid() *model.AppError
+	ResetBridge()
 
 	Stats() map[string]string
 }
@@ -662,6 +663,13 @@ func (call *CallImpl) UpdateCid() *model.AppError {
 		return nil
 	}
 	return call.api.UpdateCid(call.id, call.info.To.Number, call.info.To.Name)
+}
+
+func (call *CallImpl) ResetBridge() {
+	call.Lock()
+	call.bridgeAt = 0
+	call.bridgedId = nil
+	call.Unlock()
 }
 
 func (call *CallImpl) Stats() map[string]string {
