@@ -3205,7 +3205,7 @@ CREATE VIEW call_center.cc_call_active_list AS
      LEFT JOIN call_center.cc_agent aa ON ((aa.user_id = c.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
-  WHERE ((c.hangup_at IS NULL) AND (c.direction IS NOT NULL) AND (c.parent_id IS NULL));
+  WHERE ((c.hangup_at IS NULL) AND (c.direction IS NOT NULL));
 
 
 --
@@ -6978,7 +6978,12 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
             q_1.strategy,
             q_1.enabled,
             COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
-            COALESCE(sum(cqs.member_waiting), (0)::bigint) AS waiting_members,
+                CASE
+                    WHEN (q_1.type = ANY (ARRAY[1, 6])) THEN ( SELECT count(*) AS count
+                       FROM call_center.cc_member_attempt a_1_1
+                      WHERE ((a_1_1.queue_id = q_1.id) AND ((a_1_1.state)::text = 'wait_agent'::text) AND (a_1_1.leaving_at IS NULL)))
+                    ELSE COALESCE(sum(cqs.member_waiting), (0)::bigint)
+                END AS waiting_members,
             ( SELECT count(*) AS count
                    FROM call_center.cc_member_attempt a_1_1
                   WHERE (a_1_1.queue_id = q_1.id)) AS active_members,
@@ -6997,14 +7002,14 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
           GROUP BY a_1.id, q_1.id, q_1.priority) q
      LEFT JOIN LATERAL ( SELECT DISTINCT array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'online'::text)) AS agent_on_ids,
             array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'offline'::text)) AS agent_off_ids,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = ANY ((ARRAY['pause'::character varying, 'break_out'::character varying])::text[]))) AS agent_p_ids,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = ANY (ARRAY[('pause'::character varying)::text, ('break_out'::character varying)::text]))) AS agent_p_ids,
             array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND (ac.channel IS NULL) AND ((ac.state)::text = 'waiting'::text))) AS free,
             array_agg(DISTINCT a_1.id) AS total
            FROM (((call_center.cc_agent a_1
              JOIN call_center.cc_agent_channel ac ON ((ac.agent_id = a_1.id)))
              JOIN call_center.cc_queue_skill qs ON (((qs.queue_id = q.queue_id) AND qs.enabled)))
              JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
-          WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND ((sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity)))
+          WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
           GROUP BY ROLLUP(q.queue_id)) a ON (true));
 
 
