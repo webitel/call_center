@@ -61,5 +61,11 @@ func (s *StatisticsManager) refresh() {
 
 	wlog.Debug(fmt.Sprintf("refresh inbound queue statistics time: %s", time.Now().Sub(st)))
 
+	st = time.Now()
+	if _, err = s.store.Member().SetExpired(); err != nil {
+		wlog.Error(err.Error())
+	}
+	wlog.Debug(fmt.Sprintf("set expired members time: %s", time.Now().Sub(st)))
+
 	return
 }

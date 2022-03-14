@@ -83,6 +83,7 @@ type MemberStore interface {
 	TransferredTo(id, toId int64) *model.AppError
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError
 	CancelAgentDistribute(agentId int32) ([]int64, *model.AppError)
+	SetExpired() ([]int64, *model.AppError)
 }
 
 type AgentStore interface {

@@ -732,3 +732,26 @@ func (s *SqlMemberStore) CancelAgentDistribute(agentId int32) ([]int64, *model.A
 
 	return res, nil
 }
+
+func (s *SqlMemberStore) SetExpired() ([]int64, *model.AppError) {
+	var res []int64
+	_, err := s.GetMaster().Select(&res, `
+			update call_center.cc_member m1
+		set stop_at = now(),
+			stop_cause = 'expired'
+		from (
+			select id
+			from call_center.cc_member m
+			where m.expire_at < now()
+				and m.stop_at isnull
+			limit 500
+		) m
+		where m.id = m1.id`)
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.SetExpired", "store.sql_member.set_expired.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}
