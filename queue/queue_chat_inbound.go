@@ -95,7 +95,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	var agent agent_manager.AgentObject
 	ags := attempt.On(AttemptHookDistributeAgent)
 
-	var timeSec uint32 = queue.settings.MaxWaitTime
+	var timeSec = queue.settings.MaxWaitTime
 	timeout := time.NewTimer(time.Second * time.Duration(timeSec))
 
 	var conv *chat.Conversation
@@ -223,6 +223,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	}
 
 	if agent != nil && team != nil {
+		if aSess != nil && aSess.StopAt == 0 {
+			aSess.Close()
+		}
 		if conv.BridgedAt() > 0 {
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
 		} else {

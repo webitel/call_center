@@ -78,12 +78,29 @@ func (c *ChatSession) IdleSec() int64 {
 }
 
 func (c *ChatSession) Leave() *model.AppError {
-	err := c.cli.Leave(c.UserId, c.ChannelId, c.ConversationId)
+	err := c.cli.Leave(c.UserId, c.SessionId(), c.ConversationId)
 	if err != nil {
 		return model.NewAppError("ChatSession", "chat_session.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
 
 	return nil
+}
+
+func (c *ChatSession) Decline() *model.AppError {
+	err := c.cli.Decline(c.UserId, c.InviteId)
+	if err != nil {
+		return model.NewAppError("ChatSession", "chat_session.decline.app_err", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (c *ChatSession) Close() *model.AppError {
+	if c.ChannelId == "" && c.InviteId != "" {
+		return c.Decline()
+	} else {
+		return c.Leave()
+	}
 }
 
 func (c *ChatSession) Stats() map[string]string {
