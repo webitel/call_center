@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.9 (Debian 12.9-1.pgdg100+1)
--- Dumped by pg_dump version 12.9 (Debian 12.9-1.pgdg100+1)
+-- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -837,7 +837,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     region_id integer,
     grantee_id integer,
     hold jsonb,
-    params jsonb
+    params jsonb,
+    blind_transfer character varying
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3195,7 +3196,8 @@ CREATE VIEW call_center.cc_call_active_list AS
           WHERE (sag.id = ANY (aa.supervisor_ids))) AS supervisor,
     aa.supervisor_ids,
     c.grantee_id,
-    c.hold
+    c.hold,
+    c.blind_transfer
    FROM ((((((((call_center.cc_calls c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
@@ -3333,7 +3335,8 @@ CREATE TABLE call_center.cc_calls_history (
     queue_ids integer[],
     gateway_ids bigint[],
     team_ids integer[],
-    params jsonb
+    params jsonb,
+    blind_transfer character varying
 );
 
 
@@ -3497,7 +3500,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
-        END AS hangup_disposition
+        END AS hangup_disposition,
+    c.blind_transfer
    FROM (((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
            FROM ( SELECT f1.id,
@@ -6981,7 +6985,7 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
                 CASE
                     WHEN (q_1.type = ANY (ARRAY[1, 6])) THEN ( SELECT count(*) AS count
                        FROM call_center.cc_member_attempt a_1_1
-                      WHERE ((a_1_1.queue_id = q_1.id) AND ((a_1_1.state)::text = 'wait_agent'::text) AND (a_1_1.leaving_at IS NULL)))
+                      WHERE ((a_1_1.queue_id = q_1.id) AND ((a_1_1.state)::text = ANY ((ARRAY['wait_agent'::character varying, 'offering'::character varying])::text[])) AND (a_1_1.leaving_at IS NULL)))
                     ELSE COALESCE(sum(cqs.member_waiting), (0)::bigint)
                 END AS waiting_members,
             ( SELECT count(*) AS count
