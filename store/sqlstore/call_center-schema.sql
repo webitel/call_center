@@ -1958,8 +1958,18 @@ $$;
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger_inserted() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+    AS $_$
 BEGIN
+    if exists(select 1
+        from inserted m,
+             (select c.domain_id, array_agg(c.id) ids
+        from call_center.cc_communication c group by 1) c
+        where m.domain_id = c.domain_id
+            and array_length(TRANSLATE(jsonb_path_query_array(communications, '$[*].type.id')::text , '[]','{}')::INT[] - c.ids, 1)  > 0)
+    then
+        raise exception 'bad communication type.id' using errcode = '23503';
+    end if;
+
     insert into call_center.cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
     select t.queue_id, t.bucket_id, t.cnt, t.cntwait
     from (
@@ -1977,7 +1987,7 @@ BEGIN
 --    PERFORM pg_notify(TG_TABLE_NAME, TG_OP);
     RETURN NULL;
 END
-$$;
+$_$;
 
 
 --
@@ -1986,8 +1996,18 @@ $$;
 
 CREATE FUNCTION call_center.cc_member_statistic_trigger_updated() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+    AS $_$
 BEGIN
+    if exists(select 1
+        from new_data m,
+             (select c.domain_id, array_agg(c.id) ids
+        from call_center.cc_communication c group by 1) c
+        where m.domain_id = c.domain_id
+            and array_length(TRANSLATE(jsonb_path_query_array(communications, '$[*].type.id')::text , '[]','{}')::INT[] - c.ids, 1)  > 0)
+    then
+        raise exception 'bad communication type.id' using errcode = '23503';
+    end if;
+
     insert into call_center.cc_queue_statistics (queue_id, bucket_id, member_count, member_waiting)
     select t.queue_id, t.bucket_id, t.cnt, t.cntwait
     from (
@@ -2017,7 +2037,7 @@ BEGIN
 
    RETURN NULL;
 END
-$$;
+$_$;
 
 
 --
