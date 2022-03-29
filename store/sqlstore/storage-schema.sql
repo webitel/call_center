@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.8 (Debian 12.8-1.pgdg100+1)
--- Dumped by pg_dump version 12.8 (Debian 12.8-1.pgdg100+1)
+-- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -518,10 +518,11 @@ CREATE VIEW storage.media_files_view AS
 --
 
 CREATE TABLE storage.remove_file_jobs (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     file_id bigint NOT NULL,
-    created_at bigint,
-    created_by character varying(50)
+    state smallint DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -530,7 +531,6 @@ CREATE TABLE storage.remove_file_jobs (
 --
 
 CREATE SEQUENCE storage.remove_file_jobs_id_seq
-    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -777,10 +777,38 @@ CREATE UNIQUE INDEX file_backend_profiles_domain_udx ON storage.file_backend_pro
 
 
 --
+-- Name: files_created_at_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_created_at_index ON storage.files USING btree (created_at) INCLUDE (profile_id, id);
+
+
+--
+-- Name: files_created_at_not_removed_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_created_at_not_removed_index ON storage.files USING btree (created_at) INCLUDE (id) WHERE removed;
+
+
+--
+-- Name: files_created_at_removed_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_created_at_removed_index ON storage.files USING btree (created_at) INCLUDE (id) WHERE removed;
+
+
+--
 -- Name: files_domain_id_uuid_index; Type: INDEX; Schema: storage; Owner: -
 --
 
 CREATE INDEX files_domain_id_uuid_index ON storage.files USING btree (domain_id, uuid);
+
+
+--
+-- Name: files_profile_id_created_at_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_profile_id_created_at_index ON storage.files USING btree (created_at, COALESCE(profile_id, 0)) INCLUDE (id);
 
 
 --
@@ -802,6 +830,13 @@ CREATE UNIQUE INDEX files_statistics_id_uindex ON storage.files_statistics USING
 --
 
 CREATE UNIQUE INDEX media_files_domain_id_name_uindex ON storage.media_files USING btree (domain_id, name);
+
+
+--
+-- Name: remove_file_jobs_file_id_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX remove_file_jobs_file_id_uindex ON storage.remove_file_jobs USING btree (file_id);
 
 
 --

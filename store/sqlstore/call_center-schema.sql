@@ -3509,14 +3509,14 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.id)::text))
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
                 UNION ALL
                  SELECT f1.id,
                     f1.size,
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
      LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
