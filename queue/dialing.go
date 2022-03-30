@@ -107,7 +107,7 @@ func (d *DialingImpl) routeIdleAgents() {
 			err = d.queueManager.mq.AgentChannelEvent(v.Channel, v.DomainId, 0, v.UserId, waiting)
 
 			if a, ok := d.queueManager.GetAttempt(v.AttemptId); ok {
-				a.SetResult("timeout")
+				a.SetResult(AttemptResultTimeout)
 				d.queueManager.LeavingMember(a)
 			}
 		}

@@ -77,7 +77,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 
 func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	if res, ok := attempt.AfterDistributeSchema(); ok {
-		if res.Status == "success" {
+		if res.Status == AttemptResultSuccess {
 			qm.SetAttemptSuccess(attempt, res.Variables)
 		} else {
 			qm.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
@@ -129,7 +129,7 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:
 		return &SchemaResult{
-			Status:    "success",
+			Status:    AttemptResultSuccess,
 			Variables: res.Variables,
 		}, true
 

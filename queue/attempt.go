@@ -33,6 +33,8 @@ const (
 	AttemptResultSuccess        = "success"
 	AttemptResultTimeout        = "timeout"
 	AttemptResultPostProcessing = "processing"
+	AttemptResultTransfer       = "transfer"
+	AttemptResultEndless        = "endless"
 	AttemptResultBlockList      = "block" // FIXME
 )
 

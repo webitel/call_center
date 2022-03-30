@@ -153,9 +153,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 					case call_manager.CALL_STATE_ACCEPT:
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						//FIXME
-						result := "success"
+						result := AttemptResultSuccess
 						if queue.Processing() {
-							result = "processing"
+							result = AttemptResultPostProcessing
 						}
 						mCall.SerVariables(map[string]string{
 							"cc_result": result,

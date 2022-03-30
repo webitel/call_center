@@ -594,7 +594,7 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 }
 
 func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {
-	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), "success", "", 0,
+	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), AttemptResultSuccess, "", 0,
 		vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers)
 	if err != nil {
 		wlog.Error(err.Error())

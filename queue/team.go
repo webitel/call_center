@@ -116,6 +116,42 @@ func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) 
 	}
 }
 
+func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, result string) {
+	var vars map[string]string = nil
+
+	t := int(tm.WrapUpTime())
+	if agent.IsOnDemand() {
+		t = 0
+	}
+
+	if queue.Endless() && result != AttemptResultTransfer {
+		result = AttemptResultEndless
+	}
+
+	if res, ok := attempt.AfterDistributeSchema(); ok {
+		result = res.Status
+		vars = res.Variables
+	}
+
+	if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), result,
+		model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers); err == nil {
+		if res.MemberStopCause != nil {
+			attempt.SetMemberStopCause(res.MemberStopCause)
+		}
+
+		attempt.SetResult(result)
+
+		e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), res.Timestamp, res.Timestamp+(int64(tm.WrapUpTime()*1000)))
+		err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
+		if err != nil {
+			wlog.Error(err.Error())
+		}
+	} else {
+		wlog.Error(err.Error())
+	}
+	queue.Leaving(attempt)
+}
+
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool, transfer bool) {
 	if queue.Manager().waitChannelClose && attempt != nil && attempt.Callback() != nil {
 		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true); err != nil {
@@ -141,41 +177,12 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	}
 
 	if !queue.Processing() || transfer {
-		t := int(tm.WrapUpTime())
-		if agent.IsOnDemand() {
-			t = 0
-		}
-
-		s := "success"
+		s := AttemptResultSuccess
 		if transfer {
-			s = "transfer"
-		} else if queue.Endless() {
-			s = "endless"
+			s = AttemptResultTransfer
 		}
 
-		var vars map[string]string = nil
-
-		if res, ok := attempt.AfterDistributeSchema(); ok {
-			s = res.Status
-			vars = res.Variables
-		}
-
-		if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), s,
-			model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers); err == nil {
-			if res.MemberStopCause != nil {
-				attempt.SetMemberStopCause(res.MemberStopCause)
-			}
-			attempt.SetResult(AttemptResultSuccess)
-
-			e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), res.Timestamp, res.Timestamp+(int64(tm.WrapUpTime()*1000)))
-			err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-			if err != nil {
-				wlog.Error(err.Error())
-			}
-		} else {
-			wlog.Error(err.Error())
-		}
-		queue.Leaving(attempt)
+		tm.SetWrap(queue, attempt, agent, s)
 		return
 	}
 
