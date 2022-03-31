@@ -3485,7 +3485,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
           WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
-    COALESCE(cma.description, ''::character varying) AS agent_description,
+    (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
     c.grantee_id,
     holds.res AS hold,
     c.gateway_ids,
