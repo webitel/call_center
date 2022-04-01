@@ -271,7 +271,7 @@ func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicat
 
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.DistributeDirect", "store.sql_member.distribute_direct.app_error", nil,
-			fmt.Sprintf("MemberId=%v, AgentId=%v %s", memberId, agentId, err.Error()), http.StatusInternalServerError)
+			fmt.Sprintf("MemberId=%v, AgentId=%v %s", memberId, agentId, err.Error()), extractCodeFromErr(err))
 	}
 
 	return res, nil

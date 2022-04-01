@@ -230,6 +230,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
 		} else {
 			team.Missed(attempt, agent)
+			queue.queueManager.LeavingMember(attempt)
 		}
 	} else {
 		queue.queueManager.Abandoned(attempt)
