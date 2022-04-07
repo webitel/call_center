@@ -2189,7 +2189,7 @@ CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURN
     AS $$
 BEGIN
     return query update call_center.cc_member_attempt a
-        set state = 'waiting'
+        set state = case when c.queue_type = 4 then 'offering' else 'waiting' end
             ,node_id = node
             ,last_state_change = now()
             ,list_communication_id = lc.id
@@ -2211,7 +2211,8 @@ BEGIN
                    tm.updated_at                                   as team_updated_at,
                    cq.dnc_list_id,
                    cm.attempts,
-                   x.cnt as waiting_other_numbers
+                   x.cnt as waiting_other_numbers,
+                   cq.type as queue_type
             from call_center.cc_member_attempt c
                      inner join call_center.cc_member cm on c.member_id = cm.id
                      left join lateral (
@@ -7658,7 +7659,7 @@ ALTER TABLE ONLY call_center.cc_member_attempt
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt
-    ADD CONSTRAINT cc_member_attempt_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id);
+    ADD CONSTRAINT cc_member_attempt_cc_member_id_fk FOREIGN KEY (member_id) REFERENCES call_center.cc_member(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
