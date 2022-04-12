@@ -126,15 +126,18 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			}
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-			vars := map[string]string{
-				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
-				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", team.Id()),
-				model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
-				model.QUEUE_NAME_FIELD:       queue.Name(),
-				model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
-				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
-				"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
-			}
+			vars := model.UnionStringMaps(
+				queue.variables,
+				map[string]string{
+					model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
+					model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", team.Id()),
+					model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
+					model.QUEUE_NAME_FIELD:       queue.Name(),
+					model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
+					model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
+					"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
+				},
+			)
 
 			//todo close
 			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.CallTimeout(), queue.name, vars)
