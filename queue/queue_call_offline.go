@@ -77,6 +77,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableDirection:  "internal",
 
 				"hangup_after_bridge": "true",
+				"bridge_early_media":  "true",
 				//"absolute_codec_string": "opus,pcmu,pcma",
 				"cc_reporting": fmt.Sprintf("%v", queue.Processing()),
 
@@ -156,7 +157,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		}
 	}
 
-	if call.AnswerSeconds() > 0 && call.BridgeAt() > 0 { //FIXME Accept or Bridge ?
+	if call.BillSeconds() > 0 || call.AcceptAt() > 0 { //FIXME Accept or Bridge ?
 		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0, call.Transferred())
 	} else {
