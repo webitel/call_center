@@ -116,7 +116,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Applications: make([]*model.CallRequestApplication, 0, 1),
 	}
 
-	call, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	call, err := queue.NewCall(callRequest)
 	if err != nil {
 		attempt.Log(err.Error())
 		// TODO
