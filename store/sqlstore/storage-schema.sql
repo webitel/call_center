@@ -264,7 +264,7 @@ CREATE TABLE storage.media_files (
     id bigint NOT NULL,
     name character varying(100) NOT NULL,
     size bigint NOT NULL,
-    mime_type character varying(40),
+    mime_type character varying(120),
     properties jsonb,
     instance character varying(50),
     created_at bigint,

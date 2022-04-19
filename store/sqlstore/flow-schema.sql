@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.8 (Debian 12.8-1.pgdg100+1)
--- Dumped by pg_dump version 12.8 (Debian 12.8-1.pgdg100+1)
+-- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -321,6 +321,55 @@ COMMENT ON COLUMN flow.acr_routing_scheme.state IS 'draft / new / used';
 
 
 --
+-- Name: acr_chat_plan; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.acr_chat_plan (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    name character varying NOT NULL,
+    schema_id integer NOT NULL,
+    description text
+);
+
+
+--
+-- Name: acr_chat_plan_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.acr_chat_plan_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: acr_chat_plan_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.acr_chat_plan_id_seq OWNED BY flow.acr_chat_plan.id;
+
+
+--
+-- Name: acr_chat_plan_list; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.acr_chat_plan_list AS
+ SELECT c.id,
+    c.enabled,
+    c.name,
+    flow.get_lookup(s.id, s.name) AS schema,
+    c.description,
+    c.domain_id
+   FROM (flow.acr_chat_plan c
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = c.schema_id)));
+
+
+--
 -- Name: acr_routing_outbound_call; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -529,19 +578,6 @@ ALTER SEQUENCE flow.calendar_id_seq OWNED BY flow.calendar.id;
 
 
 --
--- Name: calendar_intervals; Type: MATERIALIZED VIEW; Schema: flow; Owner: -
---
-
-CREATE MATERIALIZED VIEW flow.calendar_intervals AS
- SELECT row_number() OVER (ORDER BY calendar_timezones.utc_offset) AS id,
-    calendar_timezones.utc_offset
-   FROM flow.calendar_timezones
-  GROUP BY calendar_timezones.utc_offset
-  ORDER BY calendar_timezones.utc_offset
-  WITH NO DATA;
-
-
---
 -- Name: calendar_timezones_by_interval; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -664,6 +700,13 @@ ALTER SEQUENCE flow.scheme_log_id_seq OWNED BY flow.scheme_log.id;
 
 
 --
+-- Name: acr_chat_plan id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.acr_chat_plan ALTER COLUMN id SET DEFAULT nextval('flow.acr_chat_plan_id_seq'::regclass);
+
+
+--
 -- Name: acr_routing_outbound_call id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
@@ -724,6 +767,14 @@ ALTER TABLE ONLY flow.region ALTER COLUMN id SET DEFAULT nextval('flow.region_id
 --
 
 ALTER TABLE ONLY flow.scheme_log ALTER COLUMN id SET DEFAULT nextval('flow.scheme_log_id_seq'::regclass);
+
+
+--
+-- Name: acr_chat_plan acr_chat_plan_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.acr_chat_plan
+    ADD CONSTRAINT acr_chat_plan_pk PRIMARY KEY (id);
 
 
 --
@@ -788,6 +839,13 @@ ALTER TABLE ONLY flow.region
 
 ALTER TABLE ONLY flow.scheme_log
     ADD CONSTRAINT scheme_log_pk PRIMARY KEY (id);
+
+
+--
+-- Name: acr_chat_plan_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX acr_chat_plan_domain_id_name_uindex ON flow.acr_chat_plan USING btree (domain_id, name);
 
 
 --
@@ -956,6 +1014,14 @@ CREATE UNIQUE INDEX scheme_log_conn_id_uindex ON flow.scheme_log USING btree (co
 --
 
 CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON flow.calendar FOR EACH ROW EXECUTE FUNCTION flow.tg_obj_default_rbac('calendar');
+
+
+--
+-- Name: acr_chat_plan acr_chat_plan_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.acr_chat_plan
+    ADD CONSTRAINT acr_chat_plan_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id);
 
 
 --
