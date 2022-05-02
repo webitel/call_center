@@ -35,6 +35,7 @@ type MemberApi interface {
 
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 	CancelAgentDistribute(ctx context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error)
+	ProcessingActionForm(ctx context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error)
 }
 
 type CCManager interface {

@@ -99,3 +99,13 @@ func (api *memberApi) CancelAgentDistribute(ctx context.Context, in *proto.Cance
 
 	return cli.member.CancelAgentDistribute(ctx, in)
 }
+
+func (api *memberApi) ProcessingActionForm(ctx context.Context, in *proto.ProcessingFormActionRequest) (*proto.ProcessingFormActionResponse, error) {
+
+	cli, err := api.cli.getClient(in.AppId)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.member.ProcessingFormAction(ctx, in)
+}

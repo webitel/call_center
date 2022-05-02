@@ -263,6 +263,10 @@ func (queue *BaseQueue) Endless() bool {
 	return queue.endless
 }
 
+func (queue *BaseQueue) SetProcessingForm(attempt *Attempt) {
+	queue.queueManager.SetProcessingForm(525, attempt)
+}
+
 // todo config
 func (qeueu *BaseQueue) ProcessingTransfer() bool {
 	return false

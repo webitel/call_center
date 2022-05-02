@@ -252,3 +252,13 @@ stop:
 
 	return nil
 }
+
+func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error) {
+
+	err := api.app.Queue().Manager().AttemptProcessingActionForm(in.AttemptId, in.Action, in.Fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.ProcessingFormActionResponse{}, nil
+}

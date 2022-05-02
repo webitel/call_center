@@ -533,6 +533,7 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
 		return
 	}
 	attempt.SetState(HookLeaving)
+	attempt.Close()
 	queueManager.membersCache.Remove(attempt.Id())
 	queueManager.wg.Done()
 

@@ -170,6 +170,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			case call_manager.CALL_STATE_ACCEPT:
 				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
+				queue.SetProcessingForm(attempt) // TODO
 				team.Bridged(attempt, agent)
 				if queue.AllowGreetingAgent {
 					call.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")

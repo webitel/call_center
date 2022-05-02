@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 )
@@ -67,8 +68,20 @@ type AnsweredEvent struct {
 	ChannelEvent
 }
 
+type ProcessingForm struct {
+	Id      string                 `json:"id"`
+	View    map[string]interface{} `json:"view"`
+	Actions []string               `json:"actions"`
+}
+
 type BridgedEvent struct {
 	ChannelEvent
+	Form *ProcessingForm `json:"form,omitempty"`
+}
+
+type NextFormEvent struct {
+	ChannelEvent
+	Form *ProcessingForm `json:"form,omitempty"`
 }
 
 type ProcessingEvent struct {
@@ -219,6 +232,27 @@ func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event
 			Status:    model.ChannelStateBridged,
 			Timestamp: timestamp,
 		},
+	}
+
+	if a.processingForm != nil {
+		json.Unmarshal(a.processingForm.Form(), &e.Form)
+	}
+
+	return model.NewEvent("channel", userId, e)
+}
+
+func NewNextFormEvent(a *Attempt, userId int64) model.Event {
+	e := BridgedEvent{
+		ChannelEvent: ChannelEvent{
+			Channel:   a.channel,
+			AttemptId: model.NewInt64(a.Id()),
+			Status:    model.ChannelStateNextForm,
+			Timestamp: model.GetMillis(),
+		},
+	}
+
+	if a.processingForm != nil {
+		json.Unmarshal(a.processingForm.Form(), &e.Form)
 	}
 
 	return model.NewEvent("channel", userId, e)

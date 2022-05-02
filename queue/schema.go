@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"errors"
 	"fmt"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
@@ -21,6 +22,45 @@ type SchemaResult struct {
 	MaxAttempts        uint32
 	WaitBetweenRetries uint32
 	Variables          map[string]string
+}
+
+func (qm *QueueManager) SetProcessingForm(shemaId int, att *Attempt) {
+	if shemaId == 0 {
+		return
+	}
+	pf, err := qm.app.FlowManager().Queue().NewProcessing(att.Context, att.domainId, shemaId, att.ExportSchemaVariables())
+	if err != nil {
+		//TODO ERROR FIXME
+		att.Log(fmt.Sprintf("set form error: %s", err.Error()))
+		return
+	}
+	att.processingForm = pf
+}
+
+func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+
+	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v", attemptId, attemptId))
+
+	attempt, _ := qm.GetAttempt(attemptId)
+	if attempt == nil {
+		//TODO ERRoR
+		return errors.New("not found")
+	}
+
+	if attempt.processingForm != nil && attempt.agent != nil {
+		_, err := attempt.processingForm.ActionForm(attempt.Context, action, fields)
+		if err != nil {
+			attempt.processingForm = nil // todo lock
+		}
+		//todo store DB
+		e := NewNextFormEvent(attempt, attempt.agent.UserId())
+		appErr := qm.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), attempt.agent.UserId(), e)
+		if appErr != nil {
+			wlog.Error(err.Error())
+			return appErr
+		}
+	}
+	return nil
 }
 
 func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {

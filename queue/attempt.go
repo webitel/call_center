@@ -67,6 +67,8 @@ type Attempt struct {
 	maxAttempts uint
 	waitBetween uint64
 	perNumbers  bool
+
+	processingForm model.ProcessingForm
 }
 
 type LogItem struct {
@@ -404,4 +406,13 @@ func (a *Attempt) SetCancel() {
 
 func (a *Attempt) Cancel() <-chan struct{} {
 	return a.cancel
+}
+
+func (a *Attempt) Close() {
+	if a.processingForm != nil {
+		err := a.processingForm.Close()
+		if err != nil {
+			a.Log(err.Error())
+		}
+	}
 }

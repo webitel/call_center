@@ -7,6 +7,7 @@ const (
 	ChannelStateOffering   = "offering"
 	ChannelStateAnswered   = "answered"
 	ChannelStateBridged    = "bridged"
+	ChannelStateNextForm   = "form"
 	ChannelStateHold       = "hold" //TODO
 	ChannelStateProcessing = "processing"
 	ChannelStateMissed     = "missed"

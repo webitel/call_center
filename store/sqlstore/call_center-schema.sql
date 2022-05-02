@@ -2087,6 +2087,23 @@ $$;
 
 
 --
+-- Name: cc_outbound_resource_display_changed(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_outbound_resource_display_changed() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+        update call_center.cc_outbound_resource r
+        set updated_at = (extract(epoch from now()) * 1000)::int8
+        where r.id = coalesce(NEW.resource_id, OLD.resource_id);
+
+        RETURN NEW;
+    END;
+$$;
+
+
+--
 -- Name: cc_outbound_resource_timing(jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -3139,7 +3156,8 @@ CREATE TABLE call_center.cc_queue (
     processing_sec integer DEFAULT 30 NOT NULL,
     processing_renewal_sec integer DEFAULT 0 NOT NULL,
     grantee_id bigint,
-    recall_calendar boolean DEFAULT false
+    recall_calendar boolean DEFAULT false,
+    form_schema_id integer
 );
 
 
@@ -7137,6 +7155,13 @@ CREATE TRIGGER cc_member_sys_offset_id_trigger_update BEFORE UPDATE ON call_cent
 
 
 --
+-- Name: cc_outbound_resource_display cc_outbound_resource_display_changed_iud; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_outbound_resource_display_changed_iud AFTER INSERT OR DELETE OR UPDATE ON call_center.cc_outbound_resource_display FOR EACH ROW EXECUTE FUNCTION call_center.cc_outbound_resource_display_changed();
+
+
+--
 -- Name: cc_outbound_resource_group cc_outbound_resource_group_resource_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -7988,6 +8013,14 @@ ALTER TABLE ONLY call_center.cc_queue
 
 ALTER TABLE ONLY call_center.cc_queue
     ADD CONSTRAINT cc_queue_acr_routing_scheme_id_fk_3 FOREIGN KEY (do_schema_id) REFERENCES flow.acr_routing_scheme(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- Name: cc_queue cc_queue_acr_routing_scheme_id_fk_4; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_queue
+    ADD CONSTRAINT cc_queue_acr_routing_scheme_id_fk_4 FOREIGN KEY (form_schema_id) REFERENCES flow.acr_routing_scheme(id);
 
 
 --
