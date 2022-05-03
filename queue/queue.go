@@ -105,46 +105,51 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	base := NewBaseQueue(queueManager, resourceManager, settings)
 
 	switch settings.Type {
-	case model.QUEUE_TYPE_OFFLINE:
+	case model.QueueTypeOfflineCall:
 		return NewOfflineCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, QueueOfflineSettingsFromBytes(settings.Payload)), nil
-	case model.QUEUE_TYPE_INBOUND:
+
+	case model.QueueTypeInboundCall:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, inboundSettings), nil
 
-	case model.QUEUE_TYPE_IVR:
+	case model.QueueTypeIVRCall:
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, QueueIVRSettingsFromBytes(settings.Payload)), nil
 
-	case model.QUEUE_TYPE_PREVIEW:
+	case model.QueueTypePreviewCall:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, PreviewSettingsFromBytes(settings.Payload)), nil
 
-	case model.QUEUE_TYPE_PROGRESSIVE:
+	case model.QueueTypeProgressiveCall:
 		return NewProgressiveCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
-	case model.QUEUE_TYPE_PREDICT:
+	case model.QueueTypePredictCall:
 		return NewPredictCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 		}, PredictCallQueueSettingsFromBytes(settings.Payload)), nil
 
-	case model.QueueTypeChat:
+	case model.QueueTypeInboundChat:
 		return NewInboundChatQueue(base, InboundChatQueueFromBytes(settings.Payload)), nil
+
 	case model.QueueTypeAgentTask:
 		return NewTaskAgentQueue(base), nil
+
+	case model.QueueTypeOutboundTask:
+		return NewTaskOutboundQueue(base), nil
 
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
@@ -206,22 +211,24 @@ func (queue *BaseQueue) ProcessingRenewalSec() uint32 {
 
 func (queue *BaseQueue) TypeName() string {
 	switch queue.typeId {
-	case model.QUEUE_TYPE_OFFLINE:
+	case model.QueueTypeOfflineCall:
 		return "offline"
-	case model.QUEUE_TYPE_INBOUND:
+	case model.QueueTypeInboundCall:
 		return "inbound"
-	case model.QUEUE_TYPE_IVR:
+	case model.QueueTypeIVRCall:
 		return "ivr"
-	case model.QUEUE_TYPE_PREVIEW:
+	case model.QueueTypePreviewCall:
 		return "preview"
-	case model.QUEUE_TYPE_PROGRESSIVE:
+	case model.QueueTypeProgressiveCall:
 		return "progressive"
-	case model.QUEUE_TYPE_PREDICT:
+	case model.QueueTypePredictCall:
 		return "predictive"
-	case model.QueueTypeChat:
+	case model.QueueTypeInboundChat:
 		return "inbound chat"
 	case model.QueueTypeAgentTask:
 		return "task"
+	case model.QueueTypeOutboundTask:
+		return "outbound_task"
 	default:
 		return "NOT_IMPLEMENT"
 	}

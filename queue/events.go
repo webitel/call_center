@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
+	flow "github.com/webitel/flow_manager/model"
 )
 
 type Channel interface {
@@ -68,20 +69,14 @@ type AnsweredEvent struct {
 	ChannelEvent
 }
 
-type ProcessingForm struct {
-	Id      string                 `json:"id"`
-	View    map[string]interface{} `json:"view"`
-	Actions []string               `json:"actions"`
-}
-
 type BridgedEvent struct {
 	ChannelEvent
-	Form *ProcessingForm `json:"form,omitempty"`
+	Form *flow.FormElem `json:"form,omitempty"`
 }
 
 type NextFormEvent struct {
 	ChannelEvent
-	Form *ProcessingForm `json:"form,omitempty"`
+	Form *flow.FormElem `json:"form,omitempty"`
 }
 
 type ProcessingEvent struct {

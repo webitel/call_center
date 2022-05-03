@@ -7,14 +7,15 @@ import (
 )
 
 const (
-	QUEUE_TYPE_OFFLINE     = iota
-	QUEUE_TYPE_INBOUND     // a
-	QUEUE_TYPE_IVR         // r
-	QUEUE_TYPE_PREVIEW     // a + r
-	QUEUE_TYPE_PROGRESSIVE // a + r
-	QUEUE_TYPE_PREDICT     // a +r
-	QueueTypeChat
+	QueueTypeOfflineCall     = iota
+	QueueTypeInboundCall     // a
+	QueueTypeIVRCall         // r
+	QueueTypePreviewCall     // a + r
+	QueueTypeProgressiveCall // a + r
+	QueueTypePredictCall     // a +r
+	QueueTypeInboundChat
 	QueueTypeAgentTask
+	QueueTypeOutboundTask
 )
 
 const (
