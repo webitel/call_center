@@ -10,8 +10,8 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
-	github.com/webitel/engine v0.0.0-20210618144234-cc4ac480c364
-	github.com/webitel/flow_manager v0.0.0-20220503133248-cf0474d6baa4
+	github.com/webitel/engine v0.0.0-20220503141418-86c60353e792
+	github.com/webitel/flow_manager v0.0.0-20220503140917-0910baa2e120
 	github.com/webitel/protos/cc v0.0.0-20220428115356-35297e3b1bb4
 	github.com/webitel/protos/workflow v0.0.0-20220428115356-35297e3b1bb4
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
@@ -23,7 +23,6 @@ require (
 require (
 	github.com/armon/go-metrics v0.3.11 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/consul/api v1.12.0 // indirect
@@ -35,10 +34,11 @@ require (
 	github.com/hashicorp/serf v0.9.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-sqlite3 v2.0.2+incompatible // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
-	github.com/pelletier/go-toml v1.6.0 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/webitel/protos/engine v0.0.0-20220428115356-35297e3b1bb4 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
@@ -48,5 +48,5 @@ require (
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
