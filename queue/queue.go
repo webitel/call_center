@@ -37,6 +37,7 @@ type QueueObject interface {
 
 	DoSchemaId() *int32
 	AfterSchemaId() *int32
+	SetProcessingForm(attempt *Attempt)
 }
 
 type BaseQueue struct {
@@ -56,6 +57,7 @@ type BaseQueue struct {
 	ringtoneUri          *string
 	doSchema             *int32
 	afterSchemaId        *int32
+	formSchemaId         *int
 	processing           bool
 	processingSec        uint32
 	processingRenewalSec uint32
@@ -79,6 +81,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 		schemaId:             settings.SchemaId,
 		doSchema:             settings.DoSchemaId,
 		afterSchemaId:        settings.AfterSchemaId,
+		formSchemaId:         settings.FormSchemaId,
 		processing:           settings.Processing,
 		processingSec:        settings.ProcessingSec,
 		processingRenewalSec: settings.ProcessingRenewalSec,
@@ -271,7 +274,9 @@ func (queue *BaseQueue) Endless() bool {
 }
 
 func (queue *BaseQueue) SetProcessingForm(attempt *Attempt) {
-	queue.queueManager.SetProcessingForm(525, attempt)
+	if queue.formSchemaId != nil {
+		queue.queueManager.SetProcessingForm(*queue.formSchemaId, attempt)
+	}
 }
 
 // todo config

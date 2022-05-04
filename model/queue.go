@@ -89,6 +89,7 @@ type Queue struct {
 	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`
 	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
+	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
 }
 
 //FIXME  enum & queue_type

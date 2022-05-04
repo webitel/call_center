@@ -101,6 +101,11 @@ func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject)
 }
 
 func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) {
+
+	if attempt.queue != nil {
+		attempt.queue.SetProcessingForm(attempt) //TODO
+	}
+
 	timestamp, err := tm.teamManager.store.Member().SetAttemptBridged(attempt.Id())
 	if err != nil {
 		wlog.Error(err.Error())

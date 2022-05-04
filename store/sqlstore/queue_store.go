@@ -52,7 +52,8 @@ select q.id,
 	   coalesce((q.payload->'endless')::bool, false) as endless,
        case when fh.id notnull then
            jsonb_build_object('id', fh.id, 'type', fh.mime_type)
-       end as hold_music
+       end as hold_music,
+	   q.form_schema_id
 from call_center.cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id
