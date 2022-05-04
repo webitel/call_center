@@ -1,6 +1,6 @@
 module github.com/webitel/call_center
 
-go 1.17
+go 1.18
 
 require (
 	github.com/go-gorp/gorp v2.2.0+incompatible
@@ -23,7 +23,6 @@ require (
 require (
 	github.com/armon/go-metrics v0.3.11 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/consul/api v1.12.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -34,7 +33,7 @@ require (
 	github.com/hashicorp/serf v0.9.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/mattn/go-sqlite3 v2.0.2+incompatible // indirect
+	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
@@ -50,3 +49,5 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace google.golang.org/grpc => google.golang.org/grpc v1.27.0
