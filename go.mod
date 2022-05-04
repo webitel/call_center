@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20220504115625-fd7060288b43
-	github.com/webitel/flow_manager v0.0.0-20220504111726-dbd32f73441c
+	github.com/webitel/flow_manager v0.0.0-20220504115825-744346294ebc
 	github.com/webitel/protos/cc v0.0.0-20220504085106-475035abbe22
 	github.com/webitel/protos/workflow v0.0.0-20220504085106-475035abbe22
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
