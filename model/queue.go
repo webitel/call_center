@@ -92,13 +92,13 @@ type Queue struct {
 	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
 }
 
-//FIXME  enum & queue_type
 func (q *Queue) Channel() string {
-	if q.Type == 6 {
+	switch q.Type {
+	case QueueTypeInboundChat:
 		return QueueChannelChat
-	} else if q.Type == 7 {
+	case QueueTypeAgentTask, QueueTypeOutboundTask:
 		return QueueChannelTask
-	} else {
+	default:
 		return QueueChannelCall
 	}
 }

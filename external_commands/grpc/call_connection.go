@@ -3,9 +3,9 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/external_commands/grpc/fs"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/protos/fs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"net/http"

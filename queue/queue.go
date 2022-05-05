@@ -152,7 +152,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewTaskAgentQueue(base), nil
 
 	case model.QueueTypeOutboundTask:
-		return NewTaskOutboundQueue(base), nil
+		return NewTaskOutboundQueue(base, TaskOutboundQueueSettingsFromBytes(settings.Payload)), nil
 
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
