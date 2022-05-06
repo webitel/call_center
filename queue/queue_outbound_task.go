@@ -57,7 +57,7 @@ func (queue *TaskOutboundQueue) run(attempt *Attempt) {
 		queue.execSchema(attempt, *queue.schemaId)
 	}
 
-	queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+	queue.queueManager.SetAttemptSuccess(attempt, nil)
 	queue.queueManager.LeavingMember(attempt)
 }
 
