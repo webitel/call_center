@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
--- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1069,7 +1069,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+    ADD CONSTRAINT acr_routing_scheme_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -1077,7 +1077,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
@@ -1085,7 +1085,7 @@ ALTER TABLE ONLY flow.acr_routing_scheme
 --
 
 ALTER TABLE ONLY flow.acr_routing_scheme
-    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT acr_routing_scheme_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
