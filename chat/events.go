@@ -29,7 +29,7 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 	}
 
 	if chat == nil {
-		wlog.Debug(fmt.Sprintf("skip chat %d", e.ConversationId()))
+		wlog.Debug(fmt.Sprintf("skip chat %s", e.ConversationId()))
 		return
 	}
 

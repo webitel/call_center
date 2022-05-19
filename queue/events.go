@@ -32,6 +32,7 @@ type Distribute struct {
 	Communication   model.MemberCommunication `json:"communication"`
 	Variables       map[string]string         `json:"variables"`
 	HasReporting    bool                      `json:"has_reporting"`
+	HasForm         bool                      `json:"has_form,omitempty"`
 }
 
 type Offering struct {
@@ -118,6 +119,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			QueueName:     queue.Name(),
 			MemberId:      a.MemberId(),
 			HasReporting:  r,
+			HasForm:       queue.HasForm(),
 		},
 	}
 

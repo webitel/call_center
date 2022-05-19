@@ -37,7 +37,8 @@ type QueueObject interface {
 
 	DoSchemaId() *int32
 	AfterSchemaId() *int32
-	SetProcessingForm(attempt *Attempt)
+	HasForm() bool
+	StartProcessingForm(attempt *Attempt)
 }
 
 type BaseQueue struct {
@@ -160,6 +161,10 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	}
 }
 
+func (queue *BaseQueue) HasForm() bool {
+	return queue.formSchemaId != nil && queue.Processing()
+}
+
 func (queue *BaseQueue) Manager() *QueueManager {
 	return queue.queueManager
 }
@@ -273,9 +278,9 @@ func (queue *BaseQueue) Endless() bool {
 	return queue.endless
 }
 
-func (queue *BaseQueue) SetProcessingForm(attempt *Attempt) {
+func (queue *BaseQueue) StartProcessingForm(attempt *Attempt) {
 	if queue.formSchemaId != nil {
-		queue.queueManager.SetProcessingForm(*queue.formSchemaId, attempt)
+		go queue.queueManager.StartProcessingForm(*queue.formSchemaId, attempt)
 	}
 }
 

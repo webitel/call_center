@@ -84,6 +84,8 @@ type MemberStore interface {
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError
 	CancelAgentDistribute(agentId int32) ([]int64, *model.AppError)
 	SetExpired() ([]int64, *model.AppError)
+
+	StoreForm(attemptId int64, form []byte, fields map[string]string) *model.AppError
 }
 
 type AgentStore interface {

@@ -10,10 +10,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20220504115625-fd7060288b43
-	github.com/webitel/flow_manager v0.0.0-20220505131824-ebf03d1ad690
-	github.com/webitel/protos/cc v0.0.0-20220505124905-8ff9b6fe20c8
-	github.com/webitel/protos/fs v0.0.0-20220505124905-8ff9b6fe20c8
-	github.com/webitel/protos/workflow v0.0.0-20220505124905-8ff9b6fe20c8
+	github.com/webitel/flow_manager v0.0.0-20220516090216-e6832d214efb
+	github.com/webitel/protos/cc v0.0.0-20220512123629-c2f00de6990d
+	github.com/webitel/protos/fs v0.0.0-20220512123629-c2f00de6990d
+	github.com/webitel/protos/workflow v0.0.0-20220512123629-c2f00de6990d
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.46.0

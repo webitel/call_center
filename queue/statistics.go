@@ -50,22 +50,23 @@ func (s *StatisticsManager) refresh() {
 	st = time.Now()
 	if err = s.store.Member().RefreshQueueStatsLast2H(); err != nil {
 		wlog.Error(err.Error())
+	} else {
+		wlog.Debug(fmt.Sprintf("refresh outbound queue statistics time: %s", time.Now().Sub(st)))
 	}
-
-	wlog.Debug(fmt.Sprintf("refresh outbound queue statistics time: %s", time.Now().Sub(st)))
 
 	st = time.Now()
 	if err = s.store.Statistic().RefreshInbound1H(); err != nil {
 		wlog.Error(err.Error())
+	} else {
+		wlog.Debug(fmt.Sprintf("refresh inbound queue statistics time: %s", time.Now().Sub(st)))
 	}
-
-	wlog.Debug(fmt.Sprintf("refresh inbound queue statistics time: %s", time.Now().Sub(st)))
 
 	st = time.Now()
 	if _, err = s.store.Member().SetExpired(); err != nil {
 		wlog.Error(err.Error())
+	} else {
+		wlog.Debug(fmt.Sprintf("set expired members time: %s", time.Now().Sub(st)))
 	}
-	wlog.Debug(fmt.Sprintf("set expired members time: %s", time.Now().Sub(st)))
 
 	return
 }

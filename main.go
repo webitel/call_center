@@ -43,7 +43,7 @@ func setDebug() {
 
 	go func() {
 		wlog.Info(fmt.Sprintf("Start debug server on http://localhost:8090/debug/pprof/"))
-		wlog.Info(fmt.Sprintf("Debug: ", http.ListenAndServe(":8090", nil)))
+		wlog.Info(fmt.Sprintf("Debug: %s", http.ListenAndServe(":8090", nil)))
 	}()
 
 }

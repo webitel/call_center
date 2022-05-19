@@ -24,17 +24,28 @@ type SchemaResult struct {
 	Variables          map[string]string
 }
 
-func (qm *QueueManager) SetProcessingForm(shemaId int, att *Attempt) {
-	if shemaId == 0 {
+func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
+	if schemaId == 0 {
 		return
 	}
-	pf, err := qm.app.FlowManager().Queue().NewProcessing(att.Context, att.domainId, shemaId, att.ExportSchemaVariables())
+
+	pf, err := qm.app.FlowManager().Queue().NewProcessing(att.Context, att.domainId, schemaId, att.ExportSchemaVariables())
 	if err != nil {
 		//TODO ERROR FIXME
 		att.Log(fmt.Sprintf("set form error: %s", err.Error()))
 		return
 	}
+	if err := qm.store.Member().StoreForm(att.Id(), pf.Form(), pf.Fields()); err != nil {
+		//TODO ERROR FIXME
+		att.Log(fmt.Sprintf("set form error: %s", err.Error()))
+		return
+	}
 	att.processingForm = pf
+	e := NewNextFormEvent(att, att.agent.UserId())
+	appErr := qm.mq.AgentChannelEvent(att.channel, att.domainId, att.QueueId(), att.agent.UserId(), e)
+	if appErr != nil {
+		wlog.Error(err.Error())
+	}
 }
 
 func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
@@ -50,9 +61,17 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 	if attempt.processingForm != nil && attempt.agent != nil {
 		_, err := attempt.processingForm.ActionForm(attempt.Context, action, fields)
 		if err != nil {
+			attempt.Log(err.Error())
 			attempt.processingForm = nil // todo lock
+		} else {
+			// todo
+			if err := qm.store.Member().StoreForm(attempt.Id(), attempt.processingForm.Form(), attempt.processingForm.Fields()); err != nil {
+				//TODO ERROR FIXME
+				attempt.Log(fmt.Sprintf("set form error: %s", err.Error()))
+				return nil
+			}
 		}
-		//todo store DB
+
 		e := NewNextFormEvent(attempt, attempt.agent.UserId())
 		appErr := qm.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), attempt.agent.UserId(), e)
 		if appErr != nil {
