@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
--- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -321,7 +321,7 @@ $$;
 -- Name: cc_attempt_distribute_cancel(bigint, character varying, integer, boolean, jsonb); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_attempt_distribute_cancel(attempt_id_ bigint, description_ character varying, next_distribute_sec_ integer, stop_ boolean, vars_ jsonb)
+CREATE PROCEDURE call_center.cc_attempt_distribute_cancel(IN attempt_id_ bigint, IN description_ character varying, IN next_distribute_sec_ integer, IN stop_ boolean, IN vars_ jsonb)
     LANGUAGE plpgsql
     AS $$
 declare
@@ -389,7 +389,7 @@ begin
     if attempt.member_id notnull then
         update call_center.cc_member
         set last_hangup_at  = time_,
-            variables = case when variables_ isnull then variables else variables_ end,
+            variables = case when variables_ notnull then coalesce(variables::jsonb, '{}') || variables_ else variables end,
             expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
             agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
 
@@ -872,7 +872,7 @@ $$;
 -- Name: cc_call_set_bridged(character varying, character varying, timestamp with time zone, character varying, bigint, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_call_set_bridged(call_id_ character varying, state_ character varying, timestamp_ timestamp with time zone, app_id_ character varying, domain_id_ bigint, call_bridged_id_ character varying)
+CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ character varying, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ character varying)
     LANGUAGE plpgsql
     AS $$
 declare
@@ -3106,7 +3106,9 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     transferred_agent_id integer,
     transferred_attempt_id bigint,
     parent_id bigint,
-    waiting_other_numbers integer DEFAULT 0 NOT NULL
+    waiting_other_numbers integer DEFAULT 0 NOT NULL,
+    form_fields jsonb,
+    form_view jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3415,7 +3417,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_at timestamp with time zone,
     transferred_agent_id integer,
     transferred_attempt_id bigint,
-    parent_id bigint
+    parent_id bigint,
+    form_fields jsonb
 );
 
 
@@ -4712,6 +4715,7 @@ CREATE VIEW call_center.cc_queue_list AS
     call_center.cc_get_lookup(s.id, s.name) AS schema,
     call_center.cc_get_lookup(ds.id, ds.name) AS do_schema,
     call_center.cc_get_lookup(afs.id, afs.name) AS after_schema,
+    call_center.cc_get_lookup(fs.id, fs.name) AS form_schema,
     COALESCE(ss.member_count, (0)::bigint) AS count,
     COALESCE(ss.member_waiting, (0)::bigint) AS waiting,
     COALESCE(act.cnt, (0)::bigint) AS active,
@@ -4719,13 +4723,14 @@ CREATE VIEW call_center.cc_queue_list AS
     q.processing,
     q.processing_sec,
     q.processing_renewal_sec
-   FROM (((((((((((call_center.cc_queue q
+   FROM ((((((((((((call_center.cc_queue q
      JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = q.updated_by)))
      LEFT JOIN flow.acr_routing_scheme s ON ((q.schema_id = s.id)))
      LEFT JOIN flow.acr_routing_scheme ds ON ((q.do_schema_id = ds.id)))
      LEFT JOIN flow.acr_routing_scheme afs ON ((q.after_schema_id = afs.id)))
+     LEFT JOIN flow.acr_routing_scheme fs ON ((q.form_schema_id = fs.id)))
      LEFT JOIN call_center.cc_list cl ON ((q.dnc_list_id = cl.id)))
      LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
      LEFT JOIN storage.media_files mf ON ((q.ringtone_id = mf.id)))
@@ -5775,7 +5780,7 @@ CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id,
 -- Name: cc_agent_state_history_dev_g; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id) INCLUDE (state) WHERE ((channel IS NULL) AND ((state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])));
+CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id) INCLUDE (state) WHERE ((channel IS NULL) AND ((state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])));
 
 
 --
@@ -6756,33 +6761,63 @@ CREATE STATISTICS call_center.cc_calls_history_user_ids_st ON domain_id, user_id
 
 
 --
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+-- Name: cc_agent_in_queue_view _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
+CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
+ SELECT q.queue,
+    q.priority,
+    q.type,
+    q.strategy,
+    q.enabled,
+    q.count_members,
+    q.waiting_members,
+    q.active_members,
+    q.queue_id,
+    q.queue_name,
+    q.team_id,
+    q.domain_id,
+    q.agent_id,
+    jsonb_build_object('online', COALESCE(array_length(a.agent_on_ids, 1), 0), 'pause', COALESCE(array_length(a.agent_p_ids, 1), 0), 'offline', COALESCE(array_length(a.agent_off_ids, 1), 0), 'free', COALESCE(array_length(a.free, 1), 0), 'total', COALESCE(array_length(a.total, 1), 0)) AS agents
+   FROM (( SELECT call_center.cc_get_lookup((q_1.id)::bigint, q_1.name) AS queue,
+            q_1.priority,
+            q_1.type,
+            q_1.strategy,
+            q_1.enabled,
+            COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
+                CASE
+                    WHEN (q_1.type = ANY (ARRAY[1, 6])) THEN ( SELECT count(*) AS count
+                       FROM call_center.cc_member_attempt a_1_1
+                      WHERE ((a_1_1.queue_id = q_1.id) AND ((a_1_1.state)::text = ANY (ARRAY[('wait_agent'::character varying)::text, ('offering'::character varying)::text])) AND (a_1_1.leaving_at IS NULL)))
+                    ELSE COALESCE(sum(cqs.member_waiting), (0)::bigint)
+                END AS waiting_members,
+            ( SELECT count(*) AS count
+                   FROM call_center.cc_member_attempt a_1_1
+                  WHERE (a_1_1.queue_id = q_1.id)) AS active_members,
+            q_1.id AS queue_id,
+            q_1.name AS queue_name,
+            q_1.team_id,
+            a_1.domain_id,
+            a_1.id AS agent_id
+           FROM ((call_center.cc_agent a_1
+             JOIN call_center.cc_queue q_1 ON ((q_1.domain_id = a_1.domain_id)))
+             LEFT JOIN call_center.cc_queue_statistics cqs ON ((q_1.id = cqs.queue_id)))
+          WHERE (((q_1.team_id IS NULL) OR (a_1.team_id = q_1.team_id)) AND (EXISTS ( SELECT qs.queue_id
+                   FROM (call_center.cc_queue_skill qs
+                     JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
+                  WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a_1.id) AND (qs.queue_id = q_1.id) AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
+          GROUP BY a_1.id, q_1.id, q_1.priority) q
+     LEFT JOIN LATERAL ( SELECT DISTINCT array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'online'::text)) AS agent_on_ids,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'offline'::text)) AS agent_off_ids,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = ANY (ARRAY[('pause'::character varying)::text, ('break_out'::character varying)::text]))) AS agent_p_ids,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND (ac.channel IS NULL) AND ((ac.state)::text = 'waiting'::text))) AS free,
+            array_agg(DISTINCT a_1.id) AS total
+           FROM (((call_center.cc_agent a_1
+             JOIN call_center.cc_agent_channel ac ON ((ac.agent_id = a_1.id)))
+             JOIN call_center.cc_queue_skill qs ON (((qs.queue_id = q.queue_id) AND qs.enabled)))
+             JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
+          WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
+          GROUP BY ROLLUP(q.queue_id)) a ON (true));
 
 
 --
@@ -6940,7 +6975,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     r.types,
     r.resources,
         CASE
-            WHEN (q.type = 7) THEN calend.l
+            WHEN (q.type = ANY ('{7,8}'::smallint[])) THEN calend.l
             ELSE r.offset_ids
         END AS offset_ids,
         CASE
@@ -6960,7 +6995,37 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+  WHERE ((q.type = ANY (ARRAY[1, 6, 7, 8])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+
+
+--
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
 
 
 --
@@ -6994,66 +7059,6 @@ CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
            FROM unnest(res.t) f_1(f)) f ON (true))
   WHERE ((res."limit" - ac.count) > 0)
   GROUP BY res.queue_id;
-
-
---
--- Name: cc_agent_in_queue_view _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
- SELECT q.queue,
-    q.priority,
-    q.type,
-    q.strategy,
-    q.enabled,
-    q.count_members,
-    q.waiting_members,
-    q.active_members,
-    q.queue_id,
-    q.queue_name,
-    q.team_id,
-    q.domain_id,
-    q.agent_id,
-    jsonb_build_object('online', COALESCE(array_length(a.agent_on_ids, 1), 0), 'pause', COALESCE(array_length(a.agent_p_ids, 1), 0), 'offline', COALESCE(array_length(a.agent_off_ids, 1), 0), 'free', COALESCE(array_length(a.free, 1), 0), 'total', COALESCE(array_length(a.total, 1), 0)) AS agents
-   FROM (( SELECT call_center.cc_get_lookup((q_1.id)::bigint, q_1.name) AS queue,
-            q_1.priority,
-            q_1.type,
-            q_1.strategy,
-            q_1.enabled,
-            COALESCE(sum(cqs.member_count), (0)::bigint) AS count_members,
-                CASE
-                    WHEN (q_1.type = ANY (ARRAY[1, 6])) THEN ( SELECT count(*) AS count
-                       FROM call_center.cc_member_attempt a_1_1
-                      WHERE ((a_1_1.queue_id = q_1.id) AND ((a_1_1.state)::text = ANY ((ARRAY['wait_agent'::character varying, 'offering'::character varying])::text[])) AND (a_1_1.leaving_at IS NULL)))
-                    ELSE COALESCE(sum(cqs.member_waiting), (0)::bigint)
-                END AS waiting_members,
-            ( SELECT count(*) AS count
-                   FROM call_center.cc_member_attempt a_1_1
-                  WHERE (a_1_1.queue_id = q_1.id)) AS active_members,
-            q_1.id AS queue_id,
-            q_1.name AS queue_name,
-            q_1.team_id,
-            a_1.domain_id,
-            a_1.id AS agent_id
-           FROM ((call_center.cc_agent a_1
-             JOIN call_center.cc_queue q_1 ON ((q_1.domain_id = a_1.domain_id)))
-             LEFT JOIN call_center.cc_queue_statistics cqs ON ((q_1.id = cqs.queue_id)))
-          WHERE (((q_1.team_id IS NULL) OR (a_1.team_id = q_1.team_id)) AND (EXISTS ( SELECT qs.queue_id
-                   FROM (call_center.cc_queue_skill qs
-                     JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
-                  WHERE (qs.enabled AND csia.enabled AND (csia.agent_id = a_1.id) AND (qs.queue_id = q_1.id) AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity)))))
-          GROUP BY a_1.id, q_1.id, q_1.priority) q
-     LEFT JOIN LATERAL ( SELECT DISTINCT array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'online'::text)) AS agent_on_ids,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'offline'::text)) AS agent_off_ids,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = ANY (ARRAY[('pause'::character varying)::text, ('break_out'::character varying)::text]))) AS agent_p_ids,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND (ac.channel IS NULL) AND ((ac.state)::text = 'waiting'::text))) AS free,
-            array_agg(DISTINCT a_1.id) AS total
-           FROM (((call_center.cc_agent a_1
-             JOIN call_center.cc_agent_channel ac ON ((ac.agent_id = a_1.id)))
-             JOIN call_center.cc_queue_skill qs ON (((qs.queue_id = q.queue_id) AND qs.enabled)))
-             JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
-          WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
-          GROUP BY ROLLUP(q.queue_id)) a ON (true));
 
 
 --
@@ -7252,7 +7257,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
-    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
 
 
 --

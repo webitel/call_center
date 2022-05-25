@@ -734,6 +734,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 			}
 		}
 
+		attempt.SetCallback(&result)
 		if r, ok := attempt.AfterDistributeSchema(); ok {
 			if r.Status != "" {
 				result.Status = r.Status

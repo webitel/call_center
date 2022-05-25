@@ -219,3 +219,12 @@ func MemberDestinationFromBytes(data []byte) MemberCommunication {
 	json.Unmarshal(data, &dest)
 	return dest
 }
+
+func (a *AttemptCallback) JsonVariables() *[]byte {
+	if a.Variables == nil || len(a.Variables) == 0 {
+		return nil
+	}
+
+	data, _ := json.Marshal(a.Variables)
+	return &data
+}
