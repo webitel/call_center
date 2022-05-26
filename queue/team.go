@@ -40,6 +40,10 @@ func (at *agentTeam) CallTimeout() uint16 {
 	return at.data.CallTimeout
 }
 
+func (at agentTeam) InviteChatTimeout() uint16 {
+	return at.data.InviteChatTimeout
+}
+
 func (at *agentTeam) MaxNoAnswer() uint16 {
 	return at.data.MaxNoAnswer
 }
