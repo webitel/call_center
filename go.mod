@@ -11,9 +11,9 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20220517121124-6f65febccaee
 	github.com/webitel/flow_manager v0.0.0-20220526111045-2bb4fa060cc3
-	github.com/webitel/protos/cc v0.0.0-20220526084459-1c96ea905b3b
-	github.com/webitel/protos/fs v0.0.0-20220526084459-1c96ea905b3b
-	github.com/webitel/protos/workflow v0.0.0-20220526084459-1c96ea905b3b
+	github.com/webitel/protos/cc v0.0.0-20220526112325-243617867ad3
+	github.com/webitel/protos/fs v0.0.0-20220526112325-243617867ad3
+	github.com/webitel/protos/workflow v0.0.0-20220526112325-243617867ad3
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.46.2
@@ -38,7 +38,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/webitel/protos/engine v0.0.0-20220526084459-1c96ea905b3b // indirect
+	github.com/webitel/protos/engine v0.0.0-20220526112325-243617867ad3 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
