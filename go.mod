@@ -4,13 +4,13 @@ go 1.18
 
 require (
 	github.com/go-gorp/gorp v2.2.0+incompatible
-	github.com/lib/pq v1.10.5
+	github.com/lib/pq v1.10.6
 	github.com/olebedev/emitter v0.0.0-20190110104742-e8d1457e6aee
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20220517121124-6f65febccaee
-	github.com/webitel/flow_manager v0.0.0-20220525155900-09e497a9df21
+	github.com/webitel/flow_manager v0.0.0-20220526111045-2bb4fa060cc3
 	github.com/webitel/protos/cc v0.0.0-20220526084459-1c96ea905b3b
 	github.com/webitel/protos/fs v0.0.0-20220526084459-1c96ea905b3b
 	github.com/webitel/protos/workflow v0.0.0-20220526084459-1c96ea905b3b
@@ -20,7 +20,7 @@ require (
 )
 
 require (
-	github.com/armon/go-metrics v0.3.11 // indirect
+	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -42,10 +42,10 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220513224357-95641704303c // indirect
-	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a // indirect
+	golang.org/x/net v0.0.0-20220524220425-1d687d428aca // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3 // indirect
+	google.golang.org/genproto v0.0.0-20220525015930-6ca3db687a9d // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
