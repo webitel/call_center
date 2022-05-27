@@ -2769,7 +2769,8 @@ CREATE TABLE call_center.cc_team (
     created_at bigint,
     created_by bigint,
     updated_by bigint,
-    admin_ids integer[]
+    admin_ids integer[],
+    invite_chat_timeout smallint DEFAULT 30 NOT NULL
 );
 
 
@@ -3538,15 +3539,19 @@ CREATE VIEW call_center.cc_calls_history_list AS
             WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
-                WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND ((cq.type = ANY (ARRAY[4, 5])) AND (c.bridged_at IS NOT NULL))))) THEN 'agent_dropped'::text
+                WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5])) AND (c.bridged_at IS NOT NULL)))) THEN 'agent_dropped'::text
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
         END AS hangup_disposition,
-    c.blind_transfer
+    c.blind_transfer,
+    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id)) AS jsonb_agg
+           FROM storage.file_jobs j
+          WHERE (j.file_id = ANY (f.file_ids))) AS files_job
    FROM (((((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
-           FROM ( SELECT f1.id,
+     LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
+            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint, 'transcripts', transcripts.data)) AS files
+           FROM (( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
                     f1.name
@@ -3558,7 +3563,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1
+             LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale)) AS data
+                   FROM storage.file_transcript tr
+                  WHERE (tr.file_id = f_1.id)
+                  GROUP BY tr.file_id) transcripts ON (true))) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
      LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
@@ -4722,7 +4731,8 @@ CREATE VIEW call_center.cc_queue_list AS
     q.sticky_agent,
     q.processing,
     q.processing_sec,
-    q.processing_renewal_sec
+    q.processing_renewal_sec,
+    jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec) AS task_processing
    FROM ((((((((((((call_center.cc_queue q
      JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
@@ -5112,7 +5122,8 @@ CREATE VIEW call_center.cc_team_list AS
            FROM call_center.cc_agent_with_user adm
           WHERE (adm.id = ANY (t.admin_ids))) AS admin,
     t.domain_id,
-    t.admin_ids
+    t.admin_ids,
+    t.invite_chat_timeout
    FROM call_center.cc_team t;
 
 
