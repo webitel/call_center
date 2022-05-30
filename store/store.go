@@ -107,6 +107,7 @@ type AgentStore interface {
 	ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError)
 
 	RefreshAgentPauseCauses() *model.AppError
+	RefreshAgentStatistics() *model.AppError
 
 	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
 

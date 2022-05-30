@@ -255,6 +255,17 @@ func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
 	return nil
 }
 
+func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
+	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_agent_today_stats`)
+
+	if err != nil {
+		return model.NewAppError("SqlAgentStore.RefreshAgentStatistics", "store.sql_agent.refresh_statistics.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 //todo need index
 func (s SqlAgentStore) OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey

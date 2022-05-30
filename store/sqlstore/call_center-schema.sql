@@ -2843,6 +2843,307 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
 
 
 --
+-- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_history (
+    id character varying NOT NULL,
+    direction character varying,
+    destination character varying,
+    parent_id character varying,
+    app_id character varying NOT NULL,
+    from_type character varying,
+    from_name character varying,
+    from_number character varying,
+    from_id character varying,
+    to_type character varying,
+    to_name character varying,
+    to_number character varying,
+    to_id character varying,
+    payload jsonb,
+    domain_id bigint NOT NULL,
+    hold_sec integer DEFAULT 0,
+    cause character varying,
+    sip_code integer,
+    bridged_id character varying,
+    gateway_id bigint,
+    user_id integer,
+    queue_id integer,
+    team_id integer,
+    agent_id integer,
+    attempt_id bigint,
+    member_id bigint,
+    duration integer DEFAULT 0 NOT NULL,
+    description character varying,
+    tags character varying[],
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL,
+    hangup_by character varying,
+    stored_at timestamp with time zone DEFAULT now() NOT NULL,
+    rating smallint,
+    notes text,
+    transfer_from character varying,
+    transfer_to character varying,
+    amd_result character varying,
+    amd_duration interval,
+    grantee_id bigint,
+    hold jsonb,
+    agent_ids integer[],
+    user_ids bigint[],
+    queue_ids integer[],
+    gateway_ids bigint[],
+    team_ids integer[],
+    params jsonb,
+    blind_transfer character varying
+);
+
+
+--
+-- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_member_attempt_history (
+    id bigint NOT NULL,
+    queue_id integer,
+    member_id bigint,
+    weight integer,
+    resource_id integer,
+    node_id character varying(20),
+    result character varying(25) NOT NULL,
+    agent_id integer,
+    bucket_id bigint,
+    display character varying(50),
+    description character varying,
+    list_communication_id bigint,
+    joined_at timestamp with time zone NOT NULL,
+    leaving_at timestamp with time zone,
+    agent_call_id character varying,
+    member_call_id character varying,
+    offering_at timestamp with time zone,
+    reporting_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    channel character varying,
+    domain_id bigint NOT NULL,
+    destination jsonb,
+    seq integer DEFAULT 0 NOT NULL,
+    team_id integer,
+    resource_group_id integer,
+    answered_at timestamp with time zone,
+    region_id integer,
+    supervisor_ids integer[],
+    transferred_at timestamp with time zone,
+    transferred_agent_id integer,
+    transferred_attempt_id bigint,
+    parent_id bigint,
+    form_fields jsonb
+);
+
+
+--
+-- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: -
+--
+
+COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
+
+
+--
+-- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_queue (
+    id integer NOT NULL,
+    strategy character varying(20) NOT NULL,
+    enabled boolean NOT NULL,
+    payload jsonb,
+    calendar_id integer NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
+    name character varying NOT NULL,
+    variables jsonb DEFAULT '{}'::jsonb NOT NULL,
+    domain_id bigint NOT NULL,
+    dnc_list_id bigint,
+    type smallint DEFAULT 1 NOT NULL,
+    team_id bigint,
+    created_at bigint NOT NULL,
+    created_by bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    schema_id integer,
+    description character varying DEFAULT ''::character varying,
+    ringtone_id integer,
+    do_schema_id integer,
+    after_schema_id integer,
+    sticky_agent boolean DEFAULT false NOT NULL,
+    processing boolean DEFAULT false NOT NULL,
+    processing_sec integer DEFAULT 30 NOT NULL,
+    processing_renewal_sec integer DEFAULT 0 NOT NULL,
+    grantee_id bigint,
+    recall_calendar boolean DEFAULT false,
+    form_schema_id integer
+);
+
+
+--
+-- Name: cc_agent_today_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+--
+
+CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
+ WITH agents AS MATERIALIZED (
+         SELECT a_1.id,
+            a_1.user_id,
+                CASE
+                    WHEN (a_1.last_state_change < (d."from")::timestamp with time zone) THEN (d."from")::timestamp with time zone
+                    WHEN (a_1.last_state_change < d."to") THEN a_1.last_state_change
+                    ELSE a_1.last_state_change
+                END AS cur_state_change,
+            a_1.status,
+            a_1.status_payload,
+            a_1.last_state_change,
+            (lasts.last_at)::timestamp with time zone AS last_at,
+            lasts.state AS last_state,
+            lasts.status_payload AS last_payload,
+            COALESCE(top.top_at, a_1.last_state_change) AS top_at,
+            COALESCE(top.state, a_1.status) AS top_state,
+            COALESCE(top.status_payload, a_1.status_payload) AS top_payload,
+            d."from",
+            d."to",
+            a_1.domain_id
+           FROM (((((call_center.cc_agent a_1
+             LEFT JOIN flow.region r ON ((r.id = a_1.region_id)))
+             LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
+             LEFT JOIN LATERAL ( SELECT now() AS "to",
+                    ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone)) AS "from") d ON (true))
+             LEFT JOIN LATERAL ( SELECT aa.state,
+                    d."from" AS last_at,
+                    aa.payload AS status_payload
+                   FROM call_center.cc_agent_state_history aa
+                  WHERE ((aa.agent_id = a_1.id) AND (aa.channel IS NULL) AND ((aa.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])) AND (aa.joined_at < (d."from")::timestamp with time zone))
+                  ORDER BY aa.joined_at DESC
+                 LIMIT 1) lasts ON ((a_1.last_state_change > d."from")))
+             LEFT JOIN LATERAL ( SELECT a2.state,
+                    d."to" AS top_at,
+                    a2.payload AS status_payload
+                   FROM call_center.cc_agent_state_history a2
+                  WHERE ((a2.agent_id = a_1.id) AND (a2.channel IS NULL) AND ((a2.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])) AND (a2.joined_at > d."to"))
+                  ORDER BY a2.joined_at
+                 LIMIT 1) top ON (true))
+        ), d AS MATERIALIZED (
+         SELECT x.agent_id,
+            x.joined_at,
+            x.state,
+            x.payload
+           FROM ( SELECT a_1.agent_id,
+                    a_1.joined_at,
+                    a_1.state,
+                    a_1.payload
+                   FROM call_center.cc_agent_state_history a_1,
+                    agents
+                  WHERE ((a_1.agent_id = agents.id) AND ((a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to")) AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])))
+                UNION
+                 SELECT agents.id,
+                    agents.cur_state_change,
+                    agents.status,
+                    agents.status_payload
+                   FROM agents
+                  WHERE (1 = 1)) x
+          ORDER BY x.joined_at DESC
+        ), s AS MATERIALIZED (
+         SELECT d.agent_id,
+            d.joined_at,
+            d.state,
+            d.payload,
+            (COALESCE(lag(d.joined_at) OVER (PARTITION BY d.agent_id ORDER BY d.joined_at DESC), now()) - d.joined_at) AS dur
+           FROM d
+          ORDER BY d.joined_at DESC
+        ), eff AS (
+         SELECT h.agent_id,
+            sum((COALESCE(h.reporting_at, h.leaving_at) - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS aht,
+            sum(((h.reporting_at - h.leaving_at) - ((q.processing_sec || 's'::text))::interval)) FILTER (WHERE ((h.reporting_at IS NOT NULL) AND q.processing AND ((h.reporting_at - h.leaving_at) > (((q.processing_sec + 1) || 's'::text))::interval))) AS tpause
+           FROM ((agents
+             JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
+             LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
+          WHERE ((h.domain_id = agents.domain_id) AND ((h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to")) AND ((h.channel)::text = 'call'::text))
+          GROUP BY h.agent_id
+        ), chats AS (
+         SELECT cma.agent_id,
+            count(*) FILTER (WHERE (cma.bridged_at IS NOT NULL)) AS chat_accepts,
+            (avg(EXTRACT(epoch FROM (COALESCE(cma.reporting_at, cma.leaving_at) - cma.bridged_at))) FILTER (WHERE (cma.bridged_at IS NOT NULL)))::bigint AS chat_aht
+           FROM (agents
+             JOIN call_center.cc_member_attempt_history cma ON ((cma.agent_id = agents.id)))
+          WHERE (((cma.joined_at >= (agents."from")::timestamp with time zone) AND (cma.joined_at <= agents."to")) AND (cma.domain_id = agents.domain_id) AND (cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))
+          GROUP BY cma.agent_id
+        ), calls AS (
+         SELECT h.user_id,
+            count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
+            count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
+            count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
+            count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND ((h.cause)::text = ANY ((ARRAY['NO_ANSWER'::character varying, 'USER_BUSY'::character varying])::text[])))) AS missed,
+            count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
+            count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
+            sum((h.hangup_at - h.created_at)) FILTER (WHERE (((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS direct_out_dur,
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'inbound'::text) AND (h.parent_id IS NOT NULL))) AS "avg bill inbound",
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'outbound'::text))) AS "avg bill outbound",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "sum bill",
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS avg_talk,
+            sum(((h.hold_sec || ' sec'::text))::interval) AS "sum hold",
+            avg(((h.hold_sec || ' sec'::text))::interval) FILTER (WHERE (h.hold_sec > 0)) AS avg_hold,
+            sum((COALESCE(h.answered_at, h.bridged_at, h.hangup_at) - h.created_at)) AS "Call initiation",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "Talk time",
+            sum((cc.reporting_at - cc.leaving_at)) FILTER (WHERE (cc.reporting_at IS NOT NULL)) AS "Post call"
+           FROM ((((agents
+             JOIN call_center.cc_calls_history h ON ((h.user_id = agents.user_id)))
+             LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
+             LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
+             LEFT JOIN call_center.cc_calls_history pc ON (((pc.id)::text = (h.parent_id)::text)))
+          WHERE ((h.domain_id = agents.domain_id) AND ((h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to")))
+          GROUP BY h.user_id
+        ), stats AS MATERIALIZED (
+         SELECT s.agent_id,
+            min(s.joined_at) FILTER (WHERE ((s.state)::text = ANY ((ARRAY['online'::character varying, 'pause'::character varying])::text[]))) AS login,
+            max(s.joined_at) FILTER (WHERE ((s.state)::text = 'offline'::text)) AS logout,
+            sum(s.dur) FILTER (WHERE ((s.state)::text = ANY ((ARRAY['online'::character varying, 'pause'::character varying])::text[]))) AS online,
+            sum(s.dur) FILTER (WHERE ((s.state)::text = 'pause'::text)) AS pause,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Навчання'::text))) AS study,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Нарада'::text))) AS conference,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Обід'::text))) AS lunch,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Технічна перерва'::text))) AS tech
+           FROM (((s
+             LEFT JOIN agents ON ((agents.id = s.agent_id)))
+             LEFT JOIN eff eff_1 ON ((eff_1.agent_id = s.agent_id)))
+             LEFT JOIN calls ON ((calls.user_id = agents.user_id)))
+          GROUP BY s.agent_id
+        )
+ SELECT a.id AS agent_id,
+    a.domain_id,
+    COALESCE(c.missed, (0)::bigint) AS call_abandoned,
+    COALESCE(c.handled, (0)::bigint) AS call_handled,
+    COALESCE((EXTRACT(epoch FROM c.avg_talk))::bigint, (0)::bigint) AS avg_talk_sec,
+    COALESCE((EXTRACT(epoch FROM c.avg_hold))::bigint, (0)::bigint) AS avg_hold_sec,
+    LEAST(round(COALESCE(
+        CASE
+            WHEN ((stats.online > '00:00:00'::interval) AND (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) > (0)::numeric)) THEN (((((((COALESCE(EXTRACT(epoch FROM c."Call initiation"), (0)::numeric) + COALESCE(EXTRACT(epoch FROM c."Talk time"), (0)::numeric)) + COALESCE(EXTRACT(epoch FROM c."Post call"), (0)::numeric)) - COALESCE(EXTRACT(epoch FROM eff.tpause), (0)::numeric)) + EXTRACT(epoch FROM COALESCE(stats.study, '00:00:00'::interval))) + EXTRACT(epoch FROM COALESCE(stats.conference, '00:00:00'::interval))) / EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval)))) * (100)::numeric)
+            ELSE (0)::numeric
+        END, (0)::numeric), 2), (100)::numeric) AS occupancy,
+    round(COALESCE(
+        CASE
+            WHEN (stats.online > '00:00:00'::interval) THEN ((EXTRACT(epoch FROM (stats.online - COALESCE(stats.pause, '00:00:00'::interval))) / EXTRACT(epoch FROM stats.online)) * (100)::numeric)
+            ELSE (0)::numeric
+        END, (0)::numeric), 2) AS utilization,
+    COALESCE(ch.chat_aht, (0)::bigint) AS chat_aht,
+    COALESCE(ch.chat_accepts, (0)::bigint) AS chat_accepts
+   FROM (((((agents a
+     LEFT JOIN call_center.cc_agent_with_user u ON ((u.id = a.id)))
+     LEFT JOIN stats ON ((stats.agent_id = a.id)))
+     LEFT JOIN eff ON ((eff.agent_id = a.id)))
+     LEFT JOIN calls c ON ((c.user_id = a.user_id)))
+     LEFT JOIN chats ch ON ((ch.agent_id = a.id)))
+  WITH NO DATA;
+
+
+--
 -- Name: cc_agent_waiting; Type: VIEW; Schema: call_center; Owner: -
 --
 
@@ -3129,42 +3430,6 @@ COMMENT ON COLUMN call_center.cc_member_attempt.communication_idx IS 'fixme';
 
 
 --
--- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_queue (
-    id integer NOT NULL,
-    strategy character varying(20) NOT NULL,
-    enabled boolean NOT NULL,
-    payload jsonb,
-    calendar_id integer NOT NULL,
-    priority integer DEFAULT 0 NOT NULL,
-    updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
-    name character varying NOT NULL,
-    variables jsonb DEFAULT '{}'::jsonb NOT NULL,
-    domain_id bigint NOT NULL,
-    dnc_list_id bigint,
-    type smallint DEFAULT 1 NOT NULL,
-    team_id bigint,
-    created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_by bigint NOT NULL,
-    schema_id integer,
-    description character varying DEFAULT ''::character varying,
-    ringtone_id integer,
-    do_schema_id integer,
-    after_schema_id integer,
-    sticky_agent boolean DEFAULT false NOT NULL,
-    processing boolean DEFAULT false NOT NULL,
-    processing_sec integer DEFAULT 30 NOT NULL,
-    processing_renewal_sec integer DEFAULT 0 NOT NULL,
-    grantee_id bigint,
-    recall_calendar boolean DEFAULT false,
-    form_schema_id integer
-);
-
-
---
 -- Name: cc_call_active_list; Type: VIEW; Schema: call_center; Owner: -
 --
 
@@ -3322,112 +3587,6 @@ CREATE SEQUENCE call_center.cc_call_list_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_call_list_id_seq OWNED BY call_center.cc_list.id;
-
-
---
--- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_calls_history (
-    id character varying NOT NULL,
-    direction character varying,
-    destination character varying,
-    parent_id character varying,
-    app_id character varying NOT NULL,
-    from_type character varying,
-    from_name character varying,
-    from_number character varying,
-    from_id character varying,
-    to_type character varying,
-    to_name character varying,
-    to_number character varying,
-    to_id character varying,
-    payload jsonb,
-    domain_id bigint NOT NULL,
-    hold_sec integer DEFAULT 0,
-    cause character varying,
-    sip_code integer,
-    bridged_id character varying,
-    gateway_id bigint,
-    user_id integer,
-    queue_id integer,
-    team_id integer,
-    agent_id integer,
-    attempt_id bigint,
-    member_id bigint,
-    duration integer DEFAULT 0 NOT NULL,
-    description character varying,
-    tags character varying[],
-    answered_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    hangup_at timestamp with time zone,
-    created_at timestamp with time zone NOT NULL,
-    hangup_by character varying,
-    stored_at timestamp with time zone DEFAULT now() NOT NULL,
-    rating smallint,
-    notes text,
-    transfer_from character varying,
-    transfer_to character varying,
-    amd_result character varying,
-    amd_duration interval,
-    grantee_id bigint,
-    hold jsonb,
-    agent_ids integer[],
-    user_ids bigint[],
-    queue_ids integer[],
-    gateway_ids bigint[],
-    team_ids integer[],
-    params jsonb,
-    blind_transfer character varying
-);
-
-
---
--- Name: cc_member_attempt_history; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_member_attempt_history (
-    id bigint NOT NULL,
-    queue_id integer,
-    member_id bigint,
-    weight integer,
-    resource_id integer,
-    node_id character varying(20),
-    result character varying(25) NOT NULL,
-    agent_id integer,
-    bucket_id bigint,
-    display character varying(50),
-    description character varying,
-    list_communication_id bigint,
-    joined_at timestamp with time zone NOT NULL,
-    leaving_at timestamp with time zone,
-    agent_call_id character varying,
-    member_call_id character varying,
-    offering_at timestamp with time zone,
-    reporting_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    channel character varying,
-    domain_id bigint NOT NULL,
-    destination jsonb,
-    seq integer DEFAULT 0 NOT NULL,
-    team_id integer,
-    resource_group_id integer,
-    answered_at timestamp with time zone,
-    region_id integer,
-    supervisor_ids integer[],
-    transferred_at timestamp with time zone,
-    transferred_agent_id integer,
-    transferred_attempt_id bigint,
-    parent_id bigint,
-    form_fields jsonb
-);
-
-
---
--- Name: COLUMN cc_member_attempt_history.result; Type: COMMENT; Schema: call_center; Owner: -
---
-
-COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
 
 
 --
