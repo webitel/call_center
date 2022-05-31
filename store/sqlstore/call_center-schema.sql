@@ -3018,14 +3018,14 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
                     d."from" AS last_at,
                     aa.payload AS status_payload
                    FROM call_center.cc_agent_state_history aa
-                  WHERE ((aa.agent_id = a_1.id) AND (aa.channel IS NULL) AND ((aa.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])) AND (aa.joined_at < (d."from")::timestamp with time zone))
+                  WHERE ((aa.agent_id = a_1.id) AND (aa.channel IS NULL) AND ((aa.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (aa.joined_at < (d."from")::timestamp with time zone))
                   ORDER BY aa.joined_at DESC
                  LIMIT 1) lasts ON ((a_1.last_state_change > d."from")))
              LEFT JOIN LATERAL ( SELECT a2.state,
                     d."to" AS top_at,
                     a2.payload AS status_payload
                    FROM call_center.cc_agent_state_history a2
-                  WHERE ((a2.agent_id = a_1.id) AND (a2.channel IS NULL) AND ((a2.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])) AND (a2.joined_at > d."to"))
+                  WHERE ((a2.agent_id = a_1.id) AND (a2.channel IS NULL) AND ((a2.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (a2.joined_at > d."to"))
                   ORDER BY a2.joined_at
                  LIMIT 1) top ON (true))
         ), d AS MATERIALIZED (
@@ -3039,7 +3039,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
                     a_1.payload
                    FROM call_center.cc_agent_state_history a_1,
                     agents
-                  WHERE ((a_1.agent_id = agents.id) AND ((a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to")) AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY ((ARRAY['pause'::character varying, 'online'::character varying, 'offline'::character varying])::text[])))
+                  WHERE ((a_1.agent_id = agents.id) AND (a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to") AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])))
                 UNION
                  SELECT agents.id,
                     agents.cur_state_change,
@@ -3063,7 +3063,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
            FROM ((agents
              JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
              LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
-          WHERE ((h.domain_id = agents.domain_id) AND ((h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to")) AND ((h.channel)::text = 'call'::text))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
           GROUP BY h.agent_id
         ), chats AS (
          SELECT cma.agent_id,
@@ -3071,16 +3071,18 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
             (avg(EXTRACT(epoch FROM (COALESCE(cma.reporting_at, cma.leaving_at) - cma.bridged_at))) FILTER (WHERE (cma.bridged_at IS NOT NULL)))::bigint AS chat_aht
            FROM (agents
              JOIN call_center.cc_member_attempt_history cma ON ((cma.agent_id = agents.id)))
-          WHERE (((cma.joined_at >= (agents."from")::timestamp with time zone) AND (cma.joined_at <= agents."to")) AND (cma.domain_id = agents.domain_id) AND (cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))
+          WHERE ((cma.joined_at >= (agents."from")::timestamp with time zone) AND (cma.joined_at <= agents."to") AND (cma.domain_id = agents.domain_id) AND (cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))
           GROUP BY cma.agent_id
         ), calls AS (
          SELECT h.user_id,
             count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
             count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NOT NULL))) AS inbound_bridged,
             count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
             count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND ((h.cause)::text = ANY ((ARRAY['NO_ANSWER'::character varying, 'USER_BUSY'::character varying])::text[])))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
             count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
             count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
             sum((h.hangup_at - h.created_at)) FILTER (WHERE (((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS direct_out_dur,
@@ -3098,13 +3100,13 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
              LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
              LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
              LEFT JOIN call_center.cc_calls_history pc ON (((pc.id)::text = (h.parent_id)::text)))
-          WHERE ((h.domain_id = agents.domain_id) AND ((h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to")))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to"))
           GROUP BY h.user_id
         ), stats AS MATERIALIZED (
          SELECT s.agent_id,
-            min(s.joined_at) FILTER (WHERE ((s.state)::text = ANY ((ARRAY['online'::character varying, 'pause'::character varying])::text[]))) AS login,
+            min(s.joined_at) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS login,
             max(s.joined_at) FILTER (WHERE ((s.state)::text = 'offline'::text)) AS logout,
-            sum(s.dur) FILTER (WHERE ((s.state)::text = ANY ((ARRAY['online'::character varying, 'pause'::character varying])::text[]))) AS online,
+            sum(s.dur) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS online,
             sum(s.dur) FILTER (WHERE ((s.state)::text = 'pause'::text)) AS pause,
             sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Навчання'::text))) AS study,
             sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Нарада'::text))) AS conference,
@@ -3118,7 +3120,9 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
         )
  SELECT a.id AS agent_id,
     a.domain_id,
-    COALESCE(c.missed, (0)::bigint) AS call_abandoned,
+    COALESCE(c.missed, (0)::bigint) AS call_missed,
+    COALESCE(c.abandoned, (0)::bigint) AS call_abandoned,
+    COALESCE(c.inbound_bridged, (0)::bigint) AS call_inbound,
     COALESCE(c.handled, (0)::bigint) AS call_handled,
     COALESCE((EXTRACT(epoch FROM c.avg_talk))::bigint, (0)::bigint) AS avg_talk_sec,
     COALESCE((EXTRACT(epoch FROM c.avg_hold))::bigint, (0)::bigint) AS avg_hold_sec,
