@@ -68,7 +68,8 @@ type Attempt struct {
 	waitBetween uint64
 	perNumbers  bool
 
-	processingForm model.ProcessingForm
+	processingForm        model.ProcessingForm
+	processingFormStarted bool
 }
 
 type LogItem struct {
@@ -106,6 +107,19 @@ func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
 	}
 
 	return res, true
+}
+
+func (a *Attempt) MarkProcessingFormStarted() {
+	a.Lock()
+	a.processingFormStarted = true
+	a.Unlock()
+}
+
+func (a *Attempt) ProcessingFormStarted() bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.processingFormStarted
 }
 
 func (a *Attempt) SetMemberStopCause(cause *string) {

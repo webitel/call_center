@@ -279,7 +279,7 @@ func (queue *BaseQueue) Endless() bool {
 }
 
 func (queue *BaseQueue) StartProcessingForm(attempt *Attempt) {
-	if queue.formSchemaId != nil && queue.Processing() {
+	if queue.formSchemaId != nil && queue.Processing() && !attempt.ProcessingFormStarted() {
 		go queue.queueManager.StartProcessingForm(*queue.formSchemaId, attempt)
 	}
 }

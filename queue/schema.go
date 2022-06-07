@@ -29,6 +29,8 @@ func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 		return
 	}
 
+	att.MarkProcessingFormStarted()
+
 	pf, err := qm.app.FlowManager().Queue().NewProcessing(att.Context, att.domainId, schemaId, att.ExportSchemaVariables())
 	if err != nil {
 		//TODO ERROR FIXME

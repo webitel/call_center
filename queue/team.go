@@ -94,6 +94,10 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 
 //FIXME store
 func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject) {
+	if attempt.queue != nil {
+		attempt.queue.StartProcessingForm(attempt) //TODO
+	}
+
 	timestamp := model.GetMillis()
 	attempt.SetState(model.MemberStateActive)
 	e := NewAnsweredEvent(attempt, agent.UserId(), timestamp)
