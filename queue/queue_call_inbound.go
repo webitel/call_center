@@ -163,6 +163,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						//
 						time.Sleep(time.Millisecond * 250)
 						if err = agentCall.Bridge(mCall); err != nil {
+							if agentCall.HangupAt() == 0 {
+								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
+							}
 							printfIfErr(err)
 						} else if mCall.Direction() == model.CallDirectionOutbound && attempt.state != model.MemberStateBridged {
 							timeout.Stop()
