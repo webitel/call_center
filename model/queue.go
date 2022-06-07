@@ -113,6 +113,7 @@ type QueueDialingSettings struct {
 type QueueAmdSettings struct {
 	Enabled                 bool   `json:"enabled"`
 	AllowNotSure            bool   `json:"allow_not_sure"`
+	SilenceNotSure          bool   `json:"silence_not_sure"`
 	MaxWordLength           uint16 `json:"max_word_length"`
 	MaxNumberOfWords        uint16 `json:"max_number_of_words"`
 	BetweenWordsSilence     uint16 `json:"between_words_silence"`
@@ -272,7 +273,7 @@ func (amd *QueueAmdSettings) ToArgs() string {
 		}
 		tmp = append(tmp, fmt.Sprintf("initial_silence=%d", amd.InitialSilence))
 
-		if amd.AllowNotSure {
+		if amd.AllowNotSure && amd.SilenceNotSure {
 			tmp = append(tmp, "silence_notsure=1")
 		}
 
