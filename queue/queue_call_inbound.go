@@ -261,7 +261,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 		queue.queueManager.Abandoned(attempt)
 	}
 
-	if mCall.HangupAt() == 0 {
+	if mCall.HangupAt() == 0 && mCall.BridgeAt() == 0 {
 		err = mCall.StopPlayback()
 		if err != nil {
 			wlog.Error(err.Error())
