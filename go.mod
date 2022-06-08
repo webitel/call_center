@@ -11,9 +11,9 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20220601113522-4752c5c0b6c0
 	github.com/webitel/flow_manager v0.0.0-20220531140831-e418864a5a6a
-	github.com/webitel/protos/cc v0.0.0-20220601125222-9971c981e7be
-	github.com/webitel/protos/fs v0.0.0-20220601125222-9971c981e7be
-	github.com/webitel/protos/workflow v0.0.0-20220601125222-9971c981e7be
+	github.com/webitel/protos/cc v0.0.0-20220606114117-702ad5d192a0
+	github.com/webitel/protos/fs v0.0.0-20220606114117-702ad5d192a0
+	github.com/webitel/protos/workflow v0.0.0-20220606114117-702ad5d192a0
 	github.com/webitel/wlog v0.0.0-20190823170623-8cc283b29e3e
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/grpc v1.47.0
@@ -26,7 +26,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/consul/api v1.13.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-hclog v1.2.0 // indirect
+	github.com/hashicorp/go-hclog v1.2.1 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -38,14 +38,14 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/webitel/protos/engine v0.0.0-20220601125222-9971c981e7be // indirect
+	github.com/webitel/protos/engine v0.0.0-20220606114117-702ad5d192a0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220531201128-c960675eff93 // indirect
+	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220602131408-e326c6e8e9c8 // indirect
+	google.golang.org/genproto v0.0.0-20220607223854-30acc4cbd2aa // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
