@@ -3039,7 +3039,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
                     a_1.payload
                    FROM call_center.cc_agent_state_history a_1,
                     agents
-                  WHERE ((a_1.agent_id = agents.id) AND ((a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to")) AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])))
+                  WHERE ((a_1.agent_id = agents.id) AND (a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to") AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])))
                 UNION
                  SELECT agents.id,
                     agents.cur_state_change,
@@ -3063,7 +3063,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
            FROM ((agents
              JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
              LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
-          WHERE ((h.domain_id = agents.domain_id) AND ((h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to")) AND ((h.channel)::text = 'call'::text))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
           GROUP BY h.agent_id
         ), chats AS (
          SELECT cma.agent_id,
@@ -3077,10 +3077,12 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
          SELECT h.user_id,
             count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
             count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NOT NULL))) AS inbound_bridged,
             count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
             count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS missed,
+            count(*) FILTER (WHERE ((((h.direction)::text = 'inbound'::text) OR (cq.type = 3)) AND (h.bridged_at IS NULL))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
             count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
             count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
             sum((h.hangup_at - h.created_at)) FILTER (WHERE (((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS direct_out_dur,
@@ -3098,7 +3100,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
              LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
              LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
              LEFT JOIN call_center.cc_calls_history pc ON (((pc.id)::text = (h.parent_id)::text)))
-          WHERE ((h.domain_id = agents.domain_id) AND ((h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to")))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to"))
           GROUP BY h.user_id
         ), stats AS MATERIALIZED (
          SELECT s.agent_id,
@@ -3118,7 +3120,9 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
         )
  SELECT a.id AS agent_id,
     a.domain_id,
-    COALESCE(c.missed, (0)::bigint) AS call_abandoned,
+    COALESCE(c.missed, (0)::bigint) AS call_missed,
+    COALESCE(c.abandoned, (0)::bigint) AS call_abandoned,
+    COALESCE(c.inbound_bridged, (0)::bigint) AS call_inbound,
     COALESCE(c.handled, (0)::bigint) AS call_handled,
     COALESCE((EXTRACT(epoch FROM c.avg_talk))::bigint, (0)::bigint) AS avg_talk_sec,
     COALESCE((EXTRACT(epoch FROM c.avg_hold))::bigint, (0)::bigint) AS avg_hold_sec,
