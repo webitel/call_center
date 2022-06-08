@@ -9,8 +9,8 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
-	github.com/webitel/engine v0.0.0-20220601113522-4752c5c0b6c0
-	github.com/webitel/flow_manager v0.0.0-20220531140831-e418864a5a6a
+	github.com/webitel/engine v0.0.0-20220608094108-1cc2752f10b9
+	github.com/webitel/flow_manager v0.0.0-20220608094809-83dfa11d422e
 	github.com/webitel/protos/cc v0.0.0-20220606114117-702ad5d192a0
 	github.com/webitel/protos/fs v0.0.0-20220606114117-702ad5d192a0
 	github.com/webitel/protos/workflow v0.0.0-20220606114117-702ad5d192a0
