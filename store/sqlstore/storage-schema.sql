@@ -357,8 +357,8 @@ CREATE TABLE storage.cognitive_profile_services (
     properties jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_by bigint NOT NULL,
-    updated_by bigint NOT NULL,
+    created_by bigint,
+    updated_by bigint,
     enabled boolean DEFAULT true NOT NULL,
     name character varying(50) NOT NULL,
     description character varying DEFAULT ''::character varying,
@@ -374,7 +374,7 @@ CREATE TABLE storage.cognitive_profile_services (
 CREATE TABLE storage.cognitive_profile_services_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL,
     object bigint NOT NULL
@@ -421,6 +421,26 @@ CREATE VIEW storage.cognitive_profile_services_view AS
    FROM ((storage.cognitive_profile_services p
      LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = p.updated_by)));
+
+
+--
+-- Name: cognitive_profiles_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.cognitive_profiles_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cognitive_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.cognitive_profiles_id_seq OWNED BY storage.cognitive_profile_services.id;
 
 
 --
@@ -715,26 +735,6 @@ ALTER SEQUENCE storage.schedulers_id_seq OWNED BY storage.schedulers.id;
 
 
 --
--- Name: stt_profiles_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
---
-
-CREATE SEQUENCE storage.stt_profiles_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stt_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
---
-
-ALTER SEQUENCE storage.stt_profiles_id_seq OWNED BY storage.cognitive_profile_services.id;
-
-
---
 -- Name: upload_file_jobs; Type: TABLE; Schema: storage; Owner: -
 --
 
@@ -778,7 +778,7 @@ ALTER SEQUENCE storage.upload_file_jobs_id_seq OWNED BY storage.upload_file_jobs
 -- Name: cognitive_profile_services id; Type: DEFAULT; Schema: storage; Owner: -
 --
 
-ALTER TABLE ONLY storage.cognitive_profile_services ALTER COLUMN id SET DEFAULT nextval('storage.stt_profiles_id_seq'::regclass);
+ALTER TABLE ONLY storage.cognitive_profile_services ALTER COLUMN id SET DEFAULT nextval('storage.cognitive_profiles_id_seq'::regclass);
 
 
 --
@@ -969,6 +969,13 @@ CREATE UNIQUE INDEX cognitive_profile_services_acl_subject_object_udx ON storage
 
 
 --
+-- Name: cognitive_profile_services_domain_udx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX cognitive_profile_services_domain_udx ON storage.cognitive_profile_services USING btree (id, domain_id DESC);
+
+
+--
 -- Name: file_backend_profiles_acl_grantor_idx; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1102,6 +1109,13 @@ CREATE TRIGGER cognitive_profile_services_set_def_tg BEFORE INSERT OR UPDATE ON 
 
 
 --
+-- Name: cognitive_profile_services cognitive_profile_services_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER cognitive_profile_services_set_rbac_acl AFTER INSERT ON storage.cognitive_profile_services FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('cognitive_profile_services');
+
+
+--
 -- Name: file_backend_profiles file_backend_profiles_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
 --
 
@@ -1160,6 +1174,46 @@ ALTER TABLE ONLY storage.file_backend_profiles_acl
 
 ALTER TABLE ONLY storage.file_backend_profiles_acl
     ADD CONSTRAINT file_backend_profiles_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cognitive_profile_services_acl file_cognitive_profile_services_acl_domain_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT file_cognitive_profile_services_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cognitive_profile_services_acl file_cognitive_profile_services_acl_grantor_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT file_cognitive_profile_services_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: cognitive_profile_services_acl file_cognitive_profile_services_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT file_cognitive_profile_services_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cognitive_profile_services_acl file_cognitive_profile_services_acl_object_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT file_cognitive_profile_services_acl_object_fk FOREIGN KEY (object, dc) REFERENCES storage.cognitive_profile_services(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: cognitive_profile_services_acl file_cognitive_profile_services_acl_subject_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT file_cognitive_profile_services_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
 
 
 --
