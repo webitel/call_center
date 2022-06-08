@@ -272,9 +272,9 @@ CREATE TABLE flow.calendar (
     description character varying(200),
     timezone_id integer NOT NULL,
     created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
+    created_by bigint,
     updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
+    updated_by bigint,
     excepts flow.calendar_except_date[],
     accepts flow.calendar_accept_time[]
 );
@@ -379,9 +379,9 @@ CREATE TABLE flow.acr_routing_outbound_call (
     name character varying(100) NOT NULL,
     description character varying(200) DEFAULT ''::character varying NOT NULL,
     created_at bigint NOT NULL,
-    created_by bigint NOT NULL,
+    created_by bigint,
     updated_at bigint NOT NULL,
-    updated_by bigint NOT NULL,
+    updated_by bigint,
     pattern character varying NOT NULL,
     priority integer DEFAULT 0 NOT NULL,
     disabled boolean DEFAULT false,
@@ -531,7 +531,7 @@ ALTER SEQUENCE flow.acr_routing_variables_id_seq OWNED BY flow.acr_routing_varia
 CREATE TABLE flow.calendar_acl (
     dc bigint NOT NULL,
     object bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL,
     id bigint NOT NULL
@@ -1053,7 +1053,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -1061,7 +1061,7 @@ ALTER TABLE ONLY flow.acr_routing_outbound_call
 --
 
 ALTER TABLE ONLY flow.acr_routing_outbound_call
-    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT acr_routing_outbound_call_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -1109,7 +1109,7 @@ ALTER TABLE ONLY flow.calendar_acl
 --
 
 ALTER TABLE ONLY flow.calendar_acl
-    ADD CONSTRAINT calendar_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT calendar_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -1157,7 +1157,7 @@ ALTER TABLE ONLY flow.calendar
 --
 
 ALTER TABLE ONLY flow.calendar
-    ADD CONSTRAINT calendar_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT calendar_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -1165,7 +1165,7 @@ ALTER TABLE ONLY flow.calendar
 --
 
 ALTER TABLE ONLY flow.calendar
-    ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id);
+    ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --

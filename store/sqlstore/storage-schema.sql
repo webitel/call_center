@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.10 (Debian 12.10-1.pgdg100+1)
--- Dumped by pg_dump version 12.10 (Debian 12.10-1.pgdg100+1)
+-- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -21,6 +21,24 @@ SET row_security = off;
 --
 
 CREATE SCHEMA storage;
+
+
+--
+-- Name: cognitive_profile_services_set_def(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.cognitive_profile_services_set_def() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+    if new.default is distinct from old."default" or new.service is distinct from old."service"  then
+        update storage.cognitive_profile_services c
+            set  "default" = false
+        where c.domain_id = new.domain_id and c.id != new.id and c.service = new.service;
+    end if;
+    return new;
+end;
+$$;
 
 
 --
@@ -270,8 +288,41 @@ CREATE TABLE storage.media_files (
     created_at bigint,
     updated_at bigint,
     domain_id bigint NOT NULL,
-    created_by bigint NOT NULL,
-    updated_by bigint NOT NULL
+    created_by bigint,
+    updated_by bigint
+);
+
+
+--
+-- Name: file_jobs; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.file_jobs (
+    id bigint NOT NULL,
+    file_id bigint NOT NULL,
+    state smallint DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    action character varying(15) NOT NULL,
+    log jsonb,
+    config jsonb
+);
+
+
+--
+-- Name: file_transcript; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.file_transcript (
+    id bigint NOT NULL,
+    file_id bigint NOT NULL,
+    transcript text NOT NULL,
+    log jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    profile_id integer NOT NULL,
+    locale character varying DEFAULT 'none'::character varying NOT NULL,
+    phrases jsonb,
+    channels jsonb
 );
 
 
@@ -293,6 +344,83 @@ CREATE TABLE storage.files (
     not_exists boolean,
     domain_id bigint NOT NULL
 );
+
+
+--
+-- Name: cognitive_profile_services; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.cognitive_profile_services (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    provider character varying(15) NOT NULL,
+    properties jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint NOT NULL,
+    updated_by bigint NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    name character varying(50) NOT NULL,
+    description character varying DEFAULT ''::character varying,
+    service character varying(10) NOT NULL,
+    "default" boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: cognitive_profile_services_acl; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.cognitive_profile_services_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint NOT NULL,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL,
+    object bigint NOT NULL
+);
+
+
+--
+-- Name: cognitive_profile_services_acl_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.cognitive_profile_services_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cognitive_profile_services_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.cognitive_profile_services_acl_id_seq OWNED BY storage.cognitive_profile_services_acl.id;
+
+
+--
+-- Name: cognitive_profile_services_view; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.cognitive_profile_services_view AS
+ SELECT p.id,
+    p.domain_id,
+    p.provider,
+    p.properties,
+    p.created_at,
+    storage.get_lookup(c.id, (COALESCE(c.name, (c.username)::text))::character varying) AS created_by,
+    p.updated_at,
+    storage.get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS updated_by,
+    p.enabled,
+    p.name,
+    p.description,
+    p.service,
+    p."default"
+   FROM ((storage.cognitive_profile_services p
+     LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = p.updated_by)));
 
 
 --
@@ -326,7 +454,7 @@ CREATE TABLE storage.file_backend_profiles (
 CREATE TABLE storage.file_backend_profiles_acl (
     id bigint NOT NULL,
     dc bigint NOT NULL,
-    grantor bigint NOT NULL,
+    grantor bigint,
     subject bigint NOT NULL,
     access smallint DEFAULT 0 NOT NULL,
     object bigint NOT NULL
@@ -414,6 +542,44 @@ CREATE VIEW storage.file_backend_profiles_view AS
           WHERE (s_1.profile_id = p.id)) s ON (true))
      LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = p.updated_by)));
+
+
+--
+-- Name: file_jobs_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.file_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: file_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.file_jobs_id_seq OWNED BY storage.file_jobs.id;
+
+
+--
+-- Name: file_transcript_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.file_transcript_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: file_transcript_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.file_transcript_id_seq OWNED BY storage.file_transcript.id;
 
 
 --
@@ -514,38 +680,6 @@ CREATE VIEW storage.media_files_view AS
 
 
 --
--- Name: remove_file_jobs; Type: TABLE; Schema: storage; Owner: -
---
-
-CREATE TABLE storage.remove_file_jobs (
-    id bigint NOT NULL,
-    file_id bigint NOT NULL,
-    state smallint DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: remove_file_jobs_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
---
-
-CREATE SEQUENCE storage.remove_file_jobs_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: remove_file_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
---
-
-ALTER SEQUENCE storage.remove_file_jobs_id_seq OWNED BY storage.remove_file_jobs.id;
-
-
---
 -- Name: schedulers; Type: TABLE; Schema: storage; Owner: -
 --
 
@@ -578,6 +712,26 @@ CREATE SEQUENCE storage.schedulers_id_seq
 --
 
 ALTER SEQUENCE storage.schedulers_id_seq OWNED BY storage.schedulers.id;
+
+
+--
+-- Name: stt_profiles_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.stt_profiles_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: stt_profiles_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.stt_profiles_id_seq OWNED BY storage.cognitive_profile_services.id;
 
 
 --
@@ -621,6 +775,20 @@ ALTER SEQUENCE storage.upload_file_jobs_id_seq OWNED BY storage.upload_file_jobs
 
 
 --
+-- Name: cognitive_profile_services id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services ALTER COLUMN id SET DEFAULT nextval('storage.stt_profiles_id_seq'::regclass);
+
+
+--
+-- Name: cognitive_profile_services_acl id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl ALTER COLUMN id SET DEFAULT nextval('storage.cognitive_profile_services_acl_id_seq'::regclass);
+
+
+--
 -- Name: file_backend_profiles id; Type: DEFAULT; Schema: storage; Owner: -
 --
 
@@ -632,6 +800,20 @@ ALTER TABLE ONLY storage.file_backend_profiles ALTER COLUMN id SET DEFAULT nextv
 --
 
 ALTER TABLE ONLY storage.file_backend_profiles_acl ALTER COLUMN id SET DEFAULT nextval('storage.file_backend_profiles_acl_id_seq'::regclass);
+
+
+--
+-- Name: file_jobs id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_jobs ALTER COLUMN id SET DEFAULT nextval('storage.file_jobs_id_seq'::regclass);
+
+
+--
+-- Name: file_transcript id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_transcript ALTER COLUMN id SET DEFAULT nextval('storage.file_transcript_id_seq'::regclass);
 
 
 --
@@ -649,13 +831,6 @@ ALTER TABLE ONLY storage.media_files ALTER COLUMN id SET DEFAULT nextval('storag
 
 
 --
--- Name: remove_file_jobs id; Type: DEFAULT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.remove_file_jobs ALTER COLUMN id SET DEFAULT nextval('storage.remove_file_jobs_id_seq'::regclass);
-
-
---
 -- Name: schedulers id; Type: DEFAULT; Schema: storage; Owner: -
 --
 
@@ -667,6 +842,14 @@ ALTER TABLE ONLY storage.schedulers ALTER COLUMN id SET DEFAULT nextval('storage
 --
 
 ALTER TABLE ONLY storage.upload_file_jobs ALTER COLUMN id SET DEFAULT nextval('storage.upload_file_jobs_id_seq'::regclass);
+
+
+--
+-- Name: cognitive_profile_services_acl cognitive_profile_services_acl_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services_acl
+    ADD CONSTRAINT cognitive_profile_services_acl_pk PRIMARY KEY (id);
 
 
 --
@@ -683,6 +866,22 @@ ALTER TABLE ONLY storage.file_backend_profiles_acl
 
 ALTER TABLE ONLY storage.file_backend_profiles
     ADD CONSTRAINT file_backend_profiles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: file_jobs file_jobs_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_jobs
+    ADD CONSTRAINT file_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: file_transcript file_transcript_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_transcript
+    ADD CONSTRAINT file_transcript_pk PRIMARY KEY (id);
 
 
 --
@@ -718,14 +917,6 @@ ALTER TABLE ONLY storage.media_files
 
 
 --
--- Name: remove_file_jobs remove_file_jobs_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
---
-
-ALTER TABLE ONLY storage.remove_file_jobs
-    ADD CONSTRAINT remove_file_jobs_pkey PRIMARY KEY (id);
-
-
---
 -- Name: schedulers schedulers_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
 --
 
@@ -734,11 +925,47 @@ ALTER TABLE ONLY storage.schedulers
 
 
 --
+-- Name: cognitive_profile_services stt_profiles_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.cognitive_profile_services
+    ADD CONSTRAINT stt_profiles_pk PRIMARY KEY (id);
+
+
+--
 -- Name: upload_file_jobs upload_file_jobs_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
 --
 
 ALTER TABLE ONLY storage.upload_file_jobs
     ADD CONSTRAINT upload_file_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cognitive_profile_services_acl_grantor_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX cognitive_profile_services_acl_grantor_idx ON storage.cognitive_profile_services_acl USING btree (grantor);
+
+
+--
+-- Name: cognitive_profile_services_acl_id_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX cognitive_profile_services_acl_id_uindex ON storage.cognitive_profile_services_acl USING btree (id);
+
+
+--
+-- Name: cognitive_profile_services_acl_object_subject_udx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX cognitive_profile_services_acl_object_subject_udx ON storage.cognitive_profile_services_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: cognitive_profile_services_acl_subject_object_udx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX cognitive_profile_services_acl_subject_object_udx ON storage.cognitive_profile_services_acl USING btree (subject, object) INCLUDE (access);
 
 
 --
@@ -774,6 +1001,41 @@ CREATE UNIQUE INDEX file_backend_profiles_acl_subject_object_udx ON storage.file
 --
 
 CREATE UNIQUE INDEX file_backend_profiles_domain_udx ON storage.file_backend_profiles USING btree (id, domain_id);
+
+
+--
+-- Name: file_jobs_file_id_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX file_jobs_file_id_uindex ON storage.file_jobs USING btree (file_id);
+
+
+--
+-- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
+
+
+--
+-- Name: file_transcript_fts_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_transcript_fts_idx ON storage.file_transcript USING gin (setweight(to_tsvector('english'::regconfig, transcript), 'A'::"char"));
+
+
+--
+-- Name: file_transcript_fts_ru_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_transcript_fts_ru_idx ON storage.file_transcript USING gin (setweight(to_tsvector('russian'::regconfig, transcript), 'A'::"char"));
+
+
+--
+-- Name: file_transcript_profile_id_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_transcript_profile_id_index ON storage.file_transcript USING btree (profile_id);
 
 
 --
@@ -833,10 +1095,10 @@ CREATE UNIQUE INDEX media_files_domain_id_name_uindex ON storage.media_files USI
 
 
 --
--- Name: remove_file_jobs_file_id_uindex; Type: INDEX; Schema: storage; Owner: -
+-- Name: cognitive_profile_services cognitive_profile_services_set_def_tg; Type: TRIGGER; Schema: storage; Owner: -
 --
 
-CREATE UNIQUE INDEX remove_file_jobs_file_id_uindex ON storage.remove_file_jobs USING btree (file_id);
+CREATE TRIGGER cognitive_profile_services_set_def_tg BEFORE INSERT OR UPDATE ON storage.cognitive_profile_services FOR EACH ROW WHEN (new."default") EXECUTE FUNCTION storage.cognitive_profile_services_set_def();
 
 
 --
@@ -873,7 +1135,7 @@ ALTER TABLE ONLY storage.file_backend_profiles_acl
 --
 
 ALTER TABLE ONLY storage.file_backend_profiles_acl
-    ADD CONSTRAINT file_backend_profiles_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc);
+    ADD CONSTRAINT file_backend_profiles_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -898,6 +1160,38 @@ ALTER TABLE ONLY storage.file_backend_profiles_acl
 
 ALTER TABLE ONLY storage.file_backend_profiles_acl
     ADD CONSTRAINT file_backend_profiles_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: file_transcript file_transcript_cognitive_profile_services_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_transcript
+    ADD CONSTRAINT file_transcript_cognitive_profile_services_id_fk FOREIGN KEY (profile_id) REFERENCES storage.cognitive_profile_services(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: file_transcript file_transcript_files_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_transcript
+    ADD CONSTRAINT file_transcript_files_id_fk FOREIGN KEY (file_id) REFERENCES storage.files(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: media_files media_files_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.media_files
+    ADD CONSTRAINT media_files_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: media_files media_files_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.media_files
+    ADD CONSTRAINT media_files_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
