@@ -1,3 +1,79 @@
+--new tables
+
+
+create table storage.cognitive_profile_services
+(
+    id          serial
+        constraint stt_profiles_pk
+            primary key,
+    domain_id   bigint                                                                            not null,
+    provider    varchar(15)                                                                       not null,
+    properties  jsonb                                                                             not null,
+    created_at  timestamp with time zone default now()                                            not null,
+    updated_at  timestamp with time zone default now()                                            not null,
+    created_by  bigint,
+    updated_by  bigint,
+    enabled     boolean                  default true                                             not null,
+    name        varchar(50)                                                                       not null,
+    description varchar                  default ''::character varying,
+    service     varchar(10)                                                                       not null,
+    "default"   boolean                  default false                                            not null
+);
+
+
+
+create table storage.cognitive_profile_services_acl
+(
+    id      bigserial
+        constraint cognitive_profile_services_acl_pk
+            primary key,
+    dc      bigint             not null
+        constraint file_cognitive_profile_services_acl_domain_fk
+            references directory.wbt_domain
+            on delete cascade,
+    grantor bigint
+        constraint file_cognitive_profile_services_acl_grantor_id_fk
+            references directory.wbt_auth
+            on delete set null,
+    subject bigint             not null,
+    access  smallint default 0 not null,
+    object  bigint             not null,
+    constraint file_cognitive_profile_services_acl_subject_fk
+        foreign key (subject, dc) references directory.wbt_auth (id, dc)
+            on delete cascade,
+    constraint file_cognitive_profile_services_acl_grantor_fk
+        foreign key (grantor, dc) references directory.wbt_auth (id, dc)
+            deferrable initially deferred,
+    constraint file_cognitive_profile_services_acl_object_fk
+        foreign key (object, dc) references storage.cognitive_profile_services (id, domain_id)
+            on delete cascade
+            deferrable initially deferred
+);
+
+
+
+create table storage.file_transcript
+(
+    id         bigserial
+        constraint file_transcript_pk
+            primary key,
+    file_id    bigint                                                     not null
+        constraint file_transcript_files_id_fk
+            references storage.files
+            on update cascade on delete cascade,
+    transcript text                                                       not null,
+    log        jsonb,
+    created_at timestamp with time zone default now()                     not null,
+    profile_id integer                                                    not null
+        constraint file_transcript_cognitive_profile_services_id_fk
+            references storage.cognitive_profile_services
+            on update set null on delete set null,
+    locale     varchar                  default 'none'::character varying not null,
+    phrases    jsonb,
+    channels   jsonb
+);
+
+
 --4b127db7
 drop view storage.media_files_view;
 
@@ -373,7 +449,7 @@ SELECT q.id,
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND (a.leaving_at IS NULL) AND ((a.state)::text <> 'leaving'::text))) act ON (true));
 
-drop INDEX if exists cc_agent_state_history_dev_g;
+drop INDEX if exists call_center.cc_agent_state_history_dev_g;
 CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id) INCLUDE (state) WHERE ((channel IS NULL) AND ((state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])));
 
 
@@ -1218,25 +1294,6 @@ $$;
 
 
 
-create table storage.cognitive_profile_services
-(
-    id          integer                  default nextval('storage.stt_profiles_id_seq'::regclass) not null
-        constraint stt_profiles_pk
-            primary key,
-    domain_id   bigint                                                                            not null,
-    provider    varchar(15)                                                                       not null,
-    properties  jsonb                                                                             not null,
-    created_at  timestamp with time zone default now()                                            not null,
-    updated_at  timestamp with time zone default now()                                            not null,
-    created_by  bigint,
-    updated_by  bigint,
-    enabled     boolean                  default true                                             not null,
-    name        varchar(50)                                                                       not null,
-    description varchar                  default ''::character varying,
-    service     varchar(10)                                                                       not null,
-    "default"   boolean                  default false                                            not null
-);
-
 alter table storage.cognitive_profile_services
     owner to opensips;
 
@@ -1258,34 +1315,6 @@ create trigger cognitive_profile_services_set_rbac_acl
 
 
 
-create table storage.cognitive_profile_services_acl
-(
-    id      bigserial
-        constraint cognitive_profile_services_acl_pk
-            primary key,
-    dc      bigint             not null
-        constraint file_cognitive_profile_services_acl_domain_fk
-            references directory.wbt_domain
-            on delete cascade,
-    grantor bigint
-        constraint file_cognitive_profile_services_acl_grantor_id_fk
-            references directory.wbt_auth
-            on delete set null,
-    subject bigint             not null,
-    access  smallint default 0 not null,
-    object  bigint             not null,
-    constraint file_cognitive_profile_services_acl_subject_fk
-        foreign key (subject, dc) references directory.wbt_auth (id, dc)
-            on delete cascade,
-    constraint file_cognitive_profile_services_acl_grantor_fk
-        foreign key (grantor, dc) references directory.wbt_auth (id, dc)
-            deferrable initially deferred,
-    constraint file_cognitive_profile_services_acl_object_fk
-        foreign key (object, dc) references storage.cognitive_profile_services (id, domain_id)
-            on delete cascade
-            deferrable initially deferred
-);
-
 create index cognitive_profile_services_acl_grantor_idx
     on storage.cognitive_profile_services_acl (grantor);
 
@@ -1298,29 +1327,6 @@ create unique index cognitive_profile_services_acl_object_subject_udx
 create unique index cognitive_profile_services_acl_subject_object_udx
     on storage.cognitive_profile_services_acl (subject, object) include (access);
 
-
-
-
-create table storage.file_transcript
-(
-    id         bigserial
-        constraint file_transcript_pk
-            primary key,
-    file_id    bigint                                                     not null
-        constraint file_transcript_files_id_fk
-            references storage.files
-            on update cascade on delete cascade,
-    transcript text                                                       not null,
-    log        jsonb,
-    created_at timestamp with time zone default now()                     not null,
-    profile_id integer                                                    not null
-        constraint file_transcript_cognitive_profile_services_id_fk
-            references storage.cognitive_profile_services
-            on update set null on delete set null,
-    locale     varchar                  default 'none'::character varying not null,
-    phrases    jsonb,
-    channels   jsonb
-);
 
 create index file_transcript_profile_id_index
     on storage.file_transcript (profile_id);
