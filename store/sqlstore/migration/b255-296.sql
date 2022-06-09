@@ -1,5 +1,20 @@
 --new tables
 
+create table storage.file_jobs
+(
+    id         bigserial
+        primary key,
+    file_id    bigint                                 not null,
+    state      smallint                 default 0     not null,
+    created_at timestamp with time zone default now() not null,
+    updated_at timestamp with time zone default now() not null,
+    action     varchar(15)                            not null,
+    log        jsonb,
+    config     jsonb
+);
+
+create unique index file_jobs_file_id_uindex
+    on storage.file_jobs (file_id);
 
 create table storage.cognitive_profile_services
 (

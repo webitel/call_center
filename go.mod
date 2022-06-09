@@ -9,7 +9,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
-	github.com/webitel/engine v0.0.0-20220608094108-1cc2752f10b9
+	github.com/webitel/engine v0.0.0-20220609085754-93acdbaf7448
 	github.com/webitel/flow_manager v0.0.0-20220608102413-de3559f683bf
 	github.com/webitel/protos/cc v0.0.0-20220606114117-702ad5d192a0
 	github.com/webitel/protos/fs v0.0.0-20220606114117-702ad5d192a0
@@ -43,9 +43,9 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220607223854-30acc4cbd2aa // indirect
+	google.golang.org/genproto v0.0.0-20220608133413-ed9918b62aac // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
