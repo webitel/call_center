@@ -20,6 +20,11 @@ create table storage.cognitive_profile_services
     "default"   boolean                  default false                                            not null
 );
 
+alter table storage.cognitive_profile_services
+    owner to opensips;
+
+create unique index cognitive_profile_services_domain_udx
+    on storage.cognitive_profile_services (id asc, domain_id desc);
 
 
 create table storage.cognitive_profile_services_acl
@@ -1294,11 +1299,7 @@ $$;
 
 
 
-alter table storage.cognitive_profile_services
-    owner to opensips;
 
-create unique index cognitive_profile_services_domain_udx
-    on storage.cognitive_profile_services (id asc, domain_id desc);
 
 create trigger cognitive_profile_services_set_def_tg
     before insert or update
