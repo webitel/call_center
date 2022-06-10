@@ -1413,3 +1413,47 @@ FROM ((call_center.cc_member_attempt_history t
     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
 GROUP BY q.id, ct.id;
 
+
+alter table call_center.cc_outbound_resource_acl alter column grantor drop not null ;
+alter table call_center.cc_outbound_resource_group_acl alter column grantor drop not null ;
+alter table call_center.cc_queue_acl alter column grantor drop not null ;
+alter table call_center.cc_team_acl alter column grantor drop not null ;
+alter table call_center.cc_calls_annotation alter column created_by drop not null ;
+alter table call_center.cc_calls_annotation alter column updated_by drop not null ;
+
+ALTER TABLE ONLY call_center.cc_calls
+drop CONSTRAINT if exists cc_calls_cc_member_id_fk;
+
+ALTER TABLE ONLY call_center.cc_calls_history
+drop CONSTRAINT if exists cc_calls_history_cc_member_id_fk;
+
+
+ALTER TABLE ONLY call_center.cc_member_attempt_history
+drop CONSTRAINT if exists cc_member_attempt_history_cc_member_id_fk;
+
+
+ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
+drop CONSTRAINT if exists cc_outbound_resource_in_group_sip_gateway_id_fk;
+
+
+ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
+    ADD CONSTRAINT  cc_outbound_resource_in_group_cc_outbound_resource_id_fk_2 FOREIGN KEY (reserve_resource_id) REFERENCES call_center.cc_outbound_resource (id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY call_center.cc_team
+drop  CONSTRAINT if exists cc_team_wbt_user_id_fk ;
+
+ALTER TABLE ONLY call_center.cc_team
+drop  CONSTRAINT if exists cc_team_wbt_user_id_fk_2 ;
+
+ALTER TABLE ONLY call_center.cc_team
+    ADD CONSTRAINT cc_team_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user (id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: cc_team cc_team_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team
+    ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user (id) ON UPDATE SET NULL ON DELETE SET NULL;
