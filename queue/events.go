@@ -124,8 +124,10 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 	}
 
 	//todo: send all channel variables ?
-	if a.channel == model.QueueChannelTask || queue.TypeName() == "progressive" {
+	if queue.TypeName() == "progressive" {
 		e.Distribute.Variables = a.ExportSchemaVariables()
+	} else if a.channel == model.QueueChannelTask {
+		e.Distribute.Variables = a.ExportVariables()
 	}
 
 	if agent != nil {
