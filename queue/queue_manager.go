@@ -483,7 +483,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		return nil, err
 	}
 
-	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+	attempt, _ := queueManager.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
 		Id:                  res.AttemptId,
 		QueueId:             res.QueueId,
 		QueueUpdatedAt:      res.QueueUpdatedAt,
