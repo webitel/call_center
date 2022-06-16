@@ -126,7 +126,8 @@ stop:
 }
 
 func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
-	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(out.Context(), in)
+	ctx := context.Background()
+	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(ctx, in)
 	if err != nil {
 		return err
 	}
@@ -138,6 +139,10 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 
 	for {
 		select {
+		case <-out.Context().Done():
+			attempt.SetCancel()
+			goto stop
+			//attempt.memberChannel.Id()
 		case <-leaving:
 			out.Send(&cc.QueueEvent{
 				Data: &cc.QueueEvent_Leaving{

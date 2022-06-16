@@ -114,6 +114,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 
 	for loop {
 		select {
+		case <-attempt.Cancel():
+			conv.SetStop()
+			loop = false
+			break
 		case <-attempt.Context.Done():
 			conv.SetStop()
 
