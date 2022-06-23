@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
@@ -20,10 +21,14 @@ const (
 
 type TaskAgentQueue struct {
 	BaseQueue
+	TaskAgentQueueSettings
 }
 
 type TaskAgentQueueSettings struct {
-	MaxTimeSec uint32 `json:"max_time_sec"`
+	MaxAttempts            uint   `json:"max_attempts"`
+	PerNumbers             bool   `json:"per_numbers"`
+	WaitBetweenRetries     uint64 `json:"wait_between_retries"`
+	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 }
 
 //todo max working task ?
@@ -109,9 +114,16 @@ func (t *TaskChannel) IsDeclined() bool {
 	return t.bridgedAt == 0
 }
 
-func NewTaskAgentQueue(base BaseQueue) QueueObject {
+func TaskAgentSettingsFromBytes(data []byte) TaskAgentQueueSettings {
+	var settings TaskAgentQueueSettings
+	json.Unmarshal(data, &settings)
+	return settings
+}
+
+func NewTaskAgentQueue(base BaseQueue, settings TaskAgentQueueSettings) QueueObject {
 	return &TaskAgentQueue{
-		BaseQueue: base,
+		BaseQueue:              base,
+		TaskAgentQueueSettings: settings,
 	}
 }
 
@@ -127,6 +139,10 @@ func (queue *TaskAgentQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 
 	task := NewTaskChannel(strconv.Itoa(int(attempt.Id())))
 	attempt.channelData = task
+
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
+	attempt.perNumbers = queue.PerNumbers
 
 	go queue.run(team, attempt, attempt.Agent(), task)
 	return nil

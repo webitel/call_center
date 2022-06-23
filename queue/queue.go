@@ -150,7 +150,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewInboundChatQueue(base, InboundChatQueueFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeAgentTask:
-		return NewTaskAgentQueue(base), nil
+		return NewTaskAgentQueue(base, TaskAgentSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeOutboundTask:
 		return NewTaskOutboundQueue(base, TaskOutboundQueueSettingsFromBytes(settings.Payload)), nil
