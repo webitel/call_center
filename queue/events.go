@@ -26,6 +26,7 @@ type Distribute struct {
 	QueueId         int                       `json:"queue_id"`
 	QueueName       string                    `json:"queue_name"`
 	MemberId        *int64                    `json:"member_id"`
+	MemberName      *string                   `json:"member_name"`
 	AgentId         *int                      `json:"agent_id"`
 	MemberChannelId *string                   `json:"member_channel_id"`
 	AgentChannelId  *string                   `json:"agent_channel_id"`
@@ -38,6 +39,7 @@ type Distribute struct {
 type Offering struct {
 	MemberChannelId *string `json:"member_channel_id"`
 	AgentChannelId  *string `json:"agent_channel_id"`
+	AutoAnswer      bool    `json:"auto_answer"`
 }
 
 type Missed struct {
@@ -118,6 +120,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			QueueId:       queue.Id(),
 			QueueName:     queue.Name(),
 			MemberId:      a.MemberId(),
+			MemberName:    a.MemberName(),
 			HasReporting:  r,
 			HasForm:       queue.HasForm(),
 		},
@@ -205,6 +208,10 @@ func NewOfferingEvent(a *Attempt, userId int64, timestamp int64, aChannel, mChan
 
 	if aChannel != nil {
 		e.Offering.AgentChannelId = model.NewString(aChannel.Id())
+	}
+
+	if a.queue != nil {
+		e.Offering.AutoAnswer = a.queue.AutoAnswer()
 	}
 
 	return model.NewEvent("channel", userId, e)

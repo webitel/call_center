@@ -46,6 +46,10 @@ const (
 	QUEUE_ATTEMPT_SEQ       = "cc_attempt_seq"
 )
 
+const (
+	QueueAutoAnswerVariable = "wbt_auto_answer"
+)
+
 type RingtoneFile struct {
 	Id   int    `json:"id"`
 	Type string `json:"type"`

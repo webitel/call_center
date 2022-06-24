@@ -39,6 +39,7 @@ type QueueObject interface {
 	AfterSchemaId() *int32
 	HasForm() bool
 	StartProcessingForm(attempt *Attempt)
+	AutoAnswer() bool
 }
 
 type BaseQueue struct {
@@ -244,6 +245,18 @@ func (queue *BaseQueue) TypeName() string {
 
 func (queue *BaseQueue) Variables() map[string]string {
 	return queue.variables
+}
+
+// TODO create queue parameter auto_answer
+
+func (q *BaseQueue) AutoAnswer() bool {
+	if q.variables != nil {
+		if v, ok := q.variables[model.QueueAutoAnswerVariable]; ok && v == "true" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (q *BaseQueue) Domain() string {

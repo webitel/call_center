@@ -363,6 +363,13 @@ func (a *Attempt) MemberId() *int64 {
 	return nil
 }
 
+func (a *Attempt) MemberName() *string {
+	if a.member == nil {
+		return nil
+	}
+	return &a.member.Name
+}
+
 func (a *Attempt) MemberCallId() *string {
 	return a.member.MemberCallId
 }
