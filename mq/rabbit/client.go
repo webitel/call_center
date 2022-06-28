@@ -198,7 +198,7 @@ func (a *AMQP) connect() error {
 		true,
 		true,
 		false,
-		true,
+		false,
 		nil,
 	)
 
@@ -221,7 +221,7 @@ func (a *AMQP) initExchange() {
 		true,
 		false,
 		false,
-		true,
+		false,
 		nil,
 	)
 	if err != nil {
