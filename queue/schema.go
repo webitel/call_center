@@ -67,9 +67,12 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 			attempt.processingForm = nil // todo lock
 		} else {
 			// todo
-			if err := qm.store.Member().StoreForm(attempt.Id(), attempt.processingForm.Form(), attempt.processingForm.Fields()); err != nil {
-				//TODO ERROR FIXME
-				attempt.Log(fmt.Sprintf("set form error: %s", err.Error()))
+			if attempt.processingForm == nil {
+				attempt.Log("processingForm is null!!1 LOCK")
+				return nil
+			}
+			if appErr := qm.store.Member().StoreForm(attempt.Id(), attempt.processingForm.Form(), attempt.processingForm.Fields()); appErr != nil {
+				attempt.Log(fmt.Sprintf("set form error: %s", appErr.Error()))
 				return nil
 			}
 		}
@@ -77,7 +80,7 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 		e := NewNextFormEvent(attempt, attempt.agent.UserId())
 		appErr := qm.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), attempt.agent.UserId(), e)
 		if appErr != nil {
-			wlog.Error(err.Error())
+			wlog.Error(appErr.Error())
 			return appErr
 		}
 	}
