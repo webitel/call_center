@@ -149,7 +149,7 @@ func (cc *ccManager) wakeUp() {
 			cc.registerConnection(v)
 		}
 	}
-	cc.poolConnections.RecheckConnections()
+	cc.poolConnections.RecheckConnections(list.Ids())
 }
 
 func (cc *ccManager) getRandomClient() (*ccConnection, error) {

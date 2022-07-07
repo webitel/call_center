@@ -9,11 +9,11 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
-	github.com/webitel/engine v0.0.0-20220610094604-d7d07ea33550
-	github.com/webitel/flow_manager v0.0.0-20220610094128-15f4199fc004
-	github.com/webitel/protos/cc v0.0.0-20220606114117-702ad5d192a0
+	github.com/webitel/engine v0.0.0-20220707121332-60cf8fe6b2a2
+	github.com/webitel/flow_manager v0.0.0-20220707121655-b9f5b29a74c2
+	github.com/webitel/protos/cc v0.0.0-20220706123912-32958e54422d
 	github.com/webitel/protos/fs v0.0.0-20220606114117-702ad5d192a0
-	github.com/webitel/protos/workflow v0.0.0-20220606114117-702ad5d192a0
+	github.com/webitel/protos/workflow v0.0.0-20220706123912-32958e54422d
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/grpc v1.47.0
@@ -38,14 +38,14 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/webitel/protos/engine v0.0.0-20220606114117-702ad5d192a0 // indirect
+	github.com/webitel/protos/engine v0.0.0-20220706123912-32958e54422d // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
-	golang.org/x/sys v0.0.0-20220608164250-635b8c9b7f68 // indirect
+	golang.org/x/net v0.0.0-20220706163947-c90051bbdb60 // indirect
+	golang.org/x/sys v0.0.0-20220704084225-05e143d24a9e // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/genproto v0.0.0-20220608133413-ed9918b62aac // indirect
+	google.golang.org/genproto v0.0.0-20220706185917-7780775163c4 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

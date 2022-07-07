@@ -380,7 +380,7 @@ func (cm *CallManagerImpl) wakeUp() {
 			cm.registerConnection(v)
 		}
 	}
-	cm.poolConnections.RecheckConnections()
+	cm.poolConnections.RecheckConnections(list.Ids())
 }
 
 func (cm *CallManagerImpl) saveToCacheCall(call Call) {
