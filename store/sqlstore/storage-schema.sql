@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
--- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped from database version 14.4 (Debian 14.4-1.pgdg110+1)
+-- Dumped by pg_dump version 14.4 (Debian 14.4-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -642,6 +642,62 @@ ALTER SEQUENCE storage.files_statistics_id_seq OWNED BY storage.files_statistics
 
 
 --
+-- Name: import_template; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.import_template (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    name text NOT NULL,
+    description text,
+    source_type character varying(50) NOT NULL,
+    source_id bigint NOT NULL,
+    parameters jsonb NOT NULL
+);
+
+
+--
+-- Name: import_template_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.import_template_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: import_template_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.import_template_id_seq OWNED BY storage.import_template.id;
+
+
+--
+-- Name: import_template_view; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.import_template_view AS
+ SELECT t.id,
+    t.name,
+    t.description,
+    t.source_type,
+    t.source_id,
+    t.parameters,
+    jsonb_build_object('id', s.id, 'name', s.name) AS source,
+    t.domain_id
+   FROM (storage.import_template t
+     LEFT JOIN LATERAL ( SELECT q.id,
+            q.name
+           FROM call_center.cc_queue q
+          WHERE ((q.id = t.source_id) AND (q.domain_id = t.domain_id))
+         LIMIT 1) s ON (true));
+
+
+--
 -- Name: jobs; Type: TABLE; Schema: storage; Owner: -
 --
 
@@ -824,6 +880,13 @@ ALTER TABLE ONLY storage.files_statistics ALTER COLUMN id SET DEFAULT nextval('s
 
 
 --
+-- Name: import_template id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template ALTER COLUMN id SET DEFAULT nextval('storage.import_template_id_seq'::regclass);
+
+
+--
 -- Name: media_files id; Type: DEFAULT; Schema: storage; Owner: -
 --
 
@@ -898,6 +961,14 @@ ALTER TABLE ONLY storage.files
 
 ALTER TABLE ONLY storage.files_statistics
     ADD CONSTRAINT files_statistics_pk PRIMARY KEY (id);
+
+
+--
+-- Name: import_template import_template_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template
+    ADD CONSTRAINT import_template_pk PRIMARY KEY (id);
 
 
 --
@@ -1018,10 +1089,10 @@ CREATE UNIQUE INDEX file_jobs_file_id_uindex ON storage.file_jobs USING btree (f
 
 
 --
--- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
+-- Name: file_transcript_file_id_profile_id_locale_index; Type: INDEX; Schema: storage; Owner: -
 --
 
-CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
+CREATE INDEX file_transcript_file_id_profile_id_locale_index ON storage.file_transcript USING btree (file_id, profile_id, locale);
 
 
 --

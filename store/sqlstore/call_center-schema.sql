@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
--- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped from database version 14.4 (Debian 14.4-1.pgdg110+1)
+-- Dumped by pg_dump version 14.4 (Debian 14.4-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -363,7 +363,9 @@ declare
     user_id_ int8 = null;
     domain_id_ int8;
     wrap_time_ int;
+    other_cnt_ int;
     stop_cause_ varchar;
+    agent_channel_ varchar;
 begin
 
     if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < now() then
@@ -423,20 +425,28 @@ begin
     end if;
 
     if attempt.agent_id notnull then
-        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
-        into user_id_, domain_id_, wrap_time_
+        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end,
+               case when attempt.channel = 'chat' then (select count(1)
+                                                        from call_center.cc_member_attempt aa
+                                                        where aa.agent_id = attempt.agent_id and aa.id != attempt.id and aa.state != 'leaving') else 0 end as other
+        into user_id_, domain_id_, wrap_time_, other_cnt_
         from call_center.cc_agent a
             left join call_center.cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.agent_id;
 
-        if wrap_time_ > 0 or wrap_time_ isnull then
+        if other_cnt_ > 0 then
+            update call_center.cc_agent_channel c
+            set last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
+            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
+            returning null, channel into agent_timeout_, agent_channel_;
+        elseif wrap_time_ > 0 or wrap_time_ isnull then
             update call_center.cc_agent_channel c
             set state = 'wrap_time',
                 joined_at = now(),
                 timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
                 last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
+            returning timeout, channel into agent_timeout_, agent_channel_;
         else
             update call_center.cc_agent_channel c
             set state = 'waiting',
@@ -446,7 +456,7 @@ begin
                 last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
                 queue_id = null
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
+            returning timeout, channel into agent_timeout_, agent_channel_;
         end if;
     end if;
 
@@ -3953,7 +3963,6 @@ CREATE TABLE call_center.cc_email (
     profile_id integer NOT NULL,
     subject character varying,
     cc character varying[],
-    body bytea,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     parent_id bigint,
     direction character varying,
@@ -3965,7 +3974,8 @@ CREATE TABLE call_center.cc_email (
     in_reply_to character varying,
     variables jsonb,
     root_id character varying,
-    flow_id integer
+    flow_id integer,
+    body text
 );
 
 
@@ -4042,7 +4052,8 @@ CREATE VIEW call_center.cc_email_profile_list AS
     t.imap_port,
     call_center.cc_get_lookup((t.flow_id)::bigint, s.name) AS schema,
     t.description,
-    t.enabled
+    t.enabled,
+    t.password
    FROM (((call_center.cc_email_profile t
      LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
      LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
@@ -6159,6 +6170,13 @@ CREATE INDEX cc_calls_history_gateway_ids_index ON call_center.cc_calls_history 
 
 
 --
+-- Name: cc_calls_history_mat_view_agent; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_mat_view_agent ON call_center.cc_calls_history USING btree (user_id, domain_id, created_at);
+
+
+--
 -- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6401,6 +6419,13 @@ CREATE INDEX cc_member_attempt_history_domain_id_queue_id_joined_at_index ON cal
 --
 
 CREATE INDEX cc_member_attempt_history_joined_at_agent_id_index ON call_center.cc_member_attempt_history USING btree (joined_at DESC, agent_id);
+
+
+--
+-- Name: cc_member_attempt_history_mat_view_agent; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_mat_view_agent ON call_center.cc_member_attempt_history USING btree (agent_id, domain_id, joined_at, channel);
 
 
 --
@@ -7432,7 +7457,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
-    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -7448,7 +7473,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
-    ADD CONSTRAINT cc_agent_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_agent(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_agent_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_agent(id, domain_id) ON DELETE CASCADE;
 
 
 --
@@ -7584,7 +7609,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
-    ADD CONSTRAINT cc_bucket_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_bucket_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -7776,7 +7801,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -7792,7 +7817,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE CASCADE;
 
 
 --
