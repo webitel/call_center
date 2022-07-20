@@ -2907,7 +2907,8 @@ CREATE TABLE call_center.cc_calls_history (
     gateway_ids bigint[],
     team_ids integer[],
     params jsonb,
-    blind_transfer character varying
+    blind_transfer character varying,
+    talk_sec integer DEFAULT 0 NOT NULL
 );
 
 
@@ -3726,7 +3727,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
     ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
            FROM storage.file_jobs j
           WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
-    transcripts.data AS transcripts
+    transcripts.data AS transcripts,
+    c.talk_sec
    FROM ((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
