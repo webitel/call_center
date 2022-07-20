@@ -305,7 +305,8 @@ CREATE TABLE storage.file_jobs (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     action character varying(15) NOT NULL,
     log jsonb,
-    config jsonb
+    config jsonb,
+    error character varying
 );
 
 
@@ -315,14 +316,16 @@ CREATE TABLE storage.file_jobs (
 
 CREATE TABLE storage.file_transcript (
     id bigint NOT NULL,
-    file_id bigint NOT NULL,
+    file_id bigint,
     transcript text NOT NULL,
     log jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     profile_id integer NOT NULL,
     locale character varying DEFAULT 'none'::character varying NOT NULL,
     phrases jsonb,
-    channels jsonb
+    channels jsonb,
+    uuid character varying NOT NULL,
+    domain_id bigint
 );
 
 
@@ -1089,10 +1092,10 @@ CREATE UNIQUE INDEX file_jobs_file_id_uindex ON storage.file_jobs USING btree (f
 
 
 --
--- Name: file_transcript_file_id_profile_id_locale_index; Type: INDEX; Schema: storage; Owner: -
+-- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
 --
 
-CREATE INDEX file_transcript_file_id_profile_id_locale_index ON storage.file_transcript USING btree (file_id, profile_id, locale);
+CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
 
 
 --
@@ -1114,6 +1117,13 @@ CREATE INDEX file_transcript_fts_ru_idx ON storage.file_transcript USING gin (se
 --
 
 CREATE INDEX file_transcript_profile_id_index ON storage.file_transcript USING btree (profile_id);
+
+
+--
+-- Name: file_transcript_uuid_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_transcript_uuid_index ON storage.file_transcript USING btree (((uuid)::character varying(50)));
 
 
 --
@@ -1300,7 +1310,7 @@ ALTER TABLE ONLY storage.file_transcript
 --
 
 ALTER TABLE ONLY storage.file_transcript
-    ADD CONSTRAINT file_transcript_files_id_fk FOREIGN KEY (file_id) REFERENCES storage.files(id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ADD CONSTRAINT file_transcript_files_id_fk FOREIGN KEY (file_id) REFERENCES storage.files(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --

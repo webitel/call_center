@@ -3719,13 +3719,14 @@ CREATE VIEW call_center.cc_calls_history_list AS
             ELSE 'error'::text
         END AS hangup_disposition,
     c.blind_transfer,
-    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id)) AS jsonb_agg
+    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
            FROM storage.file_jobs j
-          WHERE (j.file_id = ANY (f.file_ids))) AS files_job
-   FROM (((((((((((call_center.cc_calls_history c
+          WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
+    transcripts.data AS transcripts
+   FROM ((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
-            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint, 'transcripts', transcripts.data)) AS files
-           FROM (( SELECT f1.id,
+            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
+           FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
                     f1.name
@@ -3737,11 +3738,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1
-             LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale)) AS data
-                   FROM storage.file_transcript tr
-                  WHERE (tr.file_id = f_1.id)
-                  GROUP BY tr.file_id) transcripts ON (true))) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
      LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
@@ -3757,7 +3754,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
-     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))));
+     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))))
+     LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id)) AS data
+           FROM storage.file_transcript tr
+          WHERE ((tr.uuid)::text = ((c.id)::character varying(50))::text)
+          GROUP BY (tr.uuid)::text) transcripts ON (true));
 
 
 --
