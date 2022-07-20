@@ -624,11 +624,11 @@ into call_center.cc_member_attempt_history (id, domain_id, queue_id, member_id, 
                                 agent_id, bucket_id, destination, display, description, list_communication_id,
                                 joined_at, leaving_at, agent_call_id, member_call_id, offering_at, reporting_at,
                                 bridged_at, channel, seq, resource_group_id, answered_at, team_id,
-								transferred_at, transferred_agent_id, transferred_attempt_id, parent_id, node_id, form_fields)
+								transferred_at, transferred_agent_id, transferred_attempt_id, parent_id, node_id, form_fields, import_id)
 select a.id, a.domain_id, a.queue_id, a.member_id, a.weight, a.resource_id, a.result, a.agent_id, a.bucket_id, a.destination,
        a.display, a.description, a.list_communication_id, a.joined_at, a.leaving_at, a.agent_call_id, a.member_call_id,
        a.offering_at, a.reporting_at, a.bridged_at, a.channel, a.seq, a.resource_group_id, a.answered_at, a.team_id,
-	   a.transferred_at, a.transferred_agent_id, a.transferred_attempt_id, a.parent_id, a.node_id, a.form_fields
+	   a.transferred_at, a.transferred_agent_id, a.transferred_attempt_id, a.parent_id, a.node_id, a.form_fields, a.import_id
 from del a
 returning id, result`)
 

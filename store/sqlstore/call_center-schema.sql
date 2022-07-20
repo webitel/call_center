@@ -1083,7 +1083,7 @@ begin
     )
        , ins as (
         insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id)
+                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
                    dis.queue_id,
@@ -1095,7 +1095,8 @@ begin
                    uuid_generate_v4(),
                    dis.team_id,
                    dis.resource_group_id,
-                   q.domain_id
+                   q.domain_id,
+                   m.import_id
             from dis
                      inner join call_center.cc_queue q on q.id = dis.queue_id
                      inner join call_center.cc_member m on m.id = dis.id
@@ -2947,7 +2948,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_agent_id integer,
     transferred_attempt_id bigint,
     parent_id bigint,
-    form_fields jsonb
+    form_fields jsonb,
+    import_id character varying(30)
 );
 
 
@@ -3376,6 +3378,7 @@ CREATE TABLE call_center.cc_member (
     expire_at timestamp with time zone,
     skill_id integer,
     sys_destinations call_center.cc_destination[],
+    import_id character varying(30),
     CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
@@ -3424,7 +3427,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     parent_id bigint,
     waiting_other_numbers integer DEFAULT 0 NOT NULL,
     form_fields jsonb,
-    form_view jsonb
+    form_view jsonb,
+    import_id character varying(30)
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
