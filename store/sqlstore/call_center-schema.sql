@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.3 (Debian 14.3-1.pgdg100+1)
--- Dumped by pg_dump version 14.3 (Debian 14.3-1.pgdg100+1)
+-- Dumped from database version 14.4 (Debian 14.4-1.pgdg110+1)
+-- Dumped by pg_dump version 14.4 (Debian 14.4-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -363,7 +363,9 @@ declare
     user_id_ int8 = null;
     domain_id_ int8;
     wrap_time_ int;
+    other_cnt_ int;
     stop_cause_ varchar;
+    agent_channel_ varchar;
 begin
 
     if next_offering_at_ notnull and not attempt.result in ('success', 'cancel') and next_offering_at_ < now() then
@@ -423,20 +425,28 @@ begin
     end if;
 
     if attempt.agent_id notnull then
-        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
-        into user_id_, domain_id_, wrap_time_
+        select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end,
+               case when attempt.channel = 'chat' then (select count(1)
+                                                        from call_center.cc_member_attempt aa
+                                                        where aa.agent_id = attempt.agent_id and aa.id != attempt.id and aa.state != 'leaving') else 0 end as other
+        into user_id_, domain_id_, wrap_time_, other_cnt_
         from call_center.cc_agent a
             left join call_center.cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.agent_id;
 
-        if wrap_time_ > 0 or wrap_time_ isnull then
+        if other_cnt_ > 0 then
+            update call_center.cc_agent_channel c
+            set last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
+            where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
+            returning null, channel into agent_timeout_, agent_channel_;
+        elseif wrap_time_ > 0 or wrap_time_ isnull then
             update call_center.cc_agent_channel c
             set state = 'wrap_time',
                 joined_at = now(),
                 timeout = case when wrap_time_ > 0 then now() + (wrap_time_ || ' sec')::interval end,
                 last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id)
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
+            returning timeout, channel into agent_timeout_, agent_channel_;
         else
             update call_center.cc_agent_channel c
             set state = 'waiting',
@@ -446,7 +456,7 @@ begin
                 last_bucket_id = coalesce(attempt.bucket_id, last_bucket_id),
                 queue_id = null
             where (c.agent_id, c.channel) = (attempt.agent_id, attempt.channel)
-            returning timeout into agent_timeout_;
+            returning timeout, channel into agent_timeout_, agent_channel_;
         end if;
     end if;
 
@@ -1073,7 +1083,7 @@ begin
     )
        , ins as (
         insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id)
+                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
                    dis.queue_id,
@@ -1085,7 +1095,8 @@ begin
                    uuid_generate_v4(),
                    dis.team_id,
                    dis.resource_group_id,
-                   q.domain_id
+                   q.domain_id,
+                   m.import_id
             from dis
                      inner join call_center.cc_queue q on q.id = dis.queue_id
                      inner join call_center.cc_member m on m.id = dis.id
@@ -2896,7 +2907,8 @@ CREATE TABLE call_center.cc_calls_history (
     gateway_ids bigint[],
     team_ids integer[],
     params jsonb,
-    blind_transfer character varying
+    blind_transfer character varying,
+    talk_sec integer DEFAULT 0 NOT NULL
 );
 
 
@@ -2937,7 +2949,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_agent_id integer,
     transferred_attempt_id bigint,
     parent_id bigint,
-    form_fields jsonb
+    form_fields jsonb,
+    import_id character varying(30)
 );
 
 
@@ -3366,6 +3379,7 @@ CREATE TABLE call_center.cc_member (
     expire_at timestamp with time zone,
     skill_id integer,
     sys_destinations call_center.cc_destination[],
+    import_id character varying(30),
     CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
@@ -3414,7 +3428,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     parent_id bigint,
     waiting_other_numbers integer DEFAULT 0 NOT NULL,
     form_fields jsonb,
-    form_view jsonb
+    form_view jsonb,
+    import_id character varying(30)
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3709,13 +3724,15 @@ CREATE VIEW call_center.cc_calls_history_list AS
             ELSE 'error'::text
         END AS hangup_disposition,
     c.blind_transfer,
-    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id)) AS jsonb_agg
+    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
            FROM storage.file_jobs j
-          WHERE (j.file_id = ANY (f.file_ids))) AS files_job
-   FROM (((((((((((call_center.cc_calls_history c
+          WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
+    transcripts.data AS transcripts,
+    c.talk_sec
+   FROM ((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
-            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint, 'transcripts', transcripts.data)) AS files
-           FROM (( SELECT f1.id,
+            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
+           FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
                     f1.name
@@ -3727,11 +3744,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.mime_type,
                     f1.name
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1
-             LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale)) AS data
-                   FROM storage.file_transcript tr
-                  WHERE (tr.file_id = f_1.id)
-                  GROUP BY tr.file_id) transcripts ON (true))) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
      LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
@@ -3747,7 +3760,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
-     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))));
+     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))))
+     LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id)) AS data
+           FROM storage.file_transcript tr
+          WHERE ((tr.uuid)::text = ((c.id)::character varying(50))::text)
+          GROUP BY (tr.uuid)::text) transcripts ON (true));
 
 
 --
@@ -3953,7 +3970,6 @@ CREATE TABLE call_center.cc_email (
     profile_id integer NOT NULL,
     subject character varying,
     cc character varying[],
-    body bytea,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     parent_id bigint,
     direction character varying,
@@ -3965,7 +3981,8 @@ CREATE TABLE call_center.cc_email (
     in_reply_to character varying,
     variables jsonb,
     root_id character varying,
-    flow_id integer
+    flow_id integer,
+    body text
 );
 
 
@@ -4042,7 +4059,8 @@ CREATE VIEW call_center.cc_email_profile_list AS
     t.imap_port,
     call_center.cc_get_lookup((t.flow_id)::bigint, s.name) AS schema,
     t.description,
-    t.enabled
+    t.enabled,
+    t.password
    FROM (((call_center.cc_email_profile t
      LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
      LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
@@ -6159,6 +6177,13 @@ CREATE INDEX cc_calls_history_gateway_ids_index ON call_center.cc_calls_history 
 
 
 --
+-- Name: cc_calls_history_mat_view_agent; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_mat_view_agent ON call_center.cc_calls_history USING btree (user_id, domain_id, created_at);
+
+
+--
 -- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6383,6 +6408,13 @@ CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_a
 
 
 --
+-- Name: cc_member_attempt_history_descript_s; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_descript_s ON call_center.cc_member_attempt_history USING btree (id, description) WHERE (description IS NOT NULL);
+
+
+--
 -- Name: cc_member_attempt_history_domain_id_joined_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6401,6 +6433,13 @@ CREATE INDEX cc_member_attempt_history_domain_id_queue_id_joined_at_index ON cal
 --
 
 CREATE INDEX cc_member_attempt_history_joined_at_agent_id_index ON call_center.cc_member_attempt_history USING btree (joined_at DESC, agent_id);
+
+
+--
+-- Name: cc_member_attempt_history_mat_view_agent; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_mat_view_agent ON call_center.cc_member_attempt_history USING btree (agent_id, domain_id, joined_at, channel);
 
 
 --
@@ -7432,7 +7471,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
-    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_agent_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -7448,7 +7487,7 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 --
 
 ALTER TABLE ONLY call_center.cc_agent_acl
-    ADD CONSTRAINT cc_agent_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_agent(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_agent_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_agent(id, domain_id) ON DELETE CASCADE;
 
 
 --
@@ -7584,7 +7623,7 @@ ALTER TABLE ONLY call_center.cc_bucket_acl
 --
 
 ALTER TABLE ONLY call_center.cc_bucket_acl
-    ADD CONSTRAINT cc_bucket_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_bucket_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -7776,7 +7815,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT cc_list_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -7792,7 +7831,7 @@ ALTER TABLE ONLY call_center.cc_list_acl
 --
 
 ALTER TABLE ONLY call_center.cc_list_acl
-    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE SET NULL;
+    ADD CONSTRAINT cc_list_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_list(id, domain_id) ON DELETE CASCADE;
 
 
 --
