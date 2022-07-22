@@ -6408,6 +6408,13 @@ CREATE INDEX cc_member_attempt_history_agent_id_index ON call_center.cc_member_a
 
 
 --
+-- Name: cc_member_attempt_history_descript_s; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_descript_s ON call_center.cc_member_attempt_history USING btree (id, description) WHERE (description IS NOT NULL);
+
+
+--
 -- Name: cc_member_attempt_history_domain_id_joined_at_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
