@@ -305,6 +305,16 @@ drop VIEW call_center.cc_calls_history_list;
 -- Name: cc_calls_history_list; Type: VIEW; Schema: call_center; Owner: -
 --
 
+alter table storage.file_transcript
+    alter column file_id drop not null;
+alter table storage.file_transcript
+    add column uuid character varying NOT NULL;
+alter table storage.file_transcript
+    add column domain_id int8;
+
+alter TABLE storage.file_jobs
+    add column error character varying;
+
 CREATE VIEW call_center.cc_calls_history_list AS
 SELECT c.id,
        c.app_id,
@@ -491,26 +501,14 @@ FROM ((((((((((((call_center.cc_calls_history c
 
 
 
-alter TABLE storage.file_jobs
-    add column error character varying;
-
-
-
-alter table storage.file_transcript
-    alter column file_id drop not null;
-alter table storage.file_transcript
-    add column uuid character varying NOT NULL;
-alter table storage.file_transcript
-    add column domain_id int8;
-
 
 
 drop index if exists file_transcript_file_id_profile_id_locale_index;
 --
 -- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
 --
-
-CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
+drop INDEX if  exists call_center.file_transcript_file_id_profile_id_locale_uindex;
+CREATE UNIQUE INDEX if not exists file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
 
 
 drop INDEX if exists file_transcript_uuid_index;
