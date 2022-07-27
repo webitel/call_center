@@ -16,6 +16,7 @@ type ObjectCache interface {
 	Len() int
 	Name() string
 	GetInvalidateClusterEvent() string
+	Keys() []interface{}
 }
 
 // Cache is a thread-safe fixed size LRU cache.

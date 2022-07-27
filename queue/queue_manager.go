@@ -21,6 +21,8 @@ const (
 	MAX_QUEUES_CACHE        = 10000
 	MAX_MEMBERS_CACHE       = 30000
 	MAX_QUEUES_EXPIRE_CACHE = 60 * 60 * 24 //day
+
+	timeoutWaitBeforeStop = time.Second * 10
 )
 
 type QueueManager struct {
@@ -86,10 +88,34 @@ func (queueManager *QueueManager) Start() {
 	}
 }
 
+func (queueManager *QueueManager) closeAttempts() {
+	var err *model.AppError
+	var id int64
+	var ok bool
+
+	for _, v := range queueManager.membersCache.Keys() {
+		fmt.Println(v)
+		if id, ok = v.(int64); !ok {
+			continue
+		}
+
+		err = queueManager.ReportingAttempt(id, model.AttemptCallback{
+			Status: "shutdown", // TODO
+		}, false)
+		if err != nil {
+			wlog.Error(err.Error())
+		}
+	}
+}
+
 func (queueManager *QueueManager) Stop() {
 	wlog.Debug("queueManager Stopping")
-	wlog.Debug(fmt.Sprintf("wait for close attempts %d", queueManager.membersCache.Len()))
-	queueManager.wg.Wait()
+	wlog.Debug(fmt.Sprintf("wait %v for close attempts %d", timeoutWaitBeforeStop, queueManager.membersCache.Len()))
+
+	if waitTimeout(&queueManager.wg, timeoutWaitBeforeStop) {
+		queueManager.closeAttempts()
+	}
+
 	close(queueManager.stop)
 	<-queueManager.stopped
 }
@@ -897,4 +923,20 @@ func (queueManager *QueueManager) CancelAgentDistribute(agentId int32) *model.Ap
 	}
 
 	return nil
+}
+
+// waitTimeout waits for the waitgroup for the specified max timeout.
+// Returns true if waiting timed out.
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
 }
