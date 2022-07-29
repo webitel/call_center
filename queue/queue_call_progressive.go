@@ -225,6 +225,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								//fixme refactor
 								if queue.AllowGreetingAgent {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+								} else if queue.AutoAnswer() {
+									agentCall.BroadcastTone("aleg")
 								}
 
 								//team.Answered(attempt, agent)

@@ -114,14 +114,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				break
 			}
 
-			apps := []*model.CallRequestApplication{}
-
-			if queue.AutoAnswer() {
-				apps = append(apps, &model.CallRequestApplication{
-					AppName: "playback",
-					Args:    "tone_stream://L=1;%(1850,1750,1000)",
-				})
-			}
+			var apps []*model.CallRequestApplication
 
 			apps = append(apps, &model.CallRequestApplication{
 				AppName: "park",
@@ -175,6 +168,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						//fixme refactor
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+						} else if queue.AutoAnswer() {
+							agentCall.BroadcastTone("aleg")
 						}
 
 					case call_manager.CALL_STATE_BRIDGE:

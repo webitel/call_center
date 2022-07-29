@@ -64,6 +64,7 @@ type Call interface {
 	DTMF(val rune) *model.AppError
 	Bridge(other Call) *model.AppError
 	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
+	BroadcastTone(leg string) *model.AppError
 	BroadcastPlaybackSilenceBeforeFile(domainId int64, silence uint, file *model.RingtoneFile, leg string) *model.AppError
 	StopPlayback() *model.AppError
 	SerVariables(vars map[string]string) *model.AppError
@@ -634,6 +635,10 @@ func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.Ringtone
 		return nil
 	}
 	return call.api.BroadcastPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
+}
+
+func (call *CallImpl) BroadcastTone(leg string) *model.AppError {
+	return call.api.BroadcastPlaybackFile(call.id, "tone_stream://L=1;%(500,500,1000)", leg)
 }
 
 func (call *CallImpl) BroadcastPlaybackSilenceBeforeFile(domainId int64, silence uint, file *model.RingtoneFile, leg string) *model.AppError {
