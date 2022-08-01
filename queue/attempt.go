@@ -64,9 +64,10 @@ type Attempt struct {
 	cancel   chan struct{}
 	canceled bool
 
-	maxAttempts uint
-	waitBetween uint64
-	perNumbers  bool
+	maxAttempts       uint
+	waitBetween       uint64
+	perNumbers        bool
+	excludeCurrNumber bool
 
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
@@ -104,6 +105,11 @@ func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
 	if res.WaitBetweenRetries > 0 {
 		a.waitBetween = uint64(res.WaitBetweenRetries)
 		a.Log(fmt.Sprintf("set distribute wait between %d", a.waitBetween))
+	}
+
+	if res.ExcludeCurrentNumber {
+		a.excludeCurrNumber = true
+		a.Log("set exclude current number")
 	}
 
 	return res, true
@@ -294,6 +300,14 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 
 	if a.communication.Description != "" {
 		res["destination_description"] = a.communication.Description
+	}
+
+	if a.communication.Type.Id > 0 {
+		res["destination_type"] = fmt.Sprintf("%d", a.communication.Type.Id)
+	}
+
+	if a.communication.Attempts > 0 {
+		res["destination_seq"] = fmt.Sprintf("%d", a.communication.Attempts+1) // TODO
 	}
 
 	if a.result != nil && a.result.Description != "" {

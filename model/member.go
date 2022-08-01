@@ -40,6 +40,7 @@ type MemberCommunication struct {
 	Priority    int           `json:"priority"`
 	Display     *string       `json:"display"`
 	Description string        `json:"description"`
+	Attempts    int           `json:"attempts"`
 }
 
 type AttemptCallback struct {

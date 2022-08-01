@@ -202,10 +202,10 @@ $$;
 
 
 --
--- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false, exclude_dest boolean DEFAULT false) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -235,7 +235,7 @@ begin
                 jsonb_build_object('last_activity_at', (extract(epoch  from attempt.leaving_at) * 1000)::int8::text::jsonb) ||
                 jsonb_build_object('attempt_id', attempt_id_) ||
                 jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
-                case when (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= _max_count) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
+                case when exclude_dest or (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= _max_count) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
             ),
             variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
             attempts        = attempts + 1                     --TODO
@@ -848,7 +848,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     grantee_id integer,
     hold jsonb,
     params jsonb,
-    blind_transfer character varying
+    blind_transfer character varying,
+    talk_sec integer DEFAULT 0 NOT NULL
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 

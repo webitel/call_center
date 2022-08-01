@@ -18,10 +18,11 @@ type DoDistributeResult struct {
 }
 
 type SchemaResult struct {
-	Status             string
-	MaxAttempts        uint32
-	WaitBetweenRetries uint32
-	Variables          map[string]string
+	Status               string
+	MaxAttempts          uint32
+	WaitBetweenRetries   uint32
+	ExcludeCurrentNumber bool
+	Variables            map[string]string
 }
 
 func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
@@ -199,10 +200,11 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 
 	case *flow.ResultAttemptResponse_Abandoned_:
 		return &SchemaResult{
-			Status:             v.Abandoned.Status,
-			MaxAttempts:        v.Abandoned.MaxAttempts,
-			WaitBetweenRetries: v.Abandoned.WaitBetweenRetries,
-			Variables:          res.Variables,
+			Status:               v.Abandoned.Status,
+			MaxAttempts:          v.Abandoned.MaxAttempts,
+			WaitBetweenRetries:   v.Abandoned.WaitBetweenRetries,
+			ExcludeCurrentNumber: v.Abandoned.ExcludeCurrentCommunication,
+			Variables:            res.Variables,
 		}, true
 
 	}
