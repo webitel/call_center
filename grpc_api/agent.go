@@ -9,10 +9,11 @@ import (
 
 type agent struct {
 	app *app.App
+	cc.UnsafeAgentServiceServer
 }
 
-func NewAgentApi(app *app.App) *agent {
-	return &agent{app}
+func NewAgentApi(a *app.App) *agent {
+	return &agent{app: a}
 }
 
 func (api *agent) Online(ctx context.Context, in *cc.OnlineRequest) (*cc.OnlineResponse, error) {

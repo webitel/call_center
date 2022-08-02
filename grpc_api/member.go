@@ -11,10 +11,11 @@ import (
 
 type member struct {
 	app *app.App
+	cc.UnsafeMemberServiceServer
 }
 
-func NewMemberApi(app *app.App) *member {
-	return &member{app}
+func NewMemberApi(a *app.App) *member {
+	return &member{app: a}
 }
 
 func (api *member) CancelAgentDistribute(_ context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error) {
