@@ -3762,8 +3762,9 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
      LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))))
-     LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id)) AS data
-           FROM storage.file_transcript tr
+     LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
+           FROM (storage.file_transcript tr
+             LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
           WHERE ((tr.uuid)::text = ((c.id)::character varying(50))::text)
           GROUP BY (tr.uuid)::text) transcripts ON (true));
 
