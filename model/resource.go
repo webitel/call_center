@@ -90,20 +90,33 @@ func (g *SipGateway) Endpoint(destination string) string {
 	return fmt.Sprintf(SIP_ENDPOINT_TEMPLATE, strings.Replace(destination, " ", "", -1), g.Proxy)
 }
 
-func (g *SipGateway) Bridge(id *string, parentId string, name, destination string, display string, timeout uint16) string {
-	res := []string{
-		fmt.Sprintf("leg_timeout=%d", timeout),
-		fmt.Sprintf("wbt_parent_id=%s", parentId),
-		fmt.Sprintf("origination_caller_id_number=%s", display),
+type BridgeRequest struct {
+	Id          *string
+	ParentId    string
+	Name        string
+	Destination string
+	Display     string
+	Timeout     uint16
 
-		fmt.Sprintf("wbt_from_number=%s", display),
-		fmt.Sprintf("wbt_from_name=%s", display),
+	Recordings bool
+	RecordMono bool
+	RecordAll  bool
+}
+
+func (g *SipGateway) Bridge(params BridgeRequest) string {
+	res := []string{
+		fmt.Sprintf("leg_timeout=%d", params.Timeout),
+		fmt.Sprintf("wbt_parent_id=%s", params.ParentId),
+		fmt.Sprintf("origination_caller_id_number=%s", params.Display),
+
+		fmt.Sprintf("wbt_from_number=%s", params.Display),
+		fmt.Sprintf("wbt_from_name=%s", params.Display),
 		"wbt_to_type=dest",
 		"ignore_display_updates=true",
-		fmt.Sprintf("wbt_to_number='%s'", destination),
-		fmt.Sprintf("wbt_to_name='%s'", name),
+		fmt.Sprintf("wbt_to_number='%s'", params.Destination),
+		fmt.Sprintf("wbt_to_name='%s'", params.Name),
 
-		fmt.Sprintf("effective_callee_id_name='%s'", name),
+		fmt.Sprintf("effective_callee_id_name='%s'", params.Name),
 		//fmt.Sprintf("origination_callee_id_name='%s'", name),
 		fmt.Sprintf("%s=%v", CallVariableDomainId, g.DomainId),
 		fmt.Sprintf("%s=%v", CallVariableGatewayId, g.Id),
@@ -111,12 +124,18 @@ func (g *SipGateway) Bridge(id *string, parentId string, name, destination strin
 		"sip_copy_custom_headers=false",
 	}
 
-	if id != nil {
-		res = append(res, fmt.Sprintf("%s=%s", CALL_ORIGINATION_UUID, *id))
+	if params.Id != nil {
+		res = append(res, fmt.Sprintf("%s=%s", CALL_ORIGINATION_UUID, *params.Id))
 	}
 
 	if g.UseBridgeAnswerTimeout {
-		res = append(res, fmt.Sprintf("bridge_answer_timeout=%d", timeout))
+		res = append(res, fmt.Sprintf("bridge_answer_timeout=%d", params.Timeout))
+	}
+
+	if params.Recordings {
+		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=record_session http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s",
+			params.RecordAll, params.RecordAll, !params.RecordMono,
+			g.DomainId, params.ParentId, params.ParentId, "${wbt_from_number}_${wbt_destination}.mp3", "mp3"))
 	}
 
 	vars := g.Variables()
@@ -124,7 +143,7 @@ func (g *SipGateway) Bridge(id *string, parentId string, name, destination strin
 		res = append(res, fmt.Sprintf("%s='%s'", k, v))
 	}
 
-	return fmt.Sprintf("[%s]%s", strings.Join(res, ","), g.Endpoint(destination))
+	return fmt.Sprintf("[%s]%s", strings.Join(res, ","), g.Endpoint(params.Destination))
 }
 
 type OutboundResourceGroup struct {

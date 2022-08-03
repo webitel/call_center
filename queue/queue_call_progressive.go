@@ -254,10 +254,10 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								}
 
 								// check transfer to internal number
-								if mCall.HangupAt() == 0 && agentCall.TransferTo() == nil {
-									mCall.Hangup("", false, nil) //TODO
-									mCall.WaitForHangup()
-								}
+								//if mCall.HangupAt() == 0 && agentCall.TransferTo() == nil {
+								//mCall.Hangup("", false, nil) //TODO
+								//mCall.WaitForHangup()
+								//}
 								// if internal transfer
 								calling = false
 								break top

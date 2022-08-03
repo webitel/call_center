@@ -142,13 +142,19 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	attempt.memberChannel = call
 
-	if queue.Recordings {
-		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
-	}
-
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(attempt.MemberCallId(), call.Id(), attempt.Name(), attempt.Destination(), display, queue.OriginateTimeout),
+		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
+			Id:          attempt.MemberCallId(),
+			ParentId:    call.Id(),
+			Name:        attempt.Name(),
+			Destination: attempt.Destination(),
+			Display:     display,
+			Timeout:     queue.OriginateTimeout,
+			Recordings:  queue.Recordings,
+			RecordMono:  queue.RecordMono,
+			RecordAll:   queue.RecordAll,
+		}),
 	})
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{

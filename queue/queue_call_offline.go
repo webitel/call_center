@@ -128,13 +128,19 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	queue.SetHoldMusic(callRequest)
 
-	if queue.Recordings {
-		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
-	}
-
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
-		Args:    attempt.resource.Gateway().Bridge(attempt.MemberCallId(), call.Id(), attempt.Name(), attempt.Destination(), attempt.Display(), queue.OriginateTimeout),
+		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
+			Id:          attempt.MemberCallId(),
+			ParentId:    call.Id(),
+			Name:        attempt.Name(),
+			Destination: attempt.Destination(),
+			Display:     attempt.Display(),
+			Timeout:     queue.OriginateTimeout,
+			Recordings:  queue.Recordings,
+			RecordMono:  queue.RecordMono,
+			RecordAll:   queue.RecordAll,
+		}),
 	})
 
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
