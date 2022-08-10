@@ -1223,3 +1223,7 @@ order by request.priority desc
     limit _lim;
 end
 $$;
+
+
+alter table call_center.cc_calls
+    add column talk_sec int not null default 0;
