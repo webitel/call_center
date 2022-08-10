@@ -11,7 +11,7 @@ import (
 
 const (
 	maxOpenedChat   = 50000
-	expireCacheChat = 60 * 60 * 24 //day
+	expireCacheChat = 30 * 60 * 60 * 24 //day
 )
 
 type ChatManager struct {
