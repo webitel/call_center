@@ -306,7 +306,7 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["destination_type"] = fmt.Sprintf("%d", a.communication.Type.Id)
 	}
 
-	if a.communication.Attempts > 0 {
+	if a.communication.Attempts >= 0 {
 		res["destination_seq"] = fmt.Sprintf("%d", a.communication.Attempts+1) // TODO
 	}
 
