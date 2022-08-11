@@ -87,7 +87,7 @@ func (c *ChatSession) Leave() *model.AppError {
 }
 
 func (c *ChatSession) Decline() *model.AppError {
-	err := c.cli.Decline(c.UserId, c.InviteId)
+	err := c.cli.Decline(c.UserId, c.InviteId, "")
 	if err != nil {
 		return model.NewAppError("ChatSession", "chat_session.decline.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
