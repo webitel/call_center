@@ -197,6 +197,12 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	queue.CallCheckResourceError(attempt.resource, call)
 
+	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
+		attempt.SetResult(AttemptResultSuccess)
+	} else {
+		attempt.SetResult(AttemptResultAbandoned)
+	}
+
 	if res, ok := attempt.AfterDistributeSchema(); ok {
 		if res.Status == AttemptResultSuccess {
 			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
@@ -208,7 +214,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		return
 	}
 
-	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
+	if attempt.Result() == AttemptResultSuccess {
 		queue.queueManager.SetAttemptSuccess(attempt, nil)
 	} else {
 		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
