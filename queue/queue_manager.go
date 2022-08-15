@@ -19,8 +19,8 @@ import (
 
 const (
 	MAX_QUEUES_CACHE        = 10000
-	MAX_MEMBERS_CACHE       = 30000
-	MAX_QUEUES_EXPIRE_CACHE = 60 * 60 * 24 //day
+	MAX_MEMBERS_CACHE       = 50000
+	MAX_QUEUES_EXPIRE_CACHE = 0 //60 * 60 * 24 //day
 
 	timeoutWaitBeforeStop = time.Second * 10
 )
