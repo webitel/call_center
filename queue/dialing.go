@@ -131,9 +131,6 @@ func (d *DialingImpl) routeIdleAgents() {
 		return
 	}
 
-	if len(result) > 1 {
-		fmt.Println(len(result))
-	}
 	for _, v := range result {
 		agent, err := d.agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt)
 		if err != nil {

@@ -146,10 +146,11 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			//todo close
 			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.InviteChatTimeout(), queue.name, vars)
 			if err != nil {
-				// todo
 				attempt.Log(err.Error())
 				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				attempt.SetState(model.MemberStateWaitAgent)
 				agent = nil
+				team = nil
 				continue
 			}
 
