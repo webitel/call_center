@@ -1227,3 +1227,40 @@ $$;
 
 alter table call_center.cc_calls
     add column talk_sec int not null default 0;
+
+
+
+
+drop function call_center.cc_distribute_members_list;
+create function call_center.cc_distribute_members_list(_queue_id integer, _bucket_id integer, strategy smallint, wait_between_retries_desc boolean DEFAULT false, l smallint[] DEFAULT '{}'::smallint[], lim integer DEFAULT 40, offs integer DEFAULT 0) returns SETOF bigint
+    stable
+    language plpgsql
+as
+$$
+begin return query
+select m.id::int8
+from call_center.cc_member m
+where m.queue_id = _queue_id
+        and m.stop_at isnull
+        and m.skill_id isnull
+        and case when _bucket_id isnull then m.bucket_id isnull else m.bucket_id = _bucket_id end
+        and (m.expire_at isnull or m.expire_at > now())
+        and (m.ready_at isnull or m.ready_at < now())
+        and not m.search_destinations && array(select call_center.cc_call_active_numbers())
+        and m.id not in (select distinct a.member_id from call_center.cc_member_attempt a where a.member_id notnull)
+        and m.sys_offset_id = any($5::int2[])
+    order by m.bucket_id nulls last,
+             m.skill_id,
+             m.agent_id,
+             m.priority desc,
+             case when coalesce(wait_between_retries_desc, false) then m.ready_at end desc nulls last ,
+             case when not coalesce(wait_between_retries_desc, false) then m.ready_at end asc nulls last ,
+
+             case when coalesce(strategy, 0) = 1 then m.id end desc ,
+             case when coalesce(strategy, 0) != 1 then m.id end asc
+    limit lim
+    offset offs
+--     for update of m skip locked
+        ;
+end
+$$;
