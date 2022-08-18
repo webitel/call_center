@@ -117,6 +117,8 @@ type CallImpl struct {
 	amdResult string
 	amdCause  string
 
+	variables map[string]interface{}
+
 	sync.RWMutex
 }
 
@@ -299,6 +301,8 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 		call.transferToAgentId = e.TransferToAgent
 		call.transferToAttemptId = e.TransferToAttempt
 
+		call.variables = e.Variables
+
 		close(call.hangupCh)
 		call.Unlock()
 
@@ -421,6 +425,13 @@ func (call *CallImpl) HangupCauseCode() int {
 	}
 	//FIXME
 	return 0
+}
+
+func (call *CallImpl) Variables() map[string]interface{} {
+	call.RLock()
+	defer call.RUnlock()
+
+	return call.variables
 }
 
 func (call *CallImpl) WaitForHangup() {
@@ -682,6 +693,12 @@ func (call *CallImpl) Stats() map[string]string {
 		"call_bill_sec": fmt.Sprintf("%d", call.BillSeconds()),
 		"call_duration": fmt.Sprintf("%d", call.DurationSeconds()),
 		"call_cause":    call.HangupCause(),
+	}
+
+	expVars := call.Variables()
+
+	for k, v := range expVars {
+		vars[k] = fmt.Sprintf("%v", v)
 	}
 
 	code := call.HangupCauseCode()

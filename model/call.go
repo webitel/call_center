@@ -233,15 +233,16 @@ type CallActionBridge struct {
 
 type CallActionHangup struct {
 	CallAction
-	Cause               string  `json:"cause"`
-	SipCode             *int    `json:"sip"`
-	OriginSuccess       *bool   `json:"originate_success"`
-	ReportingAt         *int64  `json:"reporting_at,string"`
-	TransferTo          *string `json:"transfer_to"`
-	TransferFrom        *string `json:"transfer_from"`
-	TransferToAgent     *int    `json:"transfer_to_agent,string"`
-	TransferFromAttempt *int64  `json:"transfer_from_attempt,string"`
-	TransferToAttempt   *int64  `json:"transfer_to_attempt,string"`
+	Cause               string                 `json:"cause"`
+	SipCode             *int                   `json:"sip"`
+	OriginSuccess       *bool                  `json:"originate_success"`
+	ReportingAt         *int64                 `json:"reporting_at,string"`
+	TransferTo          *string                `json:"transfer_to"`
+	TransferFrom        *string                `json:"transfer_from"`
+	TransferToAgent     *int                   `json:"transfer_to_agent,string"`
+	TransferFromAttempt *int64                 `json:"transfer_from_attempt,string"`
+	TransferToAttempt   *int64                 `json:"transfer_to_attempt,string"`
+	Variables           map[string]interface{} `json:"payload"`
 }
 
 type CallNoAnswer struct {
