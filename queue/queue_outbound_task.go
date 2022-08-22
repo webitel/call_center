@@ -35,6 +35,9 @@ func TaskOutboundQueueSettingsFromBytes(data []byte) TaskOutboundQueueSettings {
 }
 
 func (queue *TaskOutboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
+	attempt.waitBetween = queue.WaitBetweenRetries
+	attempt.maxAttempts = queue.MaxAttempts
+
 	go queue.run(attempt)
 	return nil
 }
@@ -57,7 +60,19 @@ func (queue *TaskOutboundQueue) run(attempt *Attempt) {
 		queue.execSchema(attempt, *queue.schemaId)
 	}
 
-	queue.queueManager.SetAttemptSuccess(attempt, nil)
+	if res, ok := attempt.AfterDistributeSchema(); ok {
+		if res.Status == AttemptResultSuccess {
+			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
+		} else {
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+		}
+	} else {
+		if attempt.member.Seq != nil && *attempt.member.Seq == int(attempt.maxAttempts) {
+			queue.queueManager.SetAttemptSuccess(attempt, nil)
+		} else {
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, nil)
+		}
+	}
 	queue.queueManager.LeavingMember(attempt)
 }
 
@@ -81,16 +96,5 @@ func (queue *TaskOutboundQueue) execSchema(attempt *Attempt, schemaId int) {
 		attempt.Log(fmt.Sprintf("schema error: %s", e.Error()))
 	} else {
 		attempt.Log(fmt.Sprintf("schema exucetted id=%s", id))
-	}
-
-	if res, ok := attempt.AfterDistributeSchema(); ok {
-		if res.Status == AttemptResultSuccess {
-			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
-		} else {
-			queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
-		}
-
-		queue.queueManager.LeavingMember(attempt)
-		return
 	}
 }
