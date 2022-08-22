@@ -203,6 +203,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 
 						break top
 					case chat.ChatStateBridge:
+						mSess.SetActivity()
 						attempt.Log("bridged")
 						attempt.Emit(AttemptHookBridgedAgent, agent.Id())
 						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
