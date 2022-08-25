@@ -261,6 +261,15 @@ as x (
 			"Priority":      priority,
 			"StickyAgentId": stickyAgentId,
 		}); err != nil {
+
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Code == "MAXWS" {
+				return nil, model.ErrQueueMaxWaitSize
+			}
+
+		}
+
 		return nil, model.NewAppError("SqlMemberStore.DistributeChatToQueue", "store.sql_member.distribute_chat.app_error", nil,
 			fmt.Sprintf("QueueId=%v, Id=%v %s", queueId, convId, err.Error()), http.StatusInternalServerError)
 	}

@@ -1532,6 +1532,7 @@ declare
     _inviter_channel_id varchar;
     _inviter_user_id varchar;
     _sticky bool;
+    _max_waiting_size int;
 BEGIN
   select c.timezone_id,
            (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
@@ -1543,13 +1544,14 @@ BEGIN
          q.team_id,
          q.enabled,
          q.type,
-         q.sticky_agent
+         q.sticky_agent,
+         (payload->>'max_waiting_size')::int max_size
   from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size;
 
   if not _q_type = 6 then
       raise exception 'queue type not inbound chat';
@@ -1564,6 +1566,18 @@ BEGIN
             as x (name varchar, excepted varchar, accept bool, expire bool)
             where accept and excepted is null and not expire) then
       raise exception 'conversation [%] calendar not working', _conversation_id;
+  end if;
+
+  if _max_waiting_size > 0 then
+      if (select count(*) from call_center.cc_member_attempt aa
+                          where aa.queue_id = _queue_id
+                            and aa.bridged_at isnull
+                            and aa.leaving_at isnull
+                            and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+        raise exception using
+            errcode='MAXWS',
+            message='Queue maximum waiting size';
+      end if;
   end if;
 
   select cli.external_id,
