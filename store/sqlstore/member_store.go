@@ -3,6 +3,7 @@ package sqlstore
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"net/http"
@@ -152,6 +153,14 @@ as x (
 	})
 
 	if err != nil {
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Code == "MAXWS" {
+				return nil, model.ErrQueueMaxWaitSize
+			}
+
+		}
+
 		return nil, model.NewAppError("SqlMemberStore.DistributeCallToQueue", "store.sql_member.distribute_call.app_error", nil,
 			fmt.Sprintf("QueueId=%v, CallId=%v %s", queueId, callId, err.Error()), http.StatusInternalServerError)
 	}
@@ -770,6 +779,34 @@ where id = :Id`, map[string]interface{}{
 
 	if err != nil {
 		return model.NewAppError("SqlMemberStore.StoreForm", "store.sql_member.set_form.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s *SqlMemberStore) CleanAttempts(nodeId string) *model.AppError {
+	_, err := s.GetMaster().Exec(`with u as (
+    update call_center.cc_member_attempt a
+    set result = 'restart',
+        state = 'leaving',
+        leaving_at = now()
+    where a.node_id = :NodeId
+    returning *
+)
+update call_center.cc_agent_channel c
+    set channel = null,
+        state = 'waiting'
+where c.agent_id in (
+    select distinct u.agent_id
+    from u
+    where u.agent_id notnull
+)`, map[string]interface{}{
+		"NodeId": nodeId,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.CleanAttempts", "store.sql_member.clean_attempts.app_error", nil,
 			err.Error(), http.StatusInternalServerError)
 	}
 

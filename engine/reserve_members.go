@@ -35,3 +35,10 @@ func (e *EngineImp) UnReserveMembers() {
 		}
 	}
 }
+
+func (e *EngineImp) CleanAllAttempts() {
+	err := e.store.Member().CleanAttempts(e.nodeId)
+	if err != nil {
+		wlog.Error(err.Error())
+	}
+}

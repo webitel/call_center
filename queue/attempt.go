@@ -35,6 +35,7 @@ const (
 	AttemptResultPostProcessing = "processing"
 	AttemptResultTransfer       = "transfer"
 	AttemptResultEndless        = "endless"
+	AttemptResultMaxWaitSize    = "max_wait_size"
 	AttemptResultBlockList      = "block" // FIXME
 )
 

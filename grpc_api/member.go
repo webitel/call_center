@@ -77,6 +77,16 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 	ctx := context.Background()
 	attempt, err := api.app.Queue().Manager().DistributeCall(ctx, in)
 	if err != nil {
+		if err == model.ErrQueueMaxWaitSize {
+			out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Leaving{
+					Leaving: &cc.QueueEvent_LeavingData{
+						Result: queue.AttemptResultMaxWaitSize,
+					},
+				},
+			})
+			return nil
+		}
 		return err
 	}
 

@@ -86,6 +86,8 @@ type MemberStore interface {
 	SetExpired() ([]int64, *model.AppError)
 
 	StoreForm(attemptId int64, form []byte, fields map[string]string) *model.AppError
+
+	CleanAttempts(nodeId string) *model.AppError
 }
 
 type AgentStore interface {

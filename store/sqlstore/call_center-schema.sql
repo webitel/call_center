@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.4 (Debian 14.4-1.pgdg110+1)
--- Dumped by pg_dump version 14.4 (Debian 14.4-1.pgdg110+1)
+-- Dumped from database version 14.5 (Debian 14.5-1.pgdg110+1)
+-- Dumped by pg_dump version 14.5 (Debian 14.5-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1343,6 +1343,7 @@ declare
     _call record;
     _attempt record;
     _number varchar;
+    _max_waiting_size int;
 BEGIN
   select c.timezone_id,
            (payload->>'discard_abandoned_after')::int discard_abandoned_after,
@@ -1354,13 +1355,14 @@ BEGIN
          q.team_id,
          q.enabled,
          q.type,
-         q.sticky_agent
+         q.sticky_agent,
+         (payload->>'max_waiting_size')::int max_size
   from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size;
 
   if not _q_type = 1 then
       raise exception 'queue not inbound';
@@ -1400,12 +1402,25 @@ BEGIN
   end if;
 
 
-  --TODO
-  select clc.id
-    into _list_comm_id
-    from call_center.cc_list_communications clc
-    where (clc.list_id = dnc_list_id_ and clc.number = _number)
-  limit 1;
+  if _max_waiting_size > 0 then
+      if (select count(*) from call_center.cc_member_attempt aa
+                          where aa.queue_id = _queue_id
+                            and aa.bridged_at isnull
+                            and aa.leaving_at isnull
+                            and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+        raise exception using
+            errcode='MAXWS',
+            message='Queue maximum waiting size';
+      end if;
+  end if;
+
+  if dnc_list_id_ notnull then
+      select clc.id
+        into _list_comm_id
+        from call_center.cc_list_communications clc
+        where (clc.list_id = dnc_list_id_ and clc.number = _number)
+      limit 1;
+  end if;
 
   if _list_comm_id notnull then
           raise exception 'number % banned', _number;
@@ -1636,7 +1651,7 @@ $$;
 -- Name: cc_distribute_members_list(integer, integer, smallint, boolean, smallint[], integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_members_list(_queue_id integer, _bucket_id integer, strategy smallint, wait_between_retries_desc boolean DEFAULT false, l smallint[] DEFAULT '{}'::smallint[], lim integer DEFAULT 40, offs integer DEFAULT 40) RETURNS SETOF bigint
+CREATE FUNCTION call_center.cc_distribute_members_list(_queue_id integer, _bucket_id integer, strategy smallint, wait_between_retries_desc boolean DEFAULT false, l smallint[] DEFAULT '{}'::smallint[], lim integer DEFAULT 40, offs integer DEFAULT 0) RETURNS SETOF bigint
     LANGUAGE plpgsql STABLE
     AS $_$
 begin return query
@@ -7438,7 +7453,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = ANY (ARRAY[1, 6, 7, 8])) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
 
 
 --

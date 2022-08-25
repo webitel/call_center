@@ -35,6 +35,7 @@ func (e *EngineImp) Start() {
 	wlog.Info("starting engine service")
 	e.watcher = utils.MakeWatcher("Engine", e.pollingInterval, e.ReserveMembers)
 	e.UnReserveMembers()
+	//e.CleanAllAttempts()
 	e.startOnce.Do(func() {
 		go e.watcher.Start()
 	})

@@ -299,7 +299,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	)
 
 	if err != nil {
-		wlog.Error(err.Error())
+		wlog.Error(fmt.Sprintf("[inbound] join member call_id %s queue %d, %s", in.GetMemberCallId(), in.GetQueue().GetId(), err.Error()))
 		return nil, err
 	}
 
