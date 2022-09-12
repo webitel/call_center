@@ -431,7 +431,7 @@ returning call_center.cc_view_timestamp(c.joined_at) as timestamp`, map[string]i
 	return timestamp, nil
 }
 
-// fixme queue_id
+// RenewalProcessing fixme queue_id
 func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
 	var res *model.RenewalProcessing
 	err := s.GetMaster().SelectOne(&res, `update call_center.cc_member_attempt a

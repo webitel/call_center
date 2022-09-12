@@ -12,6 +12,7 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/protos/cc"
 	"github.com/webitel/wlog"
+	"golang.org/x/sync/singleflight"
 	"net/http"
 	"sync"
 	"time"
@@ -46,6 +47,10 @@ type QueueManager struct {
 
 var (
 	errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
+)
+
+var (
+	queueGroup singleflight.Group
 )
 
 func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
@@ -158,8 +163,11 @@ func (queueManager *QueueManager) createAttempt(ctx context.Context, conf *model
 }
 
 func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppError) {
-	queueManager.Lock()
-	defer queueManager.Unlock()
+	var v interface{}
+	var ok bool
+	var doErr error
+	var err *model.AppError
+
 	var queue QueueObject
 
 	item, ok := queueManager.queuesCache.Get(id)
@@ -170,13 +178,31 @@ func (queueManager *QueueManager) GetQueue(id int, updatedAt int64) (QueueObject
 		}
 	}
 
-	if config, err := queueManager.app.GetQueueById(int64(id)); err != nil {
-		return nil, err
-	} else {
-		queue, err = NewQueue(queueManager, queueManager.resourceManager, config)
-		if err != nil {
-			return nil, err
+	v, doErr, _ = queueGroup.Do(fmt.Sprintf("queue-%d-%d", id, updatedAt), func() (interface{}, error) {
+		res, appErr := queueManager.app.GetQueueById(int64(id))
+		if appErr != nil {
+			return nil, appErr
 		}
+
+		return res, nil
+	})
+
+	if doErr != nil {
+		switch doErr.(type) {
+		case *model.AppError:
+			err = doErr.(*model.AppError)
+		default:
+			err = model.NewAppError("Queue.Get", "queue.get.app_err", nil, doErr.Error(), http.StatusInternalServerError)
+		}
+
+		return nil, err
+	}
+
+	queueParams := v.(*model.Queue)
+
+	queue, err = NewQueue(queueManager, queueManager.resourceManager, queueParams)
+	if err != nil {
+		return nil, err
 	}
 
 	queueManager.queuesCache.AddWithDefaultExpires(id, queue)

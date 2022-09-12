@@ -15,6 +15,7 @@ require (
 	github.com/webitel/protos/fs v0.0.0-20220808142325-467ad2483a44
 	github.com/webitel/protos/workflow v0.0.0-20220808142325-467ad2483a44
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/grpc v1.48.0
 )

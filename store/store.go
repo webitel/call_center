@@ -15,6 +15,7 @@ type Store interface {
 	Gateway() GatewayStore
 	Call() CallStore
 	Statistic() StatisticStore
+	Trigger() TriggerStore
 }
 
 type CallStore interface {
@@ -127,4 +128,12 @@ type GatewayStore interface {
 
 type StatisticStore interface {
 	RefreshInbound1H() *model.AppError
+}
+
+type TriggerStore interface {
+	ScheduleNewJobs() *model.AppError
+	FetchIdleJobs(node string, limit int) ([]model.TriggerJob, *model.AppError)
+	SetError(job *model.TriggerJob, jobErr error) *model.AppError
+	SetResult(job *model.TriggerJob) *model.AppError
+	CleanActive(nodeId string) *model.AppError
 }

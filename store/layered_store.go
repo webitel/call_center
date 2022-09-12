@@ -61,3 +61,7 @@ func (s *LayeredStore) Call() CallStore {
 func (s *LayeredStore) Statistic() StatisticStore {
 	return s.DatabaseLayer.Statistic()
 }
+
+func (s *LayeredStore) Trigger() TriggerStore {
+	return s.DatabaseLayer.Trigger()
+}

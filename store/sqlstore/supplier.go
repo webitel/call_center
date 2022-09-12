@@ -40,6 +40,7 @@ type SqlSupplierOldStores struct {
 	gateway          store.GatewayStore
 	call             store.CallStore
 	statistic        store.StatisticStore
+	trigger          store.TriggerStore
 }
 
 type SqlSupplier struct {
@@ -73,6 +74,7 @@ func NewSqlSupplier(settings model.SqlSettings) *SqlSupplier {
 	supplier.oldStores.gateway = NewSqlGatewayStore(supplier)
 	supplier.oldStores.call = NewSqlCallStore(supplier)
 	supplier.oldStores.statistic = NewSqlStatisticStore(supplier)
+	supplier.oldStores.trigger = NewSqlTriggerStore(supplier)
 
 	err := supplier.GetMaster().CreateTablesIfNotExists()
 	if err != nil {
@@ -221,6 +223,10 @@ func (ss *SqlSupplier) Statistic() store.StatisticStore {
 	return ss.oldStores.statistic
 }
 
+func (ss *SqlSupplier) Trigger() store.TriggerStore {
+	return ss.oldStores.trigger
+}
+
 type typeConverter struct{}
 
 func (me typeConverter) ToDb(val interface{}) (interface{}, error) {
@@ -269,6 +275,7 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 		return gorp.CustomScanner{Holder: new(string), Target: target, Binder: binder}, true
 
 	case **model.RingtoneFile,
+		*model.TriggerJobParameter,
 		*[]*model.QueueHook:
 		binder := func(holder, target interface{}) error {
 			s, ok := holder.(*[]byte)
@@ -359,11 +366,4 @@ func (me typeConverter) FromDb(target interface{}) (gorp.CustomScanner, bool) {
 	}
 
 	return gorp.CustomScanner{}, false
-}
-
-func GetOrderType(desc bool) string {
-	if desc {
-		return "DESC"
-	}
-	return "ASC"
 }

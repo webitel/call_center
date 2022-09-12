@@ -2466,6 +2466,54 @@ $$;
 
 
 --
+-- Name: cc_scheduler_jobs(); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.cc_scheduler_jobs()
+    LANGUAGE plpgsql
+    AS $$
+begin
+    if NOT pg_try_advisory_xact_lock(132132118) then
+        raise exception 'LOCKED cc_scheduler_jobs';
+    end if;
+
+    with del as (
+        delete from call_center.cc_trigger_job
+        where stopped_at notnull
+        returning id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
+    )
+    insert into call_center.cc_trigger_job_log (id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id)
+    select id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
+    from del
+    ;
+
+    with u as (
+        update cc_trigger t2
+            set schedule_at = t.schedule_at
+            from (select t.id,
+                         jsonb_build_object('variables', t.variables,
+                                            'schema_id', t.schema_id,
+                                            'timeout', t.timeout_sec
+                             ) as                                      params,
+                         now() schedule_at
+                  from call_center.cc_trigger t
+                           inner join flow.calendar_timezones tz on tz.id = t.timezone_id
+                  where t.enabled
+                    and now() > call_center.cc_cron_next(t.expression, t.schedule_at + tz.utc_offset)
+                    and not exists(select 1 from call_center.cc_trigger_job tj where tj.trigger_id = t.id and tj.state = 0)
+                      for update skip locked) t
+            where t2.id = t.id
+            returning t.*)
+    insert
+    into call_center.cc_trigger_job(trigger_id, parameters)
+    select id, params
+    from u;
+
+end;
+$$;
+
+
+--
 -- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -5568,6 +5616,222 @@ CREATE VIEW call_center.cc_team_list AS
 
 
 --
+-- Name: cc_trigger; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_trigger (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    type character varying DEFAULT 'cron'::character varying NOT NULL,
+    schema_id integer NOT NULL,
+    variables jsonb,
+    description text,
+    expression character varying,
+    timezone_id integer NOT NULL,
+    created_by bigint,
+    updated_by bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    timeout_sec integer DEFAULT 0 NOT NULL,
+    schedule_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: cc_trigger_acl; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_trigger_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL,
+    object bigint NOT NULL
+);
+
+
+--
+-- Name: cc_trigger_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_trigger_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_trigger_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_trigger_acl_id_seq OWNED BY call_center.cc_trigger_acl.id;
+
+
+--
+-- Name: cc_trigger_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_trigger_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_trigger_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_trigger_id_seq OWNED BY call_center.cc_trigger.id;
+
+
+--
+-- Name: cc_trigger_job; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE UNLOGGED TABLE call_center.cc_trigger_job (
+    id bigint NOT NULL,
+    trigger_id integer NOT NULL,
+    state integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    started_at timestamp with time zone,
+    stopped_at timestamp with time zone,
+    parameters jsonb,
+    error text,
+    result jsonb,
+    node_id character varying,
+    domain_id bigint
+);
+
+
+--
+-- Name: cc_trigger_job_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_trigger_job_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_trigger_job_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_trigger_job_id_seq OWNED BY call_center.cc_trigger_job.id;
+
+
+--
+-- Name: cc_trigger_job_log; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_trigger_job_log (
+    id bigint,
+    trigger_id integer NOT NULL,
+    state integer,
+    created_at timestamp with time zone,
+    started_at timestamp with time zone NOT NULL,
+    stopped_at timestamp with time zone,
+    parameters jsonb,
+    error text,
+    result jsonb,
+    node_id character varying,
+    domain_id bigint NOT NULL
+);
+
+
+--
+-- Name: cc_trigger_job_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_trigger_job_list AS
+ SELECT j.id,
+    j.domain_id,
+    call_center.cc_get_lookup((t.id)::bigint, t.name) AS trigger,
+    j.state,
+    j.created_at,
+    j.started_at,
+    j.stopped_at,
+    j.parameters,
+    j.error,
+    j.result,
+    j.trigger_id
+   FROM (call_center.cc_trigger_job j
+     LEFT JOIN call_center.cc_trigger t ON ((t.id = j.trigger_id)))
+UNION ALL
+ SELECT j.id,
+    j.domain_id,
+    call_center.cc_get_lookup((t.id)::bigint, t.name) AS trigger,
+    j.state,
+    j.created_at,
+    j.started_at,
+    j.stopped_at,
+    j.parameters,
+    j.error,
+    j.result,
+    j.trigger_id
+   FROM (call_center.cc_trigger_job_log j
+     LEFT JOIN call_center.cc_trigger t ON ((t.id = j.trigger_id)));
+
+
+--
+-- Name: cc_trigger_job_log_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_trigger_job_log_list AS
+ SELECT j.id,
+    j.domain_id,
+    call_center.cc_get_lookup((t.id)::bigint, t.name) AS trigger,
+    j.state,
+    j.created_at,
+    j.started_at,
+    j.stopped_at,
+    j.parameters,
+    j.error,
+    j.result
+   FROM (call_center.cc_trigger_job_log j
+     LEFT JOIN call_center.cc_trigger t ON ((t.id = j.trigger_id)));
+
+
+--
+-- Name: cc_trigger_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_trigger_list AS
+ SELECT t.domain_id,
+    t.schema_id,
+    t.timezone_id,
+    t.id,
+    t.name,
+    t.enabled,
+    t.type,
+    call_center.cc_get_lookup(s.id, s.name) AS schema,
+    t.variables,
+    t.description,
+    t.expression,
+    call_center.cc_get_lookup((tz.id)::bigint, tz.name) AS timezone,
+    t.timeout_sec AS timeout,
+    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS created_by,
+    call_center.cc_get_lookup(uu.id, (COALESCE(uu.name, (uu.username)::text))::character varying) AS updated_by,
+    t.created_at,
+    t.updated_at
+   FROM ((((call_center.cc_trigger t
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = t.schema_id)))
+     LEFT JOIN flow.calendar_timezones tz ON ((tz.id = t.timezone_id)))
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = t.created_by)))
+     LEFT JOIN directory.wbt_user uu ON ((uu.id = t.updated_by)));
+
+
+--
 -- Name: cc_agent id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -5824,6 +6088,27 @@ ALTER TABLE ONLY call_center.cc_team ALTER COLUMN id SET DEFAULT nextval('call_c
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_acl_id_seq'::regclass);
+
+
+--
+-- Name: cc_trigger id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger ALTER COLUMN id SET DEFAULT nextval('call_center.cc_trigger_id_seq'::regclass);
+
+
+--
+-- Name: cc_trigger_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_trigger_acl_id_seq'::regclass);
+
+
+--
+-- Name: cc_trigger_job id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_job ALTER COLUMN id SET DEFAULT nextval('call_center.cc_trigger_job_id_seq'::regclass);
 
 
 --
@@ -6176,6 +6461,30 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 ALTER TABLE ONLY call_center.cc_team
     ADD CONSTRAINT cc_team_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_trigger_job cc_trigger_job_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_job
+    ADD CONSTRAINT cc_trigger_job_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_trigger cc_trigger_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger
+    ADD CONSTRAINT cc_trigger_pk PRIMARY KEY (id);
 
 
 --
@@ -7212,6 +7521,41 @@ CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (update
 
 
 --
+-- Name: cc_trigger_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_trigger_acl_grantor_idx ON call_center.cc_trigger_acl USING btree (grantor);
+
+
+--
+-- Name: cc_trigger_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_trigger_acl_object_subject_udx ON call_center.cc_trigger_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: cc_trigger_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_trigger_acl_subject_object_udx ON call_center.cc_trigger_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_trigger_id_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_trigger_id_domain_id_uindex ON call_center.cc_trigger USING btree (id, domain_id);
+
+
+--
+-- Name: cc_trigger_job_log_trigger_id_started_at_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_trigger_job_log_trigger_id_started_at_index ON call_center.cc_trigger_job_log USING btree (trigger_id, started_at DESC);
+
+
+--
 -- Name: cc_calls_history_domain_created_user_ids_st; Type: STATISTICS; Schema: call_center; Owner: -
 --
 
@@ -7671,6 +8015,13 @@ CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_que
 --
 
 CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_team');
+
+
+--
+-- Name: cc_trigger cc_trigger_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_trigger_set_rbac_acl AFTER INSERT ON call_center.cc_trigger FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_trigger');
 
 
 --
@@ -8762,6 +9113,94 @@ ALTER TABLE ONLY call_center.cc_team
 
 ALTER TABLE ONLY call_center.cc_team
     ADD CONSTRAINT cc_team_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_cc_trigger_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_cc_trigger_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_trigger(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_trigger(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: cc_trigger_acl cc_trigger_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_acl
+    ADD CONSTRAINT cc_trigger_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_trigger cc_trigger_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger
+    ADD CONSTRAINT cc_trigger_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id);
+
+
+--
+-- Name: cc_trigger cc_trigger_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger
+    ADD CONSTRAINT cc_trigger_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES flow.calendar_timezones(id);
+
+
+--
+-- Name: cc_trigger_job cc_trigger_job_cc_trigger_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_job
+    ADD CONSTRAINT cc_trigger_job_cc_trigger_id_fk FOREIGN KEY (trigger_id) REFERENCES call_center.cc_trigger(id);
+
+
+--
+-- Name: cc_trigger_job_log cc_trigger_job_log_cc_trigger_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger_job_log
+    ADD CONSTRAINT cc_trigger_job_log_cc_trigger_id_fk FOREIGN KEY (trigger_id) REFERENCES call_center.cc_trigger(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_trigger cc_trigger_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_trigger
+    ADD CONSTRAINT cc_trigger_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --

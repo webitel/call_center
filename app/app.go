@@ -13,27 +13,29 @@ import (
 	"github.com/webitel/call_center/queue"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
+	"github.com/webitel/call_center/trigger"
 	"github.com/webitel/flow_manager/client"
 	"github.com/webitel/wlog"
 	"sync/atomic"
 )
 
 type App struct {
-	id           *string
-	Store        store.Store
-	MQ           mq.MQ
-	Log          *wlog.Logger
-	configFile   string
-	config       atomic.Value
-	newStore     func() store.Store
-	cluster      cluster.Cluster
-	engine       engine.Engine
-	dialing      queue.Dialing
-	GrpcServer   *GrpcServer
-	agentManager agent_manager.AgentManager
-	callManager  call_manager.CallManager
-	flowManager  client.FlowManager
-	chatManager  *chat.ChatManager
+	id             *string
+	Store          store.Store
+	MQ             mq.MQ
+	Log            *wlog.Logger
+	configFile     string
+	config         atomic.Value
+	newStore       func() store.Store
+	cluster        cluster.Cluster
+	engine         engine.Engine
+	dialing        queue.Dialing
+	GrpcServer     *GrpcServer
+	agentManager   agent_manager.AgentManager
+	callManager    call_manager.CallManager
+	flowManager    client.FlowManager
+	chatManager    *chat.ChatManager
+	triggerManager *trigger.Manager
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -106,6 +108,11 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.dialing = queue.NewDialing(app, app.MQ, app.callManager, app.agentManager, app.Store)
 	app.dialing.Start()
 
+	app.triggerManager = trigger.NewManager(*app.id, app.Store, app.flowManager)
+	if err := app.triggerManager.Start(); err != nil {
+		return nil, err
+	}
+
 	return app, outErr
 }
 
@@ -159,6 +166,10 @@ func (app *App) Shutdown() {
 
 	if app.chatManager != nil {
 		app.chatManager.Stop()
+	}
+
+	if app.triggerManager != nil {
+		app.triggerManager.Stop()
 	}
 
 	if app.MQ != nil {
