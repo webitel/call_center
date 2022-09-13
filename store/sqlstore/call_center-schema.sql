@@ -1065,6 +1065,31 @@ $$;
 
 
 --
+-- Name: cc_cron_next_after_now(character varying, timestamp without time zone, timestamp without time zone); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_cron_next_after_now(expression character varying, shed timestamp without time zone, nowtz timestamp without time zone) RETURNS timestamp without time zone
+    LANGUAGE plpgsql
+    AS $$
+    declare n timestamp = (call_center.cc_cron_next(expression, shed))::timestamp;
+    declare i int = 0;
+begin
+        if n < nowtz then
+            n = nowtz;
+        end if;
+
+        while n <= nowtz and i < 1000 loop -- TODO
+            n = (call_center.cc_cron_next(expression, n) )::timestamp;
+            i = i + 1;
+        end loop;
+
+
+        return n;
+end;
+$$;
+
+
+--
 -- Name: cc_distribute(integer); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
@@ -2473,6 +2498,7 @@ CREATE PROCEDURE call_center.cc_scheduler_jobs()
     LANGUAGE plpgsql
     AS $$
 begin
+
     if NOT pg_try_advisory_xact_lock(132132118) then
         raise exception 'LOCKED cc_scheduler_jobs';
     end if;
@@ -2488,27 +2514,29 @@ begin
     ;
 
     with u as (
-        update cc_trigger t2
-            set schedule_at = t.schedule_at
+        update call_center.cc_trigger t2
+            set schedule_at = (t.new_schedule_at)::timestamp
             from (select t.id,
                          jsonb_build_object('variables', t.variables,
                                             'schema_id', t.schema_id,
                                             'timeout', t.timeout_sec
                              ) as                                      params,
-                         now() schedule_at
+                         call_center.cc_cron_next_after_now(t.expression, (t.schedule_at)::timestamp, (now() at time zone tz.sys_name)::timestamp) new_schedule_at,
+                         t.domain_id,
+                         (t.schedule_at)::timestamp as old_schedule_at
                   from call_center.cc_trigger t
                            inner join flow.calendar_timezones tz on tz.id = t.timezone_id
                   where t.enabled
-                    and now() > call_center.cc_cron_next(t.expression, t.schedule_at + tz.utc_offset)
+                    and (t.schedule_at)::timestamp <= (now() at time zone tz.sys_name)::timestamp
                     and not exists(select 1 from call_center.cc_trigger_job tj where tj.trigger_id = t.id and tj.state = 0)
-                      for update skip locked) t
+                      for update of t skip locked) t
             where t2.id = t.id
-            returning t.*)
+            returning t.*
+           )
     insert
-    into call_center.cc_trigger_job(trigger_id, parameters)
-    select id, params
+    into call_center.cc_trigger_job(trigger_id, parameters, domain_id)
+    select id, params, domain_id
     from u;
-
 end;
 $$;
 
@@ -2704,6 +2732,31 @@ select z.offset_id
     from flow.calendar_timezones z
     where z.id = $1;
 $_$;
+
+
+--
+-- Name: cc_trigger_ins_upd(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_trigger_ins_upd() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+        if call_center.cc_cron_valid(NEW.expression) is not true then
+            raise exception 'invalid expression %', NEW.expression using errcode ='20808';
+        end if;
+
+        if old.enabled != new.enabled or old.expression != new.expression or old.timezone_id != new.timezone_id then
+            select
+                call_center.cc_cron_next_after_now(new.expression, (now() at time zone tz.sys_name)::timestamp, (now() at time zone tz.sys_name)::timestamp)
+            into new.schedule_at
+            from flow.calendar_timezones tz
+            where tz.id = NEW.timezone_id;
+        end if;
+
+        RETURN NEW;
+    END;
+$$;
 
 
 --
@@ -3683,8 +3736,8 @@ CREATE TABLE call_center.cc_member (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     expire_at timestamp with time zone,
     skill_id integer,
-    sys_destinations call_center.cc_destination[],
     import_id character varying(30),
+    sys_destinations call_center.cc_destination[],
     CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
@@ -5628,14 +5681,14 @@ CREATE TABLE call_center.cc_trigger (
     schema_id integer NOT NULL,
     variables jsonb,
     description text,
-    expression character varying,
+    expression character varying NOT NULL,
     timezone_id integer NOT NULL,
     created_by bigint,
     updated_by bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     timeout_sec integer DEFAULT 0 NOT NULL,
-    schedule_at timestamp with time zone DEFAULT now() NOT NULL
+    schedule_at timestamp without time zone DEFAULT (now())::timestamp without time zone
 );
 
 
@@ -7637,6 +7690,69 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
 
 
 --
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
+
+
+--
+-- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t,
+            cor.patterns
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
+
+
+--
 -- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
@@ -7815,69 +7931,6 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
 
 
 --
--- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t,
-            cor.patterns
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
-
-
---
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
-
-
---
 -- Name: cc_agent cc_agent_init_channel_ins; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -8015,6 +8068,13 @@ CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_que
 --
 
 CREATE TRIGGER cc_team_set_rbac_acl AFTER INSERT ON call_center.cc_team FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_team');
+
+
+--
+-- Name: cc_trigger cc_trigger_ins_upd_tg; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_trigger_ins_upd_tg BEFORE INSERT OR UPDATE ON call_center.cc_trigger FOR EACH ROW EXECUTE FUNCTION call_center.cc_trigger_ins_upd();
 
 
 --
