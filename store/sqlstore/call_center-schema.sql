@@ -4509,7 +4509,8 @@ CREATE TABLE call_center.cc_list_communications (
     list_id bigint NOT NULL,
     number character varying(25) NOT NULL,
     id bigint NOT NULL,
-    description text
+    description text,
+    expire_at timestamp with time zone
 );
 
 
@@ -4541,7 +4542,8 @@ CREATE VIEW call_center.cc_list_communications_view AS
     i.number,
     i.description,
     i.list_id,
-    cl.domain_id
+    cl.domain_id,
+    i.expire_at
    FROM (call_center.cc_list_communications i
      LEFT JOIN call_center.cc_list cl ON ((cl.id = i.list_id)));
 
@@ -6593,7 +6595,7 @@ CREATE UNIQUE INDEX cc_agent_domain_udx ON call_center.cc_agent USING btree (id,
 -- Name: cc_agent_state_history_dev_g; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (joined_at DESC, agent_id) INCLUDE (state) WHERE ((channel IS NULL) AND ((state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])));
+CREATE INDEX cc_agent_state_history_dev_g ON call_center.cc_agent_state_history USING btree (agent_id, joined_at DESC) INCLUDE (state, payload) WHERE ((channel IS NULL) AND ((state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])));
 
 
 --
@@ -6888,13 +6890,6 @@ CREATE INDEX cc_calls_history_user_ids_index ON call_center.cc_calls_history USI
 
 
 --
--- Name: cc_calls_history_user_ids_index2; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_calls_history_user_ids_index2 ON call_center.cc_calls_history USING gin (((user_ids)::integer[])) WHERE (user_ids IS NOT NULL);
-
-
---
 -- Name: cc_calls_history_user_ids_index3; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -6962,6 +6957,13 @@ CREATE UNIQUE INDEX cc_list_acl_object_subject_udx ON call_center.cc_list_acl US
 --
 
 CREATE UNIQUE INDEX cc_list_acl_subject_object_udx ON call_center.cc_list_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_list_communications_expire_at_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_list_communications_expire_at_index ON call_center.cc_list_communications USING btree (expire_at) WHERE (expire_at IS NOT NULL);
 
 
 --
@@ -8436,7 +8438,7 @@ ALTER TABLE ONLY call_center.cc_email
 --
 
 ALTER TABLE ONLY call_center.cc_email
-    ADD CONSTRAINT cc_email_cc_email_profiles_id_fk FOREIGN KEY (profile_id) REFERENCES call_center.cc_email_profile(id);
+    ADD CONSTRAINT cc_email_cc_email_profiles_id_fk FOREIGN KEY (profile_id) REFERENCES call_center.cc_email_profile(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
