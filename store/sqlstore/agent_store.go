@@ -267,14 +267,28 @@ func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 }
 
 //todo need index
-func (s SqlAgentStore) OnlineWithOutActiveSock(sec int) ([]model.AgentHashKey, *model.AppError) {
+func (s SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey
 	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at
 from call_center.cc_agent a
-    inner join directory.wbt_user_presence p on (p.user_id, p.status) = (a.user_id, 'web')
 where a.status != 'offline'
-    and p.open = 0
-    and p.updated_at <= now() at time zone 'UTC' - (:Sec || ' sec')::interval
+    and not exists(SELECT 1
+        FROM directory.wbt_session s
+        WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
+            and s.user_id = a.user_id::int8
+            and s.access notnull
+            AND s.expires > now() at time zone 'UTC')
+
+    and not exists(
+        select 1
+        from directory.wbt_user_presence p
+            where p.user_id = a.user_id
+                and p.status in ('sip', 'web')
+                and (
+                    p.open > 0
+                    or (p.status = 'web' and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval)
+                )
+    )
 for update skip locked`, map[string]interface{}{
 		"Sec": sec,
 	})

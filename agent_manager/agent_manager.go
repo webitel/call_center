@@ -167,7 +167,7 @@ func (am *agentManager) SetBreakOut(agent AgentObject) *model.AppError {
 // WTEL-1727
 //todo new watcher &
 func (am *agentManager) changeDeadlineState() {
-	if items, err := am.store.Agent().OnlineWithOutActiveSock(MaxAgentOnlineWithOutSocSec); err != nil {
+	if items, err := am.store.Agent().OnlineWithOutActive(MaxAgentOnlineWithOutSocSec); err != nil {
 		wlog.Error(err.Error())
 	} else {
 		for _, v := range items {

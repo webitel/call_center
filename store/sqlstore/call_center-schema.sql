@@ -144,6 +144,7 @@ CREATE FUNCTION call_center.cc_agent_set_login(agent_id_ integer, on_demand_ boo
     AS $$
 declare
     res_ jsonb;
+    user_id_ int8;
 begin
     update call_center.cc_agent
     set status            = 'online', -- enum added
@@ -151,7 +152,20 @@ begin
         on_demand = on_demand_,
 --         updated_at = case when on_demand != on_demand_ then cc_view_timestamp(now()) else updated_at end,
         last_state_change = now()     -- todo rename to status
-    where call_center.cc_agent.id = agent_id_;
+    where call_center.cc_agent.id = agent_id_
+    returning user_id into user_id_;
+
+    if NOT (exists(select 1
+from directory.wbt_user_presence p
+where user_id = user_id_ and open > 0 and status in ('sip', 'web'))
+      or exists(SELECT 1
+FROM directory.wbt_session s
+WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
+    and s.user_id = user_id_::int8
+    and s.access notnull
+    AND s.expires > now() at time zone 'UTC')) then
+        raise exception 'not found: sip, web or pn';
+    end if;
 
     update call_center.cc_agent_channel c
         set  channel = case when x.x = 1 then c.channel end,
