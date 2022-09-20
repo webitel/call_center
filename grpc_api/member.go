@@ -74,7 +74,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 
 func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberService_CallJoinToQueueServer) error {
 
-	ctx := context.Background()
+	ctx := out.Context()
 	attempt, err := api.app.Queue().Manager().DistributeCall(ctx, in)
 	if err != nil {
 		if err == model.ErrQueueMaxWaitSize {
@@ -137,7 +137,7 @@ stop:
 }
 
 func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
-	ctx := context.Background()
+	ctx := out.Context()
 	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(ctx, in)
 	if err != nil {
 		if err == model.ErrQueueMaxWaitSize {
