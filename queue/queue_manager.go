@@ -570,7 +570,12 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 	}
 
 	attempt, _ := queueManager.CreateAttemptIfNotExists(context.Background(), member)
-	queueManager.DistributeAttempt(attempt)
+	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
+		attempt.Log(err.Error())
+	}
+	if err = queueManager.app.NotificationHideMember(attempt.domainId, attempt.QueueId(), attempt.MemberId(), agentId); err != nil {
+		attempt.Log(err.Error())
+	}
 	return attempt, nil
 }
 

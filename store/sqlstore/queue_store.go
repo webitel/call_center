@@ -71,3 +71,27 @@ where q.id = :Id
 		return queue, nil
 	}
 }
+
+func (s SqlQueueStore) UserIds(queueId int, skipAgentId int) (model.Int64Array, *model.AppError) {
+	var res model.Int64Array
+	_, err := s.GetReplica().Select(&res, `select distinct a.user_id
+from call_center.cc_queue q
+    inner join call_center.cc_agent a on a.domain_id = q.domain_id
+    inner join call_center.cc_queue_skill qs on qs.queue_id = q.id and qs.enabled
+    inner join call_center.cc_skill_in_agent sia on sia.agent_id = a.id and sia.enabled
+where q.id = :QueueId
+	and a.id != :SkipAgentId
+    and (q.team_id isnull or a.team_id = q.team_id)
+    and qs.skill_id = sia.skill_id and sia.capacity between qs.min_capacity and qs.max_capacity
+    and exists(select 1 from directory.wbt_user_presence p where p.user_id = a.user_id and p.status = 'web' and p.open > 0)`, map[string]interface{}{
+		"QueueId":     queueId,
+		"SkipAgentId": skipAgentId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlQueueStore.UserIds", "store.sql_queue.users.app_error", nil,
+			fmt.Sprintf("queue_id=%v, %s", queueId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return model.Int64Array(res), nil
+}

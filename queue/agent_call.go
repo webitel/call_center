@@ -15,6 +15,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.ExportVariables(),
+			agent.Variables(),
 			map[string]string{
 				//"ignore_early_media": "true",
 				//"absolute_codec_string": "opus,pcmu,pcma",
@@ -55,6 +56,10 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		Timeout:      at.CallTimeout(),
 		CallerName:   agent.Name(),
 		CallerNumber: agent.CallNumber(),
+	}
+
+	if agent.HasPush() {
+		cr.SetPush()
 	}
 
 	queue.SetHoldMusic(cr)

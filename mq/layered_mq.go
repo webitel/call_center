@@ -48,3 +48,7 @@ func (l *LayeredMQ) AgentChangeStatus(domainId int64, userId int64, e E) *model.
 func (l *LayeredMQ) AgentChannelEvent(channel string, domainId int64, queueId int, userId int64, e E) *model.AppError {
 	return l.MQLayer.AgentChannelEvent(channel, domainId, queueId, userId, e)
 }
+
+func (l *LayeredMQ) SendNotification(domainId int64, event *model.Notification) *model.AppError {
+	return l.MQLayer.SendNotification(domainId, event)
+}

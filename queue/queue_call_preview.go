@@ -82,6 +82,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Timeout:      team.CallTimeout(),
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
+			agent.Variables(),
 			attempt.ExportVariables(),
 			map[string]string{
 				model.CallVariableDomainName: queue.Domain(),
@@ -129,6 +130,10 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 3),
+	}
+
+	if agent.HasPush() {
+		callRequest.SetPush()
 	}
 
 	call, err := queue.NewCall(callRequest)

@@ -38,4 +38,6 @@ type AgentObject interface {
 	SetOnDemand(v bool)
 	IsOnDemand() bool
 	GreetingMedia() *model.RingtoneFile
+	Variables() map[string]string
+	HasPush() bool
 }

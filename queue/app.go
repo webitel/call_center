@@ -18,4 +18,5 @@ type App interface {
 	GetCall(id string) (*model.Call, *model.AppError)
 	GetChat(id string) (*chat.Conversation, *model.AppError)
 	QueueSettings() model.QueueSettings
+	NotificationHideMember(domainId int64, queueId int, memberId *int64, agentId int) *model.AppError
 }

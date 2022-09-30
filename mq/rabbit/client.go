@@ -47,7 +47,7 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string) mq.Layere
 		errorChan: make(chan *amqp.Error, 1),
 		stop:      make(chan struct{}),
 		stopped:   make(chan struct{}),
-		callEvent: make(chan model.CallActionData),
+		callEvent: make(chan model.CallActionData, 100),
 		chatEvent: make(chan model.ChatEvent),
 		nodeName:  nodeName,
 	}
