@@ -92,3 +92,11 @@ func (agent *Agent) SetOnDemand(v bool) {
 	//todo mutex
 	agent.info.OnDemand = v
 }
+
+func (agent *Agent) Variables() map[string]string {
+	return agent.info.Variables
+}
+
+func (agent *Agent) HasPush() bool {
+	return agent.info.HasPush
+}

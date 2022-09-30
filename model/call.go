@@ -320,3 +320,7 @@ type CallRequest struct {
 	Context      string
 	Applications []*CallRequestApplication
 }
+
+func (cr *CallRequest) SetPush() {
+	cr.Variables["execute_on_originate"] = "wbt_send_hook"
+}

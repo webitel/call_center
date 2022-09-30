@@ -70,6 +70,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.ExportVariables(),
+			agent.Variables(),
 			map[string]string{
 				model.CallVariableDomainName: queue.Domain(),
 				model.CallVariableDomainId:   fmt.Sprintf("%v", queue.DomainId()),
@@ -115,6 +116,10 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 1),
+	}
+
+	if agent.HasPush() {
+		callRequest.SetPush()
 	}
 
 	call, err := queue.NewCall(callRequest)

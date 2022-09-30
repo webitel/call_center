@@ -44,17 +44,19 @@ const (
 )
 
 type Agent struct {
-	Id            int           `json:"id" db:"id"`
-	DomainId      int64         `json:"domain_id" db:"domain_id"`
-	UserId        *int64        `json:"user_id" db:"user_id"`
-	Name          string        `json:"name" db:"name"`
-	UpdatedAt     int64         `json:"updated_at" db:"updated_at"`
-	Destination   string        `json:"destination" db:"destination"`
-	Extension     string        `json:"extension" db:"extension"`
-	TeamId        int           `json:"team_id" db:"team_id"`
-	TeamUpdatedAt int64         `json:"team_updated_at" db:"team_updated_at"`
-	OnDemand      bool          `json:"on_demand" db:"on_demand"`
-	GreetingMedia *RingtoneFile `json:"greeting_media" db:"greeting_media"`
+	Id            int               `json:"id" db:"id"`
+	DomainId      int64             `json:"domain_id" db:"domain_id"`
+	UserId        *int64            `json:"user_id" db:"user_id"`
+	Name          string            `json:"name" db:"name"`
+	UpdatedAt     int64             `json:"updated_at" db:"updated_at"`
+	Destination   string            `json:"destination" db:"destination"`
+	Extension     string            `json:"extension" db:"extension"`
+	TeamId        int               `json:"team_id" db:"team_id"`
+	TeamUpdatedAt int64             `json:"team_updated_at" db:"team_updated_at"`
+	OnDemand      bool              `json:"on_demand" db:"on_demand"`
+	GreetingMedia *RingtoneFile     `json:"greeting_media" db:"greeting_media"`
+	Variables     map[string]string `json:"variables" db:"variables"`
+	HasPush       bool              `json:"has_push" db:"has_push"`
 	AgentStatus
 }
 

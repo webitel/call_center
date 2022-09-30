@@ -48,16 +48,43 @@ returning t.*`, map[string]interface{}{
 
 func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
-	if err := s.GetReplica().SelectOne(&agent, `
-			select a.id, a.user_id, a.domain_id, a.updated_at, coalesce( (u.name)::varchar, u.username) as name, 'sofia/sip/' || u.extension || '@' || d.name as destination, 
-			u.extension, a.status, a.status_payload, a.on_demand, 
-			case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media, a.team_id, team.updated_at as team_updated_at
+	if err := s.GetReplica().SelectOne(&agent, `select a.id,
+       a.user_id,
+       a.domain_id,
+       a.updated_at,
+       coalesce((u.name)::varchar, u.username)                                                   as name,
+       'sofia/sip/' || u.extension || '@' || d.name                                              as destination,
+       u.extension,
+       a.status,
+       a.status_payload,
+       a.on_demand,
+       case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media,
+       a.team_id,
+       team.updated_at                                                                           as team_updated_at,
+       coalesce(push.config, '{}') variables,
+       push.config notnull has_push
 from call_center.cc_agent a
-    inner join directory.wbt_user u on u.id = a.user_id
-    inner join directory.wbt_domain d on d.dc = a.domain_id
-	inner join call_center.cc_team team on team.id = a.team_id
-	left join storage.media_files g on g.id = a.greeting_media_id
-where a.id = :Id and u.extension notnull		
+         inner join directory.wbt_user u on u.id = a.user_id
+         inner join directory.wbt_domain d on d.dc = a.domain_id
+         inner join call_center.cc_team team on team.id = a.team_id
+         left join storage.media_files g on g.id = a.greeting_media_id
+left join lateral ( select jsonb_object(array_agg(key), array_agg(val)) as push
+			from (SELECT case
+							 when s.props ->> 'pn-type'::text = 'fcm' then 'wbt_push_fcm'
+							 else 'wbt_push_apn' end                                            as key,
+						 array_to_string(array_agg(DISTINCT s.props ->> 'pn-rpid'::text), '::') as val
+				  FROM directory.wbt_session s
+				  WHERE s.user_id IS NOT NULL
+					AND s.access notnull
+					AND NULLIF(s.props ->> 'pn-rpid'::text, ''::text) IS NOT NULL
+					AND s.user_id = 10
+					and s.props ->> 'pn-type'::text in ('fcm', 'apns')
+					AND now() at time zone 'UTC' < s.expires
+				  group by s.props ->> 'pn-type'::text = 'fcm') t
+			where key notnull
+			  and val notnull) push(config) ON true
+where a.id = :Id
+  and u.extension notnull		
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
