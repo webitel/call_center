@@ -1196,10 +1196,10 @@ BEGIN
                       (m.communications -> (_communication_id::int2) -> 'type' -> 'id')::int4
                 limit 1
                 ) r on true
-                     inner join call_center.cc_team ct on q.team_id = ct.id
                      left join call_center.cc_outbound_resource cor on cor.id = r.resource_id
             where m.id = _member_id
               and m.communications -> (_communication_id::int2) notnull
+              and not exists(select 1 from call_center.cc_member_attempt ma where ma.member_id = _member_id)
             returning call_center.cc_member_attempt.*
     )
                  select a.id,
@@ -1224,9 +1224,9 @@ BEGIN
                  from attempts a
                           left join call_center.cc_member cm on a.member_id = cm.id
                           inner join call_center.cc_queue cq on a.queue_id = cq.id
-                          inner join call_center.cc_team t on t.id = cq.team_id
                           left join call_center.cc_outbound_resource r on r.id = a.resource_id
-                          left join call_center.cc_agent ag on ag.id = a.agent_id;
+                          left join call_center.cc_agent ag on ag.id = a.agent_id
+                          inner join call_center.cc_team t on t.id = ag.team_id;
 
     --raise notice '%', _attempt_id;
 
@@ -4355,7 +4355,8 @@ CREATE TABLE call_center.cc_email (
     variables jsonb,
     root_id character varying,
     flow_id integer,
-    body text
+    body text,
+    html text
 );
 
 
@@ -4394,7 +4395,7 @@ CREATE TABLE call_center.cc_email_profile (
     fetch_interval integer DEFAULT 5 NOT NULL,
     state character varying DEFAULT 'idle'::character varying NOT NULL,
     flow_id integer,
-    host character varying,
+    imap_host character varying,
     mailbox character varying,
     imap_port integer,
     smtp_port integer,
@@ -4402,7 +4403,8 @@ CREATE TABLE call_center.cc_email_profile (
     password character varying,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by bigint,
-    updated_by bigint
+    updated_by bigint,
+    smtp_host character varying
 );
 
 
@@ -4424,12 +4426,17 @@ CREATE VIEW call_center.cc_email_profile_list AS
     call_center.cc_get_lookup(t.created_by, (cc.name)::character varying) AS created_by,
     call_center.cc_view_timestamp(t.updated_at) AS updated_at,
     call_center.cc_get_lookup(t.updated_by, (cu.name)::character varying) AS updated_by,
+    call_center.cc_view_timestamp(t.last_activity_at) AS activity_at,
     t.name,
-    t.host,
+    t.imap_host,
+    t.smtp_host,
     t.login,
     t.mailbox,
     t.smtp_port,
     t.imap_port,
+    t.fetch_err AS fetch_error,
+    t.fetch_interval,
+    t.state,
     call_center.cc_get_lookup((t.flow_id)::bigint, s.name) AS schema,
     t.description,
     t.enabled,
@@ -6946,6 +6953,20 @@ CREATE UNIQUE INDEX cc_communication_domain_id_code_uindex ON call_center.cc_com
 
 
 --
+-- Name: cc_email_in_reply_to_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_email_in_reply_to_index ON call_center.cc_email USING btree (in_reply_to) WHERE (in_reply_to IS NOT NULL);
+
+
+--
+-- Name: cc_email_message_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_email_message_id_index ON call_center.cc_email USING btree (message_id);
+
+
+--
 -- Name: cc_email_profile_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -7027,6 +7048,13 @@ CREATE INDEX cc_list_updated_by_index ON call_center.cc_list USING btree (update
 --
 
 CREATE INDEX cc_member_agent_id_index ON call_center.cc_member USING btree (agent_id);
+
+
+--
+-- Name: cc_member_appointmets_queue_id_ready; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_appointmets_queue_id_ready ON call_center.cc_member USING btree (queue_id, COALESCE(ready_at, created_at)) WHERE (stop_at IS NULL);
 
 
 --

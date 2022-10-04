@@ -125,6 +125,53 @@ $$;
 
 
 --
+-- Name: calendar_day_range(integer, integer); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.calendar_day_range(calendar_id integer, days integer) RETURNS SETOF date
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+declare i int = 0;
+    declare y int = 0;
+    declare r record;
+    declare d timestamp = null;
+begin
+        select c.excepts, c.accepts, tz.sys_name
+        into r
+        from  flow.calendar c
+            inner join flow.calendar_timezones tz on tz.id = c.timezone_id
+        where c.id = calendar_id
+        limit 1
+        ;
+
+        while r notnull and i < days and y < 1000 loop
+            d = (now() at time zone r.sys_name + (y || 'd')::interval)::timestamp;
+            y = y + 1;
+
+            if exists(select 1 from unnest(r.accepts) x
+                where not x.disabled and x.day = (extract(isodow from d)  ) - 1)
+               and not exists(
+                    select 1
+                       from unnest(r.excepts) as x
+                       where not x.disabled is true
+                         and case
+                                 when x.repeat is true then
+                                         to_char((d AT TIME ZONE r.sys_name)::date, 'MM-DD') =
+                                         to_char((to_timestamp(x.date / 1000) at time zone r.sys_name)::date, 'MM-DD')
+                                 else
+                                         (d AT TIME ZONE r.sys_name)::date =
+                                         (to_timestamp(x.date / 1000) at time zone r.sys_name)::date
+                           end
+                ) then
+                i = i + 1;
+                return next d::timestamp;
+            end if;
+        end loop;
+end;
+$$;
+
+
+--
 -- Name: calendar_json_to_accepts(jsonb); Type: FUNCTION; Schema: flow; Owner: -
 --
 
@@ -308,8 +355,9 @@ CREATE TABLE flow.acr_routing_scheme (
     description character varying(200) DEFAULT ''::character varying NOT NULL,
     debug boolean DEFAULT false NOT NULL,
     state smallint,
-    type character varying DEFAULT 'call'::character varying NOT NULL,
-    editor boolean DEFAULT false NOT NULL
+    type character varying DEFAULT 'voice'::character varying NOT NULL,
+    editor boolean DEFAULT false NOT NULL,
+    tags character varying[]
 );
 
 
@@ -487,7 +535,8 @@ CREATE VIEW flow.acr_routing_scheme_view AS
     s.scheme AS schema,
     s.payload,
     s.type,
-    s.editor
+    s.editor,
+    s.tags
    FROM ((flow.acr_routing_scheme s
      LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)));
@@ -1166,6 +1215,14 @@ ALTER TABLE ONLY flow.calendar
 
 ALTER TABLE ONLY flow.calendar
     ADD CONSTRAINT calendar_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: region region_calendar_timezones_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.region
+    ADD CONSTRAINT region_calendar_timezones_id_fk FOREIGN KEY (timezone_id) REFERENCES flow.calendar_timezones(id);
 
 
 --
