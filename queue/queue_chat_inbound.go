@@ -164,6 +164,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 		top:
 			for conv.Active() && aSess.StopAt == 0 {
 				select {
+				case <-attempt.Cancel():
+					conv.SetStop()
+					loop = false
+					break
 				case <-timeout.C:
 					if conv.BridgedAt() > 0 {
 						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec()))

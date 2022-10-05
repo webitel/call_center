@@ -2,6 +2,7 @@ package grpc_api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/model"
@@ -34,6 +35,15 @@ func terminateMember(status string) bool {
 	}
 
 	return false
+}
+
+func (api *member) CancelAttempt(ctx context.Context, in *cc.CancelAttemptRequest) (*cc.CancelAttemptResponse, error) {
+	ok := api.app.Queue().Manager().SetAttemptCancel(in.AttemptId, in.Result)
+	if !ok {
+		return nil, errors.New("not found")
+	}
+
+	return &cc.CancelAttemptResponse{}, nil
 }
 
 func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
@@ -93,6 +103,18 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 	bridged := attempt.On(queue.AttemptHookBridgedAgent)
 	leaving := attempt.On(queue.AttemptHookLeaving)
 	offering := attempt.On(queue.AttemptHookOfferingAgent)
+
+	e := out.Send(&cc.QueueEvent{
+		Data: &cc.QueueEvent_Joined{
+			Joined: &cc.QueueEvent_JoinedData{
+				AttemptId: attempt.Id(),
+				AppId:     api.app.GetInstanceId(),
+			},
+		},
+	})
+	if e != nil {
+		return e
+	}
 
 	for {
 		select {
@@ -157,6 +179,18 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 	leaving := attempt.On(queue.AttemptHookLeaving)
 	offering := attempt.On(queue.AttemptHookOfferingAgent)
 	missed := attempt.On(queue.AttemptHookMissedAgent)
+
+	e := out.Send(&cc.QueueEvent{
+		Data: &cc.QueueEvent_Joined{
+			Joined: &cc.QueueEvent_JoinedData{
+				AttemptId: attempt.Id(),
+				AppId:     api.app.GetInstanceId(),
+			},
+		},
+	})
+	if e != nil {
+		return e
+	}
 
 	for {
 		select {

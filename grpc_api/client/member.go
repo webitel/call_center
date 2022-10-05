@@ -109,3 +109,17 @@ func (api *memberApi) ProcessingActionForm(ctx context.Context, in *proto.Proces
 
 	return cli.member.ProcessingFormAction(ctx, in)
 }
+
+func (api *memberApi) CancelAttempt(ctx context.Context, attemptId int64, result, appId string) error {
+	cli, err := api.cli.getClient(appId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.member.CancelAttempt(ctx, &proto.CancelAttemptRequest{
+		AttemptId: attemptId,
+		Result:    result,
+	})
+
+	return err
+}

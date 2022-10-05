@@ -77,6 +77,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			calling = false
 		case <-attempt.Context.Done():
 			calling = false
+		case <-attempt.Cancel():
+			calling = false
 		case c := <-mCall.State():
 			if c == call_manager.CALL_STATE_HANGUP {
 				if agentCall != nil && agentCall.BridgeAt() == 0 {
@@ -136,6 +138,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 		top:
 			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
+				case <-attempt.Cancel():
+					calling = false
 				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
