@@ -362,7 +362,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		return nil, err
 	}
 
-	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+	attempt, _ := queueManager.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
 		Id:                  res.AttemptId,
 		QueueId:             res.QueueId,
 		QueueUpdatedAt:      res.QueueUpdatedAt,
@@ -535,7 +535,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		return nil, err
 	}
 
-	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+	attempt, _ := queueManager.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
 		Id:                  res.AttemptId,
 		QueueId:             res.QueueId,
 		QueueUpdatedAt:      res.QueueUpdatedAt,
@@ -634,6 +634,19 @@ func (queueManager *QueueManager) GetAttempt(id int64) (*Attempt, bool) {
 	return nil, false
 }
 
+func (queueManager *QueueManager) SetAttemptCancel(id int64, result string) bool {
+	att, ok := queueManager.GetAttempt(id)
+	if !ok {
+		return false
+	}
+	att.SetResult(result)
+
+	att.SetCancel()
+
+	return true
+
+}
+
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil, attempt.perNumbers, attempt.excludeCurrNumber)
 	if err != nil {
@@ -642,7 +655,9 @@ func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 	}
 
-	attempt.SetResult(AttemptResultAbandoned)
+	if attempt.Result() == "" {
+		attempt.SetResult(AttemptResultAbandoned)
+	}
 	queueManager.LeavingMember(attempt)
 }
 
