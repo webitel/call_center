@@ -5,12 +5,18 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
+	"golang.org/x/sync/singleflight"
+	"net/http"
 	"sync"
 )
 
 const (
 	SIZE_RESOURCES_CACHE = 10000
 	EXPIRE_CACHE_ITEM    = 60 * 60 * 24 //day
+)
+
+var (
+	resourceGroupRequest singleflight.Group
 )
 
 type ResourceManager struct {
@@ -29,8 +35,6 @@ func NewResourceManager(app App) *ResourceManager {
 }
 
 func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model.AppError) {
-	r.Lock()
-	defer r.Unlock()
 	var dialResource ResourceObject
 	item, ok := r.resourcesCache.Get(id)
 	if ok {
@@ -40,18 +44,35 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 		}
 	}
 
-	if config, err := r.app.GetOutboundResourceById(id); err != nil {
-		return nil, err
-	} else {
-		if gw, err := r.app.GetGateway(config.GatewayId); err != nil {
+	result, err, shared := resourceGroupRequest.Do(fmt.Sprintf("res-%d-%d", id, updatedAt), func() (interface{}, error) {
+		if config, err := r.app.GetOutboundResourceById(id); err != nil {
 			return nil, err
 		} else {
-			dialResource, _ = NewResource(config, *gw)
+			if gw, err := r.app.GetGateway(config.GatewayId); err != nil {
+				return nil, err
+			} else {
+				resource, _ := NewResource(config, *gw)
+				return resource, nil
+			}
+		}
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case *model.AppError:
+			return nil, err.(*model.AppError)
+		default:
+			return nil, model.NewAppError("Queue", "queue.manager.resource.get", nil, err.Error(), http.StatusInternalServerError)
 		}
 	}
 
-	r.resourcesCache.AddWithDefaultExpires(id, dialResource)
-	wlog.Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
+	dialResource = result.(ResourceObject)
+
+	if !shared {
+		r.resourcesCache.AddWithDefaultExpires(id, dialResource)
+		wlog.Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
+	}
+
 	return dialResource, nil
 }
 
