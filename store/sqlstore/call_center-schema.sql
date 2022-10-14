@@ -4100,8 +4100,9 @@ CREATE VIEW call_center.cc_calls_history_list AS
            FROM storage.file_jobs j
           WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
     transcripts.data AS transcripts,
-    c.talk_sec
-   FROM ((((((((((((call_center.cc_calls_history c
+    c.talk_sec,
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee
+   FROM (((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
            FROM ( SELECT f1.id,
@@ -4132,6 +4133,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
+     LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
      LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))))
      LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
            FROM (storage.file_transcript tr
@@ -4300,7 +4302,12 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
     s.hit_rate,
     s.agents,
     s.aggent_ids
-   FROM (call_center.cc_queue q
+   FROM ((call_center.cc_queue q
+     LEFT JOIN LATERAL ( SELECT
+                CASE
+                    WHEN ((((q.payload -> 'amd'::text) -> 'allow_not_sure'::text))::boolean IS TRUE) THEN ARRAY['HUMAN'::text, 'NOTSURE'::text]
+                    ELSE ARRAY['HUMAN'::text]
+                END AS arr) amd ON (true))
      JOIN LATERAL ( SELECT att.queue_id,
             att.bucket_id,
             min(att.joined_at) AS start_stat,
@@ -4312,16 +4319,16 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
             COALESCE(avg(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (ch.bridged_at IS NULL))), (0)::double precision) AS avg_member_answer_not_bridged,
             COALESCE(avg(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (ch.bridged_at IS NOT NULL))), (0)::double precision) AS avg_member_answer_bridged,
             COALESCE(max(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE (ch.answered_at IS NOT NULL)), (0)::double precision) AS max_member_answer,
-            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))) AS connected_calls,
+            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))) AS connected_calls,
             count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS bridged_calls,
-            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))) AS abandoned_calls,
-            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS connection_rate,
+            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))) AS abandoned_calls,
+            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS connection_rate,
                 CASE
-                    WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (1)::double precision)
+                    WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (1)::double precision)
                     ELSE (((count(*) / GREATEST(count(DISTINCT att.agent_id), (1)::bigint)) - 1))::double precision
                 END AS over_dial,
-            COALESCE(((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision - (COALESCE(((q.payload -> 'abandon_rate_adjustment'::text))::integer, 0))::double precision) / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
-            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = 'HUMAN'::text) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS hit_rate,
+            COALESCE(((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision - (COALESCE(((q.payload -> 'abandon_rate_adjustment'::text))::integer, 0))::double precision) / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
+            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS hit_rate,
             count(DISTINCT att.agent_id) AS agents,
             array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
            FROM (call_center.cc_member_attempt_history att
@@ -4356,7 +4363,8 @@ CREATE TABLE call_center.cc_email (
     root_id character varying,
     flow_id integer,
     body text,
-    html text
+    html text,
+    attachment_ids bigint[]
 );
 
 
@@ -5296,9 +5304,11 @@ CREATE VIEW call_center.cc_queue_list AS
     q.processing,
     q.processing_sec,
     q.processing_renewal_sec,
-    jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec) AS task_processing
-   FROM ((((((((((((call_center.cc_queue q
-     JOIN flow.calendar c ON ((q.calendar_id = c.id)))
+    jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec) AS task_processing,
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee
+   FROM (((((((((((((call_center.cc_queue q
+     LEFT JOIN flow.calendar c ON ((q.calendar_id = c.id)))
+     LEFT JOIN directory.wbt_auth au ON ((au.id = q.grantee_id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = q.created_by)))
      LEFT JOIN directory.wbt_user u ON ((u.id = q.updated_by)))
      LEFT JOIN flow.acr_routing_scheme s ON ((q.schema_id = s.id)))
