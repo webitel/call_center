@@ -30,6 +30,8 @@ const (
 	CALL_SLEEP_APPLICATION    = "sleep"
 	CALL_PLAYBACK_APPLICATION = "playback"
 	CALL_HANGUP_APPLICATION   = "hangup"
+
+	CallVariableGrantee = "wbt_grantee_id"
 )
 
 const (

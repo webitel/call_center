@@ -92,6 +92,7 @@ func (g *SipGateway) Endpoint(destination string) string {
 
 type BridgeRequest struct {
 	Id          *string
+	GranteeId   *int
 	ParentId    string
 	Name        string
 	Destination string
@@ -126,6 +127,10 @@ func (g *SipGateway) Bridge(params BridgeRequest) string {
 
 	if params.Id != nil {
 		res = append(res, fmt.Sprintf("%s=%s", CALL_ORIGINATION_UUID, *params.Id))
+	}
+
+	if params.GranteeId != nil {
+		res = append(res, fmt.Sprintf("%s=%d", CallVariableGrantee, *params.GranteeId))
 	}
 
 	if g.UseBridgeAnswerTimeout {

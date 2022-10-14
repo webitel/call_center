@@ -17,6 +17,7 @@ type CallingQueue struct {
 	BaseQueue
 	HoldMusic *model.RingtoneFile
 	params    model.QueueDialingSettings
+	granteeId *int
 }
 
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
@@ -148,4 +149,8 @@ func (queue *CallingQueue) GetTransferredCall(id string) (call_manager.Call, *mo
 		return nil, err
 	}
 	return call, nil
+}
+
+func (queue *CallingQueue) GranteeId() *int {
+	return queue.granteeId
 }

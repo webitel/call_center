@@ -152,6 +152,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
 			Id:          attempt.MemberCallId(),
 			ParentId:    call.Id(),
+			GranteeId:   queue.GranteeId(),
 			Name:        attempt.Name(),
 			Destination: attempt.Destination(),
 			Display:     display,

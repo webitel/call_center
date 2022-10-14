@@ -100,7 +100,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 	}
 
 	if settings.GranteeId != nil {
-		base.variables["wbt_grantee_id"] = fmt.Sprintf("%d", *settings.GranteeId)
+		base.variables[model.CallVariableGrantee] = fmt.Sprintf("%d", *settings.GranteeId)
 	}
 
 	return base
@@ -114,6 +114,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewOfflineCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, QueueOfflineSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeInboundCall:
@@ -121,30 +122,35 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewInboundQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, inboundSettings), nil
 
 	case model.QueueTypeIVRCall:
 		return NewIVRQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, QueueIVRSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypePreviewCall:
 		return NewPreviewCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, PreviewSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeProgressiveCall:
 		return NewProgressiveCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypePredictCall:
 		return NewPredictCallQueue(CallingQueue{
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
+			granteeId: settings.GranteeId,
 		}, PredictCallQueueSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeInboundChat:

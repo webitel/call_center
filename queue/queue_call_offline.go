@@ -137,6 +137,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		AppName: "bridge",
 		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
 			Id:          attempt.MemberCallId(),
+			GranteeId:   queue.GranteeId(),
 			ParentId:    call.Id(),
 			Name:        attempt.Name(),
 			Destination: attempt.Destination(),
