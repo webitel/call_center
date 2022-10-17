@@ -355,6 +355,13 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		}
 	}
 
+	if ringtone == "" {
+		q, _ := queueManager.GetQueue(res.QueueId, res.QueueUpdatedAt)
+		if q != nil {
+			ringtone = q.RingtoneUri()
+		}
+	}
+
 	_, err = queueManager.callManager.InboundCallQueue(callInfo, ringtone)
 	if err != nil {
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))

@@ -40,6 +40,7 @@ type QueueObject interface {
 	HasForm() bool
 	StartProcessingForm(attempt *Attempt)
 	AutoAnswer() bool
+	RingtoneUri() string
 }
 
 type BaseQueue struct {
@@ -364,4 +365,12 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 	if err != nil {
 		wlog.Error(err.Error())
 	}
+}
+
+func (queue *BaseQueue) RingtoneUri() string {
+	if queue.ringtoneUri != nil {
+		return *queue.ringtoneUri
+	}
+
+	return ""
 }
