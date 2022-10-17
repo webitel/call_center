@@ -10,11 +10,11 @@ import (
 	"sync"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 30000
-
 const (
-	MAX_AGENTS_CACHE        = 10000
-	MAX_AGENTS_EXPIRE_CACHE = 60 * 60 * 24 //day
+	watcherPollingInterval = 30000
+
+	sizeAgentChane   = 10000
+	expireAgentCache = 60 * 5
 )
 
 var (
@@ -36,13 +36,14 @@ func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ) AgentManager {
 	am.store = s
 	am.mq = mq_
 	am.nodeId = nodeId
-	am.agentsCache = utils.NewLruWithParams(MAX_AGENTS_CACHE, "Agents", MAX_AGENTS_EXPIRE_CACHE, "")
+	am.agentsCache = utils.NewLruWithParams(sizeAgentChane, "Agents", expireAgentCache, "")
+
 	return &am
 }
 
 func (am *agentManager) Start() {
 	wlog.Debug("starting agent service")
-	am.watcher = utils.MakeWatcher("AgentManager", DEFAULT_WATCHER_POLLING_INTERVAL, am.changeDeadlineState)
+	am.watcher = utils.MakeWatcher("AgentManager", watcherPollingInterval, am.changeDeadlineState)
 	am.startOnce.Do(func() {
 		go am.watcher.Start()
 	})
