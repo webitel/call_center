@@ -655,8 +655,45 @@ CREATE TABLE storage.import_template (
     description text,
     source_type character varying(50) NOT NULL,
     source_id bigint NOT NULL,
-    parameters jsonb NOT NULL
+    parameters jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by bigint
 );
+
+
+--
+-- Name: import_template_acl; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.import_template_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL,
+    object bigint NOT NULL
+);
+
+
+--
+-- Name: import_template_acl_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.import_template_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: import_template_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.import_template_acl_id_seq OWNED BY storage.import_template_acl.id;
 
 
 --
@@ -691,8 +728,14 @@ CREATE VIEW storage.import_template_view AS
     t.source_id,
     t.parameters,
     jsonb_build_object('id', s.id, 'name', s.name) AS source,
-    t.domain_id
-   FROM (storage.import_template t
+    t.domain_id,
+    t.created_at,
+    storage.get_lookup(c.id, (COALESCE(c.name, (c.username)::text))::character varying) AS created_by,
+    t.updated_at,
+    storage.get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS updated_by
+   FROM (((storage.import_template t
+     LEFT JOIN directory.wbt_user c ON ((c.id = t.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = t.updated_by)))
      LEFT JOIN LATERAL ( SELECT q.id,
             q.name
            FROM call_center.cc_queue q
@@ -890,6 +933,13 @@ ALTER TABLE ONLY storage.import_template ALTER COLUMN id SET DEFAULT nextval('st
 
 
 --
+-- Name: import_template_acl id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl ALTER COLUMN id SET DEFAULT nextval('storage.import_template_acl_id_seq'::regclass);
+
+
+--
 -- Name: media_files id; Type: DEFAULT; Schema: storage; Owner: -
 --
 
@@ -964,6 +1014,14 @@ ALTER TABLE ONLY storage.files
 
 ALTER TABLE ONLY storage.files_statistics
     ADD CONSTRAINT files_statistics_pk PRIMARY KEY (id);
+
+
+--
+-- Name: import_template_acl import_template_acl_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_pk PRIMARY KEY (id);
 
 
 --
@@ -1176,6 +1234,34 @@ CREATE UNIQUE INDEX files_statistics_id_uindex ON storage.files_statistics USING
 
 
 --
+-- Name: import_template_acl_grantor_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX import_template_acl_grantor_idx ON storage.import_template_acl USING btree (grantor);
+
+
+--
+-- Name: import_template_acl_object_subject_udx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX import_template_acl_object_subject_udx ON storage.import_template_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: import_template_acl_subject_object_udx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX import_template_acl_subject_object_udx ON storage.import_template_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: import_template_id_domain_id_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX import_template_id_domain_id_uindex ON storage.import_template USING btree (id, domain_id);
+
+
+--
 -- Name: media_files_domain_id_name_uindex; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1201,6 +1287,13 @@ CREATE TRIGGER cognitive_profile_services_set_rbac_acl AFTER INSERT ON storage.c
 --
 
 CREATE TRIGGER file_backend_profiles_set_rbac_acl AFTER INSERT ON storage.file_backend_profiles FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_backend_profiles');
+
+
+--
+-- Name: import_template import_template_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER import_template_set_rbac_acl AFTER INSERT ON storage.import_template FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('import_template');
 
 
 --
@@ -1311,6 +1404,54 @@ ALTER TABLE ONLY storage.file_transcript
 
 ALTER TABLE ONLY storage.file_transcript
     ADD CONSTRAINT file_transcript_files_id_fk FOREIGN KEY (file_id) REFERENCES storage.files(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: import_template_acl import_template_acl_domain_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: import_template_acl import_template_acl_grantor_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: import_template_acl import_template_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: import_template_acl import_template_acl_import_template_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_import_template_id_fk FOREIGN KEY (object) REFERENCES storage.import_template(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: import_template_acl import_template_acl_object_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_object_fk FOREIGN KEY (object, dc) REFERENCES storage.import_template(id, domain_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: import_template_acl import_template_acl_subject_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.import_template_acl
+    ADD CONSTRAINT import_template_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
 
 
 --
