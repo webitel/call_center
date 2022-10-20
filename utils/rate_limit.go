@@ -12,7 +12,7 @@ type RateLimiter struct {
 }
 
 func NewRateLimiter(perSec uint16) *RateLimiter {
-	rt := rate.Every(time.Second / time.Duration((perSec)))
+	rt := rate.Every(time.Second / time.Duration(perSec))
 	return &RateLimiter{
 		rate:    perSec,
 		Limiter: rate.NewLimiter(rt, 1),

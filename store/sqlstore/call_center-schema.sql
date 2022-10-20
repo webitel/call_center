@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.5 (Debian 14.5-1.pgdg110+1)
--- Dumped by pg_dump version 14.5 (Debian 14.5-1.pgdg110+1)
+-- Dumped from database version 14.5 (Debian 14.5-2.pgdg110+2)
+-- Dumped by pg_dump version 14.5 (Debian 14.5-2.pgdg110+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1280,12 +1280,14 @@ BEGIN
     a.status,
     cac.channel,
     a.domain_id,
-    a.updated_at,
+    (a.updated_at - extract(epoch from u.updated_at))::int8,
     exists (select 1 from call_center.cc_calls c where c.user_id = a.user_id and c.queue_id isnull and c.hangup_at isnull ) busy_ext
   from call_center.cc_agent a
       inner join call_center.cc_team t on t.id = a.team_id
       inner join call_center.cc_agent_channel cac on a.id = cac.agent_id
+      inner join directory.wbt_user u on u.id = a.user_id
   where a.id = _agent_id -- check attempt
+    and length(coalesce(u.extension, '')) > 0
   for update
   into _team_id_,
       _team_updated_at,
@@ -1298,6 +1300,10 @@ BEGIN
 
   if _call.domain_id != _domain_id then
       raise exception 'the queue on another domain';
+  end if;
+
+  if _team_id_ isnull then
+      raise exception 'not found agent';
   end if;
 
   if not _a_status = 'online' then
@@ -2572,39 +2578,41 @@ BEGIN
             ,waiting_other_numbers = c.waiting_other_numbers
         from (
             select c.id,
-                   cq.updated_at                                   as queue_updated_at,
-                   r.updated_at                                    as resource_updated_at,
-                   call_center.cc_view_timestamp(gw.updated_at)             as gateway_updated_at,
-                   c.destination as destination,
-                   cm.variables                                    as variables,
-                   cm.name                                         as member_name,
-                   c.state                                         as state,
-                   cqs.member_count                                as queue_cnt,
-                   0                                               as queue_active_cnt,
-                   cqs.member_waiting                              as queue_waiting_cnt,
-                   ca.updated_at                                   as agent_updated_at,
-                   tm.updated_at                                   as team_updated_at,
-                   cq.dnc_list_id,
-                   cm.attempts,
-                   x.cnt as waiting_other_numbers,
-                   cq.type as queue_type
-            from call_center.cc_member_attempt c
-                     inner join call_center.cc_member cm on c.member_id = cm.id
-                     left join lateral (
-                        select count(*) cnt
-                        from jsonb_array_elements(cm.communications) WITH ORDINALITY AS x(c,n)
-                        where coalesce((x.c->'stop_at')::int8, 0) < 1 and x.n != (c.communication_idx + 1)
-                     ) x on c.member_id notnull
-                     inner join call_center.cc_queue cq on cm.queue_id = cq.id
-                     left join call_center.cc_team tm on tm.id = cq.team_id
-                     left join call_center.cc_outbound_resource r on r.id = c.resource_id
-                     left join directory.sip_gateway gw on gw.id = r.gateway_id
-                     left join call_center.cc_agent ca on c.agent_id = ca.id
-                     left join call_center.cc_queue_statistics cqs on cq.id = cqs.queue_id
-            where c.state = 'idle'
-              and c.leaving_at isnull
-            order by cq.priority desc, c.weight desc
-                for update of c skip locked
+       cq.updated_at                                            as queue_updated_at,
+       r.updated_at                                             as resource_updated_at,
+       call_center.cc_view_timestamp(gw.updated_at)             as gateway_updated_at,
+       c.destination                                            as destination,
+       cm.variables                                             as variables,
+       cm.name                                                  as member_name,
+       c.state                                                  as state,
+       cqs.member_count                                         as queue_cnt,
+       0                                                        as queue_active_cnt,
+       cqs.member_waiting                                       as queue_waiting_cnt,
+       (ca.updated_at - extract(epoch from u.updated_at))::int8 as agent_updated_at,
+       tm.updated_at                                            as team_updated_at,
+       cq.dnc_list_id,
+       cm.attempts,
+       x.cnt                                                    as waiting_other_numbers,
+       cq.type                                                  as queue_type
+from call_center.cc_member_attempt c
+         inner join call_center.cc_member cm on c.member_id = cm.id
+         left join lateral (
+            select count(*) cnt
+            from jsonb_array_elements(cm.communications) WITH ORDINALITY AS x(c, n)
+            where coalesce((x.c -> 'stop_at')::int8, 0) < 1
+              and x.n != (c.communication_idx + 1)
+            ) x on c.member_id notnull
+                 inner join call_center.cc_queue cq on cm.queue_id = cq.id
+                 left join call_center.cc_team tm on tm.id = cq.team_id
+                 left join call_center.cc_outbound_resource r on r.id = c.resource_id
+                 left join directory.sip_gateway gw on gw.id = r.gateway_id
+                 left join call_center.cc_agent ca on c.agent_id = ca.id
+                 left join call_center.cc_queue_statistics cqs on cq.id = cqs.queue_id
+                 left join directory.wbt_user u on u.id = ca.user_id
+        where c.state = 'idle'
+          and c.leaving_at isnull
+        order by cq.priority desc, c.weight desc
+            for update of c, cm, cq skip locked
         ) c
             left join call_center.cc_list_communications lc on lc.list_id = c.dnc_list_id and
                                                    lc.number = c.destination ->> 'destination'
@@ -5901,7 +5909,7 @@ CREATE VIEW call_center.cc_trigger_list AS
     t.enabled,
     t.type,
     call_center.cc_get_lookup(s.id, s.name) AS schema,
-    t.variables,
+    COALESCE(t.variables, '{}'::jsonb) AS variables,
     t.description,
     t.expression,
     call_center.cc_get_lookup((tz.id)::bigint, tz.name) AS timezone,
