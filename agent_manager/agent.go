@@ -44,12 +44,20 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 	return agent.info.UpdatedAt != updatedAt
 }
 
+//TODO
 func (agent *Agent) GetCallEndpoints() []string {
-	return []string{agent.info.Destination}
+	if agent.info.Destination == nil {
+		return nil
+	}
+	return []string{*agent.info.Destination}
 }
 
+// TODO
 func (agent *Agent) CallNumber() string {
-	return agent.info.Extension
+	if agent.info.Extension == nil {
+		return ""
+	}
+	return *agent.info.Extension
 }
 
 func (agent *Agent) TeamId() int {

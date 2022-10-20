@@ -49,8 +49,8 @@ type Agent struct {
 	UserId        *int64            `json:"user_id" db:"user_id"`
 	Name          string            `json:"name" db:"name"`
 	UpdatedAt     int64             `json:"updated_at" db:"updated_at"`
-	Destination   string            `json:"destination" db:"destination"`
-	Extension     string            `json:"extension" db:"extension"`
+	Destination   *string           `json:"destination" db:"destination"`
+	Extension     *string           `json:"extension" db:"extension"`
 	TeamId        int               `json:"team_id" db:"team_id"`
 	TeamUpdatedAt int64             `json:"team_updated_at" db:"team_updated_at"`
 	OnDemand      bool              `json:"on_demand" db:"on_demand"`

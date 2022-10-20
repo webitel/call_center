@@ -25,12 +25,13 @@ func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsF
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update call_center.cc_member_attempt a
 set state = :Active
 from (
-    select a.id as attempt_id, a.agent_id, ca.updated_at as agent_updated_at, a.team_id, team.updated_at as team_updated_at
-    from call_center.cc_member_attempt a
-        inner join call_center.cc_agent ca on a.agent_id = ca.id
+	select a.id as attempt_id, a.agent_id, (ca.updated_at - extract(epoch from u.updated_at))::int8 as agent_updated_at, a.team_id, team.updated_at as team_updated_at
+	from call_center.cc_member_attempt a
+		inner join call_center.cc_agent ca on a.agent_id = ca.id
 		inner join call_center.cc_team team on team.id = a.team_id
-    where a.state = :WaitAgent and a.agent_id notnull and a.node_id = :Node
-    for update skip locked
+		inner join directory.wbt_user u on u.id = ca.user_id
+	where a.state = :WaitAgent and a.agent_id notnull and a.node_id = :Node
+	for update skip locked
 ) t
 where a.id = t.attempt_id
 returning t.*`, map[string]interface{}{
@@ -51,7 +52,7 @@ func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	if err := s.GetReplica().SelectOne(&agent, `select a.id,
        a.user_id,
        a.domain_id,
-       a.updated_at,
+       (a.updated_at - extract(epoch from u.updated_at))::int8 as  updated_at,
        coalesce((u.name)::varchar, u.username)                                                   as name,
        'sofia/sip/' || u.extension || '@' || d.name                                              as destination,
        u.extension,
@@ -83,8 +84,7 @@ left join lateral ( select jsonb_object(array_agg(key), array_agg(val)) as push
 				  group by s.props ->> 'pn-type'::text = 'fcm') t
 			where key notnull
 			  and val notnull) push(config) ON true
-where a.id = :Id
-  and u.extension notnull		
+where a.id = :Id	
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,

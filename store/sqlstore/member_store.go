@@ -565,15 +565,17 @@ func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTi
        a.id attempt_id,
        call_center.cc_view_timestamp(call_center.cc_attempt_timeout(a.id, 0, 'abandoned', 'waiting', 0)) as timestamp,
        a.agent_id,
-       ag.updated_at agent_updated_at,
+       (ag.updated_at - extract(epoch from u.updated_at))::int8 agent_updated_at,
        ag.user_id,
        ag.domain_id,
        a.channel
 from call_center.cc_member_attempt a
     inner join call_center.cc_agent ag on ag.id = a.agent_id
+    inner join directory.wbt_user u on u.id = a.agent_id
     left join call_center.cc_queue cq on a.queue_id = cq.id
     left join call_center.cc_team ct on cq.team_id = ct.id
-where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
+where a.timeout < now() and a.node_id = :NodeId
+for update of a,ag,u skip locked`, map[string]interface{}{
 		"NodeId": nodeId,
 	})
 
