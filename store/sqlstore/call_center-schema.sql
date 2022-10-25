@@ -87,6 +87,116 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 
 
 --
+-- Name: appointment_widget(character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.appointment_widget(_uri character varying) RETURNS TABLE(profile jsonb, list jsonb)
+    LANGUAGE sql ROWS 1
+    AS $$
+    with profile as (
+        select
+           (config['queue']->>'id')::int as queue_id,
+           (config['communicationType']->>'id')::int as communication_type,
+           (config->>'duration')::interval as duration,
+           (config->>'days')::int as days,
+           (config->>'availableAgents')::int as available_agents,
+           string_to_array((b.metadata->>'allow_origin'), ',') as allow_origins,
+           q.calendar_id,
+           b.id,
+           b.uri,
+           b.dc as domain_id,
+           c.timezone_id,
+           tz.sys_name as timezone
+        from chat.bot b
+            inner join lateral (select (b.metadata->>'appointment')::jsonb as config) as cfx on true
+            inner join call_center.cc_queue q on q.id = (config['queue']->>'id')::int
+            inner join flow.calendar c on c.id = q.calendar_id
+            inner join flow.calendar_timezones tz on tz.id = c.timezone_id
+        where b.uri = _uri and b.enabled
+        limit 1
+    ), d as materialized (
+        select  q.queue_id,
+                q.duration,
+                q.available_agents,
+                x,
+               (extract(isodow from x::timestamp)  ) - 1 as day,
+               dy.*
+        from profile  q ,
+            flow.calendar_day_range(q.calendar_id, least(q.days, 7)) x
+            left join lateral (
+                select t.*, tz.sys_name, c.excepts
+                from flow.calendar c
+                    inner join flow.calendar_timezones tz on tz.id = c.timezone_id
+                    inner join lateral unnest(c.accepts::flow.calendar_accept_time[]) t on true
+                where c.id = q.calendar_id
+                    and not t.disabled
+                order by 1 asc
+        ) y on y.day = (extract(isodow from x)  ) - 1
+        left join lateral (
+            select (x + (y.start_time_of_day || 'm')::interval)::timestamp as ss,
+                case when date_bin(q.duration, (x + (y.end_time_of_day || 'm')::interval)::timestamp, x::timestamp) < (x + (y.end_time_of_day || 'm')::interval)::timestamp
+                    then date_bin(q.duration, (x + (y.end_time_of_day || 'm')::interval)::timestamp, x::timestamp) - q.duration
+                    else date_bin(q.duration, (x + (y.end_time_of_day || 'm')::interval)::timestamp, x::timestamp) - q.duration end as se
+        ) dy on true
+    )
+    , min_max as materialized (
+        select
+            queue_id,
+            x,
+            duration,
+            min(ss)  min_ss,
+            max(se)  max_se
+        from d
+        group by 1, 2, 3
+    )
+    ,res as materialized (
+        select
+        mem.*
+        from min_max
+            left join lateral (
+                select
+                    date_bin(min_max.duration, coalesce(ready_at, created_at), coalesce(ready_at, created_at)::date)::timestamp d,
+                    count(*) cnt
+                from call_center.cc_member m
+                where m.stop_at isnull
+                    and m.queue_id = min_max.queue_id
+                    and coalesce(ready_at, created_at) between min_max.min_ss and min_max.max_se
+                group by 1
+            ) mem on true
+        where mem notnull
+    )
+    , list as (
+        select
+            d.*,
+            res.*,
+            xx,
+            case when xx < now() or coalesce(res.cnt, 0) >= d.available_agents then true
+                else false end as reserved
+        from d
+            left join generate_series(d.ss, d.se, d.duration) xx on true
+            left join res on res.d = xx
+        limit 10080
+    )
+    , ranges AS (
+        select
+            to_char(list.x::date,'YYYY-MM-DD')::text as date,
+            jsonb_agg(jsonb_build_object('time', to_char(list.xx::time, 'HH24:MI'), 'reserved', list.reserved) order by list.x, list.xx) as times
+        from list
+        group by 1
+    )
+    select
+        row_to_json(p) as profile,
+        jsonb_agg(row_to_json(r)) as list
+    from profile p
+        left join lateral (
+            select *
+            from ranges
+        ) r on true
+    group by p
+$$;
+
+
+--
 -- Name: cc_agent_init_channel(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
