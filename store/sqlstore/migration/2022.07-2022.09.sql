@@ -1458,15 +1458,6 @@ CREATE INDEX cc_email_in_reply_to_index ON call_center.cc_email USING btree (in_
 
 CREATE INDEX cc_email_message_id_index ON call_center.cc_email USING btree (message_id);
 
---
--- Name: cc_member_appointmets_queue_id_ready; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_member_appointmets_queue_id_ready ON call_center.cc_member USING btree (queue_id, COALESCE(ready_at, created_at)) WHERE (stop_at IS NULL);
-
-
-
-
 
 --
 -- Name: calendar_day_range(integer, integer); Type: FUNCTION; Schema: flow; Owner: -
@@ -2350,3 +2341,9 @@ from profile p
         ) r on true
 group by p
     $$;
+
+
+drop INDEX if exists call_center.cc_member_appointments_queue_id_ready;
+CREATE INDEX cc_member_appointments_queue_id_ready
+    ON call_center.cc_member USING
+    btree (queue_id, COALESCE(ready_at, created_at))  where (stop_at isnull );
