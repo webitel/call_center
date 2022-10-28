@@ -27,7 +27,7 @@ type CallManager interface {
 	ActiveCalls() int
 	NewCall(callRequest *model.CallRequest) (Call, *model.AppError)
 	GetCall(id string) (Call, bool)
-	InboundCallQueue(call *model.Call, ringtone string) (Call, *model.AppError)
+	InboundCallQueue(call *model.Call, ringtone string, vars map[string]string) (Call, *model.AppError)
 	ConnectCall(call *model.Call) (Call, *model.AppError)
 	CountConnection() int
 	GetFlowUri() string
@@ -152,20 +152,16 @@ func (cm *CallManagerImpl) HangupById(id, node string) *model.AppError {
 	return cli.HangupCall(id, model.CALL_HANGUP_LOSE_RACE, false, nil)
 }
 
-func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string) (Call, *model.AppError) {
+func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, vars map[string]string) (Call, *model.AppError) {
 	cli, err := cm.getApiConnectionById(call.AppId)
 	if err != nil {
 		return nil, err
 	}
 
-	err = cli.JoinQueue(context.Background(), call.Id, ringtone, map[string]string{
+	err = cli.JoinQueue(context.Background(), call.Id, ringtone, model.UnionStringMaps(vars, map[string]string{
 		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
 		"cc_result":               "abandoned",
-		//"bridge_export_vars":      "cc_agent_id",
-		//"bridge_export_vars":      model.QUEUE_AGENT_ID_FIELD,
-		//"transfer_after_bridge":   "'park:':inline",
-		//"valet_hold_music":        play,
-	})
+	}))
 
 	if err != nil {
 		return nil, err

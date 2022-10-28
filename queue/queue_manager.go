@@ -304,6 +304,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 	//var member *model.MemberAttempt
 	var bucketId *int32
 	var stickyAgentId *int
+	var q QueueObject
 
 	if in.BucketId != 0 {
 		bucketId = &in.BucketId
@@ -355,14 +356,18 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		}
 	}
 
+	if q, err = queueManager.GetQueue(res.QueueId, res.QueueUpdatedAt); err != nil {
+		wlog.Error(fmt.Sprintf("[inbound] join member call_id %s queue %d, %s", in.GetMemberCallId(), in.GetQueue().GetId(), err.Error()))
+		return nil, err
+	}
+
 	if ringtone == "" {
-		q, _ := queueManager.GetQueue(res.QueueId, res.QueueUpdatedAt)
 		if q != nil {
 			ringtone = q.RingtoneUri()
 		}
 	}
 
-	_, err = queueManager.callManager.InboundCallQueue(callInfo, ringtone)
+	_, err = queueManager.callManager.InboundCallQueue(callInfo, ringtone, q.Variables())
 	if err != nil {
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))

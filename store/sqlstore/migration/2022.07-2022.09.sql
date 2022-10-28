@@ -16,7 +16,7 @@ where m.queue_id = _queue_id
         and m.skill_id isnull
         and case when _bucket_id isnull then m.bucket_id isnull else m.bucket_id = _bucket_id
 end
-        and (m.expire_at isnull or m.expire_at > now())
+and (m.expire_at isnull or m.expire_at > now())
         and (m.ready_at isnull or m.ready_at < now())
         and not m.search_destinations && array(select call_center.cc_call_active_numbers())
         and m.id not in (select distinct a.member_id from call_center.cc_member_attempt a where a.member_id notnull)
@@ -26,14 +26,18 @@ end
              m.agent_id,
              m.priority desc,
              case when coalesce(wait_between_retries_desc, false) then m.ready_at
-end desc nulls last ,
+end
+desc nulls last ,
              case when not coalesce(wait_between_retries_desc, false) then m.ready_at
-end asc nulls last ,
+end
+asc nulls last ,
 
              case when coalesce(strategy, 0) = 1 then m.id
-end desc ,
+end
+desc ,
              case when coalesce(strategy, 0) != 1 then m.id
-end asc
+end
+asc
     limit lim
     offset offs
 --     for update of m skip locked
@@ -170,7 +174,7 @@ select case
                extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
             else coalesce(_priority, 0)
 end
-        from call_center.cc_member_attempt_history log
+from call_center.cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
             and log.destination->>'destination' = _number
@@ -272,7 +276,7 @@ where m.queue_id = _queue_id
         and m.skill_id isnull
         and case when _bucket_id isnull then m.bucket_id isnull else m.bucket_id = _bucket_id
 end
-        and (m.expire_at isnull or m.expire_at > now())
+and (m.expire_at isnull or m.expire_at > now())
         and (m.ready_at isnull or m.ready_at < now())
         and not m.search_destinations && array(select call_center.cc_call_active_numbers())
         and m.id not in (select distinct a.member_id from call_center.cc_member_attempt a where a.member_id notnull)
@@ -282,14 +286,18 @@ end
              m.agent_id,
              m.priority desc,
              case when coalesce(wait_between_retries_desc, false) then m.ready_at
-end desc nulls last ,
+end
+desc nulls last ,
              case when not coalesce(wait_between_retries_desc, false) then m.ready_at
-end asc nulls last ,
+end
+asc nulls last ,
 
              case when coalesce(strategy, 0) = 1 then m.id
-end desc ,
+end
+desc ,
              case when coalesce(strategy, 0) != 1 then m.id
-end asc
+end
+asc
     limit lim
     offset offs
 --     for update of m skip locked
@@ -591,7 +599,7 @@ select case
                extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
             else coalesce(_priority, 0)
 end
-        from call_center.cc_member_attempt_history log
+from call_center.cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
             and log.destination->>'destination' = _con_name
@@ -1031,7 +1039,8 @@ ALTER TABLE ONLY call_center.cc_trigger_acl
     ADD CONSTRAINT cc_trigger_acl_cc_trigger_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_trigger(id) ON
 UPDATE CASCADE
 ON
-DELETE CASCADE;
+DELETE
+CASCADE;
 
 
 --
@@ -1114,7 +1123,8 @@ ALTER TABLE ONLY call_center.cc_trigger_job_log
     ADD CONSTRAINT cc_trigger_job_log_cc_trigger_id_fk FOREIGN KEY (trigger_id) REFERENCES call_center.cc_trigger(id) ON
 UPDATE CASCADE
 ON
-DELETE CASCADE;
+DELETE
+CASCADE;
 
 
 --
@@ -1125,7 +1135,8 @@ ALTER TABLE ONLY call_center.cc_trigger
     ADD CONSTRAINT cc_trigger_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON
 UPDATE CASCADE
 ON
-DELETE CASCADE;
+DELETE
+CASCADE;
 
 
 
@@ -1341,8 +1352,9 @@ GROUP BY res.queue_id;
 --
 
 CREATE TRIGGER cc_trigger_ins_upd_tg
-    BEFORE INSERT OR UPDATE ON call_center.cc_trigger FOR EACH ROW
-EXECUTE FUNCTION call_center.cc_trigger_ins_upd();
+    BEFORE INSERT OR
+UPDATE ON call_center.cc_trigger FOR EACH ROW
+    EXECUTE FUNCTION call_center.cc_trigger_ins_upd();
 
 
 alter TABLE call_center.cc_list_communications
@@ -1384,7 +1396,8 @@ ALTER TABLE ONLY call_center.cc_email
     ADD CONSTRAINT cc_email_cc_email_profiles_id_fk FOREIGN KEY (profile_id) REFERENCES call_center.cc_email_profile(id) ON
 UPDATE CASCADE
 ON
-DELETE CASCADE;
+DELETE
+CASCADE;
 
 
 
@@ -2119,7 +2132,7 @@ BEGIN
 return query update call_center.cc_member_attempt a
         set state = case when c.queue_type = 4 then 'offering' else 'waiting'
 end
-            ,node_id = node
+,node_id = node
             ,last_state_change = now()
             ,list_communication_id = lc.id
             ,seq = c.attempts + 1
@@ -2382,7 +2395,8 @@ ALTER TABLE ONLY storage.import_template_acl
     ADD CONSTRAINT import_template_acl_import_template_id_fk FOREIGN KEY (object) REFERENCES storage.import_template(id) ON
 UPDATE CASCADE
 ON
-DELETE CASCADE;
+DELETE
+CASCADE;
 
 
 --
@@ -2519,3 +2533,210 @@ drop INDEX if exists call_center.cc_member_appointments_queue_id_ready;
 CREATE INDEX cc_member_appointments_queue_id_ready
     ON call_center.cc_member USING
     btree (queue_id, COALESCE (ready_at, created_at)) where (stop_at isnull );
+
+
+
+create
+or replace function call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) returns record
+    language plpgsql
+as
+$$
+declare
+_timezone_id int4;
+    _discard_abandoned_after int4;
+    _weight int4;
+    dnc_list_id_
+int4;
+    _domain_id int8;
+    _calendar_id int4;
+    _queue_updated_at int8;
+    _team_updated_at int8;
+    _team_id_ int;
+    _list_comm_id int8;
+    _enabled bool;
+    _q_type smallint;
+    _sticky bool;
+    _call record;
+    _attempt record;
+    _number varchar;
+    _max_waiting_size int;
+    _grantee_id int8;
+BEGIN
+select c.timezone_id,
+       (payload ->>'discard_abandoned_after')::int discard_abandoned_after, c.domain_id,
+       q.dnc_list_id,
+       q.calendar_id,
+       q.updated_at,
+       ct.updated_at,
+       q.team_id,
+       q.enabled,
+       q.type,
+       q.sticky_agent,
+       (payload ->>'max_waiting_size')::int max_size, q.grantee_id
+from call_center.cc_queue q
+         inner join flow.calendar c on q.calendar_id = c.id
+         left join call_center.cc_team ct on q.team_id = ct.id
+where q.id = _queue_id
+  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _grantee_id;
+
+if
+not _q_type = 1 then
+      raise exception 'queue not inbound';
+end if;
+
+  if
+not _enabled = true then
+      raise exception 'queue disabled';
+end if;
+
+select *
+from call_center.cc_calls c
+where c.id = _call_id
+--   for update
+  into _call;
+
+if
+_call.domain_id != _domain_id then
+      raise exception 'the queue on another domain';
+end if;
+
+  if
+_call.id isnull or _call.direction isnull then
+      raise exception 'not found call';
+  ELSIF
+_call.direction <> 'outbound' or _call.user_id notnull then
+      _number = _call.from_number;
+else
+      _number = _call.destination;
+end if;
+
+--   raise  exception '%', _number;
+
+
+  if
+not exists(select accept
+            from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+            as x (name varchar, excepted varchar, accept bool, expire bool)
+            where accept and excepted is null and not expire)
+  then
+      raise exception 'number % calendar not working [%]', _number, _calendar_id;
+end if;
+
+
+  if
+_max_waiting_size > 0 then
+      if (select count(*) from call_center.cc_member_attempt aa
+                          where aa.queue_id = _queue_id
+                            and aa.bridged_at isnull
+                            and aa.leaving_at isnull
+                            and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+        raise exception using
+            errcode='MAXWS',
+            message='Queue maximum waiting size';
+end if;
+end if;
+
+  if
+dnc_list_id_ notnull then
+select clc.id
+into _list_comm_id
+from call_center.cc_list_communications clc
+where (clc.list_id = dnc_list_id_
+  and clc.number = _ number)
+    limit 1;
+end if;
+
+  if
+_list_comm_id notnull then
+          raise exception 'number % banned', _number;
+end if;
+
+  if
+_discard_abandoned_after > 0 then
+select case
+           when log.result = 'abandoned' then
+               extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+            else coalesce(_priority, 0)
+end
+        from call_center.cc_member_attempt_history log
+        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+            and log.queue_id = _queue_id
+            and log.destination->>'destination' = _number
+        order by log.leaving_at desc
+        limit 1
+        into _weight;
+end if;
+
+  if
+_sticky_agent_id notnull and _sticky then
+      if not exists(select 1
+                    from call_center.cc_agent a
+                    where a.id = _sticky_agent_id
+                      and a.domain_id = _domain_id
+                      and a.status = 'online'
+                      and exists(select 1
+                                 from call_center.cc_skill_in_agent sa
+                                          inner join call_center.cc_queue_skill qs
+                                                     on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                 where sa.agent_id = _sticky_agent_id
+                                   and sa.enabled
+                                   and sa.capacity between qs.min_capacity and qs.max_capacity)
+          ) then
+          _sticky_agent_id = null;
+end if;
+else
+      _sticky_agent_id = null;
+end if;
+
+insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight,
+                                           member_call_id, destination, node_id, sticky_agent_id, list_communication_id,
+                                           parent_id)
+values (_ domain_id, 'waiting', _ queue_id, _ team_id_, null, bucket_id_, coalesce(_weight, _priority), _ call_id,
+        jsonb_build_object('destination', _ number),
+        _ node_name, _ sticky_agent_id, null, _ call.attempt_id) returning *
+into _attempt;
+
+update call_center.cc_calls
+set queue_id = _attempt.queue_id,
+    team_id = _team_id_,
+    attempt_id = _attempt.id,
+    payload = variables_,
+    grantee_id = _grantee_id
+where id = _call_id
+    returning *
+into _ call;
+
+if
+_call.id isnull or _call.direction isnull then
+      raise exception 'not found call';
+end if;
+
+return row(
+        _attempt.id::int8,
+        _attempt.queue_id::int,
+        _queue_updated_at::int8,
+        _attempt.destination::jsonb,
+        variables_::jsonb,
+        _call.from_name::varchar,
+        _team_updated_at::int8,
+        _call.id::varchar,
+        _call.state::varchar,
+        _call.direction::varchar,
+        _call.destination::varchar,
+        call_center.cc_view_timestamp(_ call.timestamp)::int8,
+        _call.app_id::varchar,
+        _number::varchar,
+        case
+            when (_ call.direction <> 'outbound'
+                and _ call.to_name:: varchar <> ''
+                and _ call.to_name:: varchar notnull)
+                then _call.from_name::varchar
+            else _call.to_name::varchar end,
+        call_center.cc_view_timestamp(_ call.answered_at)::int8,
+        call_center.cc_view_timestamp(_ call.bridged_at)::int8,
+        call_center.cc_view_timestamp(_ call.created_at)::int8
+    );
+
+END;
+$$;
