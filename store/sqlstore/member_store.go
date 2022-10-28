@@ -574,8 +574,7 @@ from call_center.cc_member_attempt a
     inner join directory.wbt_user u on u.id = ag.user_id
     left join call_center.cc_queue cq on a.queue_id = cq.id
     left join call_center.cc_team ct on cq.team_id = ct.id
-where a.timeout < now() and a.node_id = :NodeId
-for update of a,ag,u skip locked`, map[string]interface{}{
+where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 		"NodeId": nodeId,
 	})
 
