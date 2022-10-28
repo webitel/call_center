@@ -2659,7 +2659,7 @@ select case
                extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
             else coalesce(_priority, 0)
 end
-        from call_center.cc_member_attempt_history log
+from call_center.cc_member_attempt_history log
         where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
             and log.queue_id = _queue_id
             and log.destination->>'destination' = _number
@@ -2740,3 +2740,76 @@ return row(
 
 END;
 $$;
+
+
+
+update flow.acr_routing_scheme s
+set type = u.s from (
+    --chat
+    select *, 'chat' as s
+    from (
+        select distinct flow_id as schema_id
+        from chat.bot
+        union distinct
+        select schema_id
+        from flow.acr_chat_plan
+    ) t
+    where schema_id notnull
+
+    union all
+    --service
+    select *, 'service'
+    from (
+        select distinct after_schema_id as schema_id
+        from call_center.cc_queue
+        where after_schema_id notnull
+        union distinct
+        select do_schema_id
+        from call_center.cc_queue
+        where do_schema_id notnull
+        union distinct
+        select schema_id
+        from call_center.cc_queue
+        where type in (7,8)
+        union distinct
+        select distinct schema_id
+        from call_center.cc_queue_events
+        union distinct
+        select distinct flow_id
+        from call_center.cc_email
+    ) t
+    where schema_id notnull
+
+    union all
+
+    --form
+    select *, 'processing'
+    from (
+        select distinct form_schema_id as schema_id
+        from call_center.cc_queue
+        where form_schema_id notnull
+    ) t
+
+    union all
+
+    --call
+    select *, 'call'
+    from (
+        select distinct scheme_id
+        from flow.acr_routing_outbound_call
+        union distinct
+        select  distinct scheme_id
+        from directory.sip_gateway
+        where scheme_id notnull
+        union distinct
+        select schema_id
+        from call_center.cc_queue
+        where schema_id notnull  and type in (2) -- ivr
+    ) t
+ ) u
+where s.id = u.schema_id and (s.type isnull or not s.type in ('default', 'voice', 'service', 'processing', 'chat'));
+
+
+update flow.acr_routing_scheme s
+set type = 'default'
+where (s.type isnull or not s.type in ('default', 'voice', 'service', 'processing', 'chat'));
