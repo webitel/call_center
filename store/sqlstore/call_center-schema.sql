@@ -1499,6 +1499,7 @@ declare
     _attempt record;
     _number varchar;
     _max_waiting_size int;
+    _grantee_id int8;
 BEGIN
   select c.timezone_id,
            (payload->>'discard_abandoned_after')::int discard_abandoned_after,
@@ -1511,13 +1512,14 @@ BEGIN
          q.enabled,
          q.type,
          q.sticky_agent,
-         (payload->>'max_waiting_size')::int max_size
+         (payload->>'max_waiting_size')::int max_size,
+         q.grantee_id
   from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _grantee_id;
 
   if not _q_type = 1 then
       raise exception 'queue not inbound';
@@ -1624,7 +1626,8 @@ BEGIN
   set queue_id  = _attempt.queue_id,
       team_id = _team_id_,
       attempt_id = _attempt.id,
-      payload = variables_
+      payload = variables_,
+      grantee_id = _grantee_id
   where id = _call_id
   returning * into _call;
 
@@ -2653,7 +2656,8 @@ begin
                              ) as                                      params,
                          call_center.cc_cron_next_after_now(t.expression, (t.schedule_at)::timestamp, (now() at time zone tz.sys_name)::timestamp) new_schedule_at,
                          t.domain_id,
-                         (t.schedule_at)::timestamp as old_schedule_at
+                         (t.schedule_at)::timestamp as old_schedule_at,
+                         (now() at time zone tz.sys_name)::timestamp - (t.schedule_at)::timestamp < interval '5m' valid
                   from call_center.cc_trigger t
                            inner join flow.calendar_timezones tz on tz.id = t.timezone_id
                   where t.enabled
@@ -2666,7 +2670,8 @@ begin
     insert
     into call_center.cc_trigger_job(trigger_id, parameters, domain_id)
     select id, params, domain_id
-    from u;
+    from u
+    where u.valid;
 end;
 $$;
 
@@ -7179,10 +7184,10 @@ CREATE INDEX cc_member_agent_id_index ON call_center.cc_member USING btree (agen
 
 
 --
--- Name: cc_member_appointmets_queue_id_ready; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_member_appointments_queue_id_ready; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_appointmets_queue_id_ready ON call_center.cc_member USING btree (queue_id, COALESCE(ready_at, created_at)) WHERE (stop_at IS NULL);
+CREATE INDEX cc_member_appointments_queue_id_ready ON call_center.cc_member USING btree (queue_id, COALESCE(ready_at, created_at)) WHERE (stop_at IS NULL);
 
 
 --
