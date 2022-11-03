@@ -7,7 +7,12 @@ import (
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
+	"golang.org/x/sync/singleflight"
 	"time"
+)
+
+var (
+	formActionGroupRequest singleflight.Group
 )
 
 type DoDistributeResult struct {
@@ -52,6 +57,14 @@ func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 }
 
 func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("action-%d", attemptId), func() (interface{}, error) {
+		return nil, qm.attemptProcessingActionForm(attemptId, action, fields)
+	})
+
+	return err
+}
+
+func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v", attemptId, attemptId))
 
