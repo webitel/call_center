@@ -9,6 +9,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -270,7 +271,7 @@ func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
 		//todo is bug!
-		if a.channel == model.QueueChannelCall {
+		if a.channel == model.QueueChannelCall && !strings.HasPrefix(k, "sip_h_") {
 			res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
 		} else {
 			res[k] = fmt.Sprintf("%v", v)
