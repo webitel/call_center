@@ -16,7 +16,7 @@ func NewSqlStatisticStore(sqlStore SqlStore) store.StatisticStore {
 }
 
 func (s SqlStatisticStore) RefreshInbound1H() *model.AppError {
-	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_inbound_stats`)
+	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_inbound_stats`)
 
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshInbound1H", "store.sql_agent.refresh_inbound_stats.app_error", nil,

@@ -681,7 +681,7 @@ returning channel_id`, map[string]interface{}{
 }
 
 func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
-	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_distribute_stats`)
+	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_distribute_stats`)
 
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshAgentPauseCauses", "store.sql_agent.refresh_pause_cause.app_error", nil,
