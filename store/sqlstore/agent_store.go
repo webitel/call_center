@@ -272,7 +272,7 @@ returning a.user_id, channel, call_center.cc_view_timestamp(joined_at) as timest
 }
 
 func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
-	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_agent_today_pause_cause`)
+	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_agent_today_pause_cause`)
 
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshAgentPauseCauses", "store.sql_agent.refresh_pause_cause.app_error", nil,
@@ -283,7 +283,7 @@ func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
 }
 
 func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
-	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_agent_today_stats`)
+	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_agent_today_stats`)
 
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshAgentStatistics", "store.sql_agent.refresh_statistics.app_error", nil,
