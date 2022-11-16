@@ -221,7 +221,13 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 							case call_manager.CALL_STATE_ACCEPT:
 								time.Sleep(time.Millisecond * 250)
-								printfIfErr(agentCall.Bridge(mCall)) // TODO
+								if err = agentCall.Bridge(mCall); err != nil {
+									if agentCall.HangupAt() == 0 {
+										agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
+									}
+									printfIfErr(err)
+								}
+
 								//fixme refactor
 								if queue.AllowGreetingAgent {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")

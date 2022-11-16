@@ -3,7 +3,6 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
@@ -110,9 +109,12 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	st := time.Now()
 
 	res, err := qm.app.FlowManager().Queue().DoDistributeAttempt(&flow.DistributeAttemptRequest{
-		DomainId:  queue.domainId,
-		SchemaId:  *queue.doSchema,
-		Variables: att.ExportSchemaVariables(),
+		DomainId: queue.domainId,
+		SchemaId: *queue.doSchema,
+		Variables: model.UnionStringMaps(
+			queue.Variables(),
+			att.ExportSchemaVariables(),
+		),
 	})
 
 	if err != nil {
@@ -180,17 +182,13 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 		vars = att.memberChannel.Stats()
 	}
 
-	call_manager.DUMP(model.UnionStringMaps(
-		att.ExportSchemaVariables(),
-		vars,
-	))
-
 	st := time.Now()
 
 	res, err := qm.app.FlowManager().Queue().ResultAttempt(&flow.ResultAttemptRequest{
 		DomainId: att.queue.DomainId(),
 		SchemaId: *att.queue.AfterSchemaId(),
 		Variables: model.UnionStringMaps(
+			att.queue.Variables(),
 			att.ExportSchemaVariables(),
 			vars,
 		),
