@@ -345,3 +345,77 @@ BEGIN
 END;
 $$;
 
+
+
+create or replace function call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint)
+    returns TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, seq integer)
+    language plpgsql
+as
+$$
+declare
+    _weight      int4;
+    _destination jsonb;
+BEGIN
+
+    return query with attempts as (
+        insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, communication_idx, node_id, agent_id, resource_id,
+                                                   bucket_id, seq, team_id, domain_id)
+            select 1,
+                   m.queue_id,
+                   m.id,
+                   m.communications -> (_communication_id::int2),
+                   (_communication_id::int2),
+                   _node_name,
+                   _agent_id,
+                   r.resource_id,
+                   m.bucket_id,
+                   m.attempts + 1,
+                   q.team_id,
+                   q.domain_id
+            from call_center.cc_member m
+                     inner join call_center.cc_queue q on q.id = m.queue_id
+                     inner join lateral (
+                select (t::call_center.cc_sys_distribute_type).resource_id
+                from call_center.cc_sys_queue_distribute_resources r,
+                     unnest(r.types) t
+                where r.queue_id = m.queue_id
+                  and (t::call_center.cc_sys_distribute_type).type_id =
+                      (m.communications -> (_communication_id::int2) -> 'type' -> 'id')::int4
+                limit 1
+                ) r on true
+                     left join call_center.cc_outbound_resource cor on cor.id = r.resource_id
+            where m.id = _member_id
+              and m.communications -> (_communication_id::int2) notnull
+              and not exists(select 1 from call_center.cc_member_attempt ma where ma.member_id = _member_id)
+            returning call_center.cc_member_attempt.*
+    )
+                 select a.id,
+                        a.member_id,
+                        null::varchar          result,
+                        a.queue_id,
+                        cq.updated_at as       queue_updated_at,
+                        0::integer             queue_count,
+                        0::integer             queue_active_count,
+                        0::integer             queue_waiting_count,
+                        a.resource_id::integer resource_id,
+                        r.updated_at::bigint   resource_updated_at,
+                        null::bigint           gateway_updated_at,
+                        a.destination          destination,
+                        cm.variables,
+                        cm.name,
+                        null::varchar,
+                        a.agent_id::bigint     agent_id,
+                        ag.updated_at::bigint  agent_updated_at,
+                        t.updated_at::bigint   team_updated_at,
+                        a.seq::int seq
+                 from attempts a
+                          left join call_center.cc_member cm on a.member_id = cm.id
+                          inner join call_center.cc_queue cq on a.queue_id = cq.id
+                          left join call_center.cc_outbound_resource r on r.id = a.resource_id
+                          left join call_center.cc_agent ag on ag.id = a.agent_id
+                          inner join call_center.cc_team t on t.id = ag.team_id;
+
+    --raise notice '%', _attempt_id;
+
+END;
+$$;
