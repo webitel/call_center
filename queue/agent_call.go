@@ -41,10 +41,10 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				//"effective_caller_id_name":   attempt.Name(),
 				//"effective_caller_id_number": attempt.Destination(),
 				//
-				//"origination_callee_id_name":   agent.Name(),
-				//"origination_callee_id_number": agent.CallNumber(),
-				//"origination_caller_id_name":   attempt.Name(),
-				//"origination_caller_id_number": attempt.Destination(),
+				//"origination_callee_id_name":   attempt.Name(),
+				//"origination_callee_id_number": attempt.Destination(),
+				"origination_caller_id_name":   attempt.Name(),
+				"origination_caller_id_number": attempt.Destination(),
 
 				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),
@@ -53,9 +53,9 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
 			},
 		),
-		Timeout:      at.CallTimeout(),
-		CallerName:   agent.Name(),
-		CallerNumber: agent.CallNumber(),
+		Timeout: at.CallTimeout(),
+		//CallerName:   agent.Name(),
+		//CallerNumber: agent.CallNumber(),
 	}
 
 	if agent.HasPush() {
