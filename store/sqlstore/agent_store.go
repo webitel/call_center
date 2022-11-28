@@ -78,7 +78,7 @@ left join lateral ( select jsonb_object(array_agg(key), array_agg(val)) as push
 				  WHERE s.user_id IS NOT NULL
 					AND s.access notnull
 					AND NULLIF(s.props ->> 'pn-rpid'::text, ''::text) IS NOT NULL
-					AND s.user_id = 10
+					AND s.user_id = a.user_id
 					and s.props ->> 'pn-type'::text in ('fcm', 'apns')
 					AND now() at time zone 'UTC' < s.expires
 				  group by s.props ->> 'pn-type'::text = 'fcm') t
