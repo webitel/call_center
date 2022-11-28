@@ -1282,12 +1282,13 @@ declare
 BEGIN
 
     return query with attempts as (
-        insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, node_id, agent_id, resource_id,
+        insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, communication_idx, node_id, agent_id, resource_id,
                                        bucket_id, seq, team_id, domain_id)
             select 1,
                    m.queue_id,
                    m.id,
                    m.communications -> (_communication_id::int2),
+                   (_communication_id::int2),
                    _node_name,
                    _agent_id,
                    r.resource_id,
@@ -2707,7 +2708,7 @@ CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURN
     AS $$
 BEGIN
     return query update call_center.cc_member_attempt a
-        set state = case when c.queue_type = 4 then 'offering' else 'waiting' end
+        set state = case when c.queue_type in (3, 4) then 'offering' else 'waiting' end
             ,node_id = node
             ,last_state_change = now()
             ,list_communication_id = lc.id
@@ -7392,6 +7393,13 @@ CREATE INDEX cc_member_expire ON call_center.cc_member USING btree (expire_at) W
 --
 
 CREATE UNIQUE INDEX cc_member_messages_id_uindex ON call_center.cc_member_messages USING btree (id);
+
+
+--
+-- Name: cc_member_queue_id_created_at; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_queue_id_created_at ON call_center.cc_member USING btree (queue_id, created_at DESC);
 
 
 --
