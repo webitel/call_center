@@ -26,6 +26,7 @@ type SchemaResult struct {
 	MaxAttempts          uint32
 	WaitBetweenRetries   uint32
 	ExcludeCurrentNumber bool
+	Redial               bool
 	Variables            map[string]string
 }
 
@@ -215,6 +216,7 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 			MaxAttempts:          v.Abandoned.MaxAttempts,
 			WaitBetweenRetries:   v.Abandoned.WaitBetweenRetries,
 			ExcludeCurrentNumber: v.Abandoned.ExcludeCurrentCommunication,
+			Redial:               v.Abandoned.Redial,
 			Variables:            res.Variables,
 		}, true
 

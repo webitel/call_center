@@ -93,7 +93,8 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 CREATE FUNCTION call_center.appointment_widget(_uri character varying) RETURNS TABLE(profile jsonb, list jsonb)
     LANGUAGE sql ROWS 1
     AS $$
-    with profile as (
+
+with profile as (
         select
            (config['queue']->>'id')::int as queue_id,
            (config['communicationType']->>'id')::int as communication_type,
@@ -120,7 +121,9 @@ CREATE FUNCTION call_center.appointment_widget(_uri character varying) RETURNS T
                 q.available_agents,
                 x,
                (extract(isodow from x::timestamp)  ) - 1 as day,
-               dy.*
+               dy.*,
+               min(dy.ss::time) over () mins,
+               max(dy.se::time) over () maxe
         from profile  q ,
             flow.calendar_day_range(q.calendar_id, least(q.days, 7)) x
             left join lateral (
@@ -170,10 +173,10 @@ CREATE FUNCTION call_center.appointment_widget(_uri character varying) RETURNS T
             d.*,
             res.*,
             xx,
-            case when xx < now() or coalesce(res.cnt, 0) >= d.available_agents then true
+            case when xx < now() or coalesce(res.cnt, 0) >= d.available_agents or xx < d.ss or xx > d.se then true
                 else false end as reserved
         from d
-            left join generate_series(d.ss, d.se, d.duration) xx on true
+            left join generate_series((d.x || ' ' || d.mins)::timestamp, (d.x || ' ' || d.maxe)::timestamp, d.duration) xx on true
             left join res on res.d = xx
         limit 10080
     )
@@ -326,10 +329,10 @@ $$;
 
 
 --
--- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false, exclude_dest boolean DEFAULT false) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false, exclude_dest boolean DEFAULT false, redial boolean DEFAULT false) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -356,7 +359,7 @@ begin
                                  ) then stop_cause else attempt.result end,
             ready_at = now() + (_next_after || ' sec')::interval,
             communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
-                jsonb_build_object('last_activity_at', (extract(epoch  from attempt.leaving_at) * 1000)::int8::text::jsonb) ||
+                jsonb_build_object('last_activity_at', (case when redial is true then 0 else extract(epoch  from attempt.leaving_at) * 1000 end )::int8::text::jsonb) ||
                 jsonb_build_object('attempt_id', attempt_id_) ||
                 jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
                 case when exclude_dest or (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= _max_count) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
@@ -1096,6 +1099,97 @@ begin
     where id in (transfer_from_, transfer_to_);
 
 end;
+$$;
+
+
+--
+-- Name: cc_calls_rbac_queues(bigint, bigint, integer[]); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_calls_rbac_queues(_domain_id bigint, _user_id bigint, _groups integer[]) RETURNS integer[]
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    with x as (select a.user_id, a.id agent_id, a.supervisor, a.domain_id
+               from directory.wbt_user u
+                        inner join call_center.cc_agent a on a.user_id = u.id and a.domain_id = u.dc
+               where u.id = _user_id
+                 and u.dc = _domain_id)
+    select array_agg(distinct t.queue_id)
+    from (select qs.queue_id::int as queue_id
+    from x
+             left join lateral (
+        select a.id, a.auditor_ids && array [x.user_id] aud
+        from call_center.cc_agent a
+        where (a.user_id = x.user_id or (a.supervisor_ids && array [x.agent_id] and a.supervisor))
+        union
+        distinct
+        select a.id, a.auditor_ids && array [x.user_id] aud
+        from call_center.cc_team t
+                 inner join call_center.cc_agent a on a.team_id = t.id
+        where t.admin_ids && array [x.agent_id]
+        ) a on true
+             inner join call_center.cc_skill_in_agent sa on sa.agent_id = a.id
+             inner join call_center.cc_queue_skill qs
+                        on qs.skill_id = sa.skill_id and sa.capacity between qs.min_capacity and qs.max_capacity
+    where sa.enabled
+      and qs.enabled
+    union distinct
+    select q.id
+    from call_center.cc_queue q
+    where q.domain_id = _domain_id
+      and q.grantee_id = any (_groups)) t
+$$;
+
+
+--
+-- Name: cc_calls_rbac_users(bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_calls_rbac_users(_domain_id bigint, _user_id bigint) RETURNS integer[]
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    with x as materialized (
+        select a.user_id, a.id agent_id, a.supervisor, a.domain_id
+        from directory.wbt_user u
+                 inner join call_center.cc_agent a on a.user_id = u.id
+        where u.id = _user_id
+          and u.dc = _domain_id
+    )
+    select array_agg(distinct a.user_id::int) users
+    from x
+             left join lateral (
+        select a.user_id, a.auditor_ids && array [x.user_id] aud
+        from call_center.cc_agent a
+        where a.domain_id = x.domain_id
+          and (a.user_id = x.user_id or (a.supervisor_ids && array [x.agent_id] and a.supervisor) or
+               a.auditor_ids && array [x.user_id])
+
+        union
+        distinct
+
+        select a.user_id, a.auditor_ids && array [x.user_id] aud
+        from call_center.cc_team t
+                 inner join call_center.cc_agent a on a.team_id = t.id
+        where t.admin_ids && array [x.agent_id]
+          and x.domain_id = t.domain_id
+        ) a on true
+$$;
+
+
+--
+-- Name: cc_calls_rbac_users_from_group(bigint, smallint, integer[]); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_calls_rbac_users_from_group(_domain_id bigint, _access smallint, _groups integer[]) RETURNS integer[]
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    select array_agg(distinct am.member_id::int)
+    from directory.wbt_class c
+        inner join directory.wbt_default_acl a on a.object = c.id
+        join directory.wbt_auth_member am on am.role_id = a.grantor
+    where c.name = 'calls'
+      and c.dc = _domain_id
+      and a.access&_access = _access and a.subject = any(_groups)
 $$;
 
 
@@ -4558,7 +4652,10 @@ CREATE TABLE call_center.cc_email_profile (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by bigint,
     updated_by bigint,
-    smtp_host character varying
+    smtp_host character varying,
+    params jsonb,
+    auth_type character varying DEFAULT 'plain'::character varying NOT NULL,
+    listen boolean DEFAULT false NOT NULL
 );
 
 
@@ -4594,7 +4691,8 @@ CREATE VIEW call_center.cc_email_profile_list AS
     call_center.cc_get_lookup((t.flow_id)::bigint, s.name) AS schema,
     t.description,
     t.enabled,
-    t.password
+    t.password,
+    t.listen
    FROM (((call_center.cc_email_profile t
      LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
      LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
@@ -6983,6 +7081,13 @@ CREATE INDEX cc_calls_history_gateway_ids_index ON call_center.cc_calls_history 
 
 
 --
+-- Name: cc_calls_history_grantee_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_grantee_id_index ON call_center.cc_calls_history USING btree (grantee_id);
+
+
+--
 -- Name: cc_calls_history_mat_view_agent; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -7008,6 +7113,13 @@ CREATE INDEX cc_calls_history_parent_id_index ON call_center.cc_calls_history US
 --
 
 CREATE INDEX cc_calls_history_payload_idx ON call_center.cc_calls_history USING gin (domain_id, payload jsonb_path_ops) WHERE (payload IS NOT NULL);
+
+
+--
+-- Name: cc_calls_history_queue_id_dom; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_queue_id_dom ON call_center.cc_calls_history USING btree (domain_id, created_at, user_id, queue_id);
 
 
 --
@@ -8824,7 +8936,7 @@ ALTER TABLE ONLY call_center.cc_member
 --
 
 ALTER TABLE ONLY call_center.cc_member
-    ADD CONSTRAINT cc_member_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id);
+    ADD CONSTRAINT cc_member_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --

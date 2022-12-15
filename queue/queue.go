@@ -348,7 +348,7 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 		//TODO
 	}
 
-	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), attempt.maxAttempts, attempt.waitBetween, nil, attempt.perNumbers, attempt.excludeCurrNumber)
+	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), attempt.maxAttempts, attempt.waitBetween, nil, attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial)
 	if err != nil {
 		wlog.Error(err.Error())
 

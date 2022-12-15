@@ -52,6 +52,7 @@ type AttemptCallback struct {
 	Variables                   map[string]string
 	StickyAgentId               *int
 	ExcludeCurrentCommunication *bool
+	Redial                      *bool
 }
 
 type AttemptLeaving struct {

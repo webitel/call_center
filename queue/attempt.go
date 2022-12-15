@@ -70,6 +70,7 @@ type Attempt struct {
 	waitBetween       uint64
 	perNumbers        bool
 	excludeCurrNumber bool
+	redial            bool
 
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
@@ -112,6 +113,11 @@ func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
 	if res.ExcludeCurrentNumber {
 		a.excludeCurrNumber = true
 		a.Log("set exclude current number")
+	}
+
+	if res.Redial {
+		a.redial = true
+		a.Log("set redial current number")
 	}
 
 	return res, true
