@@ -79,3 +79,9 @@ $$ language sql immutable ;;
 create index concurrently  if not exists cc_calls_history_grantee_id_index
     on call_center.cc_calls_history
         using btree(grantee_id asc nulls last );
+
+
+refresh materialized view call_center.cc_inbound_stats;
+refresh materialized view call_center.cc_distribute_stats;
+refresh materialized view call_center.cc_agent_today_stats;
+refresh materialized view call_center.cc_agent_today_pause_cause;
