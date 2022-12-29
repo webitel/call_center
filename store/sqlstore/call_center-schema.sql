@@ -93,7 +93,6 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 CREATE FUNCTION call_center.appointment_widget(_uri character varying) RETURNS TABLE(profile jsonb, list jsonb)
     LANGUAGE sql ROWS 1
     AS $$
-
 with profile as (
         select
            (config['queue']->>'id')::int as queue_id,
@@ -119,6 +118,7 @@ with profile as (
         select  q.queue_id,
                 q.duration,
                 q.available_agents,
+                q.timezone,
                 x,
                (extract(isodow from x::timestamp)  ) - 1 as day,
                dy.*,
@@ -173,7 +173,7 @@ with profile as (
             d.*,
             res.*,
             xx,
-            case when xx < now() or coalesce(res.cnt, 0) >= d.available_agents or xx < d.ss or xx > d.se then true
+            case when xx < now() at time zone d.timezone or coalesce(res.cnt, 0) >= d.available_agents or xx < d.ss or xx > d.se then true
                 else false end as reserved
         from d
             left join generate_series((d.x || ' ' || d.mins)::timestamp, (d.x || ' ' || d.maxe)::timestamp, d.duration) xx on true
