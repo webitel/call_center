@@ -78,7 +78,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				model.CallVariableDirection:  "internal",
 
 				"hangup_after_bridge": "true",
-				"bridge_early_media":  "true",
+				//"bridge_early_media":  "true",
 				//"absolute_codec_string": "opus,pcmu,pcma",
 				"cc_reporting": fmt.Sprintf("%v", queue.Processing()),
 
