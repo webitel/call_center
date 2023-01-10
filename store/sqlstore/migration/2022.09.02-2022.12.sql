@@ -995,3 +995,7 @@ ALTER TABLE ONLY call_center.cc_member
 ALTER TABLE ONLY call_center.cc_member
     ADD CONSTRAINT cc_member_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
+
+
+alter table storage.upload_file_jobs add column view_name character varying;
+alter table storage.files add column view_name character varying;

@@ -801,7 +801,10 @@ begin
         update call_center.cc_agent_channel c
         set state = agent_status_,
             joined_at = now(),
-            channel = null,
+            channel = case when c.channel = any('{chat,task}') and (select count(1)
+                                                        from call_center.cc_member_attempt aa
+                                                        where aa.agent_id = attempt.agent_id and aa.id != attempt.id and aa.state != 'leaving') > 0
+                    then c.channel else null end,
             timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
         where c.agent_id = attempt.agent_id;
 
@@ -976,7 +979,9 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     hold jsonb,
     params jsonb,
     blind_transfer character varying,
-    talk_sec integer DEFAULT 0 NOT NULL
+    talk_sec integer DEFAULT 0 NOT NULL,
+    amd_ml_result character varying,
+    amd_ml_logs character varying[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3520,7 +3525,9 @@ CREATE TABLE call_center.cc_calls_history (
     team_ids integer[],
     params jsonb,
     blind_transfer character varying,
-    talk_sec integer DEFAULT 0 NOT NULL
+    talk_sec integer DEFAULT 0 NOT NULL,
+    amd_ml_result character varying,
+    amd_ml_logs character varying[]
 );
 
 
@@ -8160,7 +8167,13 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
              JOIN queues ON ((queues.calendar_id = c.id)))
              JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
              JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
-          WHERE (NOT (a.disabled IS TRUE))
+          WHERE ((NOT (a.disabled IS TRUE)) AND (NOT (EXISTS ( SELECT 1
+                   FROM unnest(c.excepts) x(disabled, date, name, repeat)
+                  WHERE ((NOT (x.disabled IS TRUE)) AND
+                        CASE
+                            WHEN (x.repeat IS TRUE) THEN (to_char((((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text) = to_char((((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text))
+                            ELSE (((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date = ((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)
+                        END)))))
           GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id
         ), resources AS MATERIALIZED (
          SELECT l_1.queue_id,

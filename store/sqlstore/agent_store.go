@@ -251,16 +251,18 @@ values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 	return nil
 }
 
-// fixme chat > 1
 func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
 	var channels []*model.ChannelTimeout
-	_, err := s.GetMaster().Select(&channels, `update call_center.cc_agent_channel
-set state = 'waiting',
-    timeout = null,
-	channel = null,
-    joined_at = now()
-from call_center.cc_agent a
-where timeout < now() and a.id = call_center.cc_agent_channel.agent_id
+	_, err := s.GetMaster().Select(&channels, `update call_center.cc_agent_channel c
+	set state = 'waiting',
+		timeout = null,
+		channel = case when c.channel = any('{chat,task}'::varchar[]) and (select count(1)
+															from call_center.cc_member_attempt aa
+															where aa.agent_id = c.agent_id and aa.state != 'leaving') > 0
+			then channel else null end,
+		joined_at = now()
+	from call_center.cc_agent a
+	where c.timeout < now() and a.id = c.agent_id
 returning a.user_id, channel, call_center.cc_view_timestamp(joined_at) as timestamp, a.domain_id`)
 
 	if err != nil {
