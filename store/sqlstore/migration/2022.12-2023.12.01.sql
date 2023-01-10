@@ -281,13 +281,24 @@ end;
 $$;
 
 
+
 alter table call_center.cc_calls
-    add amd_ml_result varchar;
+    drop column if exists amd_ml_result;
 alter table call_center.cc_calls
-    add amd_ml_logs varchar[];
+    drop column if exists amd_ml_logs;
+
+alter table call_center.cc_calls_history
+    drop column if exists amd_ml_result;
+alter table call_center.cc_calls_history
+    drop column if exists amd_ml_logs;
+
+alter table call_center.cc_calls
+    add amd_ai_result varchar;
+alter table call_center.cc_calls
+    add amd_ai_logs varchar[];
 
 
 alter table call_center.cc_calls_history
-    add amd_ml_result varchar;
+    add amd_ai_result varchar;
 alter table call_center.cc_calls_history
-    add amd_ml_logs varchar[];
+    add amd_ai_logs varchar[];

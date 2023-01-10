@@ -116,6 +116,7 @@ type CallImpl struct {
 
 	amdResult string
 	amdCause  string
+	aiResult  string
 
 	variables map[string]interface{}
 
@@ -255,6 +256,7 @@ func (call *CallImpl) setAmd(e *model.CallActionAMD) {
 	call.Lock()
 	call.amdResult = e.Result
 	call.amdCause = e.Cause
+	call.aiResult = e.AiResult
 	call.Unlock()
 
 	call.setState(CALL_STATE_DETECT_AMD)
@@ -505,7 +507,8 @@ func (call *CallImpl) HangupAt() int64 {
 }
 
 func (call *CallImpl) IsHuman() bool {
-	return call.amdResult == AmdHuman || call.amdResult == AmdNotSure
+	//todo
+	return call.aiResult != "" || call.amdResult == AmdHuman || call.amdResult == AmdNotSure
 }
 
 func (call *CallImpl) DurationSeconds() int {

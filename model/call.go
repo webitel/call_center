@@ -254,8 +254,9 @@ type CallNoAnswer struct {
 
 type CallActionAMD struct {
 	CallAction
-	Result string `json:"result"`
-	Cause  string `json:"cause"`
+	AiResult string `json:"ai_result"`
+	Result   string `json:"result"`
+	Cause    string `json:"cause"`
 }
 
 type CallVariables map[string]interface{}

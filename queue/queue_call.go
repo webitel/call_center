@@ -45,39 +45,41 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 		return false
 	}
 
-	if !amd.AllowNotSure {
-		callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = amdMachineApplication
-	} else {
-		callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = onHuman
-	}
-	callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = amdMachineApplication
-	callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
-
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: model.CALL_AMD_APPLICATION_NAME,
-		Args:    amd.ToArgs(),
-	})
-
-	if amd.PlaybackFileUri != "" {
-		if amd.PlaybackFileSilenceTime > 0 {
-			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-				AppName: model.CALL_SLEEP_APPLICATION,
-				Args:    fmt.Sprintf("%d", amd.PlaybackFileSilenceTime),
-			})
-		}
-
+	// todo test old amd
+	if amd.PaybackFile != nil {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: model.CALL_PLAYBACK_APPLICATION,
-			Args:    amd.PlaybackFileUri,
+			AppName: "set",
+			Args:    "execute_on_answer=playback " + amd.PaybackFile.Uri(queue.domainId),
+		})
+	}
+
+	if amd.Ai {
+		callRequest.Variables["ignore_early_media"] = "false"
+		callRequest.Variables["amd_on_positive"] = onHuman
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "wbt_amd",    // todo if error skip and call
+			Args:    amd.AiTags(), // positive labels
 		})
 
-		if amd.TotalAnalysisTime-amd.PlaybackFileSilenceTime > 0 {
-			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-				AppName: model.CALL_SLEEP_APPLICATION,
-				Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime-amd.PlaybackFileSilenceTime+100), // TODO 100 ?
-			})
-		}
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "park",
+			Args:    "",
+		})
+
 	} else {
+		if !amd.AllowNotSure {
+			callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = amdMachineApplication
+		} else {
+			callRequest.Variables[model.CALL_AMD_NOT_SURE_VARIABLE] = onHuman
+		}
+		callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = amdMachineApplication
+		callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
+
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: model.CALL_AMD_APPLICATION_NAME,
+			Args:    amd.ToArgs(),
+		})
+
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: model.CALL_SLEEP_APPLICATION,
 			Args:    fmt.Sprintf("%d", amd.TotalAnalysisTime+100),
