@@ -220,3 +220,74 @@ WHERE (q.type = ANY (ARRAY [1, 6, 7]))
    OR q.type = 8 AND GREATEST((q.lim - COALESCE(l.usage, 0::bigint))::integer, 0) > 0
    OR q.type = 5 AND NOT q.op
    OR q.op AND (q.type = ANY (ARRAY [2, 3, 4, 5])) AND r.* IS NOT NULL;
+
+
+
+
+CREATE or replace FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS timestamp with time zone
+    LANGUAGE plpgsql
+AS $$
+declare
+    attempt call_center.cc_member_attempt%rowtype;
+begin
+    update call_center.cc_member_attempt
+    set reporting_at = now(),
+        result = 'timeout',
+        state = 'leaving'
+    where id = attempt_id_
+    returning * into attempt;
+
+    update call_center.cc_member
+    set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
+        last_agent      = coalesce(attempt.agent_id, last_agent),
+
+
+        stop_at = case when stop_at notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
+                           then stop_at else  attempt.leaving_at end,
+        stop_cause = case when stop_cause notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
+                              then stop_cause else attempt.result end,
+        ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
+
+        communications = jsonb_set(
+                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
+                          attempt_id_::text::jsonb, true)
+            , array [attempt.communication_idx, 'last_activity_at']::text[],
+                ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
+            ),
+        attempts        = attempts + 1
+    from (
+             -- fixme
+             select coalesce(cast((q.payload->>'max_attempts') as int), 0) as _max_count, coalesce(cast((q.payload->>'wait_between_retries') as int), 0) as _next_after
+             from call_center.cc_queue q
+             where q.id = attempt.queue_id
+         ) q
+    where id = attempt.member_id;
+
+    if attempt.agent_id notnull then
+        update call_center.cc_agent_channel c
+        set state = agent_status_,
+            joined_at = now(),
+            channel = case when c.channel = any('{chat,task}') and (select count(1)
+                                                                    from call_center.cc_member_attempt aa
+                                                                    where aa.agent_id = attempt.agent_id and aa.id != attempt.id and aa.state != 'leaving') > 0
+                               then c.channel else null end,
+            timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
+        where c.agent_id = attempt.agent_id;
+
+    end if;
+
+    return now();
+end;
+$$;
+
+
+alter table call_center.cc_calls
+    add amd_ml_result varchar;
+alter table call_center.cc_calls
+    add amd_ml_logs varchar[];
+
+
+alter table call_center.cc_calls_history
+    add amd_ml_result varchar;
+alter table call_center.cc_calls_history
+    add amd_ml_logs varchar[];
