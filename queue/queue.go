@@ -41,6 +41,7 @@ type QueueObject interface {
 	StartProcessingForm(attempt *Attempt)
 	AutoAnswer() bool
 	RingtoneUri() string
+	AmdPlaybackUri() *string // todo move to amd
 }
 
 type BaseQueue struct {
@@ -66,6 +67,7 @@ type BaseQueue struct {
 	processingRenewalSec uint32
 	endless              bool
 	hooks                HookHub
+	amdPlaybackFileUri   *string
 }
 
 func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
@@ -98,6 +100,10 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 			Type: *settings.RingtoneType,
 		}
 		base.ringtoneUri = model.NewString(model.RingtoneUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
+	}
+
+	if settings.AmdPlaybackFile != nil {
+		base.amdPlaybackFileUri = model.NewString(model.RingtoneUri(base.domainId, settings.AmdPlaybackFile.Id, settings.AmdPlaybackFile.Type))
 	}
 
 	if settings.GranteeId != nil {
@@ -373,4 +379,8 @@ func (queue *BaseQueue) RingtoneUri() string {
 	}
 
 	return ""
+}
+
+func (queue *BaseQueue) AmdPlaybackUri() *string {
+	return queue.amdPlaybackFileUri
 }

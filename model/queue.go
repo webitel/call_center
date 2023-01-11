@@ -94,6 +94,7 @@ type Queue struct {
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`
 	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
 	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
+	AmdPlaybackFile      *RingtoneFile     `json:"amd_playback_file" db:"amd_playback_file"`
 }
 
 func (q *Queue) Channel() string {
@@ -115,21 +116,22 @@ type QueueDialingSettings struct {
 }
 
 type QueueAmdSettings struct {
-	Enabled                 bool   `json:"enabled"`
-	AllowNotSure            bool   `json:"allow_not_sure"`
-	SilenceNotSure          bool   `json:"silence_not_sure"`
-	MaxWordLength           uint16 `json:"max_word_length"`
-	MaxNumberOfWords        uint16 `json:"max_number_of_words"`
-	BetweenWordsSilence     uint16 `json:"between_words_silence"`
-	MinWordLength           uint16 `json:"min_word_length"`
-	TotalAnalysisTime       uint16 `json:"total_analysis_time"`
-	SilenceThreshold        uint16 `json:"silence_threshold"`
-	AfterGreetingSilence    uint16 `json:"after_greeting_silence"`
-	Greeting                uint16 `json:"greeting"`
-	InitialSilence          uint16 `json:"initial_silence"`
-	PlaybackFileSilenceTime uint16 `json:"playback_file_silence_time"`
-	PlaybackFileUri         string `json:"playback_file_uri"`
-	buildString             *string
+	Enabled      bool     `json:"enabled"`
+	Ai           bool     `json:"ai"`
+	PositiveTags []string `json:"positive"`
+
+	AllowNotSure         bool   `json:"allow_not_sure"`
+	SilenceNotSure       bool   `json:"silence_not_sure"`
+	MaxWordLength        uint16 `json:"max_word_length"`
+	MaxNumberOfWords     uint16 `json:"max_number_of_words"`
+	BetweenWordsSilence  uint16 `json:"between_words_silence"`
+	MinWordLength        uint16 `json:"min_word_length"`
+	TotalAnalysisTime    uint16 `json:"total_analysis_time"`
+	SilenceThreshold     uint16 `json:"silence_threshold"`
+	AfterGreetingSilence uint16 `json:"after_greeting_silence"`
+	Greeting             uint16 `json:"greeting"`
+	InitialSilence       uint16 `json:"initial_silence"`
+	buildString          *string
 }
 
 type QueueCallbackSettings struct {
@@ -286,4 +288,12 @@ func (amd *QueueAmdSettings) ToArgs() string {
 	}
 
 	return *amd.buildString
+}
+
+func (amd *QueueAmdSettings) AiTags() string {
+	if len(amd.PositiveTags) == 0 {
+		return "human"
+	}
+
+	return strings.Join(amd.PositiveTags, ",")
 }
