@@ -980,8 +980,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     params jsonb,
     blind_transfer character varying,
     talk_sec integer DEFAULT 0 NOT NULL,
-    amd_ml_result character varying,
-    amd_ml_logs character varying[]
+    amd_ai_result character varying,
+    amd_ai_logs character varying[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -3526,8 +3526,8 @@ CREATE TABLE call_center.cc_calls_history (
     params jsonb,
     blind_transfer character varying,
     talk_sec integer DEFAULT 0 NOT NULL,
-    amd_ml_result character varying,
-    amd_ml_logs character varying[]
+    amd_ai_result character varying,
+    amd_ai_logs character varying[]
 );
 
 
@@ -4330,6 +4330,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
                   ORDER BY a.created_at DESC) annotations) AS annotations,
     c.amd_result,
     c.amd_duration,
+    c.amd_ai_result,
+    c.amd_ai_logs,
     cq.type AS queue_type,
         CASE
             WHEN (c.parent_id IS NOT NULL) THEN ''::text
