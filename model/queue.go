@@ -94,6 +94,7 @@ type Queue struct {
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`
 	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
 	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
+	AmdPlaybackFile      *RingtoneFile     `json:"amd_playback_file" db:"amd_playback_file"`
 }
 
 func (q *Queue) Channel() string {
@@ -115,10 +116,9 @@ type QueueDialingSettings struct {
 }
 
 type QueueAmdSettings struct {
-	Enabled      bool          `json:"enabled"`
-	Ai           bool          `json:"ai"`
-	PositiveTags []string      `json:"positive"`
-	PaybackFile  *RingtoneFile `json:"-"`
+	Enabled      bool     `json:"enabled"`
+	Ai           bool     `json:"ai"`
+	PositiveTags []string `json:"positive"`
 
 	AllowNotSure         bool   `json:"allow_not_sure"`
 	SilenceNotSure       bool   `json:"silence_not_sure"`

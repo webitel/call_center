@@ -53,12 +53,16 @@ select q.id,
        case when fh.id notnull then
            jsonb_build_object('id', fh.id, 'type', fh.mime_type)
        end as hold_music,
+       case when (payload->'amd'->'playback'->>'id') notnull then
+           jsonb_build_object('id', amdpf.id, 'type', amdpf.mime_type)
+       end as amd_playback_file,
 	   q.form_schema_id
 from call_center.cc_queue q
     inner join directory.wbt_domain d on q.domain_id = d.dc
     left join storage.media_files f on f.id = q.ringtone_id
     left join storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
-where q.id = :Id
+    left join storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
+where q.id = :Id;
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,

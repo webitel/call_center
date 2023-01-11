@@ -45,15 +45,15 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 		return false
 	}
 
-	// todo test old amd
-	if amd.PaybackFile != nil {
-		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: "set",
-			Args:    "execute_on_answer=playback " + amd.PaybackFile.Uri(queue.domainId),
-		})
-	}
-
 	if amd.Ai {
+		pbf := queue.AmdPlaybackUri()
+		if pbf != nil {
+			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+				AppName: "set",
+				Args:    "execute_on_answer=playback " + *pbf,
+			})
+		}
+
 		callRequest.Variables["ignore_early_media"] = "false"
 		callRequest.Variables["amd_on_positive"] = onHuman
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
