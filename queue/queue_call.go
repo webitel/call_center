@@ -45,8 +45,9 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 		return false
 	}
 
+	pbf := queue.AmdPlaybackUri()
+
 	if amd.Ai {
-		pbf := queue.AmdPlaybackUri()
 		if pbf != nil {
 			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 				AppName: "set",
@@ -79,6 +80,13 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 			AppName: model.CALL_AMD_APPLICATION_NAME,
 			Args:    amd.ToArgs(),
 		})
+
+		if pbf != nil {
+			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+				AppName: "playback",
+				Args:    *pbf,
+			})
+		}
 
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: model.CALL_SLEEP_APPLICATION,
