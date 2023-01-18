@@ -174,12 +174,14 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 
 						if aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent {
 							attempt.Log("max idle agent")
+							attempt.SetResult(AttemptResultAgentTimeout)
 							aSess.Leave()
 							break
 						}
 
 						if aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient {
 							attempt.Log("max idle client")
+							attempt.SetResult(AttemptResultClientTimeout)
 							aSess.Leave()
 							break
 						}
