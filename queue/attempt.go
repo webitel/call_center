@@ -37,7 +37,10 @@ const (
 	AttemptResultTransfer       = "transfer"
 	AttemptResultEndless        = "endless"
 	AttemptResultMaxWaitSize    = "max_wait_size"
-	AttemptResultBlockList      = "block" // FIXME
+	AttemptResultAgentTimeout   = "agent_timeout"
+	AttemptResultClientTimeout  = "client_timeout"
+
+	AttemptResultBlockList = "block" // FIXME
 )
 
 type Attempt struct {

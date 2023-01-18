@@ -201,7 +201,9 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 
 	timeoutSec := queue.ProcessingSec()
 
-	attempt.SetResult(AttemptResultPostProcessing)
+	if attempt.Result() == "" {
+		attempt.SetResult(AttemptResultPostProcessing)
+	}
 	timestamp, err := tm.teamManager.store.Member().SetAttemptReporting(attempt.Id(), timeoutSec)
 	if err != nil {
 		wlog.Error(err.Error())
