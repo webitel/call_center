@@ -130,8 +130,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: make([]*model.CallRequestApplication, 0, 2),
+		Applications: make([]*model.CallRequestApplication, 0, 4),
 	}
+
+	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+		AppName: "answer",
+	})
 
 	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
