@@ -190,7 +190,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					}
 
 					if queue.HasRingtone() {
-						time.Sleep(time.Millisecond * 200)
+						time.Sleep(time.Millisecond * 400)
 						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 0, queue.Ringtone(), "both")
 					}
 
