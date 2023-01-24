@@ -130,12 +130,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
-		Applications: make([]*model.CallRequestApplication, 0, 4),
+		Applications: make([]*model.CallRequestApplication, 0, 3),
 	}
-
-	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-		AppName: "answer",
-	})
 
 	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
@@ -194,7 +190,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					}
 
 					if queue.HasRingtone() {
-						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 200, queue.Ringtone(), "both")
+						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 0, queue.Ringtone(), "both")
 					}
 
 					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
