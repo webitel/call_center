@@ -354,9 +354,11 @@ func (c *CallConnection) JoinQueue(ctx context.Context, id string, filePath stri
 }
 
 func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppError {
-	_, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
-		Command: "uuid_broadcast",
-		Args:    fmt.Sprintf("%s playback::%s %s", id, path, leg),
+	_, err := c.api.Broadcast(context.Background(), &fs.BroadcastRequest{
+		Id:            id,
+		WaitForAnswer: true,
+		Leg:           leg,
+		Args:          fmt.Sprintf("playback::%s", path),
 	})
 
 	if err != nil {
