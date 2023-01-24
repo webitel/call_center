@@ -190,7 +190,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					}
 
 					if queue.HasRingtone() {
-						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 200, queue.Ringtone(), "both")
+						time.Sleep(time.Millisecond * 200)
+						mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, 0, queue.Ringtone(), "both")
 					}
 
 					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
