@@ -142,7 +142,10 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 	}
 
 	if res, ok := attempt.AfterDistributeSchema(); ok {
-		result = res.Status
+		if res.Status != "" {
+			result = res.Status
+		}
+
 		vars = res.Variables
 	}
 
