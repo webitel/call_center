@@ -185,7 +185,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 				}
 
 				if queue.HasRingtone() {
-					mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, queue.PlaybackSilence, queue.Ringtone(), "both")
+					mCall.BroadcastPlaybackSilenceBeforeFile(queue.domainId, queue.PlaybackSilence, queue.Ringtone(), "aleg")
 				}
 
 				queue.runOfferingAgents(attempt, mCall)
