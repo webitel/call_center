@@ -261,7 +261,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 								// check transfer to internal number
 								if mCall.HangupAt() == 0 && agentCall.BillSeconds() == 0 && agentCall.TransferTo() == nil {
-									mCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
+									mCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
 									//mCall.WaitForHangup()
 								}
 								// if internal transfer
