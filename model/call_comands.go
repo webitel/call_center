@@ -31,6 +31,7 @@ type CallCommands interface {
 	BroadcastPlaybackFile(id, path, leg string) *AppError
 	StopPlayback(id string) *AppError
 	UpdateCid(id, number, name string) *AppError
+	ParkPlaybackFile(id, path, leg string) *AppError
 
 	Close() error
 }

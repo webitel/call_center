@@ -354,6 +354,19 @@ func (c *CallConnection) JoinQueue(ctx context.Context, id string, filePath stri
 }
 
 func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppError {
+	_, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
+		Command: "uuid_broadcast",
+		Args:    fmt.Sprintf("%s playback::%s %s", id, path, leg),
+	})
+
+	if err != nil {
+		return model.NewAppError("BroadcastPlaybackFile", "external.broadcast_playback.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+	return nil
+}
+
+func (c *CallConnection) ParkPlaybackFile(id, path, leg string) *model.AppError {
 	_, err := c.api.Broadcast(context.Background(), &fs.BroadcastRequest{
 		Id:            id,
 		WaitForAnswer: true,
@@ -362,7 +375,7 @@ func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppE
 	})
 
 	if err != nil {
-		return model.NewAppError("BroadcastPlaybackFile", "external.broadcast_playback.app_error", nil, err.Error(),
+		return model.NewAppError("BroadcastPlaybackFile", "external.park_playback.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
 	}
 	return nil
