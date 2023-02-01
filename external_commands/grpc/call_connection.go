@@ -366,6 +366,21 @@ func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppE
 	return nil
 }
 
+func (c *CallConnection) ParkPlaybackFile(id, path, leg string) *model.AppError {
+	_, err := c.api.Broadcast(context.Background(), &fs.BroadcastRequest{
+		Id:            id,
+		WaitForAnswer: true,
+		Leg:           leg,
+		Args:          fmt.Sprintf("playback::%s", path),
+	})
+
+	if err != nil {
+		return model.NewAppError("BroadcastPlaybackFile", "external.park_playback.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+	return nil
+}
+
 func (c *CallConnection) UpdateCid(id, number, name string) *model.AppError {
 	_, err := c.api.SetProfileVar(context.Background(), &fs.SetProfileVarRequest{
 		Id: id,
