@@ -240,8 +240,12 @@ func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event
 		},
 	}
 
-	if a.processingForm != nil {
-		json.Unmarshal(a.processingForm.Form(), &e.Form)
+	f := a.processingForm // mutex
+	if f != nil {
+		data := f.Form()
+		if data != nil {
+			json.Unmarshal(data, &e.Form)
+		}
 	}
 
 	return model.NewEvent("channel", userId, e)
