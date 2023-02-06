@@ -598,7 +598,7 @@ where x.channel notnull`, map[string]interface{}{
 		"Status":        callback.Status,
 		"Description":   callback.Description,
 		"ExpireAt":      callback.ExpireAt,
-		"NextCallAt":    callback.NextCallAt,
+		"NextCallAt":    model.UtcTime(callback.NextCallAt),
 		"StickyAgentId": callback.StickyAgentId,
 		"MaxAttempts":   maxAttempts,
 		"WaitBetween":   waitBetween,

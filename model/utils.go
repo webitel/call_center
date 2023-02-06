@@ -36,6 +36,15 @@ func Int64ToTime(i int64) *time.Time {
 	return &t
 }
 
+func UtcTime(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+
+	*t = t.In(time.UTC)
+	return t
+}
+
 type AppError struct {
 	Id            string `json:"id"`
 	Message       string `json:"message"`               // Message to be display to the end user without debugging information

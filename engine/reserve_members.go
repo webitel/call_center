@@ -22,10 +22,10 @@ func (e *EngineImp) ReserveMembers() {
 		if cnt > 0 {
 			wlog.Debug(fmt.Sprintf("reserve %v members", cnt))
 		}
-	}
-	diff := time.Now().Sub(st)
-	if diff > time.Second {
-		wlog.Debug(fmt.Sprintf("distribute time: %s", time.Now().Sub(st)))
+		diff := time.Now().Sub(st)
+		if diff > time.Second*2 {
+			wlog.Debug(fmt.Sprintf("distribute time: %s", time.Now().Sub(st)))
+		}
 	}
 }
 
