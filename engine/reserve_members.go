@@ -13,7 +13,7 @@ func (e *EngineImp) ReserveMembers() {
 		time.Sleep(time.Second * 5)
 		return
 	}
-
+	st := time.Now()
 	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId)
 	if err != nil {
 		wlog.Error(err.Error())
@@ -22,6 +22,10 @@ func (e *EngineImp) ReserveMembers() {
 		if cnt > 0 {
 			wlog.Debug(fmt.Sprintf("reserve %v members", cnt))
 		}
+	}
+	diff := time.Now().Sub(st)
+	if diff > time.Second {
+		wlog.Debug(fmt.Sprintf("distribute time: %s", time.Now().Sub(st)))
 	}
 }
 
