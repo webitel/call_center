@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.6 (Debian 14.6-1.pgdg110+1)
--- Dumped by pg_dump version 14.6 (Debian 14.6-1.pgdg110+1)
+-- Dumped from database version 14.7 (Debian 14.7-1.pgdg110+1)
+-- Dumped by pg_dump version 14.7 (Debian 14.7-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -256,46 +256,60 @@ CREATE FUNCTION call_center.cc_agent_set_login(agent_id_ integer, on_demand_ boo
     LANGUAGE plpgsql
     AS $$
 declare
-    res_ jsonb;
-    user_id_ int8;
+res_ jsonb;
+    user_id_
+int8;
 begin
-    update call_center.cc_agent
-    set status            = 'online', -- enum added
-        status_payload = null,
-        on_demand = on_demand_,
+update call_center.cc_agent
+set status            = 'online', -- enum added
+    status_payload    = null,
+    on_demand         = on_demand_,
 --         updated_at = case when on_demand != on_demand_ then cc_view_timestamp(now()) else updated_at end,
-        last_state_change = now()     -- todo rename to status
-    where call_center.cc_agent.id = agent_id_
+    last_state_change = now()     -- todo rename to status
+where call_center.cc_agent.id = agent_id_
     returning user_id into user_id_;
 
-    if NOT (exists(select 1
-from directory.wbt_user_presence p
-where user_id = user_id_ and open > 0 and status in ('sip', 'web'))
-      or exists(SELECT 1
-FROM directory.wbt_session s
-WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
-    and s.user_id = user_id_::int8
-    and s.access notnull
-    AND s.expires > now() at time zone 'UTC')) then
+if
+NOT (exists(select 1
+                    from directory.wbt_user_presence p
+                    where user_id = user_id_
+                      and open > 0
+                      and status in ('sip', 'web'))
+            or exists(SELECT 1
+                      FROM directory.wbt_session s
+                      WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
+                        and s.user_id = user_id_::int8
+                        and s.access notnull
+                        AND s.expires > now() at time zone 'UTC')) then
         raise exception 'not found: sip, web or pn';
-    end if;
+end if;
 
-    update call_center.cc_agent_channel c
-        set  channel = case when x.x = 1 then c.channel end,
-            state = case when x.x = 1 then c.state else 'waiting' end,
-            online = true,
-            no_answers = 0
+update call_center.cc_agent_channel c
+set channel    = case when x.x = 1 then c.channel end,
+    state      = case when x.x = 1 then c.state else 'waiting' end,
+    online     = true,
+    no_answers = 0,
+    timeout = case when x.x = 1 then c.timeout else null end
     from call_center.cc_agent_channel c2
-        left join LATERAL (
-            select 1 x
-            from call_center.cc_member_attempt a where a.agent_id = agent_id_
-            limit 1
-        ) x on true
-    where c2.agent_id = agent_id_ and c.agent_id = c2.agent_id
-    returning jsonb_build_object('channel', c.channel, 'joined_at', call_center.cc_view_timestamp(c.joined_at), 'state', c.state, 'no_answers', c.no_answers)
-        into res_;
+             left join LATERAL (
+        select 1 x
+        from call_center.cc_member_attempt a
+        where a.agent_id = agent_id_
+        limit 1
+        ) x
+on true
+where c2.agent_id = agent_id_
+  and c.agent_id = c2.agent_id
+    returning jsonb_build_object('channel'
+    , c.channel
+    , 'joined_at'
+    , call_center.cc_view_timestamp(c.joined_at)
+    , 'state'
+    , c.state
+    , 'no_answers'
+    , c.no_answers) into res_;
 
-    return row(res_::jsonb, call_center.cc_view_timestamp(now()));
+return row (res_::jsonb, call_center.cc_view_timestamp(now()));
 end;
 $$;
 
@@ -516,39 +530,41 @@ begin
     end if;
 
     if attempt.member_id notnull then
-        update call_center.cc_member
+        update call_center.cc_member m
         set last_hangup_at  = time_,
-            variables = case when variables_ notnull then coalesce(variables::jsonb, '{}') || variables_ else variables end,
-            expire_at = case when expire_at_ isnull then expire_at else expire_at_ end,
-            agent_id = case when sticky_agent_id_ isnull then agent_id else sticky_agent_id_ end,
+            variables = case when variables_ notnull then coalesce(m.variables::jsonb, '{}') || variables_ else m.variables end,
+            expire_at = case when expire_at_ isnull then m.expire_at else expire_at_ end,
+            agent_id = case when sticky_agent_id_ isnull then m.agent_id else sticky_agent_id_ end,
 
             stop_at = case when next_offering_at_ notnull or
-                                stop_at notnull or
+                                m.stop_at notnull or
                                 (not attempt.result in ('success', 'cancel') and
-                                 case when _per_number is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                 case when _per_number is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((m.communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (m.attempts + 1 < max_attempts_)) end
                                  )
-                then stop_at else  attempt.leaving_at end,
+                then m.stop_at else  attempt.leaving_at end,
             stop_cause = case when next_offering_at_ notnull or
-                                stop_at notnull or
+                                m.stop_at notnull or
                                 (not attempt.result in ('success', 'cancel') and
-                                   case when _per_number is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                   case when _per_number is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((m.communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (m.attempts + 1 < max_attempts_)) end
                                  )
-                then stop_cause else  attempt.result end,
+                then m.stop_cause else  attempt.result end,
 
-            ready_at = case when next_offering_at_ notnull then next_offering_at_
+            ready_at = case when next_offering_at_ notnull then next_offering_at_ at time zone tz.names[1]
                 else now() + (wait_between_retries_ || ' sec')::interval end,
 
-            last_agent      = coalesce(attempt.agent_id, last_agent),
-            communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+            last_agent      = coalesce(attempt.agent_id, m.last_agent),
+            communications =  jsonb_set(m.communications, (array[attempt.communication_idx::int])::text[], m.communications->(attempt.communication_idx::int) ||
                 jsonb_build_object('last_activity_at', case when next_offering_at_ notnull then '0'::text::jsonb else time_::text::jsonb end) ||
                 jsonb_build_object('attempt_id', attempt_id_) ||
-                jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
+                jsonb_build_object('attempts', coalesce((m.communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
                 case when exclude_dest or
-                          (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= max_attempts_) then jsonb_build_object('stop_at', time_) else '{}'::jsonb end
+                          (_per_number is true and coalesce((m.communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= max_attempts_) then jsonb_build_object('stop_at', time_) else '{}'::jsonb end
             ),
-            attempts        = attempts + 1                     --TODO
-        where id = attempt.member_id
-        returning stop_cause into stop_cause_;
+            attempts        = m.attempts + 1                     --TODO
+        from call_center.cc_member m2
+            left join flow.calendar_timezone_offsets tz on tz.id = m2.sys_offset_id
+        where m.id = attempt.member_id and m.id = m2.id
+        returning m.stop_cause into stop_cause_;
     end if;
 
     if attempt.agent_id notnull then
@@ -981,7 +997,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     blind_transfer character varying,
     talk_sec integer DEFAULT 0 NOT NULL,
     amd_ai_result character varying,
-    amd_ai_logs character varying[]
+    amd_ai_logs character varying[],
+    amd_ai_positive boolean
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -1332,7 +1349,7 @@ begin
     )
        , ins as (
         insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id)
+                                       communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id, sticky_agent_id)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
                    dis.queue_id,
@@ -1345,7 +1362,8 @@ begin
                    dis.team_id,
                    dis.resource_group_id,
                    q.domain_id,
-                   m.import_id
+                   m.import_id,
+                   case when q.type = 5 and q.sticky_agent then dis.agent_id end
             from dis
                      inner join call_center.cc_queue q on q.id = dis.queue_id
                      inner join call_center.cc_member m on m.id = dis.id
@@ -3527,7 +3545,8 @@ CREATE TABLE call_center.cc_calls_history (
     blind_transfer character varying,
     talk_sec integer DEFAULT 0 NOT NULL,
     amd_ai_result character varying,
-    amd_ai_logs character varying[]
+    amd_ai_logs character varying[],
+    amd_ai_positive boolean
 );
 
 
@@ -3569,7 +3588,7 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_attempt_id bigint,
     parent_id bigint,
     form_fields jsonb,
-    import_id character varying(30)
+    import_id character varying(60)
 );
 
 
@@ -3997,7 +4016,7 @@ CREATE TABLE call_center.cc_member (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     expire_at timestamp with time zone,
     skill_id integer,
-    import_id character varying(30),
+    import_id character varying(120),
     sys_destinations call_center.cc_destination[],
     CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
@@ -4048,7 +4067,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     waiting_other_numbers integer DEFAULT 0 NOT NULL,
     form_fields jsonb,
     form_view jsonb,
-    import_id character varying(30)
+    import_id character varying(60)
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -4328,10 +4347,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
                      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
                   WHERE ((a.call_id)::text = (c.id)::text)
                   ORDER BY a.created_at DESC) annotations) AS annotations,
-    c.amd_result,
+    COALESCE(c.amd_result, c.amd_ai_result) AS amd_result,
     c.amd_duration,
     c.amd_ai_result,
     c.amd_ai_logs,
+    c.amd_ai_positive,
     cq.type AS queue_type,
         CASE
             WHEN (c.parent_id IS NOT NULL) THEN ''::text
@@ -4523,7 +4543,8 @@ SELECT
     NULL::integer AS sticky_agent_sec,
     NULL::boolean AS recall_calendar,
     NULL::boolean AS wait_between_retries_desc,
-    NULL::boolean AS strict_circuit;
+    NULL::boolean AS strict_circuit,
+    NULL::boolean AS ins;
 
 
 --
@@ -4568,20 +4589,21 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
             COALESCE(avg(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (ch.bridged_at IS NULL))), (0)::double precision) AS avg_member_answer_not_bridged,
             COALESCE(avg(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (ch.bridged_at IS NOT NULL))), (0)::double precision) AS avg_member_answer_bridged,
             COALESCE(max(date_part('epoch'::text, (ch.answered_at - att.joined_at))) FILTER (WHERE (ch.answered_at IS NOT NULL)), (0)::double precision) AS max_member_answer,
-            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))) AS connected_calls,
+            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)) AS connected_calls,
             count(*) FILTER (WHERE (att.bridged_at IS NOT NULL)) AS bridged_calls,
-            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))) AS abandoned_calls,
-            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS connection_rate,
+            count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND amd_res.human)) AS abandoned_calls,
+            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)))::double precision / (count(*))::double precision) AS connection_rate,
                 CASE
-                    WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) > (0)::double precision) THEN (((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision)) - (1)::double precision)
+                    WHEN (((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)))::double precision / (count(*))::double precision) > (0)::double precision) THEN ((1)::double precision / ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)))::double precision / (count(*))::double precision))
                     ELSE (((count(*) / GREATEST(count(DISTINCT att.agent_id), (1)::bigint)) - 1))::double precision
                 END AS over_dial,
-            COALESCE(((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision - (COALESCE(((q.payload -> 'abandon_rate_adjustment'::text))::integer, 0))::double precision) / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
-            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_result IS NULL)))))::double precision / (count(*))::double precision) AS hit_rate,
+            COALESCE(((((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND (att.bridged_at IS NULL) AND amd_res.human)))::double precision - (COALESCE(((q.payload -> 'abandon_rate_adjustment'::text))::integer, 0))::double precision) / (NULLIF(count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)), 0))::double precision) * (100)::double precision), (0)::double precision) AS abandoned_rate,
+            ((count(*) FILTER (WHERE ((ch.answered_at IS NOT NULL) AND amd_res.human)))::double precision / (count(*))::double precision) AS hit_rate,
             count(DISTINCT att.agent_id) AS agents,
             array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
-           FROM (call_center.cc_member_attempt_history att
+           FROM ((call_center.cc_member_attempt_history att
              LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND ((ch.id)::text = (att.member_call_id)::text))))
+             LEFT JOIN LATERAL ( SELECT (((ch.amd_result IS NULL) AND (ch.amd_ai_positive IS NULL)) OR ((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_ai_positive IS TRUE)) AS human) amd_res ON (true))
           WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - ((COALESCE(((q.payload -> 'statistic_time'::text))::integer, 60) || ' min'::text))::interval)) AND (att.queue_id = q.id) AND (att.domain_id = q.domain_id))
           GROUP BY att.queue_id, att.bucket_id) s ON ((s.queue_id IS NOT NULL)))
   WHERE ((q.type = 5) AND q.enabled)
@@ -6969,10 +6991,10 @@ CREATE INDEX cc_bucket_created_by_index ON call_center.cc_bucket USING btree (cr
 
 
 --
--- Name: cc_bucket_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_bucket_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_bucket_domain_id_name_uindex ON call_center.cc_bucket USING btree (domain_id, name);
+CREATE INDEX cc_bucket_domain_id_name_index ON call_center.cc_bucket USING btree (domain_id, name);
 
 
 --
@@ -7314,10 +7336,10 @@ CREATE INDEX cc_list_created_by_index ON call_center.cc_list USING btree (create
 
 
 --
--- Name: cc_list_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_list_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_list_domain_id_name_uindex ON call_center.cc_list USING btree (domain_id, name);
+CREATE INDEX cc_list_domain_id_name_index ON call_center.cc_list USING btree (domain_id, name);
 
 
 --
@@ -7587,10 +7609,10 @@ CREATE INDEX cc_outbound_resource_domain_id_index ON call_center.cc_outbound_res
 
 
 --
--- Name: cc_outbound_resource_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_outbound_resource_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_outbound_resource_domain_id_name_uindex ON call_center.cc_outbound_resource USING btree (domain_id, name);
+CREATE INDEX cc_outbound_resource_domain_id_name_index ON call_center.cc_outbound_resource USING btree (domain_id, name);
 
 
 --
@@ -7741,10 +7763,10 @@ CREATE INDEX cc_queue_distribute_res_idx ON call_center.cc_queue USING btree (do
 
 
 --
--- Name: cc_queue_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_queue_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_queue_domain_id_name_uindex ON call_center.cc_queue USING btree (domain_id, name);
+CREATE INDEX cc_queue_domain_id_name_index ON call_center.cc_queue USING btree (domain_id, name);
 
 
 --
@@ -7818,10 +7840,10 @@ CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON ca
 
 
 --
--- Name: cc_skill_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_skill_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_skill_domain_id_name_uindex ON call_center.cc_skill USING btree (domain_id, name);
+CREATE INDEX cc_skill_domain_id_name_index ON call_center.cc_skill USING btree (domain_id, name);
 
 
 --
@@ -7902,10 +7924,10 @@ CREATE INDEX cc_team_created_by_index ON call_center.cc_team USING btree (create
 
 
 --
--- Name: cc_team_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_team_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_team_domain_id_name_uindex ON call_center.cc_team USING btree (domain_id, name);
+CREATE INDEX cc_team_domain_id_name_index ON call_center.cc_team USING btree (domain_id, name);
 
 
 --
@@ -8153,7 +8175,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                    FROM mem) m
              JOIN call_center.cc_queue q_1 ON ((q_1.id = m.queue_id)))
              LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((cbiq.queue_id = m.queue_id) AND (cbiq.bucket_id = m.bucket_id))))
-          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0) AND (m.pos = 1) AND ((cbiq.bucket_id IS NULL) OR (NOT cbiq.disabled)))
+          WHERE ((m.member_waiting > 0) AND q_1.enabled AND (q_1.type > 0) AND ((cbiq.bucket_id IS NULL) OR (NOT cbiq.disabled)))
           GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type, m.op
          LIMIT 1024
         ), calend AS MATERIALIZED (
@@ -8275,14 +8297,16 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
     q.sticky_agent_sec,
     calend.recall_calendar,
     q.wait_between_retries_desc,
-    q.strict_circuit
+    q.strict_circuit,
+    q.op AS ins
    FROM (((queues q
      LEFT JOIN calend ON ((calend.queue_id = q.id)))
      LEFT JOIN resources r ON ((q.op AND (r.queue_id = q.id))))
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)));
+  WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
+  ORDER BY q.domain_id, q.priority DESC, q.op;
 
 
 --
