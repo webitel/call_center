@@ -70,6 +70,20 @@ func RingtoneUri(domainId int64, id int, mimeType string) string {
 	}
 }
 
+var ToneList = map[string]string{
+	"none":       "",
+	"default":    "L=1;%(500,500,1000)",
+	"at1":        "v=-7;%(100,0,941.0,1477.0)",
+	"at2":        "v=-7;>=2;+=.1;%(140,0,350,440)",
+	"australian": "L=1;%(200,100,400,425)",
+	"egypt":      "L=1;%(200,100,475,375)",
+	"germany":    "L=1;%(500,0,425)",
+	"france":     "L=1;%(150,350,440)",
+	"spain":      "L=1;%(150,300,425)",
+	"uk":         "L=1;%(200,100,400,450)",
+	"us":         "L=1;%(100,200,440,480)",
+}
+
 type Queue struct {
 	Id                   int               `json:"id" db:"id"`
 	DomainId             int64             `json:"domain_id" db:"domain_id"`
@@ -106,13 +120,6 @@ func (q *Queue) Channel() string {
 	default:
 		return QueueChannelCall
 	}
-}
-
-type QueueDialingSettings struct {
-	CauseErrorIds        []string `json:"cause_error_ids"`
-	CauseRetryIds        []string `json:"cause_retry_ids"`
-	CauseSuccessIds      []string `json:"cause_success_ids"`
-	CauseMinusAttemptIds []string `json:"cause_minus_attempt_ids"`
 }
 
 type QueueAmdSettings struct {
@@ -153,76 +160,16 @@ Agent stickli
 
 //{"time_base_score": "system", "timeout_with_no_agents": "12", "discard_abandoned_after": "1000"}
 type QueueInboundSettings struct {
-	QueueDialingSettings
 	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`
 	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
 	MaxWaitWithNoAgent    int    `json:"timeout_with_no_agents"`
 	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
-	MaxCallPerAgent    int    `json:"max_call_per_agent"`
-	AllowGreetingAgent bool   `json:"allow_greeting_agent"`
-	MaxWaitTime        uint16 `json:"max_wait_time"`
-	StickyAgent        bool   `json:"sticky_agent"`
-	StickyAgentSec     uint16 `json:"sticky_agent_sec"` // def 30 sec
-}
-
-type QueueIVRSettings struct {
-	QueueDialingSettings
-	Amd                *QueueAmdSettings `json:"amd"`
-	MaxOfRetry         uint              `json:"max_of_retry"`
-	WaitBetweenRetries uint64            `json:"sec_between_retries"`
-}
-
-type QueuePreviewSettings struct {
-	QueueDialingSettings
-	Callback *QueueCallbackSettings `json:"callback"`
-}
-
-type QueueProgressiveSettings struct {
-	QueueDialingSettings
-	Callback *QueueCallbackSettings `json:"callback"`
-	Amd      *QueueAmdSettings      `json:"amd"`
-}
-
-type QueuePredictiveSettings struct {
-	QueueDialingSettings
-	Callback *QueueCallbackSettings `json:"callback"`
-	Amd      *QueueAmdSettings      `json:"amd"`
-}
-
-func (queueSettings *QueueDialingSettings) InCauseSuccess(id string) bool {
-	for _, v := range queueSettings.CauseSuccessIds {
-		if v == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (queueSettings *QueueDialingSettings) InCauseRetry(id string) bool {
-	for _, v := range queueSettings.CauseRetryIds {
-		if v == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (queueSettings *QueueDialingSettings) InCauseMinusAttempt(id string) bool {
-	for _, v := range queueSettings.CauseMinusAttemptIds {
-		if v == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (queueSettings *QueueDialingSettings) InCauseError(id string) bool {
-	for _, v := range queueSettings.CauseErrorIds {
-		if v == id {
-			return true
-		}
-	}
-	return false
+	MaxCallPerAgent    int     `json:"max_call_per_agent"`
+	AllowGreetingAgent bool    `json:"allow_greeting_agent"`
+	MaxWaitTime        uint16  `json:"max_wait_time"`
+	StickyAgent        bool    `json:"sticky_agent"`
+	StickyAgentSec     uint16  `json:"sticky_agent_sec"` // def 30 sec
+	AutoAnswerTone     *string `json:"auto_answer_tone"`
 }
 
 func QueueInboundSettingsFromBytes(data []byte) QueueInboundSettings {

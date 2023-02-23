@@ -16,7 +16,6 @@ type CallingQueueObject interface {
 type CallingQueue struct {
 	BaseQueue
 	HoldMusic *model.RingtoneFile
-	params    model.QueueDialingSettings
 	granteeId *int
 }
 

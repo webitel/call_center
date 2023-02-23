@@ -173,7 +173,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						if queue.props.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
-							agentCall.BroadcastTone("aleg")
+							agentCall.BroadcastTone(queue.props.AutoAnswerTone, "aleg")
 						}
 
 					case call_manager.CALL_STATE_BRIDGE:

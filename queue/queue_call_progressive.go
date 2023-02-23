@@ -27,6 +27,7 @@ type ProgressiveCallQueueSettings struct {
 	OriginateTimeout       uint16                  `json:"originate_timeout"`
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
+	AutoAnswerTone         *string                 `json:"auto_answer_tone"`
 }
 
 func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {
@@ -232,7 +233,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								if queue.AllowGreetingAgent {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 								} else if queue.AutoAnswer() {
-									agentCall.BroadcastTone("aleg")
+									agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
 								}
 
 								//team.Answered(attempt, agent)

@@ -65,7 +65,7 @@ type Call interface {
 	Bridge(other Call) *model.AppError
 	BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
 	ParkPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError
-	BroadcastTone(leg string) *model.AppError
+	BroadcastTone(tone *string, leg string) *model.AppError
 	BroadcastPlaybackSilenceBeforeFile(domainId int64, silence uint, file *model.RingtoneFile, leg string) *model.AppError
 	StopPlayback() *model.AppError
 	SerVariables(vars map[string]string) *model.AppError
@@ -662,8 +662,20 @@ func (call *CallImpl) ParkPlaybackFile(domainId int64, file *model.RingtoneFile,
 	return call.api.ParkPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
 }
 
-func (call *CallImpl) BroadcastTone(leg string) *model.AppError {
-	return call.api.BroadcastPlaybackFile(call.id, "tone_stream://L=1;%(500,500,1000)", leg)
+func (call *CallImpl) BroadcastTone(tone *string, leg string) *model.AppError {
+	t := ""
+	if tone == nil {
+		t = "L=1;%(500,500,1000)"
+	} else {
+		t, _ = model.ToneList[*tone]
+	}
+
+	if t == "" || t == "none" {
+		// skipp
+		return nil
+	}
+
+	return call.api.BroadcastPlaybackFile(call.id, "tone_stream://"+t, leg)
 }
 
 func (call *CallImpl) BroadcastPlaybackSilenceBeforeFile(domainId int64, silence uint, file *model.RingtoneFile, leg string) *model.AppError {

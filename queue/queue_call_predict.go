@@ -25,10 +25,11 @@ type PredictCallQueueSettings struct {
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
 
-	MinAttempts      uint `json:"min_attempts"`
-	MaxAbandonedRate uint `json:"max_abandoned_rate"`
-	MaxAgentLine     uint `json:"max_agent_line"`
-	PlaybackSilence  uint `json:"playback_silence"`
+	MinAttempts      uint    `json:"min_attempts"`
+	MaxAbandonedRate uint    `json:"max_abandoned_rate"`
+	MaxAgentLine     uint    `json:"max_agent_line"`
+	PlaybackSilence  uint    `json:"playback_silence"`
+	AutoAnswerTone   *string `json:"auto_answer_tone"`
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
@@ -309,7 +310,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						if queue.AllowGreetingAgent {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
-							agentCall.BroadcastTone("aleg")
+							agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
 						}
 
 					case call_manager.CALL_STATE_HANGUP:
