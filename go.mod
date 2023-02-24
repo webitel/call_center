@@ -9,10 +9,10 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.0.0
-	github.com/webitel/engine v0.0.0-20221221131149-7330f7dd4cdd
+	github.com/webitel/engine v0.0.0-20230224125618-aa7b2780ab09
 	github.com/webitel/flow_manager v0.0.0-20230202111651-f2d13196e84a
 	github.com/webitel/protos/cc v0.0.0-20230124124229-8d01cde8b3ce
-	github.com/webitel/protos/fs v0.0.0-20230124124229-8d01cde8b3ce
+	github.com/webitel/protos/fs v0.0.0-20230202145403-c92fa287810a
 	github.com/webitel/protos/workflow v0.0.0-20230124124229-8d01cde8b3ce
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
 	golang.org/x/sync v0.1.0
