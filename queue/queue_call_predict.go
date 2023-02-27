@@ -307,7 +307,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 							printfIfErr(err)
 						}
 
-						if queue.AllowGreetingAgent {
+						if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
 							agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")

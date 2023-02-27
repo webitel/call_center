@@ -230,7 +230,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								}
 
 								//fixme refactor
-								if queue.AllowGreetingAgent {
+								if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 								} else if queue.AutoAnswer() {
 									agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")

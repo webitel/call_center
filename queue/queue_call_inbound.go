@@ -170,7 +170,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						}
 
 						//fixme refactor
-						if queue.props.AllowGreetingAgent {
+						if queue.props.AllowGreetingAgent && agent.GreetingMedia() != nil {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
 							agentCall.BroadcastTone(queue.props.AutoAnswerTone, "aleg")
