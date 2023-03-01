@@ -74,6 +74,8 @@ type Attempt struct {
 	perNumbers        bool
 	excludeCurrNumber bool
 	redial            bool
+	description       *string
+	stickyAgentId     *int32
 
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
@@ -116,6 +118,16 @@ func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
 	if res.ExcludeCurrentNumber {
 		a.excludeCurrNumber = true
 		a.Log("set exclude current number")
+	}
+
+	if res.Description != "" {
+		a.description = &res.Description
+		a.Log(fmt.Sprintf("set description: %s", res.Description))
+	}
+
+	if res.AgentId != 0 {
+		a.stickyAgentId = &res.AgentId
+		a.Log(fmt.Sprintf("set stickyAgentId: %d", res.AgentId))
 	}
 
 	if res.Redial {

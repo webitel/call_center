@@ -709,3 +709,141 @@ FROM (((queues q
 WHERE ((q.type = ANY (ARRAY[1, 6, 7])) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
 ORDER BY q.domain_id, q.priority DESC, q.op;
 
+
+
+
+drop function call_center.cc_attempt_abandoned;
+create function call_center.cc_attempt_abandoned(attempt_id_ bigint,
+                                                 _max_count integer DEFAULT 0,
+                                                 _next_after integer DEFAULT 0,
+                                                 vars_ jsonb DEFAULT NULL::jsonb,
+                                                 _per_number boolean DEFAULT false,
+                                                 exclude_dest boolean DEFAULT false,
+                                                 redial boolean DEFAULT false,
+                                                 _description varchar default null,
+                                                 _sticky_agent_id int default null,
+                                                 _display bool default false
+) returns record
+    language plpgsql
+as
+$$
+declare
+    attempt  call_center.cc_member_attempt%rowtype;
+    member_stop_cause varchar;
+begin
+    update call_center.cc_member_attempt
+    set leaving_at = now(),
+        last_state_change = now(),
+        result = case when offering_at isnull and resource_id notnull then 'failed' else 'abandoned' end,
+        state = 'leaving',
+        description = case when _description notnull then _description else description end
+    where id = attempt_id_
+    returning * into attempt;
+
+    if attempt.member_id notnull then
+        update call_center.cc_member
+        set last_hangup_at  = (extract(EPOCH from now() ) * 1000)::int8,
+            last_agent      = coalesce(attempt.agent_id, last_agent),
+            stop_at = case when (stop_cause notnull or
+                                 case when _per_number is true then (attempt.waiting_other_numbers > 0 or (_max_count > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < _max_count)) else (_max_count > 0 and (attempts + 1 < _max_count)) end
+                )  then stop_at else  attempt.leaving_at end,
+            stop_cause = case when (stop_cause notnull or
+                                    case when _per_number is true then (attempt.waiting_other_numbers > 0 or (_max_count > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < _max_count)) else (_max_count > 0 and (attempts + 1 < _max_count)) end
+                ) then stop_cause else attempt.result end,
+            ready_at = now() + (_next_after || ' sec')::interval,
+            communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+                                                                                                         jsonb_build_object('last_activity_at', (case when redial is true then 0 else extract(epoch  from attempt.leaving_at) * 1000 end )::int8::text::jsonb) ||
+                                                                                                         jsonb_build_object('attempt_id', attempt_id_) ||
+                                                                                                         jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
+                                                                                                         case when exclude_dest or (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= _max_count) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
+                ),
+            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
+            attempts        = attempts + 1,                     --TODO
+            agent_id = case when _sticky_agent_id notnull then _sticky_agent_id else agent_id end
+        where id = attempt.member_id
+        returning stop_cause into member_stop_cause;
+    end if;
+
+
+    return row(attempt.last_state_change::timestamptz, member_stop_cause::varchar, attempt.result::varchar);
+end;
+$$;
+
+
+
+drop function call_center.cc_attempt_leaving;
+create function call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying,
+                                               agent_hold_sec_ integer,
+                                               vars_ jsonb DEFAULT NULL::jsonb,
+                                               max_attempts_ integer DEFAULT 0,
+                                               wait_between_retries_ integer DEFAULT 60,
+                                               per_number_ boolean DEFAULT false,
+                                               _description varchar default null,
+                                               _sticky_agent_id int default null,
+                                               _display bool default false
+) returns record
+    language plpgsql
+as
+$$
+declare
+    attempt call_center.cc_member_attempt%rowtype;
+    no_answers_ int;
+    member_stop_cause varchar;
+begin
+    /*
+     FIXME
+     */
+    update call_center.cc_member_attempt
+    set leaving_at = now(),
+        result = result_,
+        state = 'leaving',
+        description = case when _description notnull then _description else description end
+    where id = attempt_id_
+    returning * into attempt;
+
+    if attempt.member_id notnull then
+        update call_center.cc_member m
+        set last_hangup_at  = extract(EPOCH from now())::int8 * 1000,
+            last_agent      = coalesce(attempt.agent_id, last_agent),
+
+            stop_at = case when stop_at notnull or
+                                (not attempt.result in ('success', 'cancel') and
+                                 case when per_number_ is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                    )
+                               then stop_at else  attempt.leaving_at end,
+            stop_cause = case when stop_at notnull or
+                                   (not attempt.result in ('success', 'cancel') and
+                                    case when per_number_ is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                       )
+                                  then stop_cause else  attempt.result end,
+
+            ready_at = now() + (coalesce(wait_between_retries_, 0) || ' sec')::interval,
+
+            communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+                                                                                                         jsonb_build_object('last_activity_at', (extract(epoch  from attempt.leaving_at) * 1000)::int8::text::jsonb) ||
+                                                                                                         jsonb_build_object('attempt_id', attempt_id_) ||
+                                                                                                         jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
+                                                                                                         case when (per_number_ is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= max_attempts_) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
+                ),
+            attempts        = attempts + 1,
+            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
+            agent_id = case when _sticky_agent_id notnull then _sticky_agent_id else agent_id end
+        where id = attempt.member_id
+        returning stop_cause into member_stop_cause;
+    end if;
+
+    if attempt.agent_id notnull then
+        update call_center.cc_agent_channel c
+        set state = agent_status_,
+            joined_at = now(),
+            channel = case when agent_hold_sec_ > 0 or agent_status_ != 'waiting' then channel else null end,
+            no_answers = case when attempt.bridged_at notnull then 0 else no_answers + 1 end,
+            timeout = case when agent_hold_sec_ > 0 then (now() + (agent_hold_sec_::varchar || ' sec')::interval) else null end
+        where c.agent_id = attempt.agent_id
+        returning no_answers into no_answers_;
+
+    end if;
+
+    return row(attempt.leaving_at, no_answers_, member_stop_cause);
+end;
+$$;

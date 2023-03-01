@@ -660,7 +660,8 @@ func (queueManager *QueueManager) SetAttemptCancel(id int64, result string) bool
 }
 
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
-	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil, attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial)
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil,
+		attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial, attempt.description, attempt.stickyAgentId)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else if res.MemberStopCause != nil {
@@ -680,7 +681,7 @@ func (queueManager *QueueManager) Barred(attempt *Attempt) *model.AppError {
 
 func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {
 	res, err := queueManager.teamManager.store.Member().SetAttemptResult(attempt.Id(), AttemptResultSuccess, "", 0,
-		vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers)
+		vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers, attempt.description, attempt.stickyAgentId)
 	if err != nil {
 		wlog.Error(err.Error())
 	} else {
@@ -692,7 +693,8 @@ func (queueManager *QueueManager) SetAttemptSuccess(attempt *Attempt, vars map[s
 }
 
 func (queueManager *QueueManager) SetAttemptAbandonedWithParams(attempt *Attempt, maxAttempts uint, sleep uint64, vars map[string]string) {
-	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, vars, attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial)
+	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), maxAttempts, sleep, vars, attempt.perNumbers,
+		attempt.excludeCurrNumber, attempt.redial, attempt.description, attempt.stickyAgentId)
 	if err != nil {
 		wlog.Error(err.Error())
 

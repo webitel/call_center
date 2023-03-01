@@ -28,6 +28,9 @@ type SchemaResult struct {
 	ExcludeCurrentNumber bool
 	Redial               bool
 	Variables            map[string]string
+	AgentId              int32
+	Display              bool
+	Description          string
 }
 
 func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
@@ -218,6 +221,9 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 			ExcludeCurrentNumber: v.Abandoned.ExcludeCurrentCommunication,
 			Redial:               v.Abandoned.Redial,
 			Variables:            res.Variables,
+			AgentId:              v.Abandoned.AgentId,
+			Display:              v.Abandoned.Display,
+			Description:          v.Abandoned.Description,
 		}, true
 
 	}
