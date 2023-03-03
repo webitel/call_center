@@ -150,7 +150,7 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 	}
 
 	if res, err := tm.teamManager.store.Member().SetAttemptResult(attempt.Id(), result,
-		model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers); err == nil {
+		model.ChannelStateWrapTime, t, vars, attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers, attempt.description, attempt.stickyAgentId); err == nil {
 		if res.MemberStopCause != nil {
 			attempt.SetMemberStopCause(res.MemberStopCause)
 		}

@@ -362,19 +362,22 @@ func mapToJson(m map[string]string) *string {
 	return nil
 }
 
-func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string, perNum bool, excludeNum bool, redial bool) (*model.AttemptLeaving, *model.AppError) {
+func (s *SqlMemberStore) SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string,
+	perNum bool, excludeNum bool, redial bool, desc *string, stickyAgentId *int32) (*model.AttemptLeaving, *model.AppError) {
 	var res *model.AttemptLeaving
 	err := s.GetMaster().SelectOne(&res, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause, x.result
-from call_center.cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep, :Vars::jsonb, :PerNum::bool, :ExcludeNum::bool, :Redial::bool)
+from call_center.cc_attempt_abandoned(:AttemptId, :MaxAttempts, :Sleep, :Vars::jsonb, :PerNum::bool, :ExcludeNum::bool, :Redial::bool, :Desc::varchar, :StickyAgentId::int)
     as x (last_state_change timestamptz, member_stop_cause varchar, result varchar)
 where x.last_state_change notnull `, map[string]interface{}{
-		"AttemptId":   attemptId,
-		"MaxAttempts": maxAttempts,
-		"Sleep":       sleep,
-		"Vars":        mapToJson(vars),
-		"PerNum":      perNum,
-		"ExcludeNum":  excludeNum,
-		"Redial":      redial,
+		"AttemptId":     attemptId,
+		"MaxAttempts":   maxAttempts,
+		"Sleep":         sleep,
+		"Vars":          mapToJson(vars),
+		"PerNum":        perNum,
+		"ExcludeNum":    excludeNum,
+		"Redial":        redial,
+		"Desc":          desc,
+		"StickyAgentId": stickyAgentId,
 	})
 
 	if err != nil {
@@ -536,10 +539,11 @@ where m.id = u.member_id`, map[string]interface{}{
 }
 
 func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
-	maxAttempts uint, waitBetween uint64, perNum bool) (*model.MissedAgent, *model.AppError) {
+	maxAttempts uint, waitBetween uint64, perNum bool, desc *string, stickyAgentId *int32) (*model.MissedAgent, *model.AppError) {
 	var missed *model.MissedAgent
 	err := s.GetMaster().SelectOne(&missed, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", no_answers,  member_stop_cause
-		from call_center.cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb, :MaxAttempts::int, :WaitBetween::int, :PerNum::bool) 
+		from call_center.cc_attempt_leaving(:Id::int8, :Result::varchar, :State, :AgentHoldTime, :Vars::jsonb, :MaxAttempts::int, :WaitBetween::int, 
+			:PerNum::bool, :Desc::varchar, :StickyAgentId::int) 
 		as x (last_state_change timestamptz, no_answers int, member_stop_cause varchar)`,
 		map[string]interface{}{
 			"Result":        result,
@@ -550,6 +554,8 @@ func (s *SqlMemberStore) SetAttemptResult(id int64, result string, channelState 
 			"MaxAttempts":   maxAttempts,
 			"WaitBetween":   waitBetween,
 			"PerNum":        perNum,
+			"Desc":          desc,
+			"StickyAgentId": stickyAgentId,
 		})
 
 	if err != nil {
