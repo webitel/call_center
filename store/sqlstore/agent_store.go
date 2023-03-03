@@ -300,7 +300,7 @@ func (s SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mode
 	var res []model.AgentHashKey
 	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at
 from call_center.cc_agent a
-where a.status != 'offline'
+where a.status in ('online', 'break_out')
     and not exists(SELECT 1
         FROM directory.wbt_session s
         WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
