@@ -570,7 +570,8 @@ func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTi
 	var attempts []*model.AttemptReportingTimeout
 	_, err := s.GetMaster().Select(&attempts, `select
        a.id attempt_id,
-       call_center.cc_view_timestamp(call_center.cc_attempt_timeout(a.id, 0, 'abandoned', 'waiting', 0)) as timestamp,
+       call_center.cc_view_timestamp(call_center.cc_attempt_timeout(a.id, 'waiting', 0, coalesce((cq.payload->>'max_attempts')::int, 0), 
+			coalesce((cq.payload->>'per_numbers')::bool, false))) as timestamp,
        a.agent_id,
        (ag.updated_at - extract(epoch from u.updated_at))::int8 agent_updated_at,
        ag.user_id,
@@ -580,7 +581,6 @@ from call_center.cc_member_attempt a
     inner join call_center.cc_agent ag on ag.id = a.agent_id
     inner join directory.wbt_user u on u.id = ag.user_id
     left join call_center.cc_queue cq on a.queue_id = cq.id
-    left join call_center.cc_team ct on cq.team_id = ct.id
 where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
 		"NodeId": nodeId,
 	})
