@@ -449,7 +449,14 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		callInfo.FromNumber = *res.CallFromNumber
 	}
 
-	_, err = queueManager.callManager.ConnectCall(callInfo)
+	ringtone := ""
+	if in.WaitingMusic != nil {
+		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
+			ringtone = fmt.Sprintf("wbt_queue_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
+		}
+	}
+
+	_, err = queueManager.callManager.ConnectCall(callInfo, ringtone)
 	if err != nil {
 		printfIfErr(queueManager.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		wlog.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()))
@@ -494,7 +501,7 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 	}
 
 	var queue = JoinAgentQueue{
-		CallingQueue{
+		CallingQueue: CallingQueue{
 			BaseQueue: NewBaseQueue(queueManager, queueManager.resourceManager, settings),
 		},
 	}

@@ -153,7 +153,7 @@ func (queue *CallingQueue) GetTransferredCall(id string) (call_manager.Call, *mo
 		return nil, err
 	}
 
-	call, err = queue.queueManager.callManager.ConnectCall(callInfo)
+	call, err = queue.queueManager.callManager.ConnectCall(callInfo, "")
 	if err != nil {
 		return nil, err
 	}

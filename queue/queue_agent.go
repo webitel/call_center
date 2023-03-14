@@ -152,6 +152,7 @@ top:
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
+		mCall.StopPlayback()
 		team.Missed(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)
 	}

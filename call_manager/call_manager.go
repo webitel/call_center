@@ -28,7 +28,7 @@ type CallManager interface {
 	NewCall(callRequest *model.CallRequest) (Call, *model.AppError)
 	GetCall(id string) (Call, bool)
 	InboundCallQueue(call *model.Call, ringtone string, vars map[string]string) (Call, *model.AppError)
-	ConnectCall(call *model.Call) (Call, *model.AppError)
+	ConnectCall(call *model.Call, ringtone string) (Call, *model.AppError)
 	CountConnection() int
 	GetFlowUri() string
 	RingtoneUri(domainId int64, id int, mimeType string) string
@@ -213,7 +213,7 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 	return res, nil
 }
 
-func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError) {
+func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call, *model.AppError) {
 	var err *model.AppError
 	var cli model.CallCommands
 
@@ -228,6 +228,15 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call) (Call, *model.AppError)
 	}
 
 	cli, err = cm.getApiConnectionById(call.AppId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cli.JoinQueue(context.Background(), call.Id, ringtone, map[string]string{
+		model.QUEUE_NODE_ID_FIELD: cm.nodeId,
+		"cc_result":               "abandoned",
+	})
+
 	if err != nil {
 		return nil, err
 	}
