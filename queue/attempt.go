@@ -361,6 +361,15 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["cc_result"] = ccResult
 	}
 
+	resourceId := a.ResourceId()
+	if resourceId != nil {
+		res["cc_resource_id"] = fmt.Sprintf("%d", *resourceId)
+	}
+
+	if a.member != nil && a.member.CommunicationIdx != nil {
+		res["communication_id"] = fmt.Sprintf("%d", *a.member.CommunicationIdx)
+	}
+
 	if a.queue != nil {
 		res["queue_id"] = fmt.Sprintf("%d", a.queue.Id())
 		if a.queue.Processing() {
