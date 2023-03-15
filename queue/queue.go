@@ -264,7 +264,7 @@ func (queue *BaseQueue) Variables() map[string]string {
 
 func (q *BaseQueue) AutoAnswer() bool {
 	if q.variables != nil {
-		if v, ok := q.variables[model.QueueAutoAnswerVariable]; ok && v == "true" {
+		if v, ok := q.variables[model.QueueAutoAnswerVariable]; ok && (v != "false") {
 			return true
 		}
 	}
