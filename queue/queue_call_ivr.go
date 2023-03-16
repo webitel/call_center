@@ -124,6 +124,10 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	queue.SetHoldMusic(callRequest)
 
+	if attempt.communication.Dtmf != nil {
+		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+	}
+
 	call, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
 		attempt.Log(err.Error())

@@ -169,6 +169,11 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 			AppName: "park",
 		})
 	}
+
+	if attempt.communication.Dtmf != nil {
+		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+	}
+
 	attempt.memberChannel = mCall
 	mCall.Invite()
 

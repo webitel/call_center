@@ -136,6 +136,10 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		callRequest.SetPush()
 	}
 
+	if attempt.communication.Dtmf != nil {
+		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+	}
+
 	call, err := queue.NewCall(callRequest)
 	if err != nil {
 		attempt.Log(err.Error())

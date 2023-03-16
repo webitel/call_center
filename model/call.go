@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/wlog"
+	"strings"
+	"unicode"
 )
 
 const (
@@ -327,4 +329,22 @@ type CallRequest struct {
 
 func (cr *CallRequest) SetPush() {
 	cr.Variables["execute_on_originate"] = "wbt_send_hook"
+}
+
+func (cr *CallRequest) SetAutoDtmf(dtmf string) {
+	if dtmf == "" {
+		return
+	}
+	cr.Variables["execute_on_answer_1"] = fmt.Sprintf(`send_dtmf W%s`, digitsDtmfOnly(dtmf))
+}
+
+func digitsDtmfOnly(str string) string {
+	nonLetter := func(c rune) bool {
+		if c == 'W' || c == 'w' {
+			return false
+		}
+		return !unicode.IsDigit(c)
+	}
+	words := strings.FieldsFunc(str, nonLetter)
+	return strings.Join(words, "")
 }

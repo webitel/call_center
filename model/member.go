@@ -41,6 +41,7 @@ type MemberCommunication struct {
 	Display     *string       `json:"display"`
 	Description string        `json:"description"`
 	Attempts    int           `json:"attempts"`
+	Dtmf        *string       `json:"dtmf"`
 }
 
 type AttemptCallback struct {

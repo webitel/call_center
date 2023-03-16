@@ -149,6 +149,10 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
 	}
 
+	if attempt.communication.Dtmf != nil {
+		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+	}
+
 	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "park",
