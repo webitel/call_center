@@ -280,10 +280,8 @@ func (a *Attempt) Display() string {
 }
 
 func (a *Attempt) Destination() string {
-	//FIXME
-
 	if a.communication.Destination == "" {
-		return "FIXME"
+		return "" // TODO FIXME
 	}
 	return a.communication.Destination
 }

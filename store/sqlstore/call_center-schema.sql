@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 14.7 (Debian 14.7-1.pgdg110+1)
--- Dumped by pg_dump version 14.7 (Debian 14.7-1.pgdg110+1)
+-- Dumped from database version 15.2 (Debian 15.2-1.pgdg110+1)
+-- Dumped by pg_dump version 15.2 (Debian 15.2-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -343,10 +343,10 @@ $$;
 
 
 --
--- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_abandoned(bigint, integer, integer, jsonb, boolean, boolean, boolean, character varying, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false, exclude_dest boolean DEFAULT false, redial boolean DEFAULT false) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_abandoned(attempt_id_ bigint, _max_count integer DEFAULT 0, _next_after integer DEFAULT 0, vars_ jsonb DEFAULT NULL::jsonb, _per_number boolean DEFAULT false, exclude_dest boolean DEFAULT false, redial boolean DEFAULT false, _description character varying DEFAULT NULL::character varying, _sticky_agent_id integer DEFAULT NULL::integer, _display boolean DEFAULT false) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -357,7 +357,8 @@ begin
         set leaving_at = now(),
             last_state_change = now(),
             result = case when offering_at isnull and resource_id notnull then 'failed' else 'abandoned' end,
-            state = 'leaving'
+            state = 'leaving',
+            description = case when _description notnull then _description else description end
     where id = attempt_id_
     returning * into attempt;
 
@@ -379,7 +380,8 @@ begin
                 case when exclude_dest or (_per_number is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= _max_count) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
             ),
             variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
-            attempts        = attempts + 1                     --TODO
+            attempts        = attempts + 1,                     --TODO
+            agent_id = case when _sticky_agent_id notnull then _sticky_agent_id else agent_id end
         where id = attempt.member_id
         returning stop_cause into member_stop_cause;
     end if;
@@ -618,10 +620,10 @@ $$;
 
 
 --
--- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb, integer, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb, integer, integer, boolean, character varying, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer, vars_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60, per_number_ boolean DEFAULT false) RETURNS record
+CREATE FUNCTION call_center.cc_attempt_leaving(attempt_id_ bigint, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer, vars_ jsonb DEFAULT NULL::jsonb, max_attempts_ integer DEFAULT 0, wait_between_retries_ integer DEFAULT 60, per_number_ boolean DEFAULT false, _description character varying DEFAULT NULL::character varying, _sticky_agent_id integer DEFAULT NULL::integer, _display boolean DEFAULT false) RETURNS record
     LANGUAGE plpgsql
     AS $$
 declare
@@ -635,7 +637,8 @@ begin
     update call_center.cc_member_attempt
     set leaving_at = now(),
         result = result_,
-        state = 'leaving'
+        state = 'leaving',
+        description = case when _description notnull then _description else description end
     where id = attempt_id_
     returning * into attempt;
 
@@ -664,7 +667,8 @@ begin
                 case when (per_number_ is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= max_attempts_) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
             ),
             attempts        = attempts + 1,
-            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end
+            variables = case when vars_ notnull then coalesce(variables::jsonb, '{}') || vars_ else variables end,
+            agent_id = case when _sticky_agent_id notnull then _sticky_agent_id else agent_id end
         where id = attempt.member_id
         returning stop_cause into member_stop_cause;
     end if;
@@ -760,6 +764,7 @@ begin
             joined_at        = now(),
             last_offering_at = now(),
             queue_id         = attempt.queue_id,
+            attempt_id         = case when attempt.channel = 'call' then attempt.id else null end,
             channel          = attempt.channel,
             last_bucket_id   = coalesce(attempt.bucket_id, last_bucket_id)
         where (ch.agent_id) = (attempt.agent_id);
@@ -771,10 +776,10 @@ $$;
 
 
 --
--- Name: cc_attempt_timeout(bigint, integer, character varying, character varying, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_attempt_timeout(bigint, character varying, integer, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, hold_sec integer, result_ character varying, agent_status_ character varying, agent_hold_sec_ integer) RETURNS timestamp with time zone
+CREATE FUNCTION call_center.cc_attempt_timeout(attempt_id_ bigint, agent_status_ character varying, agent_hold_sec_ integer, max_attempts_ integer DEFAULT 0, per_number_ boolean DEFAULT false) RETURNS timestamp with time zone
     LANGUAGE plpgsql
     AS $$
 declare
@@ -792,17 +797,24 @@ begin
         last_agent      = coalesce(attempt.agent_id, last_agent),
 
 
-        stop_at = case when stop_at notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
-            then stop_at else  attempt.leaving_at end,
-        stop_cause = case when stop_cause notnull or (q._max_count > 0 and (attempts + 1 < q._max_count))
-            then stop_cause else attempt.result end,
+            stop_at = case when stop_at notnull or
+                                (not attempt.result in ('success', 'cancel') and
+                                 case when per_number_ is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                 )
+                then stop_at else  attempt.leaving_at end,
+            stop_cause = case when stop_at notnull or
+                                (not attempt.result in ('success', 'cancel') and
+                                   case when per_number_ is true then (attempt.waiting_other_numbers > 0 or (max_attempts_ > 0 and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 < max_attempts_)) else (max_attempts_ > 0 and (attempts + 1 < max_attempts_)) end
+                                 )
+                then stop_cause else  attempt.result end,
+
         ready_at = now() + (coalesce(q._next_after, 0) || ' sec')::interval,
 
-        communications = jsonb_set(
-                jsonb_set(communications, array [attempt.communication_idx, 'attempt_id']::text[],
-                          attempt_id_::text::jsonb, true)
-            , array [attempt.communication_idx, 'last_activity_at']::text[],
-                ( (extract(EPOCH  from now()) * 1000)::int8 )::text::jsonb
+        communications =  jsonb_set(communications, (array[attempt.communication_idx::int])::text[], communications->(attempt.communication_idx::int) ||
+                jsonb_build_object('last_activity_at', (extract(epoch  from attempt.leaving_at) * 1000)::int8::text::jsonb) ||
+                jsonb_build_object('attempt_id', attempt_id_) ||
+                jsonb_build_object('attempts', coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1) ||
+                case when (per_number_ is true and coalesce((communications#>(format('{%s,attempts}', attempt.communication_idx::int)::text[]))::int, 0) + 1 >= max_attempts_) then jsonb_build_object('stop_at', (extract(EPOCH from now() ) * 1000)::int8) else '{}'::jsonb end
             ),
         attempts        = attempts + 1
     from (
@@ -1390,12 +1402,9 @@ $$;
 -- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, seq integer)
+CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, seq integer, communication_idx integer)
     LANGUAGE plpgsql
     AS $$
-declare
-    _weight      int4;
-    _destination jsonb;
 BEGIN
 
     return query with attempts as (
@@ -1448,7 +1457,8 @@ BEGIN
                         a.agent_id::bigint     agent_id,
                         ag.updated_at::bigint  agent_updated_at,
                         t.updated_at::bigint   team_updated_at,
-                        a.seq::int seq
+                        a.seq::int seq,
+                        a.communication_idx::int communication_idx
                  from attempts a
                           left join call_center.cc_member cm on a.member_id = cm.id
                           inner join call_center.cc_queue cq on a.queue_id = cq.id
@@ -2148,6 +2158,7 @@ select (select json_agg(x)
                                 x ->> 'last_cause'              as last_cause,
                                 call_center.cc_get_lookup(r.id, r.name)       as resource,
                                 x ->> 'display'                 as display,
+                                x ->> 'dtmf'                 as dtmf,
                                 (x -> 'stop_at')::int8                 as stop_at
                          from jsonb_array_elements($1) x
                                   left join call_center.cc_communication c on c.id = (x -> 'type' -> 'id')::int
@@ -2820,7 +2831,7 @@ $$;
 -- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint, seq integer)
+CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint, seq integer, communication_idx integer)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2892,7 +2903,8 @@ from call_center.cc_member_attempt c
             c.agent_updated_at,
             c.team_updated_at,
             a.list_communication_id,
-            a.seq;
+            a.seq,
+            a.communication_idx;
 END;
 $$;
 
@@ -2942,6 +2954,11 @@ BEGIN
   if new.state = 'waiting' then
       new.lose_attempt = 0;
       new.queue_id := null;
+      new.attempt_id := null;
+  end if;
+
+  if new.state = 'leaving' then
+--       raise exception 'not allow leaving state';
   end if;
 
   --fixme error when agent set offline/pause in active call
@@ -2965,8 +2982,8 @@ BEGIN
       return new;
   end if;
 
-  insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
-  values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id);
+  insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id, attempt_id)
+  values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id, old.attempt_id);
 
   RETURN new;
 END;
@@ -3275,7 +3292,8 @@ CREATE TABLE call_center.cc_agent_channel (
     channel_changed_at timestamp with time zone DEFAULT now() NOT NULL,
     online boolean DEFAULT false NOT NULL,
     no_send_processing integer DEFAULT 0 NOT NULL,
-    lose_attempt integer DEFAULT 0 NOT NULL
+    lose_attempt integer DEFAULT 0 NOT NULL,
+    attempt_id integer
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -3292,7 +3310,8 @@ CREATE TABLE call_center.cc_agent_state_history (
     channel character varying,
     duration interval DEFAULT '00:00:00'::interval NOT NULL,
     payload character varying,
-    queue_id integer
+    queue_id integer,
+    attempt_id integer
 );
 
 
@@ -3489,6 +3508,27 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
 
 
 --
+-- Name: cc_audit_rate; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_audit_rate (
+    id bigint NOT NULL,
+    domain_id bigint NOT NULL,
+    form_id integer NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    created_by bigint,
+    updated_at timestamp with time zone NOT NULL,
+    updated_by bigint,
+    answers jsonb,
+    score_required numeric DEFAULT 0 NOT NULL,
+    score_optional numeric DEFAULT 0 NOT NULL,
+    comment text,
+    call_id character varying,
+    rated_user_id bigint NOT NULL
+);
+
+
+--
 -- Name: cc_calls_history; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3588,7 +3628,7 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_attempt_id bigint,
     parent_id bigint,
     form_fields jsonb,
-    import_id character varying(60)
+    import_id character varying(120)
 );
 
 
@@ -3659,7 +3699,8 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
             COALESCE(top.status_payload, a_1.status_payload) AS top_payload,
             d."from",
             d."to",
-            a_1.domain_id
+            a_1.domain_id,
+            COALESCE(t.sys_name, 'UTC'::text) AS tz_name
            FROM (((((call_center.cc_agent a_1
              LEFT JOIN flow.region r ON ((r.id = a_1.region_id)))
              LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
@@ -3768,6 +3809,17 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
              LEFT JOIN eff eff_1 ON ((eff_1.agent_id = s.agent_id)))
              LEFT JOIN calls ON ((calls.user_id = agents.user_id)))
           GROUP BY s.agent_id
+        ), rate AS (
+         SELECT a_1.user_id,
+            count(*) AS count,
+            avg(ar.score_required) AS score_required_avg,
+            sum(ar.score_required) AS score_required_sum,
+            avg(ar.score_optional) AS score_optional_avg,
+            sum(ar.score_optional) AS score_optional_sum
+           FROM (agents a_1
+             JOIN call_center.cc_audit_rate ar ON ((ar.rated_user_id = a_1.user_id)))
+          WHERE ((ar.created_at >= (date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) AT TIME ZONE a_1.tz_name)) AND (ar.created_at <= (((date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) + '1 mon'::interval) - '1 day 00:00:01'::interval) AT TIME ZONE a_1.tz_name)))
+          GROUP BY a_1.user_id
         )
  SELECT a.id AS agent_id,
     a.domain_id,
@@ -3788,13 +3840,19 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
             ELSE (0)::numeric
         END, (0)::numeric), 2) AS utilization,
     COALESCE(ch.chat_aht, (0)::bigint) AS chat_aht,
-    COALESCE(ch.chat_accepts, (0)::bigint) AS chat_accepts
-   FROM (((((agents a
+    COALESCE(ch.chat_accepts, (0)::bigint) AS chat_accepts,
+    COALESCE(rate.count, (0)::bigint) AS score_count,
+    COALESCE(rate.score_optional_avg, (0)::numeric) AS score_optional_avg,
+    COALESCE(rate.score_optional_sum, ((0)::bigint)::numeric) AS score_optional_sum,
+    COALESCE(rate.score_required_avg, (0)::numeric) AS score_required_avg,
+    COALESCE(rate.score_required_sum, ((0)::bigint)::numeric) AS score_required_sum
+   FROM ((((((agents a
      LEFT JOIN call_center.cc_agent_with_user u ON ((u.id = a.id)))
      LEFT JOIN stats ON ((stats.agent_id = a.id)))
      LEFT JOIN eff ON ((eff.agent_id = a.id)))
      LEFT JOIN calls c ON ((c.user_id = a.user_id)))
      LEFT JOIN chats ch ON ((ch.agent_id = a.id)))
+     LEFT JOIN rate ON ((rate.user_id = a.user_id)))
   WITH NO DATA;
 
 
@@ -3811,39 +3869,6 @@ CREATE VIEW call_center.cc_agent_waiting AS
   WHERE (((a.status)::text = 'online'::text) AND (NOT (EXISTS ( SELECT 1
            FROM call_center.cc_calls c
           WHERE ((c.user_id = u.id) AND (c.hangup_at IS NULL))))));
-
-
---
--- Name: cc_attempt_missed_agent; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_attempt_missed_agent (
-    id bigint NOT NULL,
-    attempt_id bigint NOT NULL,
-    agent_id integer NOT NULL,
-    offering_at timestamp with time zone NOT NULL,
-    missed_at timestamp with time zone NOT NULL,
-    cause character varying
-);
-
-
---
--- Name: cc_attempt_missed_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_attempt_missed_agent_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_attempt_missed_agent_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_attempt_missed_agent_id_seq OWNED BY call_center.cc_attempt_missed_agent.id;
 
 
 --
@@ -3877,6 +3902,153 @@ CREATE SEQUENCE call_center.cc_attempt_transferred_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_attempt_transferred_id_seq OWNED BY call_center.cc_member_attempt_transferred.id;
+
+
+--
+-- Name: cc_audit_form; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_audit_form (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    name character varying NOT NULL,
+    description character varying,
+    enabled boolean DEFAULT false NOT NULL,
+    created_by bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by bigint NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    questions jsonb,
+    team_ids integer[],
+    archive boolean DEFAULT false NOT NULL,
+    editable boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: cc_audit_form_acl; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_audit_form_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint,
+    object integer NOT NULL,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: cc_audit_form_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_form_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_audit_form_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_form_acl_id_seq OWNED BY call_center.cc_audit_form_acl.id;
+
+
+--
+-- Name: cc_audit_form_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_form_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_audit_form_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_form_id_seq OWNED BY call_center.cc_audit_form.id;
+
+
+--
+-- Name: cc_audit_form_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_audit_form_view AS
+ SELECT i.id,
+    i.name,
+    i.description,
+    i.domain_id,
+    i.created_at,
+    call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+    i.updated_at,
+    call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(aud.id, (aud.name)::character varying)) AS jsonb_agg
+           FROM call_center.cc_team aud
+          WHERE (aud.id = ANY (i.team_ids))) AS teams,
+    i.enabled,
+    i.questions,
+    i.team_ids,
+    i.editable,
+    i.archive
+   FROM ((call_center.cc_audit_form i
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = i.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = i.updated_by)));
+
+
+--
+-- Name: cc_audit_rate_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_rate_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_audit_rate_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_rate_id_seq OWNED BY call_center.cc_audit_rate.id;
+
+
+--
+-- Name: cc_audit_rate_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_audit_rate_view AS
+ SELECT r.id,
+    r.domain_id,
+    r.form_id,
+    r.created_at,
+    call_center.cc_get_lookup(uc.id, COALESCE((uc.name)::character varying, (uc.username)::character varying)) AS created_by,
+    r.updated_at,
+    call_center.cc_get_lookup(u.id, COALESCE((u.name)::character varying, (u.username)::character varying)) AS updated_by,
+    call_center.cc_get_lookup(ur.id, (ur.name)::character varying) AS rated_user,
+    call_center.cc_get_lookup((f.id)::bigint, f.name) AS form,
+    r.answers,
+    r.score_required,
+    r.score_optional,
+    r.comment,
+    r.call_id,
+    f.questions,
+    r.rated_user_id
+   FROM ((((call_center.cc_audit_rate r
+     LEFT JOIN call_center.cc_audit_form f ON ((f.id = r.form_id)))
+     LEFT JOIN directory.wbt_user ur ON ((ur.id = r.rated_user_id)))
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = r.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = r.updated_by)));
 
 
 --
@@ -4067,7 +4239,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     waiting_other_numbers integer DEFAULT 0 NOT NULL,
     form_fields jsonb,
     form_view jsonb,
-    import_id character varying(60)
+    import_id character varying(120)
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -4370,8 +4542,13 @@ CREATE VIEW call_center.cc_calls_history_list AS
           WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
     transcripts.data AS transcripts,
     c.talk_sec,
-    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee
-   FROM (((((((((((((call_center.cc_calls_history c
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
+    ar.id AS rate_id,
+    call_center.cc_get_lookup(aru.id, COALESCE((aru.name)::character varying, (aru.username)::character varying)) AS rated_user,
+    call_center.cc_get_lookup(arub.id, COALESCE((arub.name)::character varying, (arub.username)::character varying)) AS rated_by,
+    ar.score_optional,
+    ar.score_required
+   FROM ((((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
            FROM ( SELECT f1.id,
@@ -4408,7 +4585,10 @@ CREATE VIEW call_center.cc_calls_history_list AS
            FROM (storage.file_transcript tr
              LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
           WHERE ((tr.uuid)::text = ((c.id)::character varying(50))::text)
-          GROUP BY (tr.uuid)::text) transcripts ON (true));
+          GROUP BY (tr.uuid)::text) transcripts ON (true))
+     LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
+     LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
+     LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)));
 
 
 --
@@ -5429,6 +5609,60 @@ CREATE VIEW call_center.cc_pause_cause_list AS
 
 
 --
+-- Name: cc_preset_query; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_preset_query (
+    id integer NOT NULL,
+    name character varying NOT NULL,
+    user_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    preset jsonb NOT NULL,
+    description character varying,
+    section character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    updated_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: cc_preset_query_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_preset_query_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_preset_query_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_preset_query_id_seq OWNED BY call_center.cc_preset_query.id;
+
+
+--
+-- Name: cc_preset_query_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_preset_query_list AS
+ SELECT p.id,
+    p.name,
+    p.description,
+    p.created_at,
+    p.updated_at,
+    p.section,
+    p.preset,
+    p.domain_id,
+    p.user_id
+   FROM call_center.cc_preset_query p;
+
+
+--
 -- Name: cc_queue_acl; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -6221,10 +6455,24 @@ ALTER TABLE ONLY call_center.cc_agent_state_history ALTER COLUMN id SET DEFAULT 
 
 
 --
--- Name: cc_attempt_missed_agent id; Type: DEFAULT; Schema: call_center; Owner: -
+-- Name: cc_audit_form id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
-ALTER TABLE ONLY call_center.cc_attempt_missed_agent ALTER COLUMN id SET DEFAULT nextval('call_center.cc_attempt_missed_agent_id_seq'::regclass);
+ALTER TABLE ONLY call_center.cc_audit_form ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_form_id_seq'::regclass);
+
+
+--
+-- Name: cc_audit_form_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_form_acl_id_seq'::regclass);
+
+
+--
+-- Name: cc_audit_rate id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_rate_id_seq'::regclass);
 
 
 --
@@ -6389,6 +6637,13 @@ ALTER TABLE ONLY call_center.cc_pause_cause ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: cc_preset_query id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query ALTER COLUMN id SET DEFAULT nextval('call_center.cc_preset_query_id_seq'::regclass);
+
+
+--
 -- Name: cc_queue id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -6521,19 +6776,35 @@ ALTER TABLE ONLY call_center.cc_pause_cause
 
 
 --
--- Name: cc_attempt_missed_agent cc_attempt_missed_agent_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_attempt_missed_agent
-    ADD CONSTRAINT cc_attempt_missed_agent_pk PRIMARY KEY (id);
-
-
---
 -- Name: cc_member_attempt_transferred cc_attempt_transferred_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.cc_member_attempt_transferred
     ADD CONSTRAINT cc_attempt_transferred_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_audit_form cc_audit_form_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_pk PRIMARY KEY (id);
 
 
 --
@@ -6726,6 +6997,14 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_group
 
 ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
     ADD CONSTRAINT cc_outbound_resource_in_group_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_preset_query cc_preset_query_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query
+    ADD CONSTRAINT cc_preset_query_pk PRIMARY KEY (id);
 
 
 --
@@ -6956,10 +7235,73 @@ CREATE UNIQUE INDEX cc_agent_user_id_uindex ON call_center.cc_agent USING btree 
 
 
 --
--- Name: cc_attempt_missed_agent_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_audit_form_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE UNIQUE INDEX cc_attempt_missed_agent_id_uindex ON call_center.cc_attempt_missed_agent USING btree (id);
+CREATE INDEX cc_audit_form_acl_grantor_idx ON call_center.cc_audit_form_acl USING btree (grantor);
+
+
+--
+-- Name: cc_audit_form_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_acl_object_subject_udx ON call_center.cc_audit_form_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: cc_audit_form_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_acl_subject_object_udx ON call_center.cc_audit_form_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_audit_form_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_domain_id_name_uindex ON call_center.cc_audit_form USING btree (domain_id, name);
+
+
+--
+-- Name: cc_audit_form_id_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_id_domain_id_uindex ON call_center.cc_audit_form USING btree (id, domain_id);
+
+
+--
+-- Name: cc_audit_rate_call_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_rate_call_id_uindex ON call_center.cc_audit_rate USING btree (call_id) WHERE (call_id IS NOT NULL);
+
+
+--
+-- Name: cc_audit_rate_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_created_by_index ON call_center.cc_audit_rate USING btree (created_by DESC);
+
+
+--
+-- Name: cc_audit_rate_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_domain_id_index ON call_center.cc_audit_rate USING btree (domain_id);
+
+
+--
+-- Name: cc_audit_rate_form_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_form_id_index ON call_center.cc_audit_rate USING btree (form_id);
+
+
+--
+-- Name: cc_audit_rate_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_updated_by_index ON call_center.cc_audit_rate USING btree (updated_by);
 
 
 --
@@ -7560,6 +7902,13 @@ CREATE INDEX cc_member_search_destination_idx ON call_center.cc_member USING gin
 
 
 --
+-- Name: cc_member_variable_message_id; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_variable_message_id ON call_center.cc_member USING btree (((variables ->> 'message_id'::text))) WHERE ((variables ->> 'message_id'::text) IS NOT NULL);
+
+
+--
 -- Name: cc_outbound_resource_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -7732,6 +8081,13 @@ CREATE INDEX cc_outbound_resource_updated_by_index ON call_center.cc_outbound_re
 --
 
 CREATE UNIQUE INDEX cc_pause_cause_domain_id_name_uindex ON call_center.cc_pause_cause USING btree (domain_id, name);
+
+
+--
+-- Name: cc_preset_query_user_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_preset_query_user_id_name_uindex ON call_center.cc_preset_query USING btree (user_id, name);
 
 
 --
@@ -8061,69 +8417,6 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
 
 
 --
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
-
-
---
--- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t,
-            cor.patterns
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
-
-
---
 -- Name: cc_distribute_stage_1 _RETURN; Type: RULE; Schema: call_center; Owner: -
 --
 
@@ -8310,6 +8603,69 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
 
 
 --
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
+
+
+--
+-- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t,
+            cor.patterns
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
+
+
+--
 -- Name: cc_agent cc_agent_init_channel_ins; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -8321,6 +8677,13 @@ CREATE TRIGGER cc_agent_init_channel_ins AFTER INSERT ON call_center.cc_agent FO
 --
 
 CREATE TRIGGER cc_agent_set_rbac_acl AFTER INSERT ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_agent');
+
+
+--
+-- Name: cc_audit_form cc_audit_form_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_audit_form_set_rbac_acl AFTER INSERT ON call_center.cc_audit_form FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_audit_form_acl');
 
 
 --
@@ -8648,6 +9011,118 @@ ALTER TABLE ONLY call_center.cc_agent
 
 ALTER TABLE ONLY call_center.cc_agent
     ADD CONSTRAINT cc_agent_wbt_user_id_fk_3 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_cc_audit_form_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_audit_form(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_audit_form(id, domain_id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_domain_dc_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_domain_dc_fk_2 FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -9208,6 +9683,14 @@ ALTER TABLE ONLY call_center.cc_outbound_resource
 
 ALTER TABLE ONLY call_center.cc_outbound_resource
     ADD CONSTRAINT cc_outbound_resource_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_preset_query cc_preset_query_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query
+    ADD CONSTRAINT cc_preset_query_wbt_user_id_fk FOREIGN KEY (user_id) REFERENCES directory.wbt_user(id) ON DELETE CASCADE;
 
 
 --
