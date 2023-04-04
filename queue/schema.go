@@ -69,7 +69,7 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 
 func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 
-	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v", attemptId, attemptId))
+	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v (%v)", attemptId, attemptId, fields))
 
 	attempt, _ := qm.GetAttempt(attemptId)
 	if attempt == nil {
@@ -129,14 +129,14 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 
 	att.Log(fmt.Sprintf("DoDistributeAttempt job_id=%s duration=%s", res.Id, time.Since(st)))
 
+	confirm := false
+
 	switch res.Result.(type) {
 	case *flow.DistributeAttemptResponse_Cancel_:
 		v := res.Result.(*flow.DistributeAttemptResponse_Cancel_).Cancel
 		if err := qm.store.Member().SetDistributeCancel(att.Id(), v.Description, v.NextDistributeSec, v.Stop, res.Variables); err != nil {
 			wlog.Error(fmt.Sprintf("attempt [%d] error: %s", att.Id(), err.Error()))
 		}
-
-		return false
 	case *flow.DistributeAttemptResponse_Confirm_:
 		v := res.Result.(*flow.DistributeAttemptResponse_Confirm_).Confirm
 		if v.Destination != "" {
@@ -146,6 +146,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 		if v.Display != "" {
 			att.communication.Display = model.NewString(v.Display)
 		}
+		confirm = true
 	default:
 		// TODO
 	}
@@ -156,7 +157,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 		}
 	}
 
-	return true
+	return confirm
 }
 
 func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
