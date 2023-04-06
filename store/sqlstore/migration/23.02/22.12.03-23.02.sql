@@ -712,8 +712,13 @@ ORDER BY q.domain_id, q.priority DESC, q.op;
 
 
 
+drop function if exists call_center.cc_attempt_abandoned(bigint,integer,integer,jsonb,boolean,boolean);
+drop function if exists call_center.cc_attempt_abandoned(bigint,integer,integer,jsonb,boolean,boolean,boolean);
+drop function if exists call_center.cc_attempt_abandoned(bigint,integer,integer,jsonb,boolean,boolean,boolean,character varying,integer,boolean);
+
 drop function call_center.cc_attempt_abandoned;
-create function call_center.cc_attempt_abandoned(attempt_id_ bigint,
+
+create or replace function call_center.cc_attempt_abandoned(attempt_id_ bigint,
                                                  _max_count integer DEFAULT 0,
                                                  _next_after integer DEFAULT 0,
                                                  vars_ jsonb DEFAULT NULL::jsonb,
