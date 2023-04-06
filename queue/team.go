@@ -193,7 +193,10 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	}
 
 	if !queue.Processing() || transfer {
-		s := AttemptResultSuccess
+		s := attempt.Result()
+		if s == "" {
+			s = AttemptResultSuccess
+		}
 		if transfer {
 			s = AttemptResultTransfer
 		}
