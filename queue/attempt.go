@@ -97,7 +97,7 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 }
 
 // Change attempt settings
-func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
+func (a *Attempt) AfterDistributeSchema() (*model.SchemaResult, bool) {
 	if a.queue == nil {
 		return nil, false
 	}
@@ -133,6 +133,10 @@ func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
 	if res.Redial {
 		a.redial = true
 		a.Log("set redial current number")
+	}
+
+	if res.Variables != nil {
+		a.AddVariables(res.Variables)
 	}
 
 	return res, true
@@ -387,17 +391,36 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 }
 
 func (a *Attempt) GetVariable(name string) (res string, ok bool) {
+	a.RLock()
 	if a.member != nil && a.member.Variables != nil {
 		res, ok = a.member.Variables[name]
 	}
+	a.RUnlock()
+
+	return
+}
+
+func (a *Attempt) AddVariables(vars map[string]string) {
+	a.Lock()
+	if a.member.Variables == nil {
+		a.member.Variables = make(map[string]string)
+	}
+
+	for k, v := range vars {
+		a.member.Variables[k] = v
+	}
+
+	a.Unlock()
 
 	return
 }
 
 func (a *Attempt) RemoveVariable(name string) {
+	a.Lock()
 	if a.member != nil && a.member.Variables != nil {
 		delete(a.member.Variables, name)
 	}
+	a.Unlock()
 }
 
 func (a *Attempt) MemberId() *int64 {

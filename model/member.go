@@ -56,6 +56,18 @@ type AttemptCallback struct {
 	Redial                      *bool
 }
 
+type SchemaResult struct {
+	Status               string
+	MaxAttempts          uint32
+	WaitBetweenRetries   uint32
+	ExcludeCurrentNumber bool
+	Redial               bool
+	Variables            map[string]string
+	AgentId              int32
+	Display              bool
+	Description          string
+}
+
 type AttemptLeaving struct {
 	Timestamp       int64   `json:"timestamp" db:"timestamp"`
 	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
@@ -100,6 +112,7 @@ type AttemptReportingTimeout struct {
 	UserId         int64  `json:"user_id" db:"user_id"`
 	Channel        string `json:"channel" db:"channel"`
 	DomainId       int64  `json:"domain_id" db:"domain_id"`
+	AfterSchemaId  *int   `json:"after_schema_id" db:"after_schema_id"`
 }
 
 type EventAttempt struct {

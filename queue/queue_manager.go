@@ -598,6 +598,56 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 	return attempt, nil
 }
 
+func (queueManager *QueueManager) TimeoutLeavingMember(attempt *Attempt) {
+	queue := attempt.queue
+	if queue != nil {
+		var waitBetween uint64 = 0
+		var maxAttempts uint = 0
+		var perNumbers = false
+
+		result := model.AttemptCallback{
+			Status: "timeout",
+		}
+
+		if callback, ok := attempt.AfterDistributeSchema(); ok {
+			result = model.AttemptCallback{
+				Status:        callback.Status,
+				Description:   callback.Description,
+				Display:       callback.Display,
+				Variables:     callback.Variables,
+				StickyAgentId: nil,
+				NextCallAt:    nil,
+				ExpireAt:      nil,
+			}
+
+			waitBetween = attempt.waitBetween
+			maxAttempts = attempt.maxAttempts
+			perNumbers = attempt.perNumbers
+
+			if callback.AgentId > 0 {
+				result.StickyAgentId = model.NewInt(int(callback.AgentId))
+			}
+		}
+
+		res, err := queueManager.store.Member().SchemaResult(attempt.Id(), &result, maxAttempts, waitBetween, perNumbers)
+		if err != nil {
+			wlog.Error(err.Error())
+
+			return
+		}
+		if res.MemberStopCause != nil {
+			attempt.SetMemberStopCause(res.MemberStopCause)
+		}
+
+		if res.Result != nil {
+			attempt.SetResult(*res.Result)
+		} else {
+			attempt.SetResult(AttemptResultAbandoned)
+		}
+		queueManager.LeavingMember(attempt)
+	}
+}
+
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
 	if attempt.Result() == "" {
 		attempt.SetResult(AttemptResultAbandoned)

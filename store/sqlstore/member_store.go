@@ -571,17 +571,18 @@ func (s *SqlMemberStore) GetTimeouts(nodeId string) ([]*model.AttemptReportingTi
 	_, err := s.GetMaster().Select(&attempts, `select
        a.id attempt_id,
        call_center.cc_view_timestamp(call_center.cc_attempt_timeout(a.id, 'waiting', 0, coalesce((cq.payload->>'max_attempts')::int, 0), 
-			coalesce((cq.payload->>'per_numbers')::bool, false))) as timestamp,
+			coalesce((cq.payload->>'per_numbers')::bool, false), cq.after_schema_id notnull)) as timestamp,
        a.agent_id,
        (ag.updated_at - extract(epoch from u.updated_at))::int8 agent_updated_at,
        ag.user_id,
        ag.domain_id,
-       a.channel
+       a.channel,
+	   cq.after_schema_id as after_schema_id
 from call_center.cc_member_attempt a
     inner join call_center.cc_agent ag on ag.id = a.agent_id
     inner join directory.wbt_user u on u.id = ag.user_id
     left join call_center.cc_queue cq on a.queue_id = cq.id
-where a.timeout < now() and a.node_id = :NodeId`, map[string]interface{}{
+where a.timeout < now() and a.node_id = :NodeId and not a.schema_processing is true `, map[string]interface{}{
 		"NodeId": nodeId,
 	})
 
@@ -628,13 +629,47 @@ where x.channel notnull`, map[string]interface{}{
 	return result, nil
 }
 
+func (s *SqlMemberStore) SchemaResult(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, perNum bool) (*model.AttemptLeaving, *model.AppError) {
+	var result *model.AttemptLeaving
+	err := s.GetMaster().SelectOne(&result, `select call_center.cc_view_timestamp(x.last_state_change)::int8 as "timestamp", x.member_stop_cause, x.result
+from call_center.cc_attempt_schema_result(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, 
+	:NextCallAt::timestamptz, :StickyAgentId::int, :Vars::jsonb, :MaxAttempts::int, :WaitBetween::int, :ExcludeDest::bool, :PerNum::bool)
+	as x (last_state_change timestamptz, member_stop_cause varchar, result varchar)
+where x.last_state_change notnull`, map[string]interface{}{
+		"AttemptId":     attemptId,
+		"Status":        callback.Status,
+		"Description":   callback.Description,
+		"ExpireAt":      callback.ExpireAt,
+		"NextCallAt":    model.UtcTime(callback.NextCallAt),
+		"StickyAgentId": callback.StickyAgentId,
+		"MaxAttempts":   maxAttempts,
+		"WaitBetween":   waitBetween,
+		"ExcludeDest":   callback.ExcludeCurrentCommunication,
+		"PerNum":        perNum,
+		"Vars":          callback.JsonVariables(),
+	})
+
+	if err != nil {
+		code := extractCodeFromErr(err)
+		if code == http.StatusNotFound {
+			return nil, model.NewAppError("SqlMemberStore.SchemaResult", "store.sql_member.schema_result.not_found", nil,
+				err.Error(), code)
+		} else {
+			return nil, model.NewAppError("SqlMemberStore.SchemaResult", "store.sql_member.schema_result.app_error", nil,
+				err.Error(), code)
+		}
+	}
+
+	return result, nil
+}
+
 func (s SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppError) {
 	var res []*model.HistoryAttempt
 
 	_, err := s.GetMaster().Select(&res, `with del as materialized (
     select *
     from call_center.cc_member_attempt a
-    where a.state = 'leaving'
+    where a.state = 'leaving' and not a.schema_processing is true 
     for update skip locked
     limit 100
 ),

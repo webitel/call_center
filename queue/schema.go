@@ -21,18 +21,6 @@ type DoDistributeResult struct {
 	Cancel        bool
 }
 
-type SchemaResult struct {
-	Status               string
-	MaxAttempts          uint32
-	WaitBetweenRetries   uint32
-	ExcludeCurrentNumber bool
-	Redial               bool
-	Variables            map[string]string
-	AgentId              int32
-	Display              bool
-	Description          string
-}
-
 func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 	if schemaId == 0 {
 		return
@@ -152,9 +140,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	}
 
 	if res.Variables != nil {
-		for k, v := range res.Variables {
-			att.member.Variables[k] = v
-		}
+		att.AddVariables(res.Variables)
 	}
 
 	return confirm
@@ -175,7 +161,7 @@ func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	return false
 }
 
-func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool) {
+func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
 	if att.queue == nil || att.queue.AfterSchemaId() == nil {
 
 		return nil, false
@@ -209,13 +195,13 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:
-		return &SchemaResult{
+		return &model.SchemaResult{
 			Status:    AttemptResultSuccess,
 			Variables: res.Variables,
 		}, true
 
 	case *flow.ResultAttemptResponse_Abandoned_:
-		return &SchemaResult{
+		return &model.SchemaResult{
 			Status:               v.Abandoned.Status,
 			MaxAttempts:          v.Abandoned.MaxAttempts,
 			WaitBetweenRetries:   v.Abandoned.WaitBetweenRetries,

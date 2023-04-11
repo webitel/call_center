@@ -108,7 +108,12 @@ func (d *DialingImpl) routeIdleAgents() {
 
 			if a, ok := d.queueManager.GetAttempt(v.AttemptId); ok {
 				a.SetResult(AttemptResultTimeout)
-				d.queueManager.LeavingMember(a)
+
+				if v.AfterSchemaId == nil {
+					d.queueManager.LeavingMember(a)
+				} else {
+					d.queueManager.TimeoutLeavingMember(a)
+				}
 			}
 		}
 	} else {
