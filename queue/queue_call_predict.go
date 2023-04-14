@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	maxRetryCount = 5
+	maxRetrySleep = 60 * 1000
+)
+
 type PredictCallQueueSettings struct {
 	Recordings bool `json:"recordings"`
 	RecordMono bool `json:"record_mono"`
@@ -76,8 +81,22 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 		return
 	}
 
-	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	var callerIdNumber = attempt.Display()
+	retryCounter := 1
+	var dst, callerIdNumber string
+	resourceIds := make([]int, 0, 0)
+	var allowCall bool = true
+	var flip *model.AttemptFlipResource
+
+retry_:
+
+	if allowCall {
+		dst = attempt.resource.Gateway().Endpoint(attempt.Destination())
+		callerIdNumber = attempt.Display()
+	} else {
+		//error/REQUESTED_CHAN_UNAVAIL
+		dst = "null"
+		callerIdNumber = ""
+	}
 
 	attempt.Log("JOINED")
 
@@ -160,18 +179,28 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 
 	attempt.Log("make call")
 
-	if queue.Recordings {
-		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
-	}
+	if allowCall {
 
-	if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
-		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-			AppName: "park",
-		})
-	}
+		if queue.Recordings {
+			queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
+		}
 
-	if attempt.communication.Dtmf != nil {
-		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+		if !queue.SetAmdCall(callRequest, queue.Amd, "park") {
+			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+				AppName: "park",
+			})
+		}
+
+		if attempt.communication.Dtmf != nil {
+			callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
+		}
+	} else {
+		callRequest.Applications = []*model.CallRequestApplication{
+			{
+				AppName: "hangup",
+				Args:    "REQUESTED_CHAN_UNAVAIL",
+			},
+		}
 	}
 
 	attempt.memberChannel = mCall
@@ -202,7 +231,44 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 	}
 	queue.CallCheckResourceError(attempt.resource, mCall)
 
-	if !queue.queueManager.SendAfterDistributeSchema(attempt) {
+	if res, ok := attempt.AfterDistributeSchema(); ok {
+		if res.Status == AttemptResultSuccess {
+			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
+		} else if res.Type == model.SchemaResultTypeRetry && retryCounter < maxRetryCount {
+			resourceIds = append(resourceIds, attempt.resource.Id())
+			flip, err = queue.queueManager.FlipAttemptResource(attempt, resourceIds)
+			if err != nil {
+				attempt.Log(fmt.Sprintf("retry %d, error: %s", retryCounter, err.Error()))
+			}
+
+			retryCounter++
+			attempt.AddVariables(map[string]string{
+				"cc_retry_count": fmt.Sprintf("%d", retryCounter),
+			})
+
+			if err != nil || flip.ResourceId == nil {
+				queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+			} else {
+				allowCall = flip.AllowCall != nil && *flip.AllowCall
+				if allowCall && res.RetrySleep > 0 && res.RetrySleep < maxRetrySleep {
+					sl := time.Millisecond * time.Duration(res.RetrySleep)
+					attempt.Log(fmt.Sprintf("retry %d sleep %v", retryCounter, sl))
+					c := time.NewTimer(sl)
+
+					select {
+					case <-c.C:
+					case <-attempt.Context.Done():
+						c.Stop()
+					}
+				}
+				goto retry_
+			}
+		} else {
+			queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+		}
+
+		queue.queueManager.LeavingMember(attempt)
+	} else {
 		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 		queue.queueManager.LeavingMember(attempt)
 	}

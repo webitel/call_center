@@ -271,6 +271,12 @@ func (a *Attempt) Name() string {
 	return a.member.Name
 }
 
+func (a *Attempt) FlipResource(res *model.AttemptFlipResource) {
+	a.member.ResourceId = res.ResourceId
+	a.member.ResourceUpdatedAt = res.ResourceUpdatedAt
+	a.member.GatewayUpdatedAt = res.GatewayUpdatedAt
+}
+
 func (a *Attempt) Display() string {
 	if a.communication.Display != nil && *a.communication.Display != "" { //TODO
 		return *a.communication.Display

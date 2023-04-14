@@ -620,6 +620,65 @@ $$;
 
 
 --
+-- Name: cc_attempt_flip_next_resource(bigint, integer[]); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_attempt_flip_next_resource(attempt_id_ bigint, skip_resources integer[]) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+    declare destination_ varchar;
+            type_id_ int4;
+            queue_id_ int4;
+            cur_res_id_ int4;
+
+            resource_id_ int4;
+            resource_updated_at_ int8;
+            gateway_updated_at_ int8;
+            allow_call_ bool;
+begin
+    select a.destination->>'destination', (a.destination->'type'->>'id')::int, a.queue_id, a.resource_id
+    from call_center.cc_member_attempt a
+    where a.id = attempt_id_
+    into destination_, type_id_, queue_id_, cur_res_id_;
+
+    with r as (
+        select r.id,
+               r.updated_at                                 as resource_updated_at,
+               call_center.cc_view_timestamp(gw.updated_at) as gateway_updated_at,
+               r."limit" - coalesce(used.cnt, 0) > 0 as allow_call
+        from call_center.cc_queue_resource qr
+                 inner join call_center.cc_outbound_resource_group rq on rq.id = qr.resource_group_id
+                 inner join call_center.cc_outbound_resource_in_group rig on rig.group_id = rq.id
+                 inner join call_center.cc_outbound_resource r on r.id = rig.resource_id
+                 inner join directory.sip_gateway gw on gw.id = r.gateway_id
+                 LEFT JOIN LATERAL ( SELECT count(*) AS cnt
+                                     FROM (SELECT 1 AS cnt
+                                           FROM call_center.cc_member_attempt c_1
+                                           WHERE c_1.resource_id = r.id
+                                             AND (c_1.state::text <> ALL
+                                                  (ARRAY ['leaving'::character varying::text, 'processing'::character varying::text]))) c) used on true
+        where qr.queue_id = queue_id_
+          and rq.communication_id = type_id_
+          and (array_length(coalesce(r.patterns::text[], '{}'), 1) isnull or exists(select 1 from unnest(r.patterns::text[]) pts
+                  where destination_ similar to regexp_replace(regexp_replace(pts, 'x|X', '_', 'gi'), '\+', '\+', 'gi')))
+          and r.enabled
+          and not r.id = any(call_center.cc_array_merge(array[cur_res_id_::int], skip_resources))
+        order by r."limit" - coalesce(used.cnt, 0) > 0 desc nulls last, rig.priority desc
+        limit 1
+    )
+    update call_center.cc_member_attempt a
+        set resource_id = r.id
+    from r
+    where a.id = attempt_id_
+    returning r.id, r.resource_updated_at, r.gateway_updated_at, r.allow_call
+    into resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_;
+
+    return row(resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_);
+end
+$$;
+
+
+--
 -- Name: cc_attempt_leaving(bigint, character varying, character varying, integer, jsonb, integer, integer, boolean, character varying, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 

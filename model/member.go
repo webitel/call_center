@@ -56,7 +56,16 @@ type AttemptCallback struct {
 	Redial                      *bool
 }
 
+type SchemaResultType int
+
+const (
+	SchemaResultTypeSuccess SchemaResultType = iota
+	SchemaResultTypeAbandoned
+	SchemaResultTypeRetry
+)
+
 type SchemaResult struct {
+	Type                 SchemaResultType
 	Status               string
 	MaxAttempts          uint32
 	WaitBetweenRetries   uint32
@@ -66,6 +75,10 @@ type SchemaResult struct {
 	AgentId              int32
 	Display              bool
 	Description          string
+
+	RetrySleep        int32
+	RetryNextResource bool
+	RetryResourceId   int32
 }
 
 type AttemptLeaving struct {
@@ -113,6 +126,13 @@ type AttemptReportingTimeout struct {
 	Channel        string `json:"channel" db:"channel"`
 	DomainId       int64  `json:"domain_id" db:"domain_id"`
 	AfterSchemaId  *int   `json:"after_schema_id" db:"after_schema_id"`
+}
+
+type AttemptFlipResource struct {
+	ResourceId        *int64 `json:"resource_id" db:"resource_id"`
+	ResourceUpdatedAt *int64 `json:"resource_updated_at" db:"resource_updated_at"`
+	GatewayUpdatedAt  *int64 `json:"gateway_updated_at" db:"gateway_updated_at"`
+	AllowCall         *bool  `json:"allow_call" db:"allow_call"`
 }
 
 type EventAttempt struct {

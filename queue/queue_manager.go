@@ -1042,6 +1042,22 @@ func (queueManager *QueueManager) CancelAgentDistribute(agentId int32) *model.Ap
 	return nil
 }
 
+func (queueManager *QueueManager) FlipAttemptResource(attempt *Attempt, skipp []int) (*model.AttemptFlipResource, *model.AppError) {
+	res, err := queueManager.store.Member().FlipResource(attempt.Id(), skipp)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.ResourceId == nil {
+		return res, nil
+	}
+
+	attempt.FlipResource(res)
+	attempt.resource = queueManager.GetAttemptResource(attempt)
+
+	return res, nil
+}
+
 // waitTimeout waits for the waitgroup for the specified max timeout.
 // Returns true if waiting timed out.
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {

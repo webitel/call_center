@@ -864,3 +864,23 @@ where c.agent_id in (
 
 	return nil
 }
+
+func (s *SqlMemberStore) FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError) {
+	var res *model.AttemptFlipResource
+	err := s.GetMaster().SelectOne(&res, `select x.resource_id,
+       x.resource_updated_at,
+       x.gateway_updated_at,
+       x.allow_call
+from call_center.cc_attempt_flip_next_resource(:AttemptId::int8, :SkippResources::int[])
+    as x(resource_id int, resource_updated_at int8, gateway_updated_at int8, allow_call bool)`, map[string]interface{}{
+		"AttemptId":      attemptId,
+		"SkippResources": pq.Array(skippResources),
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.FlipResource", "store.sql_member.flip_resource.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}

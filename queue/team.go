@@ -179,7 +179,9 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	attempt.Log(fmt.Sprintf("reporting %v", agentSendReporting))
 
 	if agentSendReporting {
-		attempt.SetResult(AttemptResultSuccess)
+		if attempt.Result() == "" {
+			attempt.SetResult(AttemptResultSuccess)
+		}
 		return
 	}
 
