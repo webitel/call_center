@@ -97,7 +97,7 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
 }
 
 // Change attempt settings
-func (a *Attempt) AfterDistributeSchema() (*SchemaResult, bool) {
+func (a *Attempt) AfterDistributeSchema() (*model.SchemaResult, bool) {
 	if a.queue == nil {
 		return nil, false
 	}
@@ -267,6 +267,12 @@ func (a *Attempt) Name() string {
 	return a.member.Name
 }
 
+func (a *Attempt) FlipResource(res *model.AttemptFlipResource) {
+	a.member.ResourceId = res.ResourceId
+	a.member.ResourceUpdatedAt = res.ResourceUpdatedAt
+	a.member.GatewayUpdatedAt = res.GatewayUpdatedAt
+}
+
 func (a *Attempt) Display() string {
 	if a.communication.Display != nil && *a.communication.Display != "" { //TODO
 		return *a.communication.Display
@@ -359,6 +365,15 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 
 	if ccResult := a.Result(); ccResult != "" {
 		res["cc_result"] = ccResult
+	}
+
+	resourceId := a.ResourceId()
+	if resourceId != nil {
+		res["cc_resource_id"] = fmt.Sprintf("%d", *resourceId)
+	}
+
+	if a.member != nil && a.member.CommunicationIdx != nil {
+		res["communication_id"] = fmt.Sprintf("%d", *a.member.CommunicationIdx)
 	}
 
 	if a.queue != nil {
@@ -473,4 +488,19 @@ func (a *Attempt) Close() {
 			a.Log(err.Error())
 		}
 	}
+}
+
+func (a *Attempt) AddVariables(vars map[string]string) {
+	a.Lock()
+	if a.member.Variables == nil {
+		a.member.Variables = make(map[string]string)
+	}
+
+	for k, v := range vars {
+		a.member.Variables[k] = v
+	}
+
+	a.Unlock()
+
+	return
 }

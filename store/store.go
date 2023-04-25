@@ -91,6 +91,7 @@ type MemberStore interface {
 	StoreForm(attemptId int64, form []byte, fields map[string]string) *model.AppError
 
 	CleanAttempts(nodeId string) *model.AppError
+	FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError)
 }
 
 type AgentStore interface {

@@ -175,7 +175,7 @@ func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	return false
 }
 
-func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool) {
+func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
 	if att.queue == nil || att.queue.AfterSchemaId() == nil {
 
 		return nil, false
@@ -209,13 +209,15 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:
-		return &SchemaResult{
+		return &model.SchemaResult{
+			Type:      model.SchemaResultTypeSuccess,
 			Status:    AttemptResultSuccess,
 			Variables: res.Variables,
 		}, true
 
 	case *flow.ResultAttemptResponse_Abandoned_:
-		return &SchemaResult{
+		return &model.SchemaResult{
+			Type:                 model.SchemaResultTypeAbandoned,
 			Status:               v.Abandoned.Status,
 			MaxAttempts:          v.Abandoned.MaxAttempts,
 			WaitBetweenRetries:   v.Abandoned.WaitBetweenRetries,
@@ -225,6 +227,14 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*SchemaResult, bool
 			AgentId:              v.Abandoned.AgentId,
 			Display:              v.Abandoned.Display,
 			Description:          v.Abandoned.Description,
+		}, true
+
+	case *flow.ResultAttemptResponse_Retry_:
+		return &model.SchemaResult{
+			Type:              model.SchemaResultTypeRetry,
+			RetrySleep:        v.Retry.Sleep,
+			RetryNextResource: v.Retry.NextResource,
+			RetryResourceId:   v.Retry.ResourceId,
 		}, true
 
 	}

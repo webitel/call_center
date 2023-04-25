@@ -41,6 +41,7 @@ type MemberCommunication struct {
 	Display     *string       `json:"display"`
 	Description string        `json:"description"`
 	Attempts    int           `json:"attempts"`
+	Dtmf        *string       `json:"dtmf"`
 }
 
 type AttemptCallback struct {
@@ -55,6 +56,31 @@ type AttemptCallback struct {
 	Redial                      *bool
 }
 
+type SchemaResultType int
+
+const (
+	SchemaResultTypeSuccess SchemaResultType = iota
+	SchemaResultTypeAbandoned
+	SchemaResultTypeRetry
+)
+
+type SchemaResult struct {
+	Type                 SchemaResultType
+	Status               string
+	MaxAttempts          uint32
+	WaitBetweenRetries   uint32
+	ExcludeCurrentNumber bool
+	Redial               bool
+	Variables            map[string]string
+	AgentId              int32
+	Display              bool
+	Description          string
+
+	RetrySleep        int32
+	RetryNextResource bool
+	RetryResourceId   int32
+}
+
 type AttemptLeaving struct {
 	Timestamp       int64   `json:"timestamp" db:"timestamp"`
 	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
@@ -62,10 +88,11 @@ type AttemptLeaving struct {
 }
 
 type MemberAttempt struct {
-	Id             int64 `json:"id" db:"id"`
-	QueueId        int   `json:"queue_id" db:"queue_id"`
-	QueueUpdatedAt int64 `json:"queue_updated_at" db:"queue_updated_at"`
-	Seq            *int  `json:"seq" db:"seq"`
+	Id               int64 `json:"id" db:"id"`
+	QueueId          int   `json:"queue_id" db:"queue_id"`
+	QueueUpdatedAt   int64 `json:"queue_updated_at" db:"queue_updated_at"`
+	Seq              *int  `json:"seq" db:"seq"`
+	CommunicationIdx *int  `json:"communication_idx" db:"communication_idx"`
 
 	QueueCount        int `json:"queue_count" db:"queue_count"`
 	QueueActiveCount  int `json:"queue_active_count" db:"queue_active_count"`
@@ -98,6 +125,13 @@ type AttemptReportingTimeout struct {
 	UserId         int64  `json:"user_id" db:"user_id"`
 	Channel        string `json:"channel" db:"channel"`
 	DomainId       int64  `json:"domain_id" db:"domain_id"`
+}
+
+type AttemptFlipResource struct {
+	ResourceId        *int64 `json:"resource_id" db:"resource_id"`
+	ResourceUpdatedAt *int64 `json:"resource_updated_at" db:"resource_updated_at"`
+	GatewayUpdatedAt  *int64 `json:"gateway_updated_at" db:"gateway_updated_at"`
+	AllowCall         *bool  `json:"allow_call" db:"allow_call"`
 }
 
 type EventAttempt struct {
