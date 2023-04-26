@@ -619,7 +619,7 @@ where x.channel notnull`, map[string]interface{}{
 		code := extractCodeFromErr(err)
 		if code == http.StatusNotFound {
 			return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.not_found", nil,
-				"too many cc_attempt_end_reporting function calls", code)
+				"too many reporting function calls", code)
 		} else {
 			return nil, model.NewAppError("SqlMemberStore.Reporting", "store.sql_member.reporting.app_error", nil,
 				err.Error(), code)
