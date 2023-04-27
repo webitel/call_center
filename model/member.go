@@ -128,10 +128,11 @@ type AttemptReportingTimeout struct {
 }
 
 type AttemptFlipResource struct {
-	ResourceId        *int64 `json:"resource_id" db:"resource_id"`
-	ResourceUpdatedAt *int64 `json:"resource_updated_at" db:"resource_updated_at"`
-	GatewayUpdatedAt  *int64 `json:"gateway_updated_at" db:"gateway_updated_at"`
-	AllowCall         *bool  `json:"allow_call" db:"allow_call"`
+	ResourceId        *int64  `json:"resource_id" db:"resource_id"`
+	ResourceUpdatedAt *int64  `json:"resource_updated_at" db:"resource_updated_at"`
+	GatewayUpdatedAt  *int64  `json:"gateway_updated_at" db:"gateway_updated_at"`
+	AllowCall         *bool   `json:"allow_call" db:"allow_call"`
+	CallId            *string `json:"call_id" db:"call_id"`
 }
 
 type EventAttempt struct {

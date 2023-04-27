@@ -165,7 +165,7 @@ $$;
 -- Name: cc_attempt_flip_next_resource(bigint, integer[]); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_attempt_flip_next_resource(attempt_id_ bigint, skip_resources integer[]) RETURNS record
+CREATE or replace FUNCTION call_center.cc_attempt_flip_next_resource(attempt_id_ bigint, skip_resources integer[]) RETURNS record
     LANGUAGE plpgsql
 AS $$
 declare destination_ varchar;
@@ -177,6 +177,7 @@ declare destination_ varchar;
         resource_updated_at_ int8;
         gateway_updated_at_ int8;
         allow_call_ bool;
+        call_id_ varchar;
 begin
     select a.destination->>'destination', (a.destination->'type'->>'id')::int, a.queue_id, a.resource_id
     from call_center.cc_member_attempt a
@@ -209,12 +210,13 @@ begin
         limit 1
     )
     update call_center.cc_member_attempt a
-    set resource_id = r.id
+    set resource_id = r.id,
+        member_call_id = uuid_generate_v4()
     from r
     where a.id = attempt_id_
-    returning r.id, r.resource_updated_at, r.gateway_updated_at, r.allow_call
-        into resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_;
+    returning r.id, r.resource_updated_at, r.gateway_updated_at, r.allow_call, a.member_call_id
+        into resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_, call_id_;
 
-    return row(resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_);
+    return row(resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_, call_id_);
 end
 $$;
