@@ -626,15 +626,16 @@ $$;
 CREATE FUNCTION call_center.cc_attempt_flip_next_resource(attempt_id_ bigint, skip_resources integer[]) RETURNS record
     LANGUAGE plpgsql
     AS $$
-    declare destination_ varchar;
-            type_id_ int4;
-            queue_id_ int4;
-            cur_res_id_ int4;
+declare destination_ varchar;
+        type_id_ int4;
+        queue_id_ int4;
+        cur_res_id_ int4;
 
-            resource_id_ int4;
-            resource_updated_at_ int8;
-            gateway_updated_at_ int8;
-            allow_call_ bool;
+        resource_id_ int4;
+        resource_updated_at_ int8;
+        gateway_updated_at_ int8;
+        allow_call_ bool;
+        call_id_ varchar;
 begin
     select a.destination->>'destination', (a.destination->'type'->>'id')::int, a.queue_id, a.resource_id
     from call_center.cc_member_attempt a
@@ -660,20 +661,21 @@ begin
         where qr.queue_id = queue_id_
           and rq.communication_id = type_id_
           and (array_length(coalesce(r.patterns::text[], '{}'), 1) isnull or exists(select 1 from unnest(r.patterns::text[]) pts
-                  where destination_ similar to regexp_replace(regexp_replace(pts, 'x|X', '_', 'gi'), '\+', '\+', 'gi')))
+                                                                                    where destination_ similar to regexp_replace(regexp_replace(pts, 'x|X', '_', 'gi'), '\+', '\+', 'gi')))
           and r.enabled
           and not r.id = any(call_center.cc_array_merge(array[cur_res_id_::int], skip_resources))
         order by r."limit" - coalesce(used.cnt, 0) > 0 desc nulls last, rig.priority desc
         limit 1
     )
     update call_center.cc_member_attempt a
-        set resource_id = r.id
+    set resource_id = r.id,
+        member_call_id = uuid_generate_v4()
     from r
     where a.id = attempt_id_
-    returning r.id, r.resource_updated_at, r.gateway_updated_at, r.allow_call
-    into resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_;
+    returning r.id, r.resource_updated_at, r.gateway_updated_at, r.allow_call, a.member_call_id
+        into resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_, call_id_;
 
-    return row(resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_);
+    return row(resource_id_, resource_updated_at_, gateway_updated_at_, allow_call_, call_id_);
 end
 $$;
 
@@ -5392,6 +5394,7 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
     t.bucket_id,
     t.member_id,
     t.agent_id,
+    t.seq AS attempts,
     c.amd_result
    FROM ((((((((call_center.cc_member_attempt_history t
      LEFT JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))

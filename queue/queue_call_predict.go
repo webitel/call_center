@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxRetryCount = 5
+	maxRetryCount = 10
 	maxRetrySleep = 60 * 1000
 )
 
@@ -86,6 +86,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 	resourceIds := make([]int, 0, 0)
 	var allowCall bool = true
 	var flip *model.AttemptFlipResource
+	var lastExec = false
 
 retry_:
 
@@ -231,6 +232,8 @@ retry_:
 	}
 	queue.CallCheckResourceError(attempt.resource, mCall)
 
+last_:
+
 	if res, ok := attempt.AfterDistributeSchema(); ok {
 		if res.Status == AttemptResultSuccess {
 			queue.queueManager.SetAttemptSuccess(attempt, res.Variables)
@@ -247,7 +250,15 @@ retry_:
 			})
 
 			if err != nil || flip.ResourceId == nil {
-				queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+				if lastExec {
+					queue.queueManager.SetAttemptAbandonedWithParams(attempt, attempt.maxAttempts, attempt.waitBetween, res.Variables)
+				} else {
+					lastExec = true
+					attempt.AddVariables(map[string]string{
+						"cc_retry_last": "true",
+					})
+					goto last_
+				}
 			} else {
 				allowCall = flip.AllowCall != nil && *flip.AllowCall
 				if allowCall && res.RetrySleep > 0 && res.RetrySleep < maxRetrySleep {

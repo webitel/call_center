@@ -871,9 +871,10 @@ func (s *SqlMemberStore) FlipResource(attemptId int64, skippResources []int) (*m
 	err := s.GetMaster().SelectOne(&res, `select x.resource_id,
        x.resource_updated_at,
        x.gateway_updated_at,
-       x.allow_call
+       x.allow_call,
+	   x.call_id	
 from call_center.cc_attempt_flip_next_resource(:AttemptId::int8, :SkippResources::int[])
-    as x(resource_id int, resource_updated_at int8, gateway_updated_at int8, allow_call bool)`, map[string]interface{}{
+    as x(resource_id int, resource_updated_at int8, gateway_updated_at int8, allow_call bool, call_id varchar)`, map[string]interface{}{
 		"AttemptId":      attemptId,
 		"SkippResources": pq.Array(skippResources),
 	})

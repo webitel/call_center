@@ -1054,6 +1054,7 @@ func (queueManager *QueueManager) FlipAttemptResource(attempt *Attempt, skipp []
 
 	attempt.FlipResource(res)
 	attempt.resource = queueManager.GetAttemptResource(attempt)
+	attempt.communication.Display = model.NewString(attempt.resource.GetDisplay())
 
 	return res, nil
 }
