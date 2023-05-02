@@ -4685,6 +4685,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
                 WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5])) AND (c.bridged_at IS NOT NULL)))) THEN 'agent_dropped'::text
+                WHEN ((c.bridged_at IS NULL) AND ((c.hangup_by)::text = 'B'::text)) THEN 'ended'::text
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
