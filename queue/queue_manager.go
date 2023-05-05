@@ -790,7 +790,7 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 		var conv *chat.Conversation
 		if a != nil {
 			if conv, err = queueManager.GetChat(a.memberChannel.Id()); err == nil {
-				err = conv.Reporting()
+				err = conv.Reporting(false)
 			}
 		}
 	case model.QueueChannelTask:
@@ -803,7 +803,7 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 	return
 }
 
-func (queueManager *QueueManager) setChannelReporting(attempt *Attempt, ccCause string) (err *model.AppError) {
+func (queueManager *QueueManager) setChannelReporting(attempt *Attempt, ccCause string, leave bool) (err *model.AppError) {
 
 	if attempt.agentChannel == nil {
 		return errNotFoundConnection
@@ -823,7 +823,7 @@ func (queueManager *QueueManager) setChannelReporting(attempt *Attempt, ccCause 
 	case model.QueueChannelChat:
 		var conv *chat.Conversation
 		if conv, err = queueManager.GetChat(attempt.agentChannel.Id()); err == nil {
-			err = conv.Reporting()
+			err = conv.Reporting(leave)
 		} else {
 			return errNotFoundConnection
 		}
@@ -868,7 +868,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 		// TODO [biz]
 		if queueManager.waitChannelClose && !system {
 			attempt.SetCallback(&result)
-			err := queueManager.setChannelReporting(attempt, result.Status)
+			err := queueManager.setChannelReporting(attempt, result.Status, true)
 			if err != nil {
 				attempt.Log(err.Error())
 			}

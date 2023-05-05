@@ -150,6 +150,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	attempt.memberChannel = call
+	attempt.agentChannel = call
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",

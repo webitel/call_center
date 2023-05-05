@@ -116,7 +116,7 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	return nil
 }
 
-func (c *Conversation) Reporting() *model.AppError {
+func (c *Conversation) Reporting(noLeave bool) *model.AppError {
 	sess := c.LastSession()
 	if sess.StopAt != 0 {
 		return model.NewAppError("Chat.Reporting", "chat.reporting.valid.stop_at", nil, "Chat is closed", http.StatusBadRequest)
@@ -125,9 +125,12 @@ func (c *Conversation) Reporting() *model.AppError {
 	c.Lock()
 	c.reportingAt = model.GetMillis()
 	c.Unlock()
-	err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId)
-	if err != nil {
-		return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
+
+	if !noLeave {
+		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId)
+		if err != nil {
+			return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	return nil

@@ -153,6 +153,8 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		}),
 	})
 
+	attempt.agentChannel = call
+
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	call.Invite()
 

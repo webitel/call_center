@@ -197,6 +197,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 					switch state {
 					case chat.ChatStateInvite:
 						attempt.Log("invited")
+						attempt.agentChannel = mSess
 						team.Offering(attempt, agent, aSess, conv.MemberSession())
 					case chat.ChatStateDeclined:
 						attempt.Log(fmt.Sprintf("conversation decline %s", conv.LastSession().Id()))
