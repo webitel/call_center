@@ -4682,10 +4682,10 @@ CREATE VIEW call_center.cc_calls_history_list AS
             WHEN (c.parent_id IS NOT NULL) THEN ''::text
             WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
             WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
+            WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
                 WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5])) AND (c.bridged_at IS NOT NULL)))) THEN 'agent_dropped'::text
-                WHEN ((c.bridged_at IS NULL) AND ((c.hangup_by)::text = 'B'::text)) THEN 'ended'::text
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
@@ -5354,7 +5354,8 @@ CREATE VIEW call_center.cc_member_view_attempt AS
     t.bucket_id,
     t.member_id,
     t.agent_id,
-    t.joined_at AS joined_at_timestamp
+    t.joined_at AS joined_at_timestamp,
+    t.seq AS attempts
    FROM (((((((call_center.cc_member_attempt t
      LEFT JOIN call_center.cc_queue cq ON ((t.queue_id = cq.id)))
      LEFT JOIN call_center.cc_member cm ON ((t.member_id = cm.id)))
@@ -7602,6 +7603,13 @@ CREATE INDEX cc_calls_history_from_number_idx ON call_center.cc_calls_history US
 
 
 --
+-- Name: cc_calls_history_gateway_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_gateway_id_index ON call_center.cc_calls_history USING btree (gateway_id) WHERE (gateway_id IS NOT NULL);
+
+
+--
 -- Name: cc_calls_history_gateway_ids_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -8292,6 +8300,13 @@ CREATE UNIQUE INDEX cc_queue_domain_udx ON call_center.cc_queue USING btree (id,
 --
 
 CREATE INDEX cc_queue_enabled_priority_index ON call_center.cc_queue USING btree (enabled, priority DESC);
+
+
+--
+-- Name: cc_queue_events_queue_id_event_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_queue_events_queue_id_event_uindex ON call_center.cc_queue_events USING btree (queue_id, event) WHERE enabled;
 
 
 --

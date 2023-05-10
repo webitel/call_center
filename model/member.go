@@ -234,6 +234,13 @@ type InboundMember struct {
 	Priority int    `json:"priority"`
 }
 
+type ExpiredMember struct {
+	Variables map[string]string `json:"variables" db:"variables"`
+	SchemaId  uint32            `json:"schema_id" db:"schema_id"`
+	DomainId  int64             `json:"domain_id" db:"domain_id"`
+	MemberId  int64             `json:"member_id" db:"member_id"`
+}
+
 func (ma *MemberAttempt) IsTimeout() bool {
 	return ma.Result != nil && *ma.Result == CALL_HANGUP_TIMEOUT
 }

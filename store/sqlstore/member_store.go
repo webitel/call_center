@@ -797,20 +797,42 @@ func (s *SqlMemberStore) CancelAgentDistribute(agentId int32) ([]int64, *model.A
 	return res, nil
 }
 
-func (s *SqlMemberStore) SetExpired() ([]int64, *model.AppError) {
-	var res []int64
+func (s *SqlMemberStore) SetExpired(limit int) ([]*model.ExpiredMember, *model.AppError) {
+	var res []*model.ExpiredMember
 	_, err := s.GetMaster().Select(&res, `
-			update call_center.cc_member m1
-		set stop_at = now(),
-			stop_cause = 'expired'
-		from (
-			select id
+			with upd as (
+			update call_center.cc_member m
+			set stop_cause = 'expired',
+				stop_at = now()
+			from (select m.id,
+				   case when e.id notnull  then
+					   jsonb_build_object('member_name', m.name) ||
+					   jsonb_build_object('member_id', m.id::text) ||
+					   jsonb_build_object('member_stop_cause', 'expired') ||
+					   jsonb_build_object('cc_result', 'expired') ||
+					   jsonb_build_object('queue_id', m.queue_id::text) ||
+					   jsonb_build_object('cc_attempt_seq', m.attempts::text) ||
+					   coalesce(m.variables, '{}') ||
+					   coalesce(q.variables, '{}')
+					   end variables,
+				  e.schema_id,
+				  m.id as member_id,
+				  q.domain_id
 			from call_center.cc_member m
+				left join call_center.cc_queue_events e on e.queue_id = m.queue_id and e.enabled and e.event = 'leaving'
+				left join call_center.cc_queue q on q.id = e.queue_id
 			where m.expire_at < now()
 				and m.stop_at isnull
-			limit 500
-		) m
-		where m.id = m1.id`)
+			order by m.expire_at asc
+			limit :Limit) t
+			where t.id = m.id
+			returning t.*
+		)
+		select upd.variables, upd.schema_id, upd.domain_id, upd.member_id
+		from upd
+		where upd.variables notnull`, map[string]interface{}{
+		"Limit": limit,
+	})
 
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.SetExpired", "store.sql_member.set_expired.app_error", nil,

@@ -22,6 +22,7 @@ type DialingImpl struct {
 	queueManager      *QueueManager
 	resourceManager   *ResourceManager
 	statisticsManager *StatisticsManager
+	expiredManager    *ExpiredManager
 	agentManager      agent_manager.AgentManager
 	callManager       call_manager.CallManager
 	startOnce         sync.Once
@@ -34,6 +35,7 @@ func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentMan
 	dialing.agentManager = agentManager
 	dialing.resourceManager = NewResourceManager(app)
 	dialing.statisticsManager = NewStatisticsManager(s)
+	dialing.expiredManager = NewExpiredManager(app, s)
 	dialing.queueManager = NewQueueManager(app, s, m, callManager, dialing.resourceManager, agentManager)
 	return &dialing
 }
@@ -50,6 +52,7 @@ func (dialing *DialingImpl) Start() {
 		go dialing.watcher.Start()
 		go dialing.queueManager.Start()
 		go dialing.statisticsManager.Start()
+		go dialing.expiredManager.Start()
 	})
 }
 
@@ -57,6 +60,7 @@ func (d *DialingImpl) Stop() {
 	d.queueManager.Stop()
 	d.watcher.Stop()
 	d.statisticsManager.Stop()
+	d.expiredManager.Stop()
 }
 
 func (d *DialingImpl) routeData() {
