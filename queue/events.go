@@ -37,9 +37,9 @@ type Distribute struct {
 }
 
 type Offering struct {
-	MemberChannelId *string `json:"member_channel_id"`
-	AgentChannelId  *string `json:"agent_channel_id"`
-	AutoAnswer      bool    `json:"auto_answer"`
+	MemberChannelId *string     `json:"member_channel_id"`
+	AgentChannelId  *string     `json:"agent_channel_id"`
+	AutoAnswer      interface{} `json:"auto_answer"`
 }
 
 type Missed struct {
@@ -211,7 +211,7 @@ func NewOfferingEvent(a *Attempt, userId int64, timestamp int64, aChannel, mChan
 	}
 
 	if a.queue != nil {
-		e.Offering.AutoAnswer = a.queue.AutoAnswer()
+		e.Offering.AutoAnswer = a.queue.AutoAnswerValue()
 	}
 
 	return model.NewEvent("channel", userId, e)

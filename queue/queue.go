@@ -40,6 +40,7 @@ type QueueObject interface {
 	HasForm() bool
 	StartProcessingForm(attempt *Attempt)
 	AutoAnswer() bool
+	AutoAnswerValue() interface{}
 	RingtoneUri() string
 	AmdPlaybackUri() *string // todo move to amd
 }
@@ -270,6 +271,14 @@ func (q *BaseQueue) AutoAnswer() bool {
 	}
 
 	return false
+}
+
+func (q *BaseQueue) AutoAnswerValue() interface{} {
+	if v, ok := q.variables[model.QueueAutoAnswerVariable]; ok {
+		return v
+	}
+
+	return nil
 }
 
 func (q *BaseQueue) Domain() string {
