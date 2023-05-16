@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.2 (Debian 15.2-1.pgdg110+1)
--- Dumped by pg_dump version 15.2 (Debian 15.2-1.pgdg110+1)
+-- Dumped from database version 15.3 (Debian 15.3-1.pgdg110+1)
+-- Dumped by pg_dump version 15.3 (Debian 15.3-1.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4685,7 +4685,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
             WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
-                WHEN (((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5])) AND (c.bridged_at IS NOT NULL)))) THEN 'agent_dropped'::text
+                WHEN ((((c.cause)::text = 'NORMAL_CLEARING'::text) AND (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL))) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5, 1])) AND (c.bridged_at IS NOT NULL))) THEN 'agent_dropped'::text
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
@@ -6184,6 +6184,7 @@ CREATE VIEW call_center.cc_skill_in_agent_view AS
     sa.updated_at,
     call_center.cc_get_lookup((cs.id)::bigint, cs.name) AS skill,
     call_center.cc_get_lookup((ca.id)::bigint, (COALESCE(uu.name, (uu.username)::text))::character varying) AS agent,
+    call_center.cc_get_lookup(t.id, t.name) AS team,
     sa.capacity,
     sa.enabled,
     ca.domain_id,
@@ -6191,8 +6192,9 @@ CREATE VIEW call_center.cc_skill_in_agent_view AS
     cs.name AS skill_name,
     sa.agent_id,
     COALESCE(u.name, (u.username)::text) AS agent_name
-   FROM (((((call_center.cc_skill_in_agent sa
+   FROM ((((((call_center.cc_skill_in_agent sa
      LEFT JOIN call_center.cc_agent ca ON ((sa.agent_id = ca.id)))
+     LEFT JOIN call_center.cc_team t ON ((t.id = ca.team_id)))
      LEFT JOIN directory.wbt_user uu ON ((uu.id = ca.user_id)))
      LEFT JOIN call_center.cc_skill cs ON ((sa.skill_id = cs.id)))
      LEFT JOIN directory.wbt_user c ON ((c.id = sa.created_by)))
@@ -6207,7 +6209,10 @@ CREATE VIEW call_center.cc_skill_view AS
  SELECT c.id,
     c.name,
     c.description,
-    c.domain_id
+    c.domain_id,
+    ( SELECT count(DISTINCT sa.agent_id) AS count
+           FROM call_center.cc_skill_in_agent sa
+          WHERE ((sa.skill_id = c.id) AND sa.enabled)) AS agents
    FROM call_center.cc_skill c;
 
 
