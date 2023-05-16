@@ -45,6 +45,11 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 		return model.NewAppError("SetAgentLogout", "app.agent.set_logout.agent_logged_out", nil, "", http.StatusBadRequest)
 	}
 
+	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId, []int{model.QueueTypeProgressiveCall}); chs != nil {
+		//TODO Task & chat
+		app.hangupNoAnswerChannels(chs)
+	}
+
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
@@ -64,7 +69,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "already payload", http.StatusBadRequest)
 	}
 
-	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId); chs != nil {
+	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId, nil); chs != nil {
 		//TODO Task & chat
 		app.hangupNoAnswerChannels(chs)
 	}

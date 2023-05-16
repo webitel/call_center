@@ -116,7 +116,7 @@ type AgentStore interface {
 	RefreshAgentPauseCauses() *model.AppError
 	RefreshAgentStatistics() *model.AppError
 
-	GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError)
+	GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError)
 
 	OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError)
 	LosePredictAttempt(id int) *model.AppError

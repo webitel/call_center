@@ -3,6 +3,7 @@ package sqlstore
 import (
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"net/http"
@@ -179,14 +180,19 @@ where c.agent_id = ag.id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) GetNoAnswerChannels(agentId int) ([]*model.CallNoAnswer, *model.AppError) {
+func (s SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError) {
 	var res []*model.CallNoAnswer
 	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
 from call_center.cc_member_attempt at
-    left join call_center.cc_queue q on q.id = at.queue_id
-    left join call_center.cc_calls c on case when q.type = 4 then  c.id = at.member_call_id else c.id = at.agent_call_id end
-where at.agent_id = :AgentId and c.answered_at isnull and c.id notnull`, map[string]interface{}{
-		"AgentId": agentId,
+         left join call_center.cc_queue q on q.id = at.queue_id
+         left join call_center.cc_calls c
+                   on case when q.type = 4 then c.id = at.member_call_id else c.id = at.agent_call_id end
+where at.agent_id = :AgentId
+  and c.answered_at isnull
+  and c.id notnull
+  and (:QueueTypes::smallint[] isnull or q.type = any(:QueueTypes::smallint[]))`, map[string]interface{}{
+		"AgentId":    agentId,
+		"QueueTypes": pq.Array(queueTypes),
 	})
 
 	if err != nil {
