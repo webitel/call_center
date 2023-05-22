@@ -1090,10 +1090,10 @@ SET default_table_access_method = heap;
 --
 
 CREATE UNLOGGED TABLE call_center.cc_calls (
-    id character varying NOT NULL,
+    id uuid NOT NULL,
     direction character varying,
     destination character varying,
-    parent_id character varying,
+    parent_id uuid,
     state character varying NOT NULL,
     app_id character varying NOT NULL,
     from_type character varying,
@@ -1109,7 +1109,7 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     hold_sec integer DEFAULT 0 NOT NULL,
     cause character varying,
     sip_code smallint,
-    bridged_id character varying,
+    bridged_id uuid,
     user_id bigint,
     gateway_id bigint,
     queue_id integer,
@@ -1124,8 +1124,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     hangup_at timestamp with time zone,
     created_at timestamp with time zone,
     hangup_by character varying,
-    transfer_from character varying,
-    transfer_to character varying,
+    transfer_from uuid,
+    transfer_to uuid,
     amd_result character varying,
     amd_duration interval,
     tags character varying[],
@@ -1168,15 +1168,15 @@ $$;
 
 
 --
--- Name: cc_call_set_bridged(character varying, character varying, timestamp with time zone, character varying, bigint, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
+-- Name: cc_call_set_bridged(uuid, character varying, timestamp with time zone, character varying, bigint, uuid); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ character varying, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ character varying)
+CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ uuid)
     LANGUAGE plpgsql
     AS $$
 declare
-        transfer_to_ varchar;
-        transfer_from_ varchar;
+        transfer_to_ uuid;
+        transfer_from_ uuid;
 begin
     update call_center.cc_calls cc
     set bridged_id = c.bridged_id,
@@ -1205,7 +1205,7 @@ begin
                     b2.id bridged_id,
                     b2o.*
              from call_center.cc_calls b
-                      left join call_center.cc_calls b2 on b2.id = call_id_
+                      left join call_center.cc_calls b2 on b2.id = call_id_::uuid
                       left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
              where b.id = call_bridged_id_
          ) c
@@ -1249,7 +1249,7 @@ begin
              from call_center.cc_calls b
                       left join call_center.cc_calls b2 on b2.id = call_bridged_id_
                       left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
-             where b.id = call_id_
+             where b.id = call_id_::uuid
          ) c
     where c.id = cc.id
     returning cc.transfer_from into transfer_from_;
@@ -1258,6 +1258,64 @@ begin
      transfer_from =  case when id = transfer_from_ then transfer_to_ end,
      transfer_to =  case when id = transfer_to_ then transfer_from_ end
     where id in (transfer_from_, transfer_to_);
+
+end;
+$$;
+
+
+--
+-- Name: cc_calls_history_drop_partition(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_calls_history_drop_partition() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    declare
+        r record;
+        sql varchar;
+begin
+        for r in (SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'call_center'
+    and table_name ilike 'cc_calls_history_new_%')
+        loop
+            sql = format('drop table call_center.%s', r.table_name);
+            execute sql;
+--             raise notice '%', sql;
+        end loop;
+
+end;
+$$;
+
+
+--
+-- Name: cc_calls_history_populate_partition(date, date); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_calls_history_populate_partition(from_date date, to_date date) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+    declare
+        r record;
+        sql varchar;
+begin
+        for r in (select x::date::text x1, (x::date + interval '1month')::date x2,
+       replace(x::date::text, '-', '_') || '_' || replace((x::date + interval '1month')::date::text, '-', '_') as suff_name
+from generate_series(from_date, to_date, interval '1 month') x
+where not exists(SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'call_center'
+    and table_name = 'cc_calls_history_new_' || replace(x::date::text, '-', '_') || '_' || replace((x::date + interval '1month')::date::text, '-', '_') ))
+        loop
+            sql = format('create table call_center.cc_calls_history_new_%s
+partition of call_center.cc_calls_history_new
+for values from (%s) to (%s)', r.suff_name,
+                quote_literal(r.x1),
+                quote_literal(r.x2)
+            );
+            execute sql;
+            raise notice '%', sql;
+        end loop;
 
 end;
 $$;
@@ -1606,7 +1664,7 @@ BEGIN
 
   select *
   from call_center.cc_calls c
-  where c.id = _call_id
+  where c.id = _call_id::uuid
 --   for update
   into _call;
 
@@ -1676,7 +1734,7 @@ BEGIN
   set team_id = _team_id_,
       attempt_id = _attempt.id,
       payload    = case when jsonb_typeof(variables_::jsonb) = 'object' then variables_ else coalesce(payload, '{}') end
-  where id = _call_id
+  where id = _call_id::uuid
   returning * into _call;
 
   if _call.id isnull or _call.direction isnull then
@@ -1772,7 +1830,7 @@ end if;
 
 select *
 from call_center.cc_calls c
-where c.id = _call_id
+where c.id = _call_id::uuid
 --   for update
     into _call;
 
@@ -1887,7 +1945,7 @@ set queue_id   = _attempt.queue_id,
     attempt_id = _attempt.id,
     payload    = case when jsonb_typeof(variables_::jsonb) = 'object' then variables_ else coalesce(payload, '{}') end, --coalesce(variables_, '{}'),
     grantee_id = _grantee_id
-where id = _call_id
+where id = _call_id::uuid
     returning * into _call;
 
 if
@@ -3685,10 +3743,10 @@ CREATE TABLE call_center.cc_audit_rate (
 --
 
 CREATE TABLE call_center.cc_calls_history (
-    id character varying NOT NULL,
+    id uuid NOT NULL,
     direction character varying,
     destination character varying,
-    parent_id character varying,
+    parent_id uuid,
     app_id character varying NOT NULL,
     from_type character varying,
     from_name character varying,
@@ -3703,7 +3761,7 @@ CREATE TABLE call_center.cc_calls_history (
     hold_sec integer DEFAULT 0,
     cause character varying,
     sip_code integer,
-    bridged_id character varying,
+    bridged_id uuid,
     gateway_id bigint,
     user_id integer,
     queue_id integer,
@@ -3722,8 +3780,8 @@ CREATE TABLE call_center.cc_calls_history (
     stored_at timestamp with time zone DEFAULT now() NOT NULL,
     rating smallint,
     notes text,
-    transfer_from character varying,
-    transfer_to character varying,
+    transfer_from uuid,
+    transfer_to uuid,
     amd_result character varying,
     amd_duration interval,
     grantee_id bigint,
@@ -3943,7 +4001,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
              JOIN call_center.cc_calls_history h ON ((h.user_id = agents.user_id)))
              LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
              LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
-             LEFT JOIN call_center.cc_calls_history pc ON (((pc.id)::text = (h.parent_id)::text)))
+             LEFT JOIN call_center.cc_calls_history pc ON ((pc.id = h.parent_id)))
           WHERE ((h.domain_id = agents.domain_id) AND (h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to"))
           GROUP BY h.user_id
         ), stats AS MATERIALIZED (
@@ -4648,7 +4706,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     cma.display,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
-          WHERE ((c.parent_id IS NULL) AND ((hp.parent_id)::text = (c.id)::text)))) AS has_children,
+          WHERE ((c.parent_id IS NULL) AND (hp.parent_id = c.id)))) AS has_children,
     (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
     c.grantee_id,
     holds.res AS hold,
@@ -4681,11 +4739,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
         CASE
             WHEN (c.parent_id IS NOT NULL) THEN ''::text
             WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
-            WHEN ((c.cause)::text = 'ORIGINATOR_CANCEL'::text) THEN 'cancelled'::text
+            WHEN (((c.cause)::text = 'ORIGINATOR_CANCEL'::text) OR (((c.cause)::text = 'LOSE_RACE'::text) AND (cq.type = 4))) THEN 'cancelled'::text
             WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
-                WHEN ((((c.cause)::text = 'NORMAL_CLEARING'::text) AND (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL))) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5, 1])) AND (c.bridged_at IS NOT NULL))) THEN 'agent_dropped'::text
+                WHEN ((((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5, 1])) AND (c.bridged_at IS NOT NULL))) THEN 'agent_dropped'::text
                 ELSE 'client_dropped'::text
             END
             ELSE 'error'::text
@@ -4721,7 +4779,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
-                  WHERE (((chh.parent_id)::text = (c.id)::text) AND (chh.hold IS NOT NULL))
+                  WHERE ((chh.parent_id = c.id) AND (chh.hold IS NOT NULL))
                 UNION
                  SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
           WHERE (x.hi IS NOT NULL)) holds ON ((c.parent_id IS NULL)))
@@ -4734,11 +4792,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
      LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
-     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND ((lega.id)::text = (c.parent_id)::text))))
+     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND (lega.id = c.parent_id))))
      LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
            FROM (storage.file_transcript tr
              LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
-          WHERE ((tr.uuid)::text = ((c.id)::character varying(50))::text)
+          WHERE ((tr.uuid)::text = (c.id)::text)
           GROUP BY (tr.uuid)::text) transcripts ON (true))
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
@@ -4936,7 +4994,7 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
             count(DISTINCT att.agent_id) AS agents,
             array_agg(DISTINCT att.agent_id) FILTER (WHERE (att.agent_id IS NOT NULL)) AS aggent_ids
            FROM ((call_center.cc_member_attempt_history att
-             LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND ((ch.id)::text = (att.member_call_id)::text))))
+             LEFT JOIN call_center.cc_calls_history ch ON (((ch.domain_id = att.domain_id) AND (ch.id = (att.member_call_id)::uuid))))
              LEFT JOIN LATERAL ( SELECT (((ch.amd_result IS NULL) AND (ch.amd_ai_positive IS NULL)) OR ((ch.amd_result)::text = ANY (amd.arr)) OR (ch.amd_ai_positive IS TRUE)) AS human) amd_res ON (true))
           WHERE (((att.channel)::text = 'call'::text) AND (att.joined_at > (now() - ((COALESCE(((q.payload -> 'statistic_time'::text))::integer, 60) || ' min'::text))::interval)) AND (att.queue_id = q.id) AND (att.domain_id = q.domain_id))
           GROUP BY att.queue_id, att.bucket_id) s ON ((s.queue_id IS NOT NULL)))
