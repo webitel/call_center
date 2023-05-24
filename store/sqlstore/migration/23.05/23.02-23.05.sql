@@ -372,15 +372,6 @@ CREATE INDEX cc_audit_rate_updated_by_index ON call_center.cc_audit_rate USING b
 
 
 
-
---
--- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_audit_rate
-    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
-
-
 --
 -- Name: cc_audit_rate cc_audit_rate_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
