@@ -1,5 +1,93 @@
 
 --
+-- Name: cc_preset_query; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_preset_query (
+                                             id integer NOT NULL,
+                                             name character varying NOT NULL,
+                                             user_id bigint NOT NULL,
+                                             created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                             preset jsonb NOT NULL,
+                                             description character varying,
+                                             section character varying NOT NULL,
+                                             domain_id bigint NOT NULL,
+                                             updated_at timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: cc_preset_query_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_preset_query_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_preset_query_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_preset_query_id_seq OWNED BY call_center.cc_preset_query.id;
+
+
+--
+-- Name: cc_preset_query_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_preset_query_list AS
+SELECT p.id,
+       p.name,
+       p.description,
+       p.created_at,
+       p.updated_at,
+       p.section,
+       p.preset,
+       p.domain_id,
+       p.user_id
+FROM call_center.cc_preset_query p;
+
+
+
+--
+-- Name: cc_preset_query id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query ALTER COLUMN id SET DEFAULT nextval('call_center.cc_preset_query_id_seq'::regclass);
+
+
+--
+-- Name: cc_preset_query cc_preset_query_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query
+    ADD CONSTRAINT cc_preset_query_pk PRIMARY KEY (id);
+
+
+
+
+--
+-- Name: cc_preset_query_user_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_preset_query_user_id_name_uindex ON call_center.cc_preset_query USING btree (user_id, name);
+
+
+--
+-- Name: cc_preset_query cc_preset_query_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query
+    ADD CONSTRAINT cc_preset_query_wbt_user_id_fk FOREIGN KEY (user_id) REFERENCES directory.wbt_user(id) ON DELETE CASCADE;
+
+
+
+--
 -- Name: cc_audit_form; Type: TABLE; Schema: call_center; Owner: -
 --
 
