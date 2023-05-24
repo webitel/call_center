@@ -267,7 +267,9 @@ func (c *Conversation) setClose(timestamp int64) {
 func (c *Conversation) setDeclined(inviteId string, timestamp int64) {
 	sess := c.getSessionByInviteId(inviteId)
 	if sess != nil {
+		c.Lock()
 		sess.StopAt = timestamp
+		c.Unlock()
 		c.state <- ChatStateDeclined
 	} else {
 		wlog.Warn(fmt.Sprintf("Conversation decline %s not found inviteId %s", c.id, inviteId))
