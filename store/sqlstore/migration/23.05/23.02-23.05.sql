@@ -249,16 +249,6 @@ ALTER TABLE ONLY call_center.cc_audit_form
     ADD CONSTRAINT cc_audit_form_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
---
--- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_audit_rate
-    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
-
-
-
-
 
 CREATE TABLE call_center.cc_audit_rate (
                                            id bigint NOT NULL,
@@ -295,6 +285,14 @@ CREATE SEQUENCE call_center.cc_audit_rate_id_seq
 
 ALTER SEQUENCE call_center.cc_audit_rate_id_seq OWNED BY call_center.cc_audit_rate.id;
 
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
 
 --
 -- Name: cc_audit_rate_view; Type: VIEW; Schema: call_center; Owner: -
