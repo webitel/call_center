@@ -1,3 +1,265 @@
+
+--
+-- Name: cc_audit_form; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_audit_form (
+                                           id integer NOT NULL,
+                                           domain_id bigint NOT NULL,
+                                           name character varying NOT NULL,
+                                           description character varying,
+                                           enabled boolean DEFAULT false NOT NULL,
+                                           created_by bigint,
+                                           created_at timestamp with time zone DEFAULT now() NOT NULL,
+                                           updated_by bigint NOT NULL,
+                                           updated_at timestamp with time zone DEFAULT now(),
+                                           questions jsonb,
+                                           team_ids integer[],
+                                           archive boolean DEFAULT false NOT NULL,
+                                           editable boolean DEFAULT true NOT NULL
+);
+
+
+--
+-- Name: cc_audit_form_acl; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_audit_form_acl (
+                                               id bigint NOT NULL,
+                                               dc bigint NOT NULL,
+                                               grantor bigint,
+                                               object integer NOT NULL,
+                                               subject bigint NOT NULL,
+                                               access smallint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: cc_audit_form_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_form_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_audit_form_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_form_acl_id_seq OWNED BY call_center.cc_audit_form_acl.id;
+
+
+--
+-- Name: cc_audit_form_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_form_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_audit_form_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_form_id_seq OWNED BY call_center.cc_audit_form.id;
+
+
+--
+-- Name: cc_audit_form_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_audit_form_view AS
+SELECT i.id,
+       i.name,
+       i.description,
+       i.domain_id,
+       i.created_at,
+       call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+       i.updated_at,
+       call_center.cc_get_lookup(u.id, (u.name)::character varying) AS updated_by,
+       ( SELECT jsonb_agg(call_center.cc_get_lookup(aud.id, (aud.name)::character varying)) AS jsonb_agg
+         FROM call_center.cc_team aud
+         WHERE (aud.id = ANY (i.team_ids))) AS teams,
+       i.enabled,
+       i.questions,
+       i.team_ids,
+       i.editable,
+       i.archive
+FROM ((call_center.cc_audit_form i
+    LEFT JOIN directory.wbt_user uc ON ((uc.id = i.created_by)))
+    LEFT JOIN directory.wbt_user u ON ((u.id = i.updated_by)));
+
+
+
+--
+-- Name: cc_audit_form id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_form_id_seq'::regclass);
+
+
+--
+-- Name: cc_audit_form_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_form_acl_id_seq'::regclass);
+
+
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_audit_form cc_audit_form_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_audit_form_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_form_acl_grantor_idx ON call_center.cc_audit_form_acl USING btree (grantor);
+
+
+--
+-- Name: cc_audit_form_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_acl_object_subject_udx ON call_center.cc_audit_form_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: cc_audit_form_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_acl_subject_object_udx ON call_center.cc_audit_form_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_audit_form_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_domain_id_name_uindex ON call_center.cc_audit_form USING btree (domain_id, name);
+
+
+--
+-- Name: cc_audit_form_id_domain_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_form_id_domain_id_uindex ON call_center.cc_audit_form USING btree (id, domain_id);
+
+
+
+
+--
+-- Name: cc_audit_form cc_audit_form_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_audit_form_set_rbac_acl AFTER INSERT ON call_center.cc_audit_form FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_audit_form_acl');
+
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_cc_audit_form_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_audit_form(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_audit_form(id, domain_id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form_acl cc_audit_form_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form_acl
+    ADD CONSTRAINT cc_audit_form_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_form cc_audit_form_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_form
+    ADD CONSTRAINT cc_audit_form_wbt_user_id_fk_2 FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
+
+
+
+
+
 CREATE TABLE call_center.cc_audit_rate (
                                            id bigint NOT NULL,
                                            domain_id bigint NOT NULL,
