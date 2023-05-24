@@ -74,7 +74,10 @@ func (c *ChatSession) SetActivity() {
 }
 
 func (c *ChatSession) IdleSec() int64 {
-	return (model.GetMillis() - c.ActivityAt) / 1000
+	c.RLock()
+	t := c.ActivityAt
+	c.RUnlock()
+	return (model.GetMillis() - t) / 1000
 }
 
 func (c *ChatSession) Leave() *model.AppError {

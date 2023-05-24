@@ -33,6 +33,7 @@ type Conversation struct {
 	bridgetAt     int64
 	closeAt       int64
 	reportingAt   int64
+	lastMessageAt int64
 	currentState  ChatState
 	state         chan ChatState
 	sync.RWMutex
@@ -67,6 +68,7 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		currentState:  ChatStateIdle,
 		state:         make(chan ChatState, 5), //TODO
 		cli:           cli,
+		lastMessageAt: model.GetMillis(),
 	}
 }
 
@@ -175,6 +177,14 @@ func (c *Conversation) SendText(text string) *model.AppError {
 	return nil
 }
 
+func (c *Conversation) SilentSec() int64 {
+	c.RLock()
+	t := c.lastMessageAt
+	c.RUnlock()
+
+	return (model.GetMillis() - t) / 1000
+}
+
 func (c *Conversation) getSessionByInviteId(invId string) *ChatSession {
 	c.Lock()
 	defer c.Unlock()
@@ -220,6 +230,10 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 		}
 	}
 
+	c.Lock()
+	c.lastMessageAt = model.GetMillis()
+	c.Unlock()
+
 	if sess != nil {
 		sess.ChannelId = channelId
 		sess.AnsweredAt = timestamp
@@ -232,6 +246,10 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 }
 
 func (c *Conversation) setNewMessage(channelId string) {
+	c.Lock()
+	c.lastMessageAt = model.GetMillis()
+	c.Unlock()
+
 	sess := c.getSessionByChannelId(channelId)
 	if sess != nil {
 		sess.SetActivity()

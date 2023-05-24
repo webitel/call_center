@@ -39,6 +39,7 @@ const (
 	AttemptResultMaxWaitSize    = "max_wait_size"
 	AttemptResultAgentTimeout   = "agent_timeout"
 	AttemptResultClientTimeout  = "client_timeout"
+	AttemptResultDialogTimeout  = "dialog_timeout"
 
 	AttemptResultBlockList = "block" // FIXME
 )

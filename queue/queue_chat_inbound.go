@@ -22,6 +22,7 @@ const (
 type InboundChatQueueSettings struct {
 	MaxIdleClient int64  `json:"max_idle_client"`
 	MaxIdleAgent  int64  `json:"max_idle_agent"`
+	MaxIdleDialog int64  `json:"max_idle_dialog"`
 	MaxWaitTime   uint32 `json:"max_wait_time"`
 }
 
@@ -39,14 +40,6 @@ func InboundChatQueueFromBytes(data []byte) InboundChatQueueSettings {
 func NewInboundChatQueue(base BaseQueue, settings InboundChatQueueSettings) QueueObject {
 	if settings.MaxWaitTime == 0 {
 		settings.MaxWaitTime = 300
-	}
-
-	if settings.MaxIdleClient == 0 {
-		settings.MaxIdleClient = 86400
-	}
-
-	if settings.MaxIdleAgent == 0 {
-		settings.MaxIdleAgent = 86400
 	}
 
 	return &InboundChatQueue{
@@ -170,21 +163,29 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 					break
 				case <-timeout.C:
 					if conv.BridgedAt() > 0 {
-						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec()))
+						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec(), conv.SilentSec()))
 
-						if aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent {
+						if queue.settings.MaxIdleAgent > 0 && aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent {
 							attempt.Log("max idle agent")
 							attempt.SetResult(AttemptResultAgentTimeout)
 							aSess.Leave()
 							break
 						}
 
-						if aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient {
+						if queue.settings.MaxIdleClient > 0 && aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient {
 							attempt.Log("max idle client")
 							attempt.SetResult(AttemptResultClientTimeout)
 							aSess.Leave()
 							break
 						}
+
+						if queue.settings.MaxIdleDialog > 0 && aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleDialog {
+							attempt.Log("max idle dialog")
+							attempt.SetResult(AttemptResultDialogTimeout)
+							aSess.Leave()
+							break
+						}
+
 						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 					} else {
 						attempt.Log("timeout")
