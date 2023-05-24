@@ -1,3 +1,161 @@
+CREATE TABLE call_center.cc_audit_rate (
+                                           id bigint NOT NULL,
+                                           domain_id bigint NOT NULL,
+                                           form_id integer NOT NULL,
+                                           created_at timestamp with time zone NOT NULL,
+                                           created_by bigint,
+                                           updated_at timestamp with time zone NOT NULL,
+                                           updated_by bigint,
+                                           answers jsonb,
+                                           score_required numeric DEFAULT 0 NOT NULL,
+                                           score_optional numeric DEFAULT 0 NOT NULL,
+                                           comment text,
+                                           call_id character varying,
+                                           rated_user_id bigint NOT NULL
+);
+
+
+
+--
+-- Name: cc_audit_rate_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_audit_rate_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+--
+-- Name: cc_audit_rate_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_audit_rate_id_seq OWNED BY call_center.cc_audit_rate.id;
+
+
+--
+-- Name: cc_audit_rate_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_audit_rate_view AS
+SELECT r.id,
+       r.domain_id,
+       r.form_id,
+       r.created_at,
+       call_center.cc_get_lookup(uc.id, COALESCE((uc.name)::character varying, (uc.username)::character varying)) AS created_by,
+       r.updated_at,
+       call_center.cc_get_lookup(u.id, COALESCE((u.name)::character varying, (u.username)::character varying)) AS updated_by,
+       call_center.cc_get_lookup(ur.id, (ur.name)::character varying) AS rated_user,
+       call_center.cc_get_lookup((f.id)::bigint, f.name) AS form,
+       r.answers,
+       r.score_required,
+       r.score_optional,
+       r.comment,
+       r.call_id,
+       f.questions,
+       r.rated_user_id
+FROM ((((call_center.cc_audit_rate r
+    LEFT JOIN call_center.cc_audit_form f ON ((f.id = r.form_id)))
+    LEFT JOIN directory.wbt_user ur ON ((ur.id = r.rated_user_id)))
+    LEFT JOIN directory.wbt_user uc ON ((uc.id = r.created_by)))
+    LEFT JOIN directory.wbt_user u ON ((u.id = r.updated_by)));
+
+
+--
+-- Name: cc_audit_rate id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate ALTER COLUMN id SET DEFAULT nextval('call_center.cc_audit_rate_id_seq'::regclass);
+
+--
+-- Name: cc_audit_rate cc_audit_rate_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_pk PRIMARY KEY (id);
+
+--
+-- Name: cc_audit_rate_call_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_rate_call_id_uindex ON call_center.cc_audit_rate USING btree (call_id) WHERE (call_id IS NOT NULL);
+
+
+
+--
+-- Name: cc_audit_rate_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_created_by_index ON call_center.cc_audit_rate USING btree (created_by DESC);
+
+
+--
+-- Name: cc_audit_rate_domain_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_domain_id_index ON call_center.cc_audit_rate USING btree (domain_id);
+
+
+--
+-- Name: cc_audit_rate_form_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_form_id_index ON call_center.cc_audit_rate USING btree (form_id);
+
+
+--
+-- Name: cc_audit_rate_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_updated_by_index ON call_center.cc_audit_rate USING btree (updated_by);
+
+
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_cc_audit_form_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_cc_audit_form_id_fk FOREIGN KEY (form_id) REFERENCES call_center.cc_audit_form(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_domain_dc_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_domain_dc_fk_2 FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_audit_rate cc_audit_rate_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_audit_rate
+    ADD CONSTRAINT cc_audit_rate_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+
+
+
 drop FUNCTION if exists call_center.cc_attempt_schema_result;
 --
 -- Name: cc_attempt_schema_result(bigint, character varying, character varying, timestamp with time zone, timestamp with time zone, integer, jsonb, integer, integer, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
