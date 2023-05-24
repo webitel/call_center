@@ -75,7 +75,6 @@ top:
 				team.Offering(attempt, agent, agentCall, mCall)
 
 			case call_manager.CALL_STATE_ACCEPT:
-				attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 
 				result := AttemptResultSuccess
 				if queue.Processing() {
@@ -89,6 +88,7 @@ top:
 				printfIfErr(mCall.Bridge(agentCall))
 
 			case call_manager.CALL_STATE_BRIDGE:
+				attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 				if attempt.state != model.MemberStateBridged {
 					team.Bridged(attempt, agent)
 				}
