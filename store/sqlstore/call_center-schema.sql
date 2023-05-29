@@ -4771,7 +4771,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     ar.score_required,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history cr
-          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL)))) AS allow_evaluation
+          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND ((c.blind_transfer IS NULL) AND (cr.blind_transfer IS NULL)) AND ((c.transfer_to IS NULL) AND (cr.transfer_to IS NULL)) AND ((c.transfer_from IS NULL) AND (cr.transfer_from IS NULL)) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL)))) AS allow_evaluation
    FROM ((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
