@@ -1277,7 +1277,7 @@ begin
         for r in (SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'call_center'
-    and table_name ilike 'cc_calls_history_new_%')
+    and table_name ilike 'cc_calls_history_%')
         loop
             sql = format('drop table call_center.%s', r.table_name);
             execute sql;
@@ -1305,10 +1305,10 @@ from generate_series(from_date, to_date, interval '1 month') x
 where not exists(SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'call_center'
-    and table_name = 'cc_calls_history_new_' || replace(x::date::text, '-', '_') || '_' || replace((x::date + interval '1month')::date::text, '-', '_') ))
+    and table_name = 'cc_calls_history_' || replace(x::date::text, '-', '_') || '_' || replace((x::date + interval '1month')::date::text, '-', '_') ))
         loop
-            sql = format('create table call_center.cc_calls_history_new_%s
-partition of call_center.cc_calls_history_new
+            sql = format('create table call_center.cc_calls_history_%s
+partition of call_center.cc_calls_history
 for values from (%s) to (%s)', r.suff_name,
                 quote_literal(r.x1),
                 quote_literal(r.x2)
@@ -1574,7 +1574,6 @@ CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name char
     LANGUAGE plpgsql
     AS $$
 BEGIN
-
     return query with attempts as (
         insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, communication_idx, node_id, agent_id, resource_id,
                                        bucket_id, seq, team_id, domain_id)
@@ -1604,7 +1603,7 @@ BEGIN
                      left join call_center.cc_outbound_resource cor on cor.id = r.resource_id
             where m.id = _member_id
               and m.communications -> (_communication_id::int2) notnull
-              and not exists(select 1 from call_center.cc_member_attempt ma where ma.member_id = _member_id)
+              and not exists(select 1 from call_center.cc_member_attempt ma  where ma.member_id = _member_id )
             returning call_center.cc_member_attempt.*
     )
                  select a.id,
@@ -4709,7 +4708,13 @@ CREATE VIEW call_center.cc_calls_history_list AS
           WHERE ((c.parent_id IS NULL) AND (hp.parent_id = c.id)))) AS has_children,
     (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
     c.grantee_id,
-    holds.res AS hold,
+    ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
+           FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
+                   FROM call_center.cc_calls_history chh
+                  WHERE ((chh.parent_id = c.id) AND (chh.hold IS NOT NULL))
+                UNION
+                 SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
+          WHERE (x.hi IS NOT NULL)) AS hold,
     c.gateway_ids,
     c.user_ids,
     c.agent_ids,
@@ -4752,15 +4757,22 @@ CREATE VIEW call_center.cc_calls_history_list AS
     ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
            FROM storage.file_jobs j
           WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
-    transcripts.data AS transcripts,
+    ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
+           FROM (storage.file_transcript tr
+             LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
+          WHERE ((tr.uuid)::text = (c.id)::text)
+          GROUP BY (tr.uuid)::text) AS transcripts,
     c.talk_sec,
     call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
     ar.id AS rate_id,
     call_center.cc_get_lookup(aru.id, COALESCE((aru.name)::character varying, (aru.username)::character varying)) AS rated_user,
     call_center.cc_get_lookup(arub.id, COALESCE((arub.name)::character varying, (arub.username)::character varying)) AS rated_by,
     ar.score_optional,
-    ar.score_required
-   FROM ((((((((((((((((call_center.cc_calls_history c
+    ar.score_required,
+    (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history cr
+          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL)))) AS allow_evaluation
+   FROM ((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
            FROM ( SELECT f1.id,
@@ -4776,13 +4788,6 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     f1.name
                    FROM storage.files f1
                   WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
-     LEFT JOIN LATERAL ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
-           FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
-                   FROM call_center.cc_calls_history chh
-                  WHERE ((chh.parent_id = c.id) AND (chh.hold IS NOT NULL))
-                UNION
-                 SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
-          WHERE (x.hi IS NOT NULL)) holds ON ((c.parent_id IS NULL)))
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -4793,11 +4798,6 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
      LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
      LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND (lega.id = c.parent_id))))
-     LEFT JOIN LATERAL ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
-           FROM (storage.file_transcript tr
-             LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
-          WHERE ((tr.uuid)::text = (c.id)::text)
-          GROUP BY (tr.uuid)::text) transcripts ON (true))
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)));
@@ -5464,7 +5464,7 @@ CREATE VIEW call_center.cc_member_view_attempt_history AS
      LEFT JOIN call_center.cc_outbound_resource r ON ((r.id = t.resource_id)))
      LEFT JOIN call_center.cc_bucket cb ON ((cb.id = t.bucket_id)))
      LEFT JOIN call_center.cc_list l ON ((l.id = t.list_communication_id)))
-     LEFT JOIN call_center.cc_calls_history c ON (((c.domain_id = t.domain_id) AND ((c.id)::text = (t.member_call_id)::text))));
+     LEFT JOIN call_center.cc_calls_history c ON (((c.domain_id = t.domain_id) AND (c.id = (t.member_call_id)::uuid))));
 
 
 --

@@ -261,6 +261,14 @@ func (queue *BaseQueue) Variables() map[string]string {
 	return queue.variables
 }
 
+func (queue *BaseQueue) SetVariable(name string, val string) {
+	if queue.variables == nil {
+		queue.variables = make(map[string]string)
+	}
+
+	queue.variables[name] = val
+}
+
 // TODO create queue parameter auto_answer
 
 func (q *BaseQueue) AutoAnswer() bool {
