@@ -186,7 +186,7 @@ func (s SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*mo
 from call_center.cc_member_attempt at
          left join call_center.cc_queue q on q.id = at.queue_id
          left join call_center.cc_calls c
-                   on case when q.type = 4 then c.id = at.member_call_id else c.id = at.agent_call_id end
+                   on case when q.type = 4 then c.id::text = at.member_call_id else c.id::text = at.agent_call_id end
 where at.agent_id = :AgentId
   and c.answered_at isnull
   and c.id notnull
