@@ -560,7 +560,9 @@ $$;
 
 
 
-drop function if exists call_center.cc_attempt_timeout;
+drop function if exists call_center.cc_attempt_timeout(bigint, integer, varchar, varchar, integer);
+drop function if exists call_center.cc_attempt_timeout(bigint, varchar, integer, integer, boolean);
+drop function if exists call_center.cc_attempt_timeout(bigint, varchar, integer, integer, boolean, boolean);
 --
 -- Name: cc_attempt_timeout(bigint, character varying, integer, integer, boolean, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
