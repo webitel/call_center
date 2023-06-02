@@ -812,10 +812,14 @@ func (queueManager *QueueManager) setChannelReporting(attempt *Attempt, ccCause 
 	switch attempt.channel {
 	case model.QueueChannelCall:
 		if call, ok := queueManager.callManager.GetCall(attempt.agentChannel.Id()); ok {
-			err = call.SerVariables(map[string]string{
+			errCall := call.SerVariables(map[string]string{
 				"cc_result":       ccCause,
 				"cc_reporting_at": fmt.Sprintf("%d", model.GetMillis()),
 			})
+
+			if errCall != nil {
+				attempt.Log(errCall.Error())
+			}
 		} else {
 			return errNotFoundConnection
 		}
