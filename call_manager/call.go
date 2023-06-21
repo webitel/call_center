@@ -75,6 +75,7 @@ type Call interface {
 	ResetBridge()
 
 	Stats() map[string]string
+	SetOtherChannelVar(vars map[string]string) *model.AppError
 }
 
 type CallAction struct {
@@ -644,6 +645,18 @@ func (call *CallImpl) Bridge(other Call) *model.AppError {
 
 func (call *CallImpl) DTMF(val rune) *model.AppError {
 	return call.api.DTMF(call.id, val)
+}
+
+func (call *CallImpl) SetOtherChannelVar(vars map[string]string) *model.AppError {
+	call.Lock()
+	br := call.bridgedId
+	call.Unlock()
+	if br != nil {
+		return call.api.SetCallVariables(*br, vars)
+	}
+
+	// TODO
+	return nil
 }
 
 func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError {

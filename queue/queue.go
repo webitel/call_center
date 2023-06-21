@@ -269,6 +269,19 @@ func (queue *BaseQueue) SetVariable(name string, val string) {
 	queue.variables[name] = val
 }
 
+// GetVariable todo mutex
+func (queue *BaseQueue) GetVariable(name string) string {
+	if queue.variables == nil {
+		return ""
+	}
+	v, _ := queue.variables[name]
+	return v
+}
+
+func (queue *BaseQueue) DelVariable(name string) {
+	delete(queue.variables, name)
+}
+
 // TODO create queue parameter auto_answer
 
 func (q *BaseQueue) AutoAnswer() bool {

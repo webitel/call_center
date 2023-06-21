@@ -26,6 +26,7 @@ type PreviewSettings struct {
 	PerNumbers             bool   `json:"per_numbers"`
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
+	transferAfter          string
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -35,6 +36,13 @@ func PreviewSettingsFromBytes(data []byte) PreviewSettings {
 }
 
 func NewPreviewCallQueue(callQueue CallingQueue, settings PreviewSettings) QueueObject {
+
+	// TODO - CallVarTransferAfter setup new queue parameter
+	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
+	if settings.transferAfter != "" {
+		callQueue.DelVariable(model.CallVarTransferAfter)
+	}
+
 	return &PreviewCallQueue{
 		CallingQueue:    callQueue,
 		PreviewSettings: settings,
@@ -190,6 +198,13 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				team.Bridged(attempt, agent)
 				if queue.AllowGreetingAgent {
 					call.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+				}
+
+				if queue.transferAfter != "" {
+					call.SetOtherChannelVar(map[string]string{
+						model.CallVarTransferAfter: queue.transferAfter,
+						"hangup_after_bridge":      "false",
+					})
 				}
 			}
 		case <-call.HangupChan():
