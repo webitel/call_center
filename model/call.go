@@ -32,8 +32,6 @@ const (
 	CALL_SLEEP_APPLICATION    = "sleep"
 	CALL_PLAYBACK_APPLICATION = "playback"
 	CALL_HANGUP_APPLICATION   = "hangup"
-
-	CallVariableGrantee = "wbt_grantee_id"
 )
 
 const (
@@ -42,6 +40,8 @@ const (
 	CallVariableDirection  = "sip_h_X-Webitel-Direction"
 	CallVariableGatewayId  = "sip_h_X-Webitel-Gateway-Id"
 	CallVariableDomainName = "domain_name"
+	CallVariableGrantee    = "wbt_grantee_id"
+	CallVarTransferAfter   = "transfer_after_bridge"
 )
 
 const (
