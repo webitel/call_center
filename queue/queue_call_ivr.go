@@ -201,7 +201,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	queue.CallCheckResourceError(attempt.resource, call)
 
-	if call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
+	if attempt.GetState() == model.MemberStateBridged && call.AcceptAt() > 0 && int((call.HangupAt()-call.AcceptAt())/1000) > int(queue.MinDuration) {
 		attempt.SetResult(AttemptResultSuccess)
 	} else {
 		attempt.SetResult(AttemptResultAbandoned)
