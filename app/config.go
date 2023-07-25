@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"time"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	waitChannelClose         = flag.Int("wait_channel_close", 0, "Wait channel close")
 	resourceCidType          = flag.String("resource_cid_type", "", "CID Type: none / Remote-Party-ID / P-Asserted-Identity")
 	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
+	traceSqlQueryDuration    = flag.Int("sql_log_duration", 0, "Log query duration")
 )
 
 func (a *App) Config() *model.Config {
@@ -63,7 +65,7 @@ func loadConfig() (*model.Config, error) {
 			MaxIdleConns:                model.NewInt(5),
 			MaxOpenConns:                model.NewInt(5),
 			ConnMaxLifetimeMilliseconds: model.NewInt(300000),
-			Trace:                       false,
+			LogDuration:                 time.Millisecond * time.Duration(*traceSqlQueryDuration),
 		},
 		MessageQueueSettings: model.MessageQueueSettings{
 			Url: *amqpSource,

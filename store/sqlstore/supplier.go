@@ -5,7 +5,6 @@ import (
 	dbsql "database/sql"
 	"errors"
 	"fmt"
-	sqltrace "log"
 	"os"
 	"time"
 
@@ -145,8 +144,10 @@ func setupConnection(con_type string, dataSource string, settings *model.SqlSett
 		os.Exit(EXIT_NO_DRIVER)
 	}
 
-	if settings.Trace {
-		dbmap.TraceOn("[SQL]", sqltrace.New(os.Stdout, "", sqltrace.LstdFlags))
+	if settings.LogDuration > 0 {
+		dbmap.TraceOn("[SQL]", &sqlLogger{
+			minDuration: settings.LogDuration,
+		})
 	}
 
 	return dbmap

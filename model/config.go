@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 const (
 	DEFAULT_LOCALE = "en"
 
@@ -46,7 +48,7 @@ type SqlSettings struct {
 	MaxIdleConns                *int
 	ConnMaxLifetimeMilliseconds *int
 	MaxOpenConns                *int
-	Trace                       bool
+	LogDuration                 time.Duration
 	AtRestEncryptKey            string
 	QueryTimeout                *int
 }
