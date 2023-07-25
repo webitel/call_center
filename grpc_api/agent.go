@@ -22,13 +22,18 @@ func (api *agent) Online(ctx context.Context, in *cc.OnlineRequest) (*cc.OnlineR
 		return nil, err
 	}
 
+	chls := make([]*cc.Channel, 0, len(info.Channel))
+	for _, v := range info.Channel {
+		chls = append(chls, &cc.Channel{
+			Channel:  v.Channel,
+			State:    v.State,
+			JoinedAt: v.JoinedAt,
+		})
+	}
+
 	return &cc.OnlineResponse{
 		Timestamp: info.Timestamp,
-		Channel: &cc.Channel{
-			Channel:  info.Channel.Channel,
-			State:    info.Channel.State,
-			JoinedAt: info.Channel.JoinedAt,
-		},
+		Channel:   chls,
 	}, nil
 }
 

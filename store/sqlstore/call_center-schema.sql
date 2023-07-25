@@ -2065,6 +2065,13 @@ BEGIN
         and c.conversation_id = _conversation_id
     and not c.internal
   into _con_name, _con_created, _inviter_channel_id, _inviter_user_id;
+
+  if coalesce(_inviter_channel_id, '') = '' or coalesce(_inviter_user_id, '') = '' isnull then
+      raise exception using
+            errcode='VALID',
+            message='Bad request inviter_channel_id or user_id';
+  end if;
+
   --TODO
 --   select clc.id
 --     into _list_comm_id
@@ -3382,6 +3389,16 @@ $_$;
 CREATE AGGREGATE call_center.cc_array_merge_agg(anyarray) (
     SFUNC = call_center.cc_array_merge,
     STYPE = anyarray
+);
+
+
+--
+-- Name: jsonb_concat_agg(jsonb); Type: AGGREGATE; Schema: call_center; Owner: -
+--
+
+CREATE AGGREGATE call_center.jsonb_concat_agg(jsonb) (
+    SFUNC = jsonb_concat,
+    STYPE = jsonb
 );
 
 
@@ -4771,7 +4788,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
     ar.score_required,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history cr
-          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND ((c.blind_transfer IS NULL) AND (cr.blind_transfer IS NULL)) AND ((c.transfer_to IS NULL) AND (cr.transfer_to IS NULL)) AND ((c.transfer_from IS NULL) AND (cr.transfer_from IS NULL)) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL)))) AS allow_evaluation
+          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND (c.blind_transfer IS NULL) AND (cr.blind_transfer IS NULL) AND (c.transfer_to IS NULL) AND (cr.transfer_to IS NULL) AND (c.transfer_from IS NULL) AND (cr.transfer_from IS NULL) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL)))) AS allow_evaluation,
+    cma.form_fields
    FROM ((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
@@ -4801,6 +4819,68 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)));
+
+
+--
+-- Name: cc_calls_history_test; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_history_test (
+    id uuid NOT NULL,
+    direction character varying(30),
+    destination character varying,
+    parent_id uuid,
+    app_id character varying(100) NOT NULL,
+    from_type character varying(20),
+    from_name character varying(100),
+    from_number character varying(100),
+    from_id character varying(100),
+    to_type character varying(20),
+    to_name character varying(100),
+    to_number character varying(100),
+    to_id character varying(100),
+    payload jsonb,
+    domain_id bigint NOT NULL,
+    hold_sec integer DEFAULT 0,
+    cause character varying(100),
+    sip_code integer,
+    bridged_id uuid,
+    gateway_id bigint,
+    user_id integer,
+    queue_id integer,
+    team_id integer,
+    agent_id integer,
+    attempt_id bigint,
+    member_id bigint,
+    duration integer DEFAULT 0 NOT NULL,
+    description character varying,
+    tags character varying[],
+    answered_at timestamp with time zone,
+    bridged_at timestamp with time zone,
+    hangup_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL,
+    hangup_by character varying(100),
+    stored_at timestamp with time zone DEFAULT now() NOT NULL,
+    rating smallint,
+    notes text,
+    transfer_from uuid,
+    transfer_to uuid,
+    amd_result character varying(100),
+    amd_duration interval,
+    grantee_id bigint,
+    hold jsonb,
+    agent_ids integer[],
+    user_ids bigint[],
+    queue_ids integer[],
+    gateway_ids bigint[],
+    team_ids integer[],
+    params jsonb,
+    blind_transfer character varying,
+    talk_sec integer DEFAULT 0 NOT NULL,
+    amd_ai_result character varying(100),
+    amd_ai_logs character varying[],
+    amd_ai_positive boolean
+);
 
 
 --
@@ -7056,6 +7136,14 @@ ALTER TABLE ONLY call_center.cc_calls_annotation
 
 ALTER TABLE ONLY call_center.cc_list
     ADD CONSTRAINT cc_call_list_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_calls_history_test cc_calls_history_part_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_calls_history_test
+    ADD CONSTRAINT cc_calls_history_part_pk PRIMARY KEY (id, created_at);
 
 
 --

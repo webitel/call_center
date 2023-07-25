@@ -25,7 +25,7 @@ type ChatSession struct {
 	InviteAt       int64
 	CreatedAt      int64
 	AnsweredAt     int64
-	StopAt         int64
+	stopAt         int64
 	ActivityAt     int64
 
 	cli       chat_manager.Chat
@@ -46,7 +46,7 @@ func OutboundChat(cli chat_manager.Chat, userId int64, conversationId, inviterId
 		InviteAt:       0,
 		CreatedAt:      model.GetMillis(),
 		AnsweredAt:     0,
-		StopAt:         0,
+		stopAt:         0,
 		cli:            cli,
 	}
 }
@@ -71,6 +71,14 @@ func (c *ChatSession) SetActivity() {
 	c.Lock()
 	c.ActivityAt = model.GetMillis()
 	c.Unlock()
+}
+
+func (c *ChatSession) StopAt() int64 {
+	c.RLock()
+	stopAt := c.stopAt
+	c.RUnlock()
+
+	return stopAt
 }
 
 func (c *ChatSession) IdleSec() int64 {

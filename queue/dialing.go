@@ -76,9 +76,9 @@ func (d *DialingImpl) routeIdleAttempts() {
 	if channels, err := d.store.Agent().GetChannelTimeout(); err == nil {
 		for _, v := range channels {
 			//todo
-			waiting := NewWaitingChannelEvent("", v.UserId, nil, v.Timestamp)
+			waiting := NewWaitingChannelEvent(v.Channel, v.UserId, nil, v.Timestamp)
 			//FIXME QueueId ?
-			err = d.queueManager.mq.AgentChannelEvent("", v.DomainId, 0, v.UserId, waiting)
+			err = d.queueManager.mq.AgentChannelEvent(v.Channel, v.DomainId, 0, v.UserId, waiting)
 		}
 	} else {
 		wlog.Error(err.Error()) ///TODO return ?

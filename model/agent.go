@@ -79,8 +79,8 @@ type MissedAgent struct {
 }
 
 type AgentOnlineData struct {
-	Timestamp int64        `json:"timestamp" db:"timestamp"`
-	Channel   AgentChannel `json:"channel" db:"channel"`
+	Timestamp int64          `json:"timestamp" db:"timestamp"`
+	Channel   []AgentChannel `json:"channel" db:"channel"`
 }
 
 type AgentEvent struct {

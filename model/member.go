@@ -54,6 +54,7 @@ type AttemptCallback struct {
 	StickyAgentId               *int
 	ExcludeCurrentCommunication *bool
 	Redial                      *bool
+	AddCommunications           []MemberCommunication
 }
 
 type SchemaResultType int
@@ -206,6 +207,7 @@ type AttemptReportingResult struct {
 	QueueId         *int    `json:"queue_id" db:"queue_id"`
 	AgentTimeout    *int64  `json:"agent_timeout" db:"agent_timeout"`
 	MemberStopCause *string `json:"member_stop_cause" db:"member_stop_cause"`
+	MemberId        *int64  `json:"member_id" db:"member_id"`
 }
 
 type HistoryAttempt struct {

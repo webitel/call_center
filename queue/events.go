@@ -339,7 +339,7 @@ func NewWrapTimeEventEvent(channel string, attemptId *int64, userId int64, times
 func NewWaitingChannelEvent(channel string, userId int64, attemptId *int64, timestamp int64) model.Event {
 	e := WaitingChannelEvent{
 		ChannelEvent: ChannelEvent{
-			//Channel:   channel,
+			Channel:   channel,
 			Timestamp: timestamp,
 			AttemptId: attemptId,
 			Status:    model.ChannelStateWaiting,

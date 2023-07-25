@@ -53,7 +53,7 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		CreatedAt:      0,
 		AnsweredAt:     0,
 		ActivityAt:     model.GetMillis(),
-		StopAt:         0,
+		stopAt:         0,
 		cli:            cli,
 		variables:      variables,
 	}
@@ -120,7 +120,7 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 
 func (c *Conversation) Reporting(noLeave bool) *model.AppError {
 	sess := c.LastSession()
-	if sess.StopAt != 0 {
+	if sess.StopAt() != 0 {
 		return model.NewAppError("Chat.Reporting", "chat.reporting.valid.stop_at", nil, "Chat is closed", http.StatusBadRequest)
 	}
 
@@ -164,7 +164,7 @@ func (c *Conversation) ReportingAt() int64 {
 func (c *Conversation) SendText(text string) *model.AppError {
 
 	for _, s := range c.sessions {
-		if s != nil && s.StopAt == 0 {
+		if s != nil && s.StopAt() == 0 {
 			err := c.cli.SendText(s.UserId, s.ChannelId, c.id, text)
 			if err != nil {
 				return model.NewAppError("Chat.SendText", "chat.send.text.app_err", nil, err.Error(), http.StatusInternalServerError)
@@ -189,7 +189,7 @@ func (c *Conversation) getSessionByInviteId(invId string) *ChatSession {
 	c.Lock()
 	defer c.Unlock()
 	for _, s := range c.sessions {
-		if s != nil && s.InviteId == invId && s.StopAt == 0 { //TODO StopAt
+		if s != nil && s.InviteId == invId && s.stopAt == 0 {
 			return s
 		}
 	}
@@ -201,7 +201,7 @@ func (c *Conversation) getSessionByChannelId(chanId string) *ChatSession {
 	c.Lock()
 	defer c.Unlock()
 	for _, s := range c.sessions {
-		if s.ChannelId == chanId && s.StopAt == 0 { //TODO StopAt
+		if s.ChannelId == chanId && s.stopAt == 0 {
 			return s
 		}
 	}
@@ -225,7 +225,7 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 	var sess *ChatSession
 	//todo bug: event joined must be send invite_id
 	for _, v := range c.sessions {
-		if v != nil && v.InviteId == channelId && v.StopAt == 0 {
+		if v != nil && v.InviteId == channelId && v.StopAt() == 0 {
 			sess = v
 		}
 	}
@@ -267,9 +267,10 @@ func (c *Conversation) setClose(timestamp int64) {
 func (c *Conversation) setDeclined(inviteId string, timestamp int64) {
 	sess := c.getSessionByInviteId(inviteId)
 	if sess != nil {
-		c.Lock()
-		sess.StopAt = timestamp
-		c.Unlock()
+		//c.Lock()
+		sess.Lock()
+		sess.stopAt = timestamp
+		sess.Unlock()
 		c.state <- ChatStateDeclined
 	} else {
 		wlog.Warn(fmt.Sprintf("Conversation decline %s not found inviteId %s", c.id, inviteId))

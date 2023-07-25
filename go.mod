@@ -11,7 +11,7 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20230524103526-5ba03e19f192
 	github.com/webitel/flow_manager v0.0.0-20230414112735-d8214c2ef295
-	github.com/webitel/protos/cc v0.0.0-20230202145403-c92fa287810a
+	github.com/webitel/protos/cc v0.0.0-20230623094357-9bf3eb56875a
 	github.com/webitel/protos/fs v0.0.0-20230202145403-c92fa287810a
 	github.com/webitel/protos/workflow v0.0.0-20230413090020-f5f4e9d27dc4
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
@@ -27,6 +27,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hashicorp/consul/api v1.19.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.4.0 // indirect
@@ -55,4 +56,8 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+)
+
+replace (
+	github.com/webitel/protos/cc => ../protos/cc
 )

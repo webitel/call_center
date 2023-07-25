@@ -67,7 +67,7 @@ func testCallError(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	for {
@@ -101,7 +101,7 @@ func testWaitForHangup(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	call.WaitForHangup()
@@ -141,7 +141,7 @@ func testCallCancel(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	if call.Err() != nil {
@@ -193,7 +193,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	if call.Err() != nil {
@@ -244,7 +244,7 @@ func testCallHangup(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	if call.Err() != nil {
@@ -290,7 +290,7 @@ func testCallStates(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	if call.GetState() != CALL_STATE_NEW {
 		t.Errorf("assert state init error")
 	}
@@ -345,7 +345,7 @@ func testCallHold(cm CallManager, t *testing.T) {
 			},
 		},
 	}
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call.Invite()
 
 	for {
@@ -414,7 +414,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 		},
 	}
 
-	call := cm.NewCall(cr)
+	call, _ := cm.NewCall(cr)
 	call2 := call.NewCall(cr2)
 
 	//fmt.Printf("call %s & %s start\n", call.Id(), call2.Id())

@@ -77,6 +77,26 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		result.Redial = model.NewBool(true)
 	}
 
+	l := len(in.AddCommunications)
+	if l != 0 {
+		result.AddCommunications = make([]model.MemberCommunication, 0, l)
+		for _, v := range in.AddCommunications {
+			c := model.MemberCommunication{
+				Destination: v.Destination,
+				Type: model.Communication{
+					Id: int(v.GetType().GetId()),
+				},
+				Priority:    int(v.Priority),
+				Description: v.Description,
+			}
+
+			if v.Display != "" {
+				c.Display = &v.Display
+			}
+			result.AddCommunications = append(result.AddCommunications, c)
+		}
+	}
+
 	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false)
 	if err != nil {
 		return nil, err

@@ -85,10 +85,13 @@ top:
 				})
 				//
 				time.Sleep(time.Millisecond * 250)
-				printfIfErr(mCall.Bridge(agentCall))
+				if err = agentCall.Bridge(mCall); err != nil {
+					if agentCall.HangupAt() == 0 {
+						agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
+					}
+				}
 
 			case call_manager.CALL_STATE_BRIDGE:
-				attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 				if attempt.state != model.MemberStateBridged {
 					team.Bridged(attempt, agent)
 				}

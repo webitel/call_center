@@ -31,7 +31,7 @@ func testLogin(t *testing.T, am AgentManager) AgentObject {
 		t.Errorf("GetAgent error: %s", err.Error())
 	}
 
-	err = am.SetOnline(agent)
+	_, err = am.SetOnline(agent, false)
 	if err != nil {
 		t.Errorf("Set agent login %d error: %s", agent.Id(), err.Error())
 	}

@@ -155,7 +155,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
 
 		top:
-			for conv.Active() && aSess.StopAt == 0 {
+			for conv.Active() && aSess.StopAt() == 0 { //
 				select {
 				case <-attempt.Cancel():
 					conv.SetStop()
@@ -240,7 +240,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	}
 
 	if agent != nil && team != nil {
-		if aSess != nil && aSess.StopAt == 0 {
+		if aSess != nil && aSess.StopAt() == 0 {
 			aSess.Close()
 		}
 		if conv.BridgedAt() > 0 {

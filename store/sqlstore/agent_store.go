@@ -262,10 +262,6 @@ func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppE
 	_, err := s.GetMaster().Select(&channels, `update call_center.cc_agent_channel c
 	set state = 'waiting',
 		timeout = null,
-		channel = case when c.channel = any('{chat,task}'::varchar[]) and (select count(1)
-															from call_center.cc_member_attempt aa
-															where aa.agent_id = c.agent_id and aa.state != 'leaving') > 0
-			then channel else null end,
 		joined_at = now()
 	from call_center.cc_agent a
 	where c.timeout < now() and a.id = c.agent_id
