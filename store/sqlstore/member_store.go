@@ -869,6 +869,22 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
+func (s *SqlMemberStore) StoreFormFields(attemptId int64, fields map[string]string) *model.AppError {
+	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
+set form_fields = coalesce(form_fields, '{}'::jsonb) || :Fields::jsonb
+where id = :Id`, map[string]interface{}{
+		"Id":     attemptId,
+		"Fields": mapToJson(fields),
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.StoreFormFields", "store.sql_member.set_form.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s *SqlMemberStore) CleanAttempts(nodeId string) *model.AppError {
 	_, err := s.GetMaster().Exec(`with u as (
     update call_center.cc_member_attempt a

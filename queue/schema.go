@@ -70,6 +70,7 @@ func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action stri
 		if err != nil {
 			attempt.Log(err.Error())
 			attempt.processingForm = nil // todo lock
+			qm.store.Member().StoreFormFields(attempt.Id(), fields)
 		} else {
 			// todo
 			if attempt.processingForm == nil {
