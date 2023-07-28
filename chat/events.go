@@ -47,7 +47,7 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 		chat.setNewMessage(e.MessageChannelId())
 	case ChatEventLeave, ChatEventClose:
 		chat.setClose(e.Timestamp())
-		m.RemoveConversation(chat)
+		//m.RemoveConversation(chat)
 	default:
 		wlog.Warn(fmt.Sprintf("skip [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
 	}
