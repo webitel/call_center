@@ -15,6 +15,7 @@ var (
 	grpcServerAddr           = flag.String("grpc_addr", "", "GRPC host")
 	useBridgeAnswerTimeout   = flag.Bool("use_bridge_answer_timeout", false, "bridge_answer_timeout")
 	waitChannelClose         = flag.Int("wait_channel_close", 0, "Wait channel close")
+	disableOmnichannel       = flag.Int("disable_omnichannel", 0, "Set disable omnichannel")
 	resourceCidType          = flag.String("resource_cid_type", "", "CID Type: none / Remote-Party-ID / P-Asserted-Identity")
 	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
 )
@@ -39,7 +40,8 @@ func loadConfig() (*model.Config, error) {
 	flag.Parse()
 	config := &model.Config{
 		QueueSettings: model.QueueSettings{
-			WaitChannelClose: waitChannelClose != nil && *waitChannelClose > 0,
+			WaitChannelClose:   waitChannelClose != nil && *waitChannelClose > 0,
+			DisableOmnichannel: disableOmnichannel != nil && *disableOmnichannel > 0,
 		},
 		ServiceSettings: model.ServiceSettings{
 			NodeId: model.NewString(fmt.Sprintf("%s-%s", model.ServiceName, *appId)),
