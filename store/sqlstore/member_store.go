@@ -23,9 +23,9 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 
 }
 
-func (s SqlMemberStore) ReserveMembersByNode(nodeId string, disableOmnichannel bool) (int64, *model.AppError) {
+func (s SqlMemberStore) ReserveMembersByNode(nodeId string, enableOmnichannel bool) (int64, *model.AppError) {
 	if i, err := s.GetMaster().SelectNullInt(`call call_center.cc_distribute(:DisableOmnichannel::bool)`, map[string]interface{}{
-		"DisableOmnichannel": disableOmnichannel,
+		"DisableOmnichannel": !enableOmnichannel,
 	}); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.ReserveMembers", "store.sql_member.reserve_member_resources.app_error",
 			map[string]interface{}{"Error": err.Error()},

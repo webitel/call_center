@@ -40,7 +40,7 @@ type QueueStore interface {
 }
 
 type MemberStore interface {
-	ReserveMembersByNode(nodeId string, disableOmnichannel bool) (int64, *model.AppError)
+	ReserveMembersByNode(nodeId string, enableOmnichannel bool) (int64, *model.AppError)
 	UnReserveMembersByNode(nodeId, cause string) (int64, *model.AppError)
 
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)

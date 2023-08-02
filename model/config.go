@@ -71,8 +71,8 @@ type DiscoverySettings struct {
 }
 
 type QueueSettings struct {
-	WaitChannelClose   bool
-	DisableOmnichannel bool
+	WaitChannelClose  bool
+	EnableOmnichannel bool
 }
 
 type Config struct {

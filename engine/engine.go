@@ -14,22 +14,22 @@ type App interface {
 }
 
 type EngineImp struct {
-	app                App
-	nodeId             string
-	store              store.Store
-	startOnce          sync.Once
-	pollingInterval    int
-	watcher            *utils.Watcher
-	disableOmnichannel bool
+	app               App
+	nodeId            string
+	store             store.Store
+	startOnce         sync.Once
+	pollingInterval   int
+	watcher           *utils.Watcher
+	enableOmnichannel bool
 }
 
-func NewEngine(app App, id string, s store.Store, disableOmnichannel bool) Engine {
+func NewEngine(app App, id string, s store.Store, enableOmnichannel bool) Engine {
 	return &EngineImp{
-		app:                app,
-		nodeId:             id,
-		store:              s,
-		pollingInterval:    DEFAULT_WATCHER_POLLING_INTERVAL,
-		disableOmnichannel: disableOmnichannel,
+		app:               app,
+		nodeId:            id,
+		store:             s,
+		pollingInterval:   DEFAULT_WATCHER_POLLING_INTERVAL,
+		enableOmnichannel: enableOmnichannel,
 	}
 }
 

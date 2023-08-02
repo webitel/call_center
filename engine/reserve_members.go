@@ -14,7 +14,7 @@ func (e *EngineImp) ReserveMembers() {
 		return
 	}
 	st := time.Now()
-	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId, e.disableOmnichannel)
+	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId, e.enableOmnichannel)
 	if err != nil {
 		wlog.Error(err.Error())
 		time.Sleep(time.Second * 5)

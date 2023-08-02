@@ -11,7 +11,7 @@ require (
 	github.com/streadway/amqp v1.0.0
 	github.com/webitel/engine v0.0.0-20230524103526-5ba03e19f192
 	github.com/webitel/flow_manager v0.0.0-20230414112735-d8214c2ef295
-	github.com/webitel/protos/cc v0.0.0-20230623094357-9bf3eb56875a
+	github.com/webitel/protos/cc v0.0.0-20230802125454-00746a3b1f45
 	github.com/webitel/protos/fs v0.0.0-20230202145403-c92fa287810a
 	github.com/webitel/protos/workflow v0.0.0-20230413090020-f5f4e9d27dc4
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
@@ -57,5 +57,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/webitel/protos/cc => ../protos/cc
