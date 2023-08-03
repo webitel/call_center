@@ -1,3 +1,5 @@
+alter extension cc_sql update to '1.3';
+
 -- TASK WTEL-3313
 --
 -- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
