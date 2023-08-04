@@ -80,6 +80,7 @@ type Attempt struct {
 
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
+	bridgedAt             int64
 }
 
 type LogItem struct {
@@ -197,6 +198,9 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 func (a *Attempt) SetState(state string) {
 	a.Lock()
 	a.state = state
+	if state == model.MemberStateBridged && a.bridgedAt == 0 {
+		a.bridgedAt = model.GetMillis()
+	}
 	a.Unlock()
 
 	a.queue.Hook(state, a)
@@ -206,6 +210,13 @@ func (a *Attempt) GetState() string {
 	a.RLock()
 	defer a.RUnlock()
 	return a.state
+}
+
+func (a *Attempt) BridgedAt() int64 {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.bridgedAt
 }
 
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
@@ -330,6 +341,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	res["attempt_id"] = fmt.Sprintf("%d", a.Id())
 	res["timestamp"] = fmt.Sprintf("%d", model.GetMillis())
 	res["joined_at"] = fmt.Sprintf("%d", a.JoinedAt())
+
+	if br := a.BridgedAt(); br > 0 {
+		res["bridged_at"] = fmt.Sprintf("%d", br)
+	}
 
 	if a.communication.Description != "" {
 		res["destination_description"] = a.communication.Description
