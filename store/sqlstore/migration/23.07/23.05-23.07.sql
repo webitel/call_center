@@ -1,5 +1,7 @@
 alter extension cc_sql update to '1.3';
 
+truncate table call_center.cc_agent_channel;
+
 -- TASK WTEL-3313
 --
 -- Name: cc_distribute_direct_member_to_queue(character varying, bigint, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
@@ -2108,3 +2110,8 @@ SELECT create_hypertable(
                'joined_at',
                chunk_time_interval => INTERVAL '1 month', migrate_data => true
            );
+
+insert into call_center.cc_agent_channel (agent_id, channel, state)
+select a.id, c, 'waiting'
+from unnest('{chat,call,task}'::text[]) c,
+     call_center.cc_agent a;
