@@ -39,6 +39,24 @@ func (queue *CallingQueue) SetHoldMusic(callRequest *model.CallRequest) {
 	}
 }
 
+func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
+	if amd == nil || !amd.Enabled {
+		return true
+	}
+
+	if amd.Ai {
+		aiAmd := call.AiResult()
+		for _, v := range amd.PositiveTags {
+			if v == aiAmd {
+				return true
+			}
+		}
+		return false
+	}
+
+	return call.IsHuman()
+}
+
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {
 	if amd == nil || !amd.Enabled {
 		return false
