@@ -76,6 +76,7 @@ type Call interface {
 
 	Stats() map[string]string
 	SetOtherChannelVar(vars map[string]string) *model.AppError
+	AiResult() string
 }
 
 type CallAction struct {
@@ -264,6 +265,14 @@ func (call *CallImpl) setAmd(e *model.CallActionAMD) {
 	call.Unlock()
 
 	call.setState(CALL_STATE_DETECT_AMD)
+}
+
+func (call *CallImpl) AiResult() string {
+	call.RLock()
+	res := call.aiResult
+	call.RUnlock()
+
+	return res
 }
 
 func (call *CallImpl) StopPlayback() *model.AppError {
@@ -511,8 +520,7 @@ func (call *CallImpl) HangupAt() int64 {
 }
 
 func (call *CallImpl) IsHuman() bool {
-	//todo aiResult not empty if positive. If aiError not empty need to make call...
-	return call.aiResult != "" || call.aiError != "" || call.amdResult == AmdHuman || call.amdResult == AmdNotSure
+	return call.amdResult == AmdHuman || call.amdResult == AmdNotSure
 }
 
 func (call *CallImpl) DurationSeconds() int {
