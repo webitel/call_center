@@ -60,6 +60,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
+	var allow bool
 
 	if agent, err = app.GetAgentById(agentId); err != nil {
 		return err
@@ -67,6 +68,15 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 
 	if agent.Status == model.AgentStatusPause && getString(agent.StatusPayload) == getString(payload) {
 		return model.NewAppError("SetAgentPause", "app.agent.set_pause.payload", nil, "already payload", http.StatusBadRequest)
+	}
+
+	allow, err = app.Store.Agent().CheckAllowPause(agent.DomainId, agentId)
+	if err != nil {
+		return err
+	}
+
+	if !allow {
+		return model.NewAppError("SetAgentPause", "app.agent.set_pause.not_allow", nil, "Toy can't take a pause right now", http.StatusBadRequest)
 	}
 
 	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId, nil); chs != nil {
