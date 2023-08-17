@@ -121,6 +121,7 @@ type AgentStore interface {
 
 	OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError)
 	LosePredictAttempt(id int) *model.AppError
+	CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError)
 }
 
 type TeamStore interface {

@@ -180,6 +180,42 @@ where c.agent_id = ag.id`, map[string]interface{}{
 	return nil
 }
 
+func (s SqlAgentStore) CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError) {
+	var res bool
+	err := s.GetMaster().SelectOne(&res, `select exists(SELECT 1
+FROM call_center.cc_agent a_1
+    JOIN call_center.cc_queue q_1 ON q_1.domain_id = a_1.domain_id
+    inner join lateral (
+        SELECT array_agg(distinct csia.agent_id) xxx
+          FROM call_center.cc_queue_skill qs
+            JOIN call_center.cc_skill_in_agent csia ON csia.skill_id = qs.skill_id
+            join call_center.cc_agent aa on aa.id = csia.agent_id
+          WHERE qs.enabled
+            AND csia.enabled
+            AND qs.queue_id = q_1.id
+            AND csia.capacity >= qs.min_capacity
+            AND csia.capacity <= qs.max_capacity
+            and (aa.status = 'online' or (aa.id = :AgentId::int and aa.status = 'offline') )
+    ) x on true
+WHERE (q_1.team_id IS NULL OR a_1.team_id = q_1.team_id)
+  and q_1.enabled
+  and x.xxx && array [a_1.id]
+  and coalesce((q_1.payload->'min_online_agents')::int, 0) > 0
+  and array_length(x.xxx, 1) >= (q_1.payload->'min_online_agents')::int
+  and a_1.id = :AgentId::int
+  and a_1.domain_id = :DomainId::int8)`, map[string]interface{}{
+		"AgentId":  agentId,
+		"DomainId": domainId,
+	})
+
+	if err != nil {
+		return false, model.NewAppError("SqlAgentStore.CheckAllowPause", "store.sql_agent.check_status.app_error", nil,
+			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return !res, nil
+}
+
 func (s SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError) {
 	var res []*model.CallNoAnswer
 	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
@@ -297,7 +333,7 @@ func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 	return nil
 }
 
-//todo need index
+// todo need index
 func (s SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey
 	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at
