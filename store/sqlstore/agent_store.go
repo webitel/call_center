@@ -195,7 +195,7 @@ FROM call_center.cc_agent a_1
             AND qs.queue_id = q_1.id
             AND csia.capacity >= qs.min_capacity
             AND csia.capacity <= qs.max_capacity
-            and aa.status = 'online'
+            and (aa.status = 'online' or (aa.id = :AgentId::int and aa.status = 'offline') )
     ) x on true
 WHERE (q_1.team_id IS NULL OR a_1.team_id = q_1.team_id)
   and q_1.enabled
