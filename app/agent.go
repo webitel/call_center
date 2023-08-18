@@ -76,7 +76,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 	}
 
 	if !allow {
-		return model.NewAppError("SetAgentPause", "app.agent.set_pause.not_allow", nil, "Toy can't take a pause right now", http.StatusBadRequest)
+		return model.NewAppError("SetAgentPause", "app.agent.set_pause.not_allow", nil, "You can't take a pause right now", http.StatusBadRequest)
 	}
 
 	if chs, _ := app.Store.Agent().GetNoAnswerChannels(agentId, nil); chs != nil {
