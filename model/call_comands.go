@@ -18,8 +18,8 @@ type CallCommands interface {
 	GetCdrUri() (string, *AppError)
 	GetSocketUri() (string, *AppError)
 
-	NewCall(settings *CallRequest) (string, string, *AppError)
-	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, *AppError)
+	NewCall(settings *CallRequest) (string, string, int, *AppError)
+	NewCallContext(ctx context.Context, settings *CallRequest) (string, string, int, *AppError)
 
 	HangupCall(id, cause string, reporting bool, vars map[string]string) *AppError
 	//ExecuteApplications(id string, apps []*CallRequestApplication) *AppError

@@ -24,6 +24,74 @@ const (
 	CdrVariable    = "cdr_url"
 )
 
+var switchCodeToSip = map[int32]int{
+	0:   500,
+	1:   404,
+	2:   404,
+	3:   404,
+	6:   405,
+	7:   405,
+	16:  200,
+	17:  486,
+	18:  408,
+	19:  480,
+	20:  480,
+	21:  603,
+	22:  410,
+	23:  410,
+	25:  483,
+	27:  502,
+	28:  484,
+	29:  501,
+	30:  501,
+	31:  480,
+	34:  503,
+	38:  502,
+	41:  503,
+	42:  503,
+	43:  503,
+	44:  503,
+	45:  503,
+	47:  503,
+	50:  503,
+	52:  403,
+	54:  403,
+	57:  403,
+	58:  503,
+	63:  503,
+	65:  488,
+	66:  488,
+	69:  501,
+	79:  501,
+	81:  501,
+	88:  488,
+	95:  488,
+	96:  488,
+	97:  488,
+	98:  488,
+	99:  488,
+	100: 488,
+	101: 488,
+	102: 504,
+	103: 504,
+	111: 504,
+	127: 504,
+	487: 487,
+	500: 487,
+	501: 487,
+	502: 487,
+	503: 487,
+	600: 487,
+	601: 487,
+	602: 487,
+	603: 487,
+	604: 487,
+	605: 487,
+	606: 487,
+	607: 487,
+	609: 487,
+}
+
 var patternSps = regexp.MustCompile(`\D+`)
 var patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
 
@@ -181,7 +249,7 @@ func (c *CallConnection) GetParameter(name string) (string, *model.AppError) {
 	return res.Data, nil
 }
 
-func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.CallRequest) (string, string, *model.AppError) {
+func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.CallRequest) (string, string, int, *model.AppError) {
 	request := &fs.OriginateRequest{
 		Endpoints:    settings.Endpoints,
 		Destination:  settings.Destination,
@@ -220,19 +288,20 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 	response, err := c.api.Originate(ctx, request)
 
 	if err != nil {
-		return "", "", model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
+		return "", "", 500, model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
 			-1) //FIXME transport error
 	}
 
 	if response.Error != nil {
-		return "", response.Error.Message, model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
-			int(response.ErrorCode))
+		code := switchErrToSipCode(response.ErrorCode)
+		return "", response.Error.Message, code, model.NewAppError("NewCall", "external.new_call.app_error", nil, response.Error.String(),
+			code)
 	}
 
-	return response.Uuid, "", nil
+	return response.Uuid, "", 0, nil
 }
 
-func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, *model.AppError) {
+func (c *CallConnection) NewCall(settings *model.CallRequest) (string, string, int, *model.AppError) {
 	return c.NewCallContext(context.Background(), settings)
 }
 
@@ -404,4 +473,12 @@ func (c *CallConnection) close() {
 func parseSps(str string) int {
 	i, _ := strconv.Atoi(patternSps.ReplaceAllString(str, ""))
 	return i
+}
+
+func switchErrToSipCode(e int32) int {
+	if v, ok := switchCodeToSip[e]; ok {
+		return v
+	}
+
+	return 500 // TODO
 }
