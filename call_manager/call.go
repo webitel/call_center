@@ -362,13 +362,13 @@ func (call *CallImpl) Invite() *model.AppError {
 	wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 
 	go func() {
-		_, cause, err := call.api.NewCall(call.callRequest)
+		_, cause, code, err := call.api.NewCall(call.callRequest)
 		if err != nil {
 			wlog.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()))
 			call.setHangup(&model.CallActionHangup{
 				CallAction: call.action,
 				Cause:      cause,
-				SipCode:    nil,
+				SipCode:    &code,
 			})
 			return
 		}
