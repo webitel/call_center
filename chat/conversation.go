@@ -7,6 +7,7 @@ import (
 	"github.com/webitel/engine/chat_manager"
 	"github.com/webitel/wlog"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -18,6 +19,10 @@ const (
 	ChatStateDeclined
 	ChatStateBridge
 	ChatStateClose
+)
+
+var (
+	ErrChannelNotFound = model.NewAppError("Chat.InviteInternal", "chat.invite.not_found", nil, "channel not found", http.StatusNotFound)
 )
 
 type Conversation struct {
@@ -104,6 +109,10 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 		model.UnionStringMaps(c.variables, vars))
 
 	if err != nil {
+		if isChannelClose(err) {
+			c.SetStop()
+			return ErrChannelNotFound
+		}
 		return model.NewAppError("Chat.InviteInternal", "chat.invite.internal.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -293,4 +302,9 @@ func (c *Conversation) SetStop() {
 	}
 
 	//todo remove store ?
+}
+
+// TODO
+func isChannelClose(err error) bool {
+	return strings.Index(err.Error(), "channel not found") != -1
 }
