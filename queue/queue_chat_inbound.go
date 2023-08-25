@@ -140,8 +140,15 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.InviteChatTimeout(), queue.name, vars)
 			if err != nil {
 				attempt.Log(err.Error())
-				team.MissedAgentAndWaitingAttempt(attempt, agent)
-				attempt.SetState(model.MemberStateWaitAgent)
+
+				if err == chat.ErrChannelNotFound {
+					team.CancelAgentAttempt(attempt, agent)
+					loop = false
+				} else {
+					team.MissedAgentAndWaitingAttempt(attempt, agent)
+					attempt.SetState(model.MemberStateWaitAgent)
+				}
+
 				agent = nil
 				team = nil
 				continue
