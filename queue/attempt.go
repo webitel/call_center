@@ -81,6 +81,7 @@ type Attempt struct {
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
 	bridgedAt             int64
+	manualDistribution    bool
 }
 
 type LogItem struct {

@@ -3,7 +3,8 @@ package model
 import "encoding/json"
 
 const (
-	NotificationHideMember = "hide_member"
+	NotificationHideMember  = "hide_member"
+	NotificationHideAttempt = "hide_attempt"
 )
 
 type Notification struct {

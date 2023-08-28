@@ -158,7 +158,7 @@ Max wait time with no agent - offline + onbreak
 Agent stickli
 */
 
-//{"time_base_score": "system", "timeout_with_no_agents": "12", "discard_abandoned_after": "1000"}
+// {"time_base_score": "system", "timeout_with_no_agents": "12", "discard_abandoned_after": "1000"}
 type QueueInboundSettings struct {
 	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`
 	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
@@ -170,6 +170,7 @@ type QueueInboundSettings struct {
 	StickyAgent        bool    `json:"sticky_agent"`
 	StickyAgentSec     uint16  `json:"sticky_agent_sec"` // def 30 sec
 	AutoAnswerTone     *string `json:"auto_answer_tone"`
+	ManualDistribution bool    `json:"manual_distribution"`
 }
 
 func QueueInboundSettingsFromBytes(data []byte) QueueInboundSettings {

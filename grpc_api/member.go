@@ -360,3 +360,12 @@ func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingForm
 
 	return &cc.ProcessingFormActionResponse{}, nil
 }
+
+func (api *member) InterceptAttempt(ctx context.Context, in *cc.InterceptAttemptRequest) (*cc.InterceptAttemptResponse, error) {
+	err := api.app.Queue().Manager().InterceptAttempt(ctx, in.DomainId, in.AttemptId, in.AgentId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.InterceptAttemptResponse{}, nil
+}

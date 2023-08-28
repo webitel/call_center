@@ -38,6 +38,7 @@ func (queue *InboundQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	}
 
 	attempt.memberChannel = mCall
+	attempt.manualDistribution = queue.props.ManualDistribution
 
 	go queue.run(attempt, mCall)
 

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/discovery"
 )
@@ -94,6 +95,8 @@ type MemberStore interface {
 
 	CleanAttempts(nodeId string) *model.AppError
 	FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError)
+
+	Intercept(ctx context.Context, domainId int64, attemptId int64, agentId int32) (int, *model.AppError)
 }
 
 type AgentStore interface {

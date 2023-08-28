@@ -1,6 +1,6 @@
 module github.com/webitel/call_center
 
-go 1.20
+go 1.19
 
 require (
 	github.com/go-gorp/gorp v2.2.0+incompatible
@@ -11,7 +11,7 @@ require (
 	github.com/streadway/amqp v1.1.0
 	github.com/webitel/engine v0.0.0-20230810110048-53935d18fdce
 	github.com/webitel/flow_manager v0.0.0-20230803084535-f3b23a17a46b
-	github.com/webitel/protos/cc v0.0.0-20230810105513-705f264b0551
+	github.com/webitel/protos/cc v0.0.0-20230828084019-b2f5e7c496f1
 	github.com/webitel/protos/fs v0.0.0-20230810105513-705f264b0551
 	github.com/webitel/protos/workflow v0.0.0-20230810105513-705f264b0551
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28

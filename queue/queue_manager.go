@@ -598,6 +598,20 @@ func (queueManager *QueueManager) DistributeDirectMember(memberId int64, communi
 	return attempt, nil
 }
 
+func (queueManager *QueueManager) InterceptAttempt(ctx context.Context, domainId int64, attemptId int64, agentId int32) *model.AppError {
+	queueId, err := queueManager.store.Member().Intercept(ctx, domainId, attemptId, agentId)
+	if err != nil {
+		wlog.Error(fmt.Sprintf("intercept %v to agent %v error: %s", attemptId, agentId, err.Error()))
+		return err
+	}
+
+	if err = queueManager.app.NotificationInterceptAttempt(domainId, queueId, attemptId, agentId); err != nil {
+		wlog.Error(fmt.Sprintf("intercept attempt %d notification, error : %s", attemptId, err.Error()))
+	}
+
+	return nil
+}
+
 func (queueManager *QueueManager) TimeoutLeavingMember(attempt *Attempt) {
 	queue := attempt.queue
 	if queue != nil {
@@ -651,6 +665,12 @@ func (queueManager *QueueManager) TimeoutLeavingMember(attempt *Attempt) {
 func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
 	if attempt.Result() == "" {
 		attempt.SetResult(AttemptResultAbandoned)
+	}
+
+	if attempt.manualDistribution && attempt.bridgedAt == 0 {
+		if err := queueManager.app.NotificationInterceptAttempt(attempt.domainId, attempt.QueueId(), attempt.Id(), 0); err != nil {
+			wlog.Error(fmt.Sprintf("intercept attempt %d notification, error : %s", attempt.Id(), err.Error()))
+		}
 	}
 
 	// todo fixme: bug if offering && reporting

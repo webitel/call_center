@@ -123,3 +123,18 @@ func (api *memberApi) CancelAttempt(ctx context.Context, attemptId int64, result
 
 	return err
 }
+
+func (api *memberApi) InterceptAttempt(ctx context.Context, domainId int64, attemptId int64, agentId int32) error {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.member.InterceptAttempt(ctx, &proto.InterceptAttemptRequest{
+		DomainId:  domainId,
+		AttemptId: attemptId,
+		AgentId:   agentId,
+	})
+
+	return err
+}

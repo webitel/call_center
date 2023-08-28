@@ -20,10 +20,11 @@ const (
 )
 
 type InboundChatQueueSettings struct {
-	MaxIdleClient int64  `json:"max_idle_client"`
-	MaxIdleAgent  int64  `json:"max_idle_agent"`
-	MaxIdleDialog int64  `json:"max_idle_dialog"`
-	MaxWaitTime   uint32 `json:"max_wait_time"`
+	MaxIdleClient      int64  `json:"max_idle_client"`
+	MaxIdleAgent       int64  `json:"max_idle_agent"`
+	MaxIdleDialog      int64  `json:"max_idle_dialog"`
+	MaxWaitTime        uint32 `json:"max_wait_time"`
+	ManualDistribution bool   `json:"manual_distribution"`
 }
 
 type InboundChatQueue struct {
@@ -66,6 +67,8 @@ func (queue *InboundChatQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 	}
 	attempt.RemoveVariable(inviterChannelId)
 	attempt.RemoveVariable(inviterUserId)
+
+	attempt.manualDistribution = queue.settings.ManualDistribution
 
 	go queue.process(attempt, inviterId, invUserId)
 	return nil

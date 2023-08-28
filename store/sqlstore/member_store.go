@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -934,6 +935,31 @@ from call_center.cc_attempt_flip_next_resource(:AttemptId::int8, :SkippResources
 	}
 
 	return res, nil
+}
+
+func (s *SqlMemberStore) Intercept(ctx context.Context, domainId int64, attemptId int64, agentId int32) (int, *model.AppError) {
+	var queueId int
+	err := s.GetMaster().WithContext(ctx).SelectOne(&queueId, `update call_center.cc_member_attempt a
+set agent_id = :AgentId,
+    team_id = ag.team_id
+from call_center.cc_agent ag
+where a.id = :Id::int8
+    and a.domain_id = :DomainId
+    and a.agent_id isnull
+    and ag.id = :AgentId
+    and a.state = 'wait_agent'
+returning a.queue_id`, map[string]interface{}{
+		"DomainId": domainId,
+		"AgentId":  agentId,
+		"Id":       attemptId,
+	})
+
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.Intercept", "store.sql_member.intercept.app_error", nil,
+			err.Error(), extractCodeFromErr(err))
+	}
+
+	return queueId, nil
 }
 
 func (s *SqlMemberStore) addCommunications(memberId int64, comm []model.MemberCommunication) error {
