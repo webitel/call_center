@@ -857,7 +857,7 @@ func (s *SqlMemberStore) SetExpired(limit int) ([]*model.ExpiredMember, *model.A
 func (s *SqlMemberStore) StoreForm(attemptId int64, form []byte, fields map[string]string) *model.AppError {
 	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set form_view = :Form::jsonb,
-    form_fields = coalesce(form_fields, '{}'::jsonb) || :Fields::jsonb
+    form_fields = coalesce(form_fields, '{}'::jsonb) || coalesce(:Fields::jsonb, '{}'::jsonb)
 where id = :Id`, map[string]interface{}{
 		"Id":     attemptId,
 		"Form":   form,
@@ -873,6 +873,9 @@ where id = :Id`, map[string]interface{}{
 }
 
 func (s *SqlMemberStore) StoreFormFields(attemptId int64, fields map[string]string) *model.AppError {
+	if fields == nil {
+		return nil
+	}
 	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set form_fields = coalesce(form_fields, '{}'::jsonb) || :Fields::jsonb
 where id = :Id`, map[string]interface{}{
