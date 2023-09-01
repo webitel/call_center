@@ -74,7 +74,7 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, attemptI
 		return nil
 	}
 
-	ids, err := a.queueUserIds(queueId, int(skipAgentId))
+	ids, err := a.queueUserIds(queueId, int(0))
 
 	if err != nil {
 		return err
@@ -92,6 +92,19 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, attemptI
 		ForUsers:  ids,
 		Body: map[string]interface{}{
 			"attempt_id": attemptId,
+		},
+	})
+}
+
+func (a *App) NotificationWaitingList(domainId int64, userIds []int64, list []*model.MemberWaiting) *model.AppError {
+	return a.MQ.SendNotification(domainId, &model.Notification{
+		Id:        0,
+		DomainId:  domainId,
+		Action:    model.NotificationWaitingList,
+		CreatedAt: model.GetMillis(),
+		ForUsers:  userIds,
+		Body: map[string]interface{}{
+			"list": list,
 		},
 	})
 }

@@ -37,6 +37,7 @@ type MemberApi interface {
 	CancelAgentDistribute(ctx context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error)
 	ProcessingActionForm(ctx context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error)
 	CancelAttempt(ctx context.Context, attemptId int64, result, appId string) error
+	InterceptAttempt(ctx context.Context, domainId int64, attemptId int64, agentId int32) error
 }
 
 type CCManager interface {

@@ -5,6 +5,7 @@ import "encoding/json"
 const (
 	NotificationHideMember  = "hide_member"
 	NotificationHideAttempt = "hide_attempt"
+	NotificationWaitingList = "waiting_list"
 )
 
 type Notification struct {
