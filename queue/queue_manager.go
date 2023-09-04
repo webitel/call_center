@@ -79,6 +79,8 @@ func (queueManager *QueueManager) Start() {
 		close(queueManager.stopped)
 	}()
 
+	queueManager.listenWaitingList()
+
 	for {
 		select {
 		case <-queueManager.stop:
@@ -115,6 +117,7 @@ func (queueManager *QueueManager) closeAttempts() {
 
 func (queueManager *QueueManager) Stop() {
 	wlog.Debug("queueManager Stopping")
+	queueManager.stopWaitingList()
 	wlog.Debug(fmt.Sprintf("wait %v for close attempts %d", timeoutWaitBeforeStop, queueManager.membersCache.Len()))
 
 	if waitTimeout(&queueManager.wg, timeoutWaitBeforeStop) {
@@ -605,7 +608,7 @@ func (queueManager *QueueManager) InterceptAttempt(ctx context.Context, domainId
 		return err
 	}
 
-	if err = queueManager.app.NotificationInterceptAttempt(domainId, queueId, attemptId, agentId); err != nil {
+	if err = queueManager.app.NotificationInterceptAttempt(domainId, queueId, "", attemptId, agentId); err != nil {
 		wlog.Error(fmt.Sprintf("intercept attempt %d notification, error : %s", attemptId, err.Error()))
 	}
 
@@ -668,7 +671,7 @@ func (queueManager *QueueManager) LeavingMember(attempt *Attempt) {
 	}
 
 	if attempt.manualDistribution && attempt.bridgedAt == 0 {
-		if err := queueManager.app.NotificationInterceptAttempt(attempt.domainId, attempt.QueueId(), attempt.Id(), 0); err != nil {
+		if err := queueManager.app.NotificationInterceptAttempt(attempt.domainId, attempt.QueueId(), attempt.channel, attempt.Id(), 0); err != nil {
 			wlog.Error(fmt.Sprintf("intercept attempt %d notification, error : %s", attempt.Id(), err.Error()))
 		}
 	}

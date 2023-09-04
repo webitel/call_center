@@ -1008,8 +1008,8 @@ func (s *SqlMemberStore) WaitingList() ([]*model.MemberWaitingByUsers, *model.Ap
       AND csia.capacity >= qs.min_capacity
       AND csia.capacity <= qs.max_capacity
       and q.domain_id = a.domain_id
---       and a.status = 'online'
---       and coalesce((q.payload->'manual_distribution')::bool, false)
+      and a.status = 'online'
+      and coalesce((q.payload->'manual_distribution')::bool, false)
     group by 1, 2, 3, 4, 5, 6, 7, 8
 )
 select list.domain_id, list.users::int8[] as users, jsonb_agg(row_to_json(list)::jsonb - 'domain_id' - 'users') as members

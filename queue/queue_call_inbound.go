@@ -126,6 +126,10 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 			cr := queue.AgentCallRequest(agent, team, attempt, apps)
 
+			if queue.props.ManualDistribution {
+				cr.SetAutoAnswer()
+			}
+
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 
 			agentCall = mCall.NewCall(cr)

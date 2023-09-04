@@ -122,7 +122,7 @@ type InboundCallAgent struct {
 	inboundCallData
 }
 
-///id, direction, destination, parent_id, timestamp, app_id, from_number, domain_id, answered_at, bridged_at, created_at
+// /id, direction, destination, parent_id, timestamp, app_id, from_number, domain_id, answered_at, bridged_at, created_at
 type Call struct {
 	Id          string  `json:"id" db:"id"`
 	State       string  `json:"state" db:"state"`
@@ -336,6 +336,10 @@ func (cr *CallRequest) SetAutoDtmf(dtmf string) {
 		return
 	}
 	cr.Variables["execute_on_answer_1"] = fmt.Sprintf(`send_dtmf W%s`, digitsDtmfOnly(dtmf))
+}
+
+func (cr *CallRequest) SetAutoAnswer() {
+	cr.Variables[QueueAutoAnswerVariable] = "true"
 }
 
 func digitsDtmfOnly(str string) string {

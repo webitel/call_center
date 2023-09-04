@@ -66,8 +66,6 @@ func (d *DialingImpl) Stop() {
 func (d *DialingImpl) routeData() {
 	d.routeIdleAttempts()
 	d.routeIdleAgents()
-
-	d.listWaiting()
 }
 
 func (d *DialingImpl) routeIdleAttempts() {
@@ -163,17 +161,5 @@ func (d *DialingImpl) routeAgentToAttempt(attemptId int64, agent agent_manager.A
 		}
 	} else {
 		wlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()))
-	}
-}
-
-func (d *DialingImpl) listWaiting() {
-	list, err := d.store.Member().WaitingList()
-	if err != nil {
-		wlog.Error(err.Error())
-		return
-	}
-
-	for _, v := range list {
-		d.app.NotificationWaitingList(v.DomainId, v.Users, v.Members)
 	}
 }

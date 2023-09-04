@@ -69,7 +69,7 @@ func (a *App) NotificationHideMember(domainId int64, queueId int, memberId *int6
 	})
 }
 
-func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, attemptId int64, skipAgentId int32) *model.AppError {
+func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError {
 	if attemptId == 0 {
 		return nil
 	}
@@ -92,6 +92,7 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, attemptI
 		ForUsers:  ids,
 		Body: map[string]interface{}{
 			"attempt_id": attemptId,
+			"channel":    channel,
 		},
 	})
 }

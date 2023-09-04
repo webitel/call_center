@@ -139,6 +139,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 				},
 			)
 
+			if queue.settings.ManualDistribution {
+				vars[model.QueueAutoAnswerVariable] = "true"
+			}
+
 			//todo close
 			err = conv.InviteInternal(attempt.Context, agent.UserId(), team.InviteChatTimeout(), queue.name, vars)
 			if err != nil {

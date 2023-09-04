@@ -18,6 +18,6 @@ type App interface {
 	GetChat(id string) (*chat.Conversation, *model.AppError)
 	QueueSettings() model.QueueSettings
 	NotificationHideMember(domainId int64, queueId int, memberId *int64, agentId int) *model.AppError
-	NotificationInterceptAttempt(domainId int64, queueId int, attemptId int64, skipAgentId int32) *model.AppError
+	NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError
 	NotificationWaitingList(domainId int64, userIds []int64, list []*model.MemberWaiting) *model.AppError
 }
