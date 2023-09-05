@@ -201,7 +201,7 @@ WHERE (q_1.team_id IS NULL OR a_1.team_id = q_1.team_id)
   and q_1.enabled
   and x.xxx && array [a_1.id]
   and coalesce((q_1.payload->'min_online_agents')::int, 0) > 0
-  and array_length(x.xxx, 1) >= (q_1.payload->'min_online_agents')::int
+  and array_length(x.xxx, 1) <= (q_1.payload->'min_online_agents')::int
   and a_1.id = :AgentId::int
   and a_1.domain_id = :DomainId::int8)`, map[string]interface{}{
 		"AgentId":  agentId,
