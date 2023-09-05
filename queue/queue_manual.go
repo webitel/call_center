@@ -18,7 +18,7 @@ var (
 func (qm *QueueManager) listenWaitingList() {
 	startOnceWaitingList.Do(func() {
 		waitingListWatcher = utils.MakeWatcher("WaitingList", waitingListPollingInterval, qm.listWaiting)
-		waitingListWatcher.Start()
+		go waitingListWatcher.Start()
 	})
 }
 
