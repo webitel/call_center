@@ -254,12 +254,16 @@ type CallNoAnswer struct {
 	AppId string `json:"app_id" db:"app_id"`
 }
 
+type AmdAiResult struct {
+	Result string `json:"ai_result"`
+	Error  string `json:"ai_error"`
+}
+
 type CallActionAMD struct {
 	CallAction
-	AiResult string `json:"ai_result"`
-	AiError  string `json:"ai_error"`
-	Result   string `json:"result"`
-	Cause    string `json:"cause"`
+	AmdAiResult
+	Result string `json:"result"` // deprecated
+	Cause  string `json:"cause"`  // deprecated
 }
 
 type CallVariables map[string]interface{}
