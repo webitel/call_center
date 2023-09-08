@@ -132,6 +132,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 
+			// TODO DEV-3235
+			delete(cr.Variables, "bridge_export_vars")
+
 			agentCall = mCall.NewCall(cr)
 			attempt.agentChannel = agentCall
 
