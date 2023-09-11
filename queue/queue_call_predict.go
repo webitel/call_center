@@ -215,7 +215,7 @@ retry_:
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT, call_manager.CALL_STATE_DETECT_AMD:
 				// FIXME
-				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !IsHuman(mCall, queue.Amd)) {
+				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled && mCall.AiResult().Error == "") || (state == call_manager.CALL_STATE_DETECT_AMD && !IsHuman(mCall, queue.Amd)) {
 					continue
 				}
 

@@ -76,7 +76,7 @@ type Call interface {
 
 	Stats() map[string]string
 	SetOtherChannelVar(vars map[string]string) *model.AppError
-	AiResult() string
+	AiResult() model.AmdAiResult
 }
 
 type CallAction struct {
@@ -119,8 +119,8 @@ type CallImpl struct {
 
 	amdResult string
 	amdCause  string
-	aiResult  string
-	aiError   string
+
+	amdAiResult model.AmdAiResult
 
 	variables map[string]interface{}
 
@@ -260,16 +260,17 @@ func (call *CallImpl) setAmd(e *model.CallActionAMD) {
 	call.Lock()
 	call.amdResult = e.Result
 	call.amdCause = e.Cause
-	call.aiResult = e.AiResult
-	call.aiError = e.AiError
+
+	call.amdAiResult = e.AmdAiResult
+
 	call.Unlock()
 
 	call.setState(CALL_STATE_DETECT_AMD)
 }
 
-func (call *CallImpl) AiResult() string {
+func (call *CallImpl) AiResult() model.AmdAiResult {
 	call.RLock()
-	res := call.aiResult
+	res := call.amdAiResult
 	call.RUnlock()
 
 	return res
@@ -506,7 +507,10 @@ func (call *CallImpl) TransferToAttemptId() *int64 {
 }
 
 func (call *CallImpl) AcceptAt() int64 {
-	return call.acceptAt
+	call.RLock()
+	res := call.acceptAt
+	call.RUnlock()
+	return res
 }
 
 func (call *CallImpl) BridgeAt() int64 {
