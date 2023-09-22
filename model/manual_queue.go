@@ -3,7 +3,6 @@ package model
 import "encoding/json"
 
 type MemberWaiting struct {
-	Position      int             `json:"position" db:"position"`
 	AttemptId     int64           `json:"attempt_id" db:"attempt_id"`
 	Wait          int             `json:"wait" db:"wait"`
 	Communication json.RawMessage `json:"communication" db:"communication"`
@@ -11,10 +10,12 @@ type MemberWaiting struct {
 	Bucket        *Lookup         `json:"bucket,omitempty" db:"bucket"`
 	Deadline      int             `json:"deadline" db:"deadline"`
 	Channel       string          `json:"channel" db:"channel"`
+	SessionId     string          `json:"session_id,omitempty" db:"session_id,omitempty"`
 }
 
 type MemberWaitingByUsers struct {
 	DomainId int64            `json:"-" db:"domain_id"`
 	Users    Int64Array       `json:"-" db:"users"`
-	Members  []*MemberWaiting `json:"-" db:"members"`
+	Calls    []*MemberWaiting `json:"-" db:"calls"`
+	Chats    []*MemberWaiting `json:"-" db:"chats"`
 }

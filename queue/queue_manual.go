@@ -36,7 +36,7 @@ func (qm *QueueManager) listWaiting() {
 	}
 
 	for _, v := range list {
-		err = qm.app.NotificationWaitingList(v.DomainId, v.Users, v.Members)
+		err = qm.app.NotificationWaitingList(v)
 		if err != nil {
 			wlog.Error(err.Error())
 		}

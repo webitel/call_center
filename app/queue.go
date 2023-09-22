@@ -97,15 +97,16 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, channel 
 	})
 }
 
-func (a *App) NotificationWaitingList(domainId int64, userIds []int64, list []*model.MemberWaiting) *model.AppError {
-	return a.MQ.SendNotification(domainId, &model.Notification{
+func (a *App) NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppError {
+	return a.MQ.SendNotification(e.DomainId, &model.Notification{
 		Id:        0,
-		DomainId:  domainId,
+		DomainId:  e.DomainId,
 		Action:    model.NotificationWaitingList,
 		CreatedAt: model.GetMillis(),
-		ForUsers:  userIds,
+		ForUsers:  e.Users,
 		Body: map[string]interface{}{
-			"list": list,
+			"calls": e.Calls,
+			"chats": e.Chats,
 		},
 	})
 }

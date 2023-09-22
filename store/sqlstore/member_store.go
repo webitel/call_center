@@ -986,58 +986,8 @@ where id = :Id;`, map[string]interface{}{
 
 func (s *SqlMemberStore) WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError) {
 	var list []*model.MemberWaitingByUsers
-	_, err := s.GetMaster().Select(&list, `with queues as materialized  (
-    SELECT q.domain_id,
-           q.name,
-           qs.queue_id,
-           q.priority,
-           coalesce((q.payload->'max_wait_time')::int, 0) as max_wait_time,
-           coalesce((q.payload->'sticky_agent_sec')::int, 0) as sticky_agent_sec,
-           q.sticky_agent,
-           b as bucket_id,
-           max(qs.lvl) lvl,
-           array_agg(distinct csia.agent_id) agents,
-           array_agg(distinct a.user_id) users
-    FROM call_center.cc_queue q
-             join call_center.cc_queue_skill qs on qs.queue_id = q.id
-             JOIN call_center.cc_skill_in_agent csia ON csia.skill_id = qs.skill_id
-             join call_center.cc_agent a on a.id = csia.agent_id and (q.team_id isnull or q.team_id = a.team_id)
-             left join lateral unnest(qs.bucket_ids) b on true
-    WHERE qs.enabled
-      AND csia.enabled
-      AND csia.capacity >= qs.min_capacity
-      AND csia.capacity <= qs.max_capacity
-      and q.domain_id = a.domain_id
-      and a.status = 'online'
-      and coalesce((q.payload->'manual_distribution')::bool, false)
-    group by 1, 2, 3, 4, 5, 6, 7, 8
-)
-select list.domain_id, list.users::int8[] as users, jsonb_agg(row_to_json(list)::jsonb - 'domain_id' - 'users') as members
-from (
-    select row_number()
-           over (order by q.priority desc, (extract(epoch from now() - coalesce(a.transferred_at, a.joined_at)) +
-                                            a.weight) desc)       position,
-           a.id attempt_id,
-           extract(epoch from now() - joined_at)::int          as wait,
-           a.destination::jsonb as communication,
-           call_center.cc_get_lookup(q.queue_id, q.name)       as queue,
-           call_center.cc_get_lookup(b.id::int8, b.name::text) as bucket,
-           ((extract(epoch from now() - joined_at)::numeric / q.max_wait_time::numeric) * 100)::int as deadline,
---            q.agents,
-           q.users,
-           a.channel,
-           q.domain_id
-    from queues q
-             inner join call_center.cc_member_attempt a on q.queue_id = a.queue_id
-             left join call_center.cc_bucket b on b.id = a.bucket_id
-    where a.domain_id = q.domain_id
-      and a.agent_id isnull
-      and a.state = 'wait_agent'
-      and a.queue_id = q.queue_id
-      and coalesce(q.bucket_id, 0) = coalesce(a.bucket_id, 0)
-    order by q.lvl, q.priority desc, (extract(epoch from now() - a.joined_at) + a.weight) desc
-) list
-group by 1, 2`)
+	_, err := s.GetMaster().Select(&list, `select domain_id, users, chats, calls
+from call_center.cc_manual_queue_list`)
 
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.WaitingList", "store.sql_member.waiting_list.app_error", nil,
