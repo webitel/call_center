@@ -144,7 +144,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 		top:
-			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
+			for calling && agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
 				case <-attempt.Cancel():
 					calling = false
