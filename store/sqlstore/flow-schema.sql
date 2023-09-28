@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.3 (Debian 15.3-1.pgdg110+1)
--- Dumped by pg_dump version 15.3 (Debian 15.3-1.pgdg110+1)
+-- Dumped from database version 15.4 (Debian 15.4-2.pgdg110+1)
+-- Dumped by pg_dump version 15.4 (Debian 15.4-2.pgdg110+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -658,6 +658,17 @@ ALTER SEQUENCE flow.calendar_timezones_id_seq OWNED BY flow.calendar_timezones.i
 
 
 --
+-- Name: calendar_timezones_view; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.calendar_timezones_view AS
+ SELECT t.id,
+    t.name,
+    (t.utc_offset)::text AS "offset"
+   FROM flow.calendar_timezones t;
+
+
+--
 -- Name: calendar_view; Type: VIEW; Schema: flow; Owner: -
 --
 
@@ -872,6 +883,14 @@ ALTER TABLE ONLY flow.calendar
 
 ALTER TABLE ONLY flow.calendar_timezones
     ADD CONSTRAINT calendar_timezones_pk PRIMARY KEY (name);
+
+
+--
+-- Name: calendar_timezones calendar_timezones_pk_2; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.calendar_timezones
+    ADD CONSTRAINT calendar_timezones_pk_2 UNIQUE (id);
 
 
 --
