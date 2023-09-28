@@ -1511,20 +1511,6 @@ $$;
 
 
 --
--- Name: cc_dev_debug(character varying); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_dev_debug(arg1 character varying) RETURNS character varying
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-begin
-    raise warning '%', arg1;
-    return 'test' || arg1;
-end;
-$$;
-
-
---
 -- Name: cc_distribute(boolean); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
@@ -4547,8 +4533,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     form_fields jsonb,
     form_view jsonb,
     import_id character varying(120),
-    schema_processing boolean DEFAULT false,
-    reject_agent_ids integer[]
+    schema_processing boolean DEFAULT false
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -4903,69 +4888,6 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)));
-
-
---
--- Name: cc_calls_history_old; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_calls_history_old (
-    id uuid,
-    direction character varying,
-    destination character varying,
-    parent_id uuid,
-    app_id character varying,
-    from_type character varying,
-    from_name character varying,
-    from_number character varying,
-    from_id character varying,
-    to_type character varying,
-    to_name character varying,
-    to_number character varying,
-    to_id character varying,
-    payload jsonb,
-    domain_id bigint,
-    hold_sec integer,
-    cause character varying,
-    sip_code integer,
-    bridged_id uuid,
-    gateway_id bigint,
-    user_id integer,
-    queue_id integer,
-    team_id integer,
-    agent_id integer,
-    attempt_id bigint,
-    member_id bigint,
-    duration integer,
-    description character varying,
-    tags character varying[],
-    answered_at timestamp with time zone,
-    bridged_at timestamp with time zone,
-    hangup_at timestamp with time zone,
-    created_at timestamp with time zone,
-    hangup_by character varying,
-    stored_at timestamp with time zone,
-    rating smallint,
-    notes text,
-    transfer_from uuid,
-    transfer_to uuid,
-    amd_result character varying,
-    amd_duration interval,
-    grantee_id bigint,
-    hold jsonb,
-    agent_ids integer[],
-    user_ids bigint[],
-    queue_ids integer[],
-    gateway_ids bigint[],
-    team_ids integer[],
-    params jsonb,
-    blind_transfer character varying,
-    talk_sec integer,
-    amd_ai_result character varying,
-    amd_ai_logs character varying[],
-    amd_ai_positive boolean,
-    contact_id bigint
-);
 
 
 --
@@ -8861,13 +8783,6 @@ CREATE INDEX cc_team_updated_by_index ON call_center.cc_team USING btree (update
 --
 
 CREATE INDEX cc_test_migration ON call_center.cc_calls_history USING btree (created_at, id);
-
-
---
--- Name: cc_test_migration_old; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_test_migration_old ON call_center.cc_calls_history_old USING btree (created_at);
 
 
 --
