@@ -646,35 +646,6 @@ END;
 $$;
 
 
-
-drop FUNCTION call_center.cc_wrap_over_dial;
---
--- Name: cc_wrap_over_dial(numeric, numeric, numeric, numeric, numeric); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_wrap_over_dial(over numeric DEFAULT 1, current numeric DEFAULT 0, target numeric DEFAULT 5, max numeric DEFAULT 7, q numeric DEFAULT 10) RETURNS numeric
-    LANGUAGE plpgsql IMMUTABLE
-AS $$
-declare dx numeric;
-begin
-    if current >= max then
-        return 1;
-    end if;
-
-    dx = target - current;
-    if dx = 0 then
-        dx = 0.99;
-    end if;
-
-    if dx > 0 then
-        return over + ( (over * dx * q) / 100 );
-    else
-        return (over * (((max - current) * (100 + q )) / max) ) / 100;
-    end if;
-end;
-$$;
-
-
 drop MATERIALIZED VIEW call_center.cc_agent_today_stats;
 --
 -- Name: cc_agent_today_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
@@ -884,6 +855,33 @@ refresh materialized view call_center.cc_agent_today_stats;
 
 
 drop MATERIALIZED VIEW call_center.cc_distribute_stats;
+
+drop FUNCTION call_center.cc_wrap_over_dial;
+--
+-- Name: cc_wrap_over_dial(numeric, numeric, numeric, numeric, numeric); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_wrap_over_dial(over numeric DEFAULT 1, current numeric DEFAULT 0, target numeric DEFAULT 5, max numeric DEFAULT 7, q numeric DEFAULT 10) RETURNS numeric
+    LANGUAGE plpgsql IMMUTABLE
+AS $$
+declare dx numeric;
+begin
+    if current >= max then
+        return 1;
+    end if;
+
+    dx = target - current;
+    if dx = 0 then
+        dx = 0.99;
+    end if;
+
+    if dx > 0 then
+        return over + ( (over * dx * q) / 100 );
+    else
+        return (over * (((max - current) * (100 + q )) / max) ) / 100;
+    end if;
+end;
+$$;
 --
 -- Name: cc_distribute_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
 --
