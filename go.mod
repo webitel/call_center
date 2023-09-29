@@ -9,7 +9,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.1.0
-	github.com/webitel/engine v0.0.0-20230928092855-6cbbb53daa57
+	github.com/webitel/engine v0.0.0-20230929132314-e8f08f52c140
 	github.com/webitel/flow_manager v0.0.0-20230928094914-a9c915fbadcb
 	github.com/webitel/protos/cc v0.0.0-20230919101002-a30f21070914
 	github.com/webitel/protos/fs v0.0.0-20230919101002-a30f21070914
@@ -26,7 +26,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.2 // indirect
-	github.com/hashicorp/consul/api v1.23.0 // indirect
+	github.com/hashicorp/consul/api v1.25.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
@@ -41,7 +41,7 @@ require (
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/webitel/protos/engine v0.0.0-20230919101002-a30f21070914 // indirect
+	github.com/webitel/protos/engine v0.0.0-20230929083624-34e29d2feb6a // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/exp v0.0.0-20230801115018-d63ba01acd4b // indirect
