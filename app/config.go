@@ -2,7 +2,6 @@ package app
 
 import (
 	"flag"
-	"fmt"
 	"github.com/webitel/call_center/model"
 )
 
@@ -44,7 +43,7 @@ func loadConfig() (*model.Config, error) {
 			EnableOmnichannel: enableOmnichannel != nil && *enableOmnichannel > 0,
 		},
 		ServiceSettings: model.ServiceSettings{
-			NodeId: model.NewString(fmt.Sprintf("%s-%s", model.ServiceName, *appId)),
+			NodeId: appId,
 		},
 		DiscoverySettings: model.DiscoverySettings{
 			Url: *consulHost,

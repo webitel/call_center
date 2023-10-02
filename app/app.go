@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -21,6 +22,7 @@ import (
 
 type App struct {
 	id             *string
+	publicId       string
 	Store          store.Store
 	MQ             mq.MQ
 	Log            *wlog.Logger
@@ -50,7 +52,9 @@ func New(options ...string) (outApp *App, outErr error) {
 	if err := app.LoadConfig(app.configFile); err != nil {
 		return nil, err
 	}
-	app.id = app.Config().ServiceSettings.NodeId
+	// TODO
+	app.setServiceId(app.Config().ServiceSettings.NodeId)
+
 	app.Log = wlog.NewLogger(&wlog.LoggerConfiguration{
 		EnableConsole: true,
 		ConsoleLevel:  wlog.LevelDebug,
@@ -177,6 +181,11 @@ func (app *App) Shutdown() {
 	}
 }
 
+func (a *App) setServiceId(id *string) {
+	a.id = id
+	a.publicId = fmt.Sprintf("%s-%s", model.ServiceName, *a.id)
+}
+
 func (a *App) GetInstanceId() string {
-	return *a.id
+	return a.publicId
 }
