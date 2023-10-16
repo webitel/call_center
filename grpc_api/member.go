@@ -77,6 +77,10 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		result.Redial = model.NewBool(true)
 	}
 
+	if in.WaitBetweenRetries > 0 {
+		result.WaitBetweenRetries = &in.WaitBetweenRetries
+	}
+
 	l := len(in.AddCommunications)
 	if l != 0 {
 		result.AddCommunications = make([]model.MemberCommunication, 0, l)

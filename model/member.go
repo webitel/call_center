@@ -55,6 +55,7 @@ type AttemptCallback struct {
 	ExcludeCurrentCommunication *bool
 	Redial                      *bool
 	AddCommunications           []MemberCommunication
+	WaitBetweenRetries          *int32
 }
 
 type SchemaResultType int
