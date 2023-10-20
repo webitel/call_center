@@ -41,6 +41,7 @@ type Conversation struct {
 	lastMessageAt int64
 	currentState  ChatState
 	state         chan ChatState
+	cause         string
 	sync.RWMutex
 }
 
@@ -265,10 +266,16 @@ func (c *Conversation) setNewMessage(channelId string) {
 	}
 }
 
-func (c *Conversation) setClose(timestamp int64) {
+func (c *Conversation) setClose(timestamp int64, cause string) {
 	c.Lock()
 	c.closeAt = timestamp // TODO created from register in queue
+	c.cause = cause
 	c.Unlock()
+
+	s := c.MemberSession()
+	if s != nil {
+		s.cause = cause
+	}
 
 	c.state <- ChatStateClose
 }

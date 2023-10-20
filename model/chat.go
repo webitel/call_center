@@ -34,6 +34,13 @@ func (c ChatEvent) Timestamp() int64 {
 	return int64(i)
 }
 
+func (c ChatEvent) Cause() string {
+	if v, ok := c.Data["cause"].(string); ok {
+		return v
+	}
+	return ""
+}
+
 func (c ChatEvent) ChannelId() string {
 	if i, ok := c.Data["member"].(map[string]interface{}); ok {
 		res, _ := i["id"].(string)
