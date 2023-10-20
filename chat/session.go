@@ -30,6 +30,7 @@ type ChatSession struct {
 
 	cli       chat_manager.Chat
 	variables map[string]string
+	cause     string
 
 	sync.RWMutex
 }
@@ -115,6 +116,13 @@ func (c *ChatSession) Close() *model.AppError {
 }
 
 func (c *ChatSession) Stats() map[string]string {
-	// todo
-	return map[string]string{}
+	vars := make(map[string]string)
+	if c.cause != "" {
+		if c.cause == "transfer" {
+			vars["chat_transferred"] = "true"
+		} else {
+			vars["chat_transferred"] = "false"
+		}
+	}
+	return vars
 }

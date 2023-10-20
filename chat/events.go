@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -46,7 +47,7 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 	case ChatEventMessage:
 		chat.setNewMessage(e.MessageChannelId())
 	case ChatEventLeave, ChatEventClose:
-		chat.setClose(e.Timestamp())
+		chat.setClose(e.Timestamp(), strings.ToLower(e.Cause()))
 		//m.RemoveConversation(chat)
 	default:
 		wlog.Warn(fmt.Sprintf("skip [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
