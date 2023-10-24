@@ -30,6 +30,12 @@ func (s *StatisticsManager) Start() {
 	wlog.Debug("starting statistics service")
 	s.watcher = utils.MakeWatcher("Statistics", STATISTICS_WATCHER_POLLING_INTERVAL, s.refresh)
 	s.startOnce.Do(func() {
+		ver, err := s.store.Statistic().LibVersion()
+		if err != nil {
+			wlog.Error(err.Error())
+		}
+		wlog.Debug(fmt.Sprintf("cc_sql version: %s", ver))
+
 		go s.watcher.Start()
 	})
 }

@@ -138,6 +138,7 @@ type GatewayStore interface {
 
 type StatisticStore interface {
 	RefreshInbound1H() *model.AppError
+	LibVersion() (string, *model.AppError)
 }
 
 type TriggerStore interface {

@@ -25,3 +25,14 @@ func (s SqlStatisticStore) RefreshInbound1H() *model.AppError {
 
 	return nil
 }
+
+func (s *SqlStatisticStore) LibVersion() (string, *model.AppError) {
+	var str string
+	err := s.GetMaster().SelectOne(&str, `select x from call_center.cc_version() x`)
+	if err != nil {
+		return "", model.NewAppError("SqlMemberStore.LibVersion", "store.sql_member.lib_version.app_error", nil,
+			err.Error(), extractCodeFromErr(err))
+	}
+
+	return str, nil
+}
