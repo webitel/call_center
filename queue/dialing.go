@@ -92,6 +92,10 @@ func (d *DialingImpl) routeIdleAttempts() {
 	}
 
 	for _, v := range members {
+		if v.MemberId == nil {
+			wlog.Warn(fmt.Sprintf("Attempt=%d is canceled", v.Id))
+			continue
+		}
 		v.CreatedAt = time.Now()
 		att, _ := d.queueManager.CreateAttemptIfNotExists(context.Background(), v) //todo check err
 		att.Log("state: " + att.state)
