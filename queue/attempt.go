@@ -234,8 +234,11 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 	wlog.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()))
 }
 
-func (a *Attempt) TeamUpdatedAt() *int64 {
-	return a.member.TeamUpdatedAt
+func (a *Attempt) TeamUpdatedAt() int64 {
+	if a.member.TeamUpdatedAt == nil {
+		return 0
+	}
+	return *a.member.TeamUpdatedAt
 }
 
 func (a *Attempt) Id() int64 {

@@ -214,7 +214,7 @@ func (queue *BaseQueue) TeamManager() *teamManager {
 
 func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) {
 	if attempt.agent != nil {
-		return queue.TeamManager().GetTeam(attempt.agent.TeamId(), attempt.agent.TeamUpdatedAt())
+		return queue.TeamManager().GetTeam(attempt.agent.TeamId(), attempt.TeamUpdatedAt())
 	}
 
 	return nil, model.NewAppError("BaseQueue.GetTeam", "queue.team.get_by_id.app_error", nil, "Not found parameters", http.StatusInternalServerError)
