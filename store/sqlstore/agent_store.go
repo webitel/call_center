@@ -336,7 +336,21 @@ func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 // todo need index
 func (s SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey
-	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at
+	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at,
+       not exists(
+        select 1
+        from directory.wbt_user_presence p
+            where p.user_id = a.user_id
+                and p.status = 'sip'
+                and p.open > 0
+                ) sip,
+       not exists(
+        select 1
+        from directory.wbt_user_presence p
+            where p.user_id = a.user_id
+                and p.status = 'web'
+                and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
+                ) ws
 from call_center.cc_agent a
 where a.status in ('online', 'break_out')
     and not exists(SELECT 1
