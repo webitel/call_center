@@ -44,7 +44,7 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 	return agent.info.UpdatedAt != updatedAt
 }
 
-// TODO
+//TODO
 func (agent *Agent) GetCallEndpoints() []string {
 	if agent.info.Destination == nil {
 		return nil
@@ -77,7 +77,7 @@ func (agent *Agent) Online(onDemand bool) (*model.AgentOnlineData, *model.AppErr
 }
 
 func (agent *Agent) Offline() *model.AppError {
-	return agent.manager.SetOffline(agent, nil)
+	return agent.manager.SetOffline(agent)
 }
 
 func (agent *Agent) SetOnBreak() *model.AppError {

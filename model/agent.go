@@ -63,8 +63,6 @@ type Agent struct {
 type AgentHashKey struct {
 	Id        int   `json:"id" db:"id" `
 	UpdatedAt int64 `json:"updated_at" db:"updated_at"`
-	Sip       bool  `json:"sip" db:"sip"`
-	Ws        bool  `json:"ws" db:"ws"`
 }
 
 type AgentChannel struct {

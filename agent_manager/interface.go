@@ -8,7 +8,7 @@ type AgentManager interface {
 	GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError)
 
 	SetOnline(agent AgentObject, onDemand bool) (*model.AgentOnlineData, *model.AppError)
-	SetOffline(agent AgentObject, sys *string) *model.AppError
+	SetOffline(agent AgentObject) *model.AppError
 	SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError
 	SetBreakOut(agent AgentObject) *model.AppError
 
