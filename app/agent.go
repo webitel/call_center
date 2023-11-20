@@ -53,7 +53,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetOffline(agentObj)
+		return app.agentManager.SetOffline(agentObj, nil)
 	}
 }
 

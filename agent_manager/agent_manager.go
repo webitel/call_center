@@ -98,7 +98,7 @@ func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentSta
 	return nil
 }
 
-func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
+func (am *agentManager) SetOffline(agent AgentObject, sys *string) *model.AppError {
 	event := model.AgentEventStatus{
 		AgentEvent: model.AgentEvent{
 			AgentId:   agent.Id(),
@@ -109,6 +109,10 @@ func (am *agentManager) SetOffline(agent AgentObject) *model.AppError {
 		AgentStatus: model.AgentStatus{
 			Status: model.AgentStatusOffline,
 		},
+	}
+
+	if sys != nil {
+		event.AgentStatus.StatusPayload = sys
 	}
 
 	err := am.setAgentStatus(agent, &event.AgentStatus)
@@ -166,14 +170,24 @@ func (am *agentManager) SetBreakOut(agent AgentObject) *model.AppError {
 }
 
 // WTEL-1727
-//todo new watcher &
+// todo new watcher &
 func (am *agentManager) changeDeadlineState() {
 	if items, err := am.store.Agent().OnlineWithOutActive(MaxAgentOnlineWithOutSocSec); err != nil {
 		wlog.Error(err.Error())
 	} else {
 		for _, v := range items {
 			if a, _ := am.GetAgent(v.Id, v.UpdatedAt); a != nil {
-				err = am.SetOffline(a)
+				var s *string
+				if v.Ws || v.Sip {
+					s = model.NewString("system")
+					if v.Ws {
+						*s = *s + "/ws"
+					}
+					if v.Sip {
+						*s = *s + "/sip"
+					}
+				}
+				err = am.SetOffline(a, s)
 				if err != nil {
 					wlog.Error(err.Error())
 				}
