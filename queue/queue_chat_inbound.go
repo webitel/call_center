@@ -25,6 +25,7 @@ type InboundChatQueueSettings struct {
 	MaxIdleDialog      int64  `json:"max_idle_dialog"`
 	MaxWaitTime        uint32 `json:"max_wait_time"`
 	ManualDistribution bool   `json:"manual_distribution"`
+	LastMessageTimeout bool   `json:"last_message_timeout"`
 }
 
 type InboundChatQueue struct {
@@ -77,6 +78,8 @@ func (queue *InboundChatQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId string) {
 	var err *model.AppError
 	var team *agentTeam
+	var timeoutStrategy bool
+
 	defer attempt.Log("stopped queue")
 
 	queue.Hook(HookJoined, attempt)
@@ -179,14 +182,26 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 					if conv.BridgedAt() > 0 {
 						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec(), conv.SilentSec()))
 
-						if queue.settings.MaxIdleAgent > 0 && aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent {
+						if queue.settings.LastMessageTimeout {
+							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleAgent && mSess.IdleSec() > aSess.IdleSec()
+						} else {
+							timeoutStrategy = aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent
+						}
+
+						if queue.settings.MaxIdleAgent > 0 && timeoutStrategy {
 							attempt.Log("max idle agent")
 							attempt.SetResult(AttemptResultAgentTimeout)
 							aSess.Leave()
 							break
 						}
 
-						if queue.settings.MaxIdleClient > 0 && aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient {
+						if queue.settings.LastMessageTimeout {
+							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleClient && aSess.IdleSec() > mSess.IdleSec()
+						} else {
+							timeoutStrategy = aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient
+						}
+
+						if queue.settings.MaxIdleClient > 0 && timeoutStrategy {
 							attempt.Log("max idle client")
 							attempt.SetResult(AttemptResultClientTimeout)
 							aSess.Leave()
