@@ -129,7 +129,6 @@ retry_:
 				//"wbt_from_name":                     attempt.resource.Gateway().Name,
 				"wbt_from_type": "gateway",
 
-				"wbt_to_id":     fmt.Sprintf("%d", *attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
 				"wbt_to_type":   "member",
 				"wbt_to_number": attempt.Destination(),
@@ -150,12 +149,18 @@ retry_:
 				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
 
 				model.QUEUE_SIDE_FIELD:        model.QUEUE_SIDE_MEMBER,
-				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%v", *attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
 			},
 		),
 		Applications: make([]*model.CallRequestApplication, 0, 2),
+	}
+
+	memberId := attempt.MemberId()
+	// TODO delete member after reserved
+	if memberId != nil {
+		callRequest.Variables[model.QUEUE_MEMBER_ID_FIELD] = fmt.Sprintf("%v", *memberId)
+		callRequest.Variables["wbt_to_id"] = callRequest.Variables[model.QUEUE_MEMBER_ID_FIELD]
 	}
 
 	attempt.resource.Take() // rps
