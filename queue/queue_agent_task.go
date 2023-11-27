@@ -31,7 +31,7 @@ type TaskAgentQueueSettings struct {
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 }
 
-//todo max working task ?
+// todo max working task ?
 type TaskChannel struct {
 	id          string
 	state       TaskState
@@ -154,7 +154,7 @@ func (queue *TaskAgentQueue) run(team *agentTeam, attempt *Attempt, agent agent_
 		return
 	}
 
-	timeout := time.NewTimer(time.Second * time.Duration(team.CallTimeout()))
+	timeout := time.NewTimer(time.Second * time.Duration(team.TaskAcceptTimeout()))
 	process := true
 
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))

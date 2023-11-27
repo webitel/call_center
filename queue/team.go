@@ -44,6 +44,10 @@ func (at agentTeam) InviteChatTimeout() uint16 {
 	return at.data.InviteChatTimeout
 }
 
+func (at agentTeam) TaskAcceptTimeout() uint16 {
+	return at.data.TaskAcceptTimeout
+}
+
 func (at *agentTeam) MaxNoAnswer() uint16 {
 	return at.data.MaxNoAnswer
 }
@@ -92,7 +96,7 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	return team, err
 }
 
-//FIXME store
+// FIXME store
 func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject) {
 	if attempt.queue != nil {
 		attempt.queue.StartProcessingForm(attempt) //TODO
