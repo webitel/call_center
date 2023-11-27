@@ -2,7 +2,6 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/protos/workflow"
 )
@@ -80,7 +79,7 @@ func (q *BaseQueue) Hook(name string, at *Attempt) {
 
 	id, err := q.queueManager.app.FlowManager().Queue().StartFlow(req)
 
-	call_manager.DUMP(req.Variables)
+	//call_manager.DUMP(req.Variables)
 
 	if err != nil {
 		at.Log(fmt.Sprintf("hook \"%s\", error: %s", name, err.Error()))

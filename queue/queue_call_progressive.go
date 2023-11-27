@@ -315,6 +315,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
+			if agentCall.HangupAt() == 0 && agentCall.TransferTo() == nil && mCall.HangupAt() > 0 {
+				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
+			}
 			//FIXME cancel if progressive cnt > 1
 			team.Missed(attempt, agent)
 			queue.queueManager.LeavingMember(attempt)

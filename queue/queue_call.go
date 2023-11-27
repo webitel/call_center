@@ -46,7 +46,7 @@ func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
 
 	if amd.Ai {
 		aiAmd := call.AiResult()
-		if aiAmd.Error != "" {
+		if aiAmd.Error != "" || aiAmd.Result == "undefined" {
 			return true // TODO ?
 		}
 		for _, v := range amd.PositiveTags {
