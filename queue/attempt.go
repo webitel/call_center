@@ -341,6 +341,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
 	}
 
+	if a.member.Timezone != nil {
+		res["member_timezone"] = *a.member.Timezone
+	}
+
 	res["destination"] = a.Destination()
 	res["attempt_id"] = fmt.Sprintf("%d", a.Id())
 	res["timestamp"] = fmt.Sprintf("%d", model.GetMillis())

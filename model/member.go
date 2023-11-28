@@ -117,6 +117,7 @@ type MemberAttempt struct {
 	Variables           map[string]string `json:"variables" db:"variables"`
 	Name                string            `json:"name" db:"name"`
 	MemberCallId        *string           `json:"member_call_id" db:"member_call_id"`
+	Timezone            *string           `json:"timezone" db:"timezone"`
 }
 
 type AttemptReportingTimeout struct {
