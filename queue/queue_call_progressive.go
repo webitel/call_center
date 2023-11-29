@@ -188,12 +188,6 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 					go queue.HangupManyCall(mCall.Id(), model.CALL_HANGUP_ORIGINATOR_CANCEL, cnt...)
 
-					//todo
-					if mCall.HangupCause() != "" {
-						calling = false
-						continue
-					}
-
 					if queue.HasRingtone() {
 						mCall.ParkPlaybackFile(queue.domainId, queue.Ringtone(), "aleg")
 					}
@@ -211,8 +205,13 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					agentCall = mCall.NewCall(cr)
 					attempt.agentChannel = agentCall
 
-					printfIfErr(agentCall.Invite())
+					//todo
+					if mCall.HangupCause() != "" {
+						calling = false
+						continue
+					}
 
+					printfIfErr(agentCall.Invite())
 					wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 				top:
@@ -316,6 +315,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
 			if agentCall.HangupAt() == 0 && agentCall.TransferTo() == nil && mCall.HangupAt() > 0 {
+				time.Sleep(time.Millisecond * 200) // todo WTEL-4057
 				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 			}
 			//FIXME cancel if progressive cnt > 1
