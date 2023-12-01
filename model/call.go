@@ -318,17 +318,18 @@ type CallRequestApplication struct {
 }
 
 type CallRequest struct {
-	Id           *string
-	Endpoints    []string
-	Strategy     uint8
-	Destination  string
-	Variables    map[string]string
-	Timeout      uint16
-	CallerName   string
-	CallerNumber string
-	Dialplan     string
-	Context      string
-	Applications []*CallRequestApplication
+	Id            *string
+	Endpoints     []string
+	Strategy      uint8
+	Destination   string
+	Variables     map[string]string
+	Timeout       uint16
+	CallerName    string
+	CallerNumber  string
+	Dialplan      string
+	Context       string
+	Applications  []*CallRequestApplication
+	CheckParentId string
 }
 
 func (cr *CallRequest) SetPush() {

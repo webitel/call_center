@@ -259,6 +259,7 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 		Context:      settings.Context,
 		Dialplan:     settings.Dialplan,
 		Variables:    settings.Variables,
+		CheckId:      settings.CheckParentId,
 	}
 
 	if len(settings.Applications) > 0 {

@@ -202,6 +202,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 						},
 					})
 					cr.Variables["wbt_parent_id"] = mCall.Id()
+					cr.CheckParentId = mCall.Id()
+
 					agentCall = mCall.NewCall(cr)
 					attempt.agentChannel = agentCall
 
@@ -229,7 +231,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 									if agentCall.HangupAt() == 0 {
 										agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 									}
+									calling = false
 									printfIfErr(err)
+									continue
 								}
 
 								//fixme refactor
