@@ -12,7 +12,7 @@ require (
 	github.com/webitel/engine v0.0.0-20230929132314-e8f08f52c140
 	github.com/webitel/flow_manager v0.0.0-20230928094914-a9c915fbadcb
 	github.com/webitel/protos/cc v0.0.0-20231016113342-4e297ed227c4
-	github.com/webitel/protos/fs v0.0.0-20230919101002-a30f21070914
+	github.com/webitel/protos/fs v0.0.0-20231201134013-7935e1a08885
 	github.com/webitel/protos/workflow v0.0.0-20230919101002-a30f21070914
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
 	golang.org/x/sync v0.3.0
