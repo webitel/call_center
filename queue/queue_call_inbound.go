@@ -6,6 +6,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+	"strconv"
 	"time"
 )
 
@@ -163,7 +164,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							result = AttemptResultPostProcessing
 						}
 						mCall.SerVariables(map[string]string{
-							"cc_result": result,
+							"cc_result":   result,
+							"cc_agent_id": strconv.Itoa(agent.Id()),
 						})
 						//
 						time.Sleep(time.Millisecond * 250)
