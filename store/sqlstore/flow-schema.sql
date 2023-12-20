@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.4 (Debian 15.4-2.pgdg110+1)
--- Dumped by pg_dump version 15.4 (Debian 15.4-2.pgdg110+1)
+-- Dumped from database version 15.5 (Debian 15.5-1.pgdg120+1)
+-- Dumped by pg_dump version 15.5 (Debian 15.5-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -760,6 +760,23 @@ ALTER SEQUENCE flow.scheme_log_id_seq OWNED BY flow.scheme_log.id;
 
 
 --
+-- Name: web_hook; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.web_hook (
+    id character varying NOT NULL,
+    name character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    description character varying,
+    origin character varying[],
+    rps integer DEFAULT 5 NOT NULL,
+    schema_id integer NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    "authorization" character varying
+);
+
+
+--
 -- Name: acr_chat_plan id; Type: DEFAULT; Schema: flow; Owner: -
 --
 
@@ -907,6 +924,14 @@ ALTER TABLE ONLY flow.region
 
 ALTER TABLE ONLY flow.scheme_log
     ADD CONSTRAINT scheme_log_pk PRIMARY KEY (id);
+
+
+--
+-- Name: web_hook web_hook_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.web_hook
+    ADD CONSTRAINT web_hook_pk PRIMARY KEY (id);
 
 
 --

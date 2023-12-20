@@ -956,6 +956,10 @@ func (queueManager *QueueManager) doLeavingReporting(attemptId int64, attempt *A
 	if attempt != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 		attempt.SetCallback(result)
+		if attempt.channel == "chat" && attempt.state == model.MemberStateWaitAgent && !attempt.canceled {
+			attempt.SetCancel()
+		}
+
 		// FIXME
 		if attempt.queue.TypeName() == "predictive" && attempt.memberChannel != nil {
 			select {
