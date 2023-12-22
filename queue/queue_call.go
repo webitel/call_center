@@ -39,14 +39,22 @@ func (queue *CallingQueue) SetHoldMusic(callRequest *model.CallRequest) {
 	}
 }
 
-func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
+func (queue *CallingQueue) AiSkipUndefined() bool {
+	if queue.variables != nil {
+		return queue.GetVariable("wbt_ai_skip_udef") == "true"
+	}
+
+	return false
+}
+
+func (queue *CallingQueue) IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
 	if amd == nil || !amd.Enabled {
 		return true
 	}
 
 	if amd.Ai {
 		aiAmd := call.AiResult()
-		if aiAmd.Error != "" || aiAmd.Result == "undefined" {
+		if aiAmd.Error != "" || (aiAmd.Result == "undefined" && !queue.AiSkipUndefined()) {
 			return true // TODO ?
 		}
 		for _, v := range amd.PositiveTags {
