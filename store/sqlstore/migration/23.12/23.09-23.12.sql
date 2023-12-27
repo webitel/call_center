@@ -1721,3 +1721,43 @@ ALTER TABLE ONLY call_center.cc_calls_history
 --
 
 CREATE INDEX cc_calls_history_sn_ops_idx ON call_center.cc_calls_history USING gin (search_number gin_trgm_ops);
+
+
+
+
+create or replace function call_center.cc_set_agent_channel_change_status() returns trigger
+    language plpgsql
+as
+$$
+BEGIN
+    -- FIXME
+    if TG_OP = 'INSERT' then
+        return new;
+    end if;
+    if new.online != old.online and new.state = 'waiting' then
+        new.joined_at := now();
+        if new.online then
+            return new;
+        end if;
+    end if;
+
+    --
+    if new.state = 'waiting' then
+        new.lose_attempt = 0;
+        new.queue_id := null;
+        new.attempt_id := null;
+    end if;
+
+    --fixme error when agent set offline/pause in active call
+    if new.joined_at - old.joined_at = interval '0' then
+        return new;
+    end if;
+
+    new.channel_changed_at = now();
+
+    insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id, attempt_id)
+    values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id, old.attempt_id);
+
+    RETURN new;
+END;
+$$;
