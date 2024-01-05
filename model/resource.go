@@ -107,6 +107,7 @@ type BridgeRequest struct {
 func (g *SipGateway) Bridge(params BridgeRequest) string {
 	res := []string{
 		fmt.Sprintf("leg_timeout=%d", params.Timeout),
+		fmt.Sprintf("progress_timeout=%d", params.Timeout),
 		fmt.Sprintf("wbt_parent_id=%s", params.ParentId),
 		fmt.Sprintf("origination_caller_id_number=%s", params.Display),
 
