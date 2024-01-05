@@ -235,6 +235,9 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 }
 
 func (a *Attempt) TeamUpdatedAt() int64 {
+	if a.agent != nil {
+		return a.agent.TeamUpdatedAt()
+	}
 	if a.member.TeamUpdatedAt == nil {
 		return 0
 	}
