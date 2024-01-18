@@ -67,6 +67,13 @@ func (c *ChatSession) SessionId() string {
 
 	return c.InviteId
 }
+func (c *ChatSession) Answered() bool {
+	c.RLock()
+	a := c.AnsweredAt
+	c.RUnlock()
+
+	return a > 0
+}
 
 func (c *ChatSession) SetActivity() {
 	c.Lock()

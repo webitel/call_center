@@ -68,6 +68,13 @@ func (t *TaskChannel) setState(state TaskState) {
 	t.stateC <- t.state
 }
 
+func (t *TaskChannel) Answered() bool {
+	t.RLock()
+	a := t.bridgedAt
+	t.RUnlock()
+	return a > 0
+}
+
 func (t *TaskChannel) SetAnswered() *model.AppError {
 	t.Lock()
 	defer t.Unlock()
