@@ -10,6 +10,7 @@ import (
 type Channel interface {
 	Id() string
 	Stats() map[string]string
+	Answered() bool
 }
 
 type ChannelEvent struct {
@@ -19,7 +20,7 @@ type ChannelEvent struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
-//TODO refactoring call event to CC
+// TODO refactoring call event to CC
 type Distribute struct {
 	AppId           string                    `json:"app_id"`
 	Channel         string                    `json:"channel"`

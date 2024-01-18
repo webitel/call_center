@@ -176,6 +176,19 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult
 
 	st := time.Now()
 
+	// TODO WTEL-4153
+	if att.Result() == "" && att.memberChannel != nil {
+		if att.agentChannel != nil && att.agentChannel.Answered() && att.memberChannel.Answered() {
+			vars["cc_result"] = "success"
+		} else {
+			vars["cc_result"] = "abandoned"
+		}
+
+		if !att.memberChannel.Answered() {
+			vars["cc_result"] = "failed"
+		}
+	}
+
 	res, err := qm.app.FlowManager().Queue().ResultAttempt(&flow.ResultAttemptRequest{
 		DomainId: att.queue.DomainId(),
 		SchemaId: *att.queue.AfterSchemaId(),

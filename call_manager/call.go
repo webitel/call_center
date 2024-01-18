@@ -33,6 +33,7 @@ type Call interface {
 	AddAction(action CallAction)
 
 	BridgeId() *string
+	Answered() bool
 
 	AcceptAt() int64
 	BridgeAt() int64
@@ -508,6 +509,13 @@ func (call *CallImpl) TransferToAttemptId() *int64 {
 
 func (call *CallImpl) AcceptAt() int64 {
 	return call.acceptAt
+}
+
+func (call *CallImpl) Answered() bool {
+	call.RLock()
+	a := call.acceptAt
+	call.RUnlock()
+	return a > 0
 }
 
 func (call *CallImpl) BridgeAt() int64 {
