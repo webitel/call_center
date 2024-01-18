@@ -31,7 +31,7 @@ type TaskAgentQueueSettings struct {
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 }
 
-//todo max working task ?
+// todo max working task ?
 type TaskChannel struct {
 	id          string
 	state       TaskState
@@ -66,6 +66,13 @@ func (t *TaskChannel) ReportingAt() int64 {
 func (t *TaskChannel) setState(state TaskState) {
 	t.state = state
 	t.stateC <- t.state
+}
+
+func (t *TaskChannel) Answered() bool {
+	t.RLock()
+	a := t.bridgedAt
+	t.RUnlock()
+	return a > 0
 }
 
 func (t *TaskChannel) SetAnswered() *model.AppError {
