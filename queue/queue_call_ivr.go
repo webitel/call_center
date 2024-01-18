@@ -138,7 +138,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	}
 
 	if queue.Recordings {
-		queue.SetRecordings(call, true, queue.RecordMono)
+		queue.SetRecordings(call, queue.RecordAll, queue.RecordMono)
 	}
 
 	if !queue.SetAmdCall(callRequest, queue.Amd, fmt.Sprintf("transfer::%s", attempt.Destination())) {
