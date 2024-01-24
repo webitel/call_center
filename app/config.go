@@ -17,6 +17,7 @@ var (
 	enableOmnichannel        = flag.Int("enable_omnichannel", 0, "Set enabled omnichannel")
 	resourceCidType          = flag.String("resource_cid_type", "", "CID Type: none / Remote-Party-ID / P-Asserted-Identity")
 	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
+	sqlDebug                 = flag.Int("sql_debug", 0, "Debug sql lvl (0-9)")
 )
 
 func (a *App) Config() *model.Config {
@@ -61,10 +62,10 @@ func loadConfig() (*model.Config, error) {
 		SqlSettings: model.SqlSettings{
 			DriverName:                  model.NewString("postgres"),
 			DataSource:                  dataSource,
-			MaxIdleConns:                model.NewInt(5),
-			MaxOpenConns:                model.NewInt(5),
+			MaxIdleConns:                model.NewInt(6),
+			MaxOpenConns:                model.NewInt(6),
 			ConnMaxLifetimeMilliseconds: model.NewInt(300000),
-			Trace:                       false,
+			Trace:                       *sqlDebug,
 		},
 		MessageQueueSettings: model.MessageQueueSettings{
 			Url: *amqpSource,
