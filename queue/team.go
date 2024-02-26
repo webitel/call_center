@@ -334,7 +334,7 @@ func (tm *agentTeam) MissedAgentAndWaitingAttempt(attempt *Attempt, agent agent_
 }
 
 func (tm *agentTeam) SetAgentMaxNoAnswer(agent agent_manager.AgentObject) {
-	if err := agent.SetBreakOut(); err != nil {
+	if err := tm.teamManager.app.SetAgentBreakOut(agent); err != nil {
 		wlog.Error(fmt.Sprintf("agent \"%s\" change to [break_out] error %s", agent.Name(), err.Error()))
 	} else {
 		wlog.Debug(fmt.Sprintf("agent \"%s\" changed status to [break_out], maximum no answers in team \"%s\"", agent.Name(), tm.Name()))

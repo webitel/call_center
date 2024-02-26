@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/flow_manager/client"
@@ -20,4 +21,5 @@ type App interface {
 	NotificationHideMember(domainId int64, queueId int, memberId *int64, agentId int) *model.AppError
 	NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError
 	NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppError
+	SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppError
 }

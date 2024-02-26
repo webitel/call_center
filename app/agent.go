@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 	"net/http"
@@ -105,6 +106,16 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
 		return nil
 	}
+}
+
+func (app *App) SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppError {
+	err := app.agentManager.SetBreakOut(agent)
+	if err != nil {
+		return err
+	}
+	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agent)
+
+	return nil
 }
 
 func (app *App) hangupNoAnswerChannels(chs []*model.CallNoAnswer) {

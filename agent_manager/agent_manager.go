@@ -170,6 +170,7 @@ func (am *agentManager) SetBreakOut(agent AgentObject) *model.AppError {
 	if err != nil {
 		return err
 	}
+	agent.StoreStatus(event.AgentStatus)
 	//add channel queue
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }

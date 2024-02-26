@@ -31,7 +31,6 @@ type AgentObject interface {
 
 	IsExpire(updatedAt int64) bool
 
-	SetBreakOut() *model.AppError
 	SetOnDemand(v bool)
 	IsOnDemand() bool
 	GreetingMedia() *model.RingtoneFile
