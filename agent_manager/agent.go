@@ -124,7 +124,7 @@ func (agent *Agent) HookData() map[string]string {
 		data["status_payload"] = *agent.info.StatusPayload
 	}
 	if agent.info.Extension != nil {
-		data["destination"] = *agent.info.Extension
+		data["extension"] = *agent.info.Extension
 	}
 
 	return data
