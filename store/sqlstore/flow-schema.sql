@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.5 (Debian 15.5-1.pgdg120+1)
--- Dumped by pg_dump version 15.5 (Debian 15.5-1.pgdg120+1)
+-- Dumped from database version 15.6 (Debian 15.6-1.pgdg120+2)
+-- Dumped by pg_dump version 15.6 (Debian 15.6-1.pgdg120+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -43,7 +43,10 @@ CREATE TYPE flow.calendar_except_date AS (
 	disabled boolean,
 	date bigint,
 	name character varying,
-	repeat boolean
+	repeat boolean,
+	work_start integer,
+	work_stop integer,
+	working boolean
 );
 
 
@@ -97,6 +100,7 @@ begin
                                  (current_timestamp AT TIME ZONE ct.sys_name)::date =
                                  (to_timestamp(x.date / 1000) at time zone ct.sys_name)::date
                    end
+                 and not (x.working and (to_char(current_timestamp AT TIME ZONE ct.sys_name, 'SSSS') :: int / 60) between x.work_start and x.work_stop)
                limit 1
            )                     excepted,
            exists(
@@ -194,7 +198,7 @@ CREATE FUNCTION flow.calendar_json_to_excepts(jsonb) RETURNS flow.calendar_excep
     LANGUAGE sql IMMUTABLE
     AS $_$
 select array(
-       select row ((x -> 'disabled')::bool, (x -> 'date')::int8, (x ->> 'name')::varchar, (x -> 'repeat')::bool)::flow.calendar_except_date
+       select row ((x -> 'disabled')::bool, (x -> 'date')::int8, (x ->> 'name')::varchar, (x -> 'repeat')::bool, (x-> 'work_start')::int4, (x-> 'work_stop')::int4, (x-> 'working')::bool)::flow.calendar_except_date
        from jsonb_array_elements($1) x
        order by x -> 'date'
    )::flow.calendar_except_date[]
@@ -215,6 +219,34 @@ BEGIN
         return json_build_object('id', _id, 'name', _name)::jsonb;
     end if;
 END;
+$$;
+
+
+--
+-- Name: scheme_version_appeared(); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.scheme_version_appeared() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+
+    delete from  flow.scheme_version
+    where id in (select id
+    from (
+        select id, row_number() over (order by  created_at desc) r
+        from flow.scheme_version
+        where scheme_version.scheme_id = new.id
+        order by  created_at desc
+    ) t
+    where r >= (
+        select value::int from call_center.system_settings where domain_id = new.domain_id and name = 'scheme_version_limit'
+        ));
+
+    insert into flow.scheme_version(created_at, created_by, scheme_id, scheme, version, note, payload) VALUES (old.updated_at, old.updated_by, old.id, old.scheme, old.version, new.note, old.payload);
+    new.version = old.version +1;
+    return new;
+end;
 $$;
 
 
@@ -357,7 +389,9 @@ CREATE TABLE flow.acr_routing_scheme (
     state smallint,
     type character varying DEFAULT 'voice'::character varying NOT NULL,
     editor boolean DEFAULT false NOT NULL,
-    tags character varying[]
+    tags character varying[],
+    version integer DEFAULT 1 NOT NULL,
+    note text
 );
 
 
@@ -760,20 +794,130 @@ ALTER SEQUENCE flow.scheme_log_id_seq OWNED BY flow.scheme_log.id;
 
 
 --
+-- Name: scheme_variable; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.scheme_variable (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    value jsonb,
+    name character varying NOT NULL,
+    encrypt boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: scheme_variables_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.scheme_variables_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: scheme_variables_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.scheme_variables_id_seq OWNED BY flow.scheme_variable.id;
+
+
+--
+-- Name: scheme_version_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.scheme_version_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: scheme_version; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.scheme_version (
+    id integer DEFAULT nextval('flow.scheme_version_id_seq'::regclass) NOT NULL,
+    created_by integer NOT NULL,
+    scheme_id bigint NOT NULL,
+    scheme jsonb NOT NULL,
+    version integer NOT NULL,
+    note text,
+    payload jsonb NOT NULL,
+    created_at bigint NOT NULL
+);
+
+
+--
 -- Name: web_hook; Type: TABLE; Schema: flow; Owner: -
 --
 
 CREATE TABLE flow.web_hook (
-    id character varying NOT NULL,
     name character varying NOT NULL,
     domain_id bigint NOT NULL,
     description character varying,
     origin character varying[],
-    rps integer DEFAULT 5 NOT NULL,
     schema_id integer NOT NULL,
     enabled boolean DEFAULT true NOT NULL,
-    "authorization" character varying
+    "authorization" character varying,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint,
+    updated_by bigint,
+    id integer NOT NULL,
+    key character varying NOT NULL
 );
+
+
+--
+-- Name: web_hook_id_seq; Type: SEQUENCE; Schema: flow; Owner: -
+--
+
+CREATE SEQUENCE flow.web_hook_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: web_hook_id_seq; Type: SEQUENCE OWNED BY; Schema: flow; Owner: -
+--
+
+ALTER SEQUENCE flow.web_hook_id_seq OWNED BY flow.web_hook.id;
+
+
+--
+-- Name: web_hook_list; Type: VIEW; Schema: flow; Owner: -
+--
+
+CREATE VIEW flow.web_hook_list AS
+ SELECT h.id,
+    h.key,
+    h.name,
+    h.description,
+    h.origin,
+    h.enabled,
+    h."authorization",
+    flow.get_lookup(s.id, s.name) AS schema,
+    flow.get_lookup(c.id, (c.name)::character varying) AS created_by,
+    flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
+    h.created_at,
+    h.updated_at,
+    h.schema_id,
+    h.domain_id
+   FROM (((flow.web_hook h
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = h.schema_id)))
+     LEFT JOIN directory.wbt_user c ON ((c.id = h.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = h.updated_by)));
 
 
 --
@@ -844,6 +988,20 @@ ALTER TABLE ONLY flow.region ALTER COLUMN id SET DEFAULT nextval('flow.region_id
 --
 
 ALTER TABLE ONLY flow.scheme_log ALTER COLUMN id SET DEFAULT nextval('flow.scheme_log_id_seq'::regclass);
+
+
+--
+-- Name: scheme_variable id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_variable ALTER COLUMN id SET DEFAULT nextval('flow.scheme_variables_id_seq'::regclass);
+
+
+--
+-- Name: web_hook id; Type: DEFAULT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.web_hook ALTER COLUMN id SET DEFAULT nextval('flow.web_hook_id_seq'::regclass);
 
 
 --
@@ -924,6 +1082,14 @@ ALTER TABLE ONLY flow.region
 
 ALTER TABLE ONLY flow.scheme_log
     ADD CONSTRAINT scheme_log_pk PRIMARY KEY (id);
+
+
+--
+-- Name: scheme_variable scheme_variables_pk; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_variable
+    ADD CONSTRAINT scheme_variables_pk PRIMARY KEY (id);
 
 
 --
@@ -1103,10 +1269,31 @@ CREATE UNIQUE INDEX scheme_log_conn_id_uindex ON flow.scheme_log USING btree (co
 
 
 --
+-- Name: scheme_variables_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE UNIQUE INDEX scheme_variables_domain_id_name_uindex ON flow.scheme_variable USING btree (domain_id, name);
+
+
+--
+-- Name: scheme_version_scheme_id_index; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX scheme_version_scheme_id_index ON flow.scheme_version USING btree (scheme_id);
+
+
+--
 -- Name: calendar calendar_set_rbac_acl; Type: TRIGGER; Schema: flow; Owner: -
 --
 
 CREATE TRIGGER calendar_set_rbac_acl AFTER INSERT ON flow.calendar FOR EACH ROW EXECUTE FUNCTION flow.tg_obj_default_rbac('calendar');
+
+
+--
+-- Name: acr_routing_scheme insert_flow_version; Type: TRIGGER; Schema: flow; Owner: -
+--
+
+CREATE TRIGGER insert_flow_version BEFORE UPDATE ON flow.acr_routing_scheme FOR EACH ROW WHEN ((old.scheme <> new.scheme)) EXECUTE FUNCTION flow.scheme_version_appeared();
 
 
 --
@@ -1275,6 +1462,46 @@ ALTER TABLE ONLY flow.region
 
 ALTER TABLE ONLY flow.region
     ADD CONSTRAINT region_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE RESTRICT ON DELETE RESTRICT;
+
+
+--
+-- Name: scheme_variable scheme_variables_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_variable
+    ADD CONSTRAINT scheme_variables_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: scheme_version scheme_version_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_version
+    ADD CONSTRAINT scheme_version_acr_routing_scheme_id_fk FOREIGN KEY (scheme_id) REFERENCES flow.acr_routing_scheme(id) ON DELETE CASCADE;
+
+
+--
+-- Name: scheme_version scheme_version_wbt_auth_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.scheme_version
+    ADD CONSTRAINT scheme_version_wbt_auth_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_auth(id) ON DELETE CASCADE;
+
+
+--
+-- Name: web_hook web_hook_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.web_hook
+    ADD CONSTRAINT web_hook_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: web_hook web_hook_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.web_hook
+    ADD CONSTRAINT web_hook_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --

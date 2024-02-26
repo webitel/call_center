@@ -31,13 +31,12 @@ type AgentObject interface {
 
 	IsExpire(updatedAt int64) bool
 
-	Online(onDemand bool) (*model.AgentOnlineData, *model.AppError)
-	Offline() *model.AppError
-	SetOnBreak() *model.AppError
 	SetBreakOut() *model.AppError
 	SetOnDemand(v bool)
 	IsOnDemand() bool
 	GreetingMedia() *model.RingtoneFile
 	Variables() map[string]string
 	HasPush() bool
+	HookData() map[string]string
+	StoreStatus(s model.AgentStatus)
 }

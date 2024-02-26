@@ -61,7 +61,7 @@ func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.C
 		resourceManager:  resourceManager,
 		agentManager:     agentManager,
 		mq:               m,
-		teamManager:      NewTeamManager(s, m),
+		teamManager:      NewTeamManager(app, s, m),
 		input:            make(chan *Attempt),
 		stop:             make(chan struct{}),
 		stopped:          make(chan struct{}),
@@ -1088,6 +1088,10 @@ func (queueManager *QueueManager) FlipAttemptResource(attempt *Attempt, skipp []
 	attempt.communication.Display = model.NewString(attempt.resource.GetDisplay())
 
 	return res, nil
+}
+
+func (queueManager *QueueManager) AgentTeamHook(event string, agent agent_manager.AgentObject) {
+	queueManager.teamManager.HookAgent(event, agent)
 }
 
 // waitTimeout waits for the waitgroup for the specified max timeout.

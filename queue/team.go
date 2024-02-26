@@ -7,6 +7,7 @@ import (
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
 	"sync"
 )
@@ -20,12 +21,31 @@ type teamManager struct {
 	store store.Store
 	cache utils.ObjectCache
 	sync.RWMutex
-	mq mq.MQ
+	mq  mq.MQ
+	app App
 }
 
 type agentTeam struct {
 	data        *model.Team
 	teamManager *teamManager
+	hook        HookHub
+}
+
+func NewTeam(info *model.Team, tm *teamManager) *agentTeam {
+	return &agentTeam{
+		data:        info,
+		teamManager: tm,
+		hook:        NewHookHub(info.Hooks),
+	}
+}
+
+func NewTeamManager(app App, s store.Store, m mq.MQ) *teamManager {
+	return &teamManager{
+		store: s,
+		mq:    m,
+		cache: utils.NewLruWithParams(MAX_TEAM_CACHE, "team", MAX_TEAM_EXPIRE_CACHE, ""),
+		app:   app,
+	}
 }
 
 func (at *agentTeam) Name() string {
@@ -60,14 +80,6 @@ func (at *agentTeam) NoAnswerDelayTime() uint16 {
 	return at.data.NoAnswerDelayTime
 }
 
-func NewTeamManager(s store.Store, m mq.MQ) *teamManager {
-	return &teamManager{
-		store: s,
-		mq:    m,
-		cache: utils.NewLruWithParams(MAX_TEAM_CACHE, "team", MAX_TEAM_EXPIRE_CACHE, ""),
-	}
-}
-
 func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppError) {
 	tm.Lock() //TODO
 	defer tm.Unlock()
@@ -86,14 +98,38 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	if err != nil {
 		return nil, err
 	}
-	team = &agentTeam{
-		data:        data,
-		teamManager: tm,
-	}
+	team = NewTeam(data, tm)
 
 	tm.cache.AddWithDefaultExpires(id, team)
 	wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
 	return team, err
+}
+
+func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject) *model.AppError {
+	team, err := tm.GetTeam(agent.TeamId(), agent.TeamUpdatedAt())
+	if err != nil {
+		return err
+	}
+
+	if h, ok := team.hook.getByName(event); ok {
+		// add params last attempt
+		req := &workflow.StartFlowRequest{
+			SchemaId:  h.SchemaId,
+			DomainId:  agent.DomainId(),
+			Variables: agent.HookData(),
+		}
+
+		id, err := tm.app.FlowManager().Queue().StartFlow(req)
+		if err != nil {
+			wlog.Error(fmt.Sprintf("hook \"%s\", error: %s", event, err.Error()))
+		} else {
+			wlog.Debug(fmt.Sprintf("hook \"%s\" external job_id: %s", event, id))
+		}
+
+		//call_manager.DUMP(req.Variables)
+	}
+
+	return nil
 }
 
 // FIXME store

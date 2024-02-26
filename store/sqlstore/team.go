@@ -31,8 +31,14 @@ func (s SqlTeamStore) Get(id int) (*model.Team, *model.AppError) {
 			   call_timeout,
 			   invite_chat_timeout,
 			   task_accept_timeout,
-			   updated_at
-		from call_center.cc_team	
+			   updated_at,
+			   (
+				select jsonb_agg(row_to_json(qe))
+				from call_center.cc_team_events qe
+					inner join flow.acr_routing_scheme s on s.id = qe.schema_id and t.domain_id = s.domain_id
+				where qe.team_id = t.id and qe.enabled
+			   ) hooks
+		from call_center.cc_team t
 		where id = :Id
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {

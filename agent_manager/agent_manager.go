@@ -85,6 +85,9 @@ func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.Agen
 	}
 
 	agent.SetOnDemand(onDemand)
+	agent.StoreStatus(model.AgentStatus{
+		Status: model.AgentStatusOnline,
+	})
 	//FIXME add pool send event
 	return data, am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventOnlineStatus(agent, data, onDemand))
 }
@@ -120,6 +123,7 @@ func (am *agentManager) SetOffline(agent AgentObject, sys *string) *model.AppErr
 	if err != nil {
 		return err
 	}
+	agent.StoreStatus(event.AgentStatus)
 	//add channel queue
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
@@ -143,6 +147,7 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 	if err != nil {
 		return err
 	}
+	agent.StoreStatus(event.AgentStatus)
 	//add channel queue
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }

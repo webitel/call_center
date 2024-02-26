@@ -17,6 +17,7 @@ func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 func (app *App) SetAgentOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	var agent *model.Agent
 	var err *model.AppError
+	var data *model.AgentOnlineData
 
 	if agent, err = app.GetAgentById(agentId); err != nil {
 		return nil, err
@@ -29,7 +30,12 @@ func (app *App) SetAgentOnline(agentId int, onDemand bool) (*model.AgentOnlineDa
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return nil, err
 	} else {
-		return app.agentManager.SetOnline(agentObj, onDemand)
+		data, err = app.agentManager.SetOnline(agentObj, onDemand)
+		if err != nil {
+			return nil, err
+		}
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		return data, nil
 	}
 }
 
@@ -53,7 +59,12 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetOffline(agentObj, nil)
+		err = app.agentManager.SetOffline(agentObj, nil)
+		if err != nil {
+			return err
+		}
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		return nil
 	}
 }
 
@@ -87,7 +98,12 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		return app.agentManager.SetPause(agentObj, payload, timeout)
+		err = app.agentManager.SetPause(agentObj, payload, timeout)
+		if err != nil {
+			return err
+		}
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		return nil
 	}
 }
 

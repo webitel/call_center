@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.5 (Debian 15.5-1.pgdg120+1)
--- Dumped by pg_dump version 15.5 (Debian 15.5-1.pgdg120+1)
+-- Dumped from database version 15.6 (Debian 15.6-1.pgdg120+2)
+-- Dumped by pg_dump version 15.6 (Debian 15.6-1.pgdg120+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -346,6 +346,15 @@ select array_agg(distinct elem order by elem)
         select unnest(arr2)
     ) s
 $$;
+
+
+--
+-- Name: cc_array_to_string(text[], text); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_array_to_string(text[], text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $_$SELECT array_to_string($1, $2)$_$;
 
 
 --
@@ -1577,7 +1586,7 @@ begin
                 inner join call_center.cc_agent a on a.id = dis.agent_id
                 left join call_center.cc_queue q on q.id = dis.queue_id
              where not dis.ins is true
-                and (q.type is null or q.type in (6, 7) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at notnull ))
+                and (q.type is null or q.type in (6, 7) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at isnull ))
          ) t
     where t.id = a.id
       and a.agent_id isnull;
@@ -2332,20 +2341,6 @@ BEGIN
     RETURN NULL;
 END
 $$;
-
-
---
--- Name: cc_member_attempt_log_day_f(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_member_attempt_log_day_f(queue_id integer, bucket_id integer) RETURNS integer
-    LANGUAGE sql IMMUTABLE STRICT
-    AS $_$
-    SELECT sum(l.count)::int4 AS cnt
-     FROM call_center.cc_member_attempt_log_day l
-     WHERE $2 IS NOT NULL and l.queue_id = $1::int
-       AND l.bucket_id = $2::int4
-$_$;
 
 
 --
@@ -3188,17 +3183,11 @@ BEGIN
       end if;
   end if;
 
-  raise warning '%s = %s', new.agent_id, new.state;
-
   --
   if new.state = 'waiting' then
       new.lose_attempt = 0;
       new.queue_id := null;
       new.attempt_id := null;
-  end if;
-
-  if new.state = 'leaving' then
---       raise exception 'not allow leaving state';
   end if;
 
   --fixme error when agent set offline/pause in active call
@@ -3208,48 +3197,12 @@ BEGIN
 
   new.channel_changed_at = now();
 
---   if new.channel = 'chat' and old.channel = 'chat' then
---
---       return new;
---   end if;
-
-  if old.channel = 'chat' then
-      insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id)
-      values (new.agent_id, old.joined_at, 'chat', old.channel, new.channel_changed_at - old.channel_changed_at, old.queue_id);
-      return new;
-  end if;
-
   insert into call_center.cc_agent_state_history (agent_id, joined_at, state, channel, duration, queue_id, attempt_id)
   values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id, old.attempt_id);
 
   RETURN new;
 END;
 $$;
-
-
---
--- Name: cc_team_agents_by_bucket(character varying, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_team_agents_by_bucket(ch_ character varying, team_id_ integer, bucket_id integer) RETURNS integer[]
-    LANGUAGE plpgsql
-    AS $_$
-declare res int4[];
-begin
-    select array_agg(a.id order by b.lvl asc, a.last_state_change)
-    into res
-    from call_center.cc_agent_channel cac
-             inner join call_center.cc_agent a on a.id = cac.agent_id
-             inner join call_center.cc_sys_agent_group_team_bucket b on b.agent_id = cac.agent_id
-    where (cac.agent_id, cac.channel) = (a.id, $1) and cac.state = 'waiting' and cac.timeout isnull
-      and a.status = 'online'
-      and b.team_id = $2::int4
-      and not exists(select 1 from call_center.cc_member_attempt att where att.agent_id = cac.agent_id)
-      and case when $3 isnull then true else b.bucket_id = $3 end ;
-
-    return res;
-end;
-$_$;
 
 
 --
@@ -3507,6 +3460,7 @@ CREATE TABLE call_center.cc_agent (
     supervisor boolean DEFAULT false NOT NULL,
     supervisor_ids integer[],
     auditor_ids bigint[],
+    task_count smallint DEFAULT 1 NOT NULL,
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_progress_count_c CHECK ((progressive_count > '-1'::integer))
 )
@@ -3780,7 +3734,8 @@ CREATE VIEW call_center.cc_agent_list AS
     a.supervisor_ids,
     a.auditor_ids,
     a.user_id,
-    ct.extension
+    ct.extension,
+    a.task_count
    FROM (((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
      LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
@@ -3912,7 +3867,9 @@ CREATE TABLE call_center.cc_calls_history (
     amd_ai_logs character varying[],
     amd_ai_positive boolean,
     contact_id bigint,
-    search_number text
+    search_number text,
+    hide_missed boolean,
+    redial_id uuid
 );
 
 
@@ -3996,7 +3953,8 @@ CREATE TABLE call_center.cc_queue (
     processing_renewal_sec integer DEFAULT 0 NOT NULL,
     grantee_id bigint,
     recall_calendar boolean DEFAULT false,
-    form_schema_id integer
+    form_schema_id integer,
+    tags character varying[]
 );
 
 
@@ -4005,6 +3963,205 @@ CREATE TABLE call_center.cc_queue (
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
+ WITH agents AS MATERIALIZED (
+         SELECT a_1.id,
+            usr.id AS user_id,
+                CASE
+                    WHEN (a_1.last_state_change < (d."from")::timestamp with time zone) THEN (d."from")::timestamp with time zone
+                    WHEN (a_1.last_state_change < d."to") THEN a_1.last_state_change
+                    ELSE a_1.last_state_change
+                END AS cur_state_change,
+            a_1.status,
+            a_1.status_payload,
+            a_1.last_state_change,
+            (lasts.last_at)::timestamp with time zone AS last_at,
+            lasts.state AS last_state,
+            lasts.status_payload AS last_payload,
+            COALESCE(top.top_at, a_1.last_state_change) AS top_at,
+            COALESCE(top.state, a_1.status) AS top_state,
+            COALESCE(top.status_payload, a_1.status_payload) AS top_payload,
+            d."from",
+            d."to",
+            usr.dc AS domain_id,
+            COALESCE(t.sys_name, 'UTC'::text) AS tz_name
+           FROM ((((((call_center.cc_agent a_1
+             RIGHT JOIN directory.wbt_user usr ON ((usr.id = a_1.user_id)))
+             LEFT JOIN flow.region r ON ((r.id = a_1.region_id)))
+             LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
+             LEFT JOIN LATERAL ( SELECT now() AS "to",
+                    ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone)) AS "from") d ON (true))
+             LEFT JOIN LATERAL ( SELECT aa.state,
+                    d."from" AS last_at,
+                    aa.payload AS status_payload
+                   FROM call_center.cc_agent_state_history aa
+                  WHERE ((aa.agent_id = a_1.id) AND (aa.channel IS NULL) AND ((aa.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (aa.joined_at < (d."from")::timestamp with time zone))
+                  ORDER BY aa.joined_at DESC
+                 LIMIT 1) lasts ON ((a_1.last_state_change > d."from")))
+             LEFT JOIN LATERAL ( SELECT a2.state,
+                    d."to" AS top_at,
+                    a2.payload AS status_payload
+                   FROM call_center.cc_agent_state_history a2
+                  WHERE ((a2.agent_id = a_1.id) AND (a2.channel IS NULL) AND ((a2.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (a2.joined_at > d."to"))
+                  ORDER BY a2.joined_at
+                 LIMIT 1) top ON (true))
+        ), d AS MATERIALIZED (
+         SELECT x.agent_id,
+            x.joined_at,
+            x.state,
+            x.payload
+           FROM ( SELECT a_1.agent_id,
+                    a_1.joined_at,
+                    a_1.state,
+                    a_1.payload
+                   FROM call_center.cc_agent_state_history a_1,
+                    agents
+                  WHERE ((a_1.agent_id = agents.id) AND (a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to") AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])))
+                UNION
+                 SELECT agents.id,
+                    agents.cur_state_change,
+                    agents.status,
+                    agents.status_payload
+                   FROM agents
+                  WHERE (1 = 1)) x
+          ORDER BY x.joined_at DESC
+        ), s AS MATERIALIZED (
+         SELECT d.agent_id,
+            d.joined_at,
+            d.state,
+            d.payload,
+            (COALESCE(lag(d.joined_at) OVER (PARTITION BY d.agent_id ORDER BY d.joined_at DESC), now()) - d.joined_at) AS dur
+           FROM d
+          ORDER BY d.joined_at DESC
+        ), eff AS (
+         SELECT h.agent_id,
+            sum((COALESCE(h.reporting_at, h.leaving_at) - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS aht,
+            sum((h.reporting_at - h.leaving_at)) FILTER (WHERE ((h.reporting_at IS NOT NULL) AND ((h.reporting_at - h.leaving_at) > '00:00:00'::interval))) AS processing,
+            sum(((h.reporting_at - h.leaving_at) - ((q.processing_sec || 's'::text))::interval)) FILTER (WHERE ((h.reporting_at IS NOT NULL) AND q.processing AND ((h.reporting_at - h.leaving_at) > (((q.processing_sec + 1) || 's'::text))::interval))) AS tpause
+           FROM ((agents
+             JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
+             LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
+          GROUP BY h.agent_id
+        ), attempts AS (
+         SELECT cma.agent_id,
+            count(*) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))) AS chat_accepts,
+            (avg(EXTRACT(epoch FROM (COALESCE(cma.reporting_at, cma.leaving_at) - cma.bridged_at))) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))))::bigint AS chat_aht,
+            count(*) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'task'::text))) AS task_accepts
+           FROM (agents
+             JOIN call_center.cc_member_attempt_history cma ON ((cma.agent_id = agents.id)))
+          WHERE ((cma.joined_at >= (agents."from")::timestamp with time zone) AND (cma.joined_at <= agents."to") AND (cma.domain_id = agents.domain_id) AND (cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])))
+          GROUP BY cma.agent_id
+        ), calls AS (
+         SELECT h.user_id,
+            count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
+            count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NOT NULL))) AS inbound_bridged,
+            count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
+            count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
+            count(*) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS user_2user,
+            count(*) FILTER (WHERE ((((h.direction)::text = 'inbound'::text) OR (cq.type = 3)) AND (h.bridged_at IS NULL))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
+            count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
+            count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
+            sum((h.hangup_at - h.created_at)) FILTER (WHERE (((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS direct_out_dur,
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'inbound'::text) AND (h.parent_id IS NOT NULL))) AS "avg bill inbound",
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'outbound'::text))) AS "avg bill outbound",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "sum bill",
+            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS avg_talk,
+            sum(((h.hold_sec || ' sec'::text))::interval) AS "sum hold",
+            avg(((h.hold_sec || ' sec'::text))::interval) FILTER (WHERE (h.hold_sec > 0)) AS avg_hold,
+            sum((COALESCE(h.answered_at, h.bridged_at, h.hangup_at) - h.created_at)) AS "Call initiation",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "Talk time",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NOT NULL))) AS queue_talk_sec,
+            sum((cc.reporting_at - cc.leaving_at)) FILTER (WHERE (cc.reporting_at IS NOT NULL)) AS "Post call",
+            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((cc.description)::text = 'Voice mail'::text))) AS vm
+           FROM ((((agents
+             JOIN call_center.cc_calls_history h ON ((h.user_id = agents.user_id)))
+             LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
+             LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
+             LEFT JOIN call_center.cc_calls_history pc ON (((pc.id = h.parent_id) AND (pc.created_at > ((now())::date - '2 days'::interval)))))
+          WHERE ((h.domain_id = agents.domain_id) AND (h.created_at > ((now())::date - '2 days'::interval)) AND (h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to"))
+          GROUP BY h.user_id
+        ), stats AS MATERIALIZED (
+         SELECT s.agent_id,
+            min(s.joined_at) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS login,
+            max(s.joined_at) FILTER (WHERE ((s.state)::text = 'offline'::text)) AS logout,
+            sum(s.dur) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS online,
+            sum(s.dur) FILTER (WHERE ((s.state)::text = 'pause'::text)) AS pause,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Навчання'::text))) AS study,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Нарада'::text))) AS conference,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Обід'::text))) AS lunch,
+            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Технічна перерва'::text))) AS tech
+           FROM (((s
+             LEFT JOIN agents ON ((agents.id = s.agent_id)))
+             LEFT JOIN eff eff_1 ON ((eff_1.agent_id = s.agent_id)))
+             LEFT JOIN calls ON ((calls.user_id = agents.user_id)))
+          GROUP BY s.agent_id
+        ), rate AS (
+         SELECT a_1.user_id,
+            count(*) AS count,
+            avg(ar.score_required) AS score_required_avg,
+            sum(ar.score_required) AS score_required_sum,
+            avg(ar.score_optional) AS score_optional_avg,
+            sum(ar.score_optional) AS score_optional_sum
+           FROM (agents a_1
+             JOIN call_center.cc_audit_rate ar ON ((ar.rated_user_id = a_1.user_id)))
+          WHERE ((ar.created_at >= (date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) AT TIME ZONE a_1.tz_name)) AND (ar.created_at <= (((date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) + '1 mon'::interval) - '1 day 00:00:01'::interval) AT TIME ZONE a_1.tz_name)))
+          GROUP BY a_1.user_id
+        )
+ SELECT a.id AS agent_id,
+    a.user_id,
+    a.domain_id,
+    COALESCE(c.missed, (0)::bigint) AS call_missed,
+    COALESCE(c.abandoned, (0)::bigint) AS call_abandoned,
+    COALESCE(c.inbound_bridged, (0)::bigint) AS call_inbound,
+    COALESCE(c.handled, (0)::bigint) AS call_handled,
+    COALESCE((EXTRACT(epoch FROM c.avg_talk))::bigint, (0)::bigint) AS avg_talk_sec,
+    COALESCE((EXTRACT(epoch FROM c.avg_hold))::bigint, (0)::bigint) AS avg_hold_sec,
+    COALESCE((EXTRACT(epoch FROM c."Talk time"))::bigint, (0)::bigint) AS sum_talk_sec,
+    COALESCE((EXTRACT(epoch FROM c.queue_talk_sec))::bigint, (0)::bigint) AS queue_talk_sec,
+    LEAST(round(COALESCE(
+        CASE
+            WHEN ((stats.online > '00:00:00'::interval) AND (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) > (0)::numeric)) THEN (((((((COALESCE(EXTRACT(epoch FROM c."Call initiation"), (0)::numeric) + COALESCE(EXTRACT(epoch FROM c."Talk time"), (0)::numeric)) + COALESCE(EXTRACT(epoch FROM c."Post call"), (0)::numeric)) - COALESCE(EXTRACT(epoch FROM eff.tpause), (0)::numeric)) + EXTRACT(epoch FROM COALESCE(stats.study, '00:00:00'::interval))) + EXTRACT(epoch FROM COALESCE(stats.conference, '00:00:00'::interval))) / EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval)))) * (100)::numeric)
+            ELSE (0)::numeric
+        END, (0)::numeric), 2), (100)::numeric) AS occupancy,
+    round(COALESCE(
+        CASE
+            WHEN (stats.online > '00:00:00'::interval) THEN ((EXTRACT(epoch FROM (stats.online - COALESCE(stats.pause, '00:00:00'::interval))) / EXTRACT(epoch FROM stats.online)) * (100)::numeric)
+            ELSE (0)::numeric
+        END, (0)::numeric), 2) AS utilization,
+    (GREATEST(round(COALESCE(
+        CASE
+            WHEN ((stats.online > '00:00:00'::interval) AND (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) > (0)::numeric)) THEN (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) - (((((COALESCE(EXTRACT(epoch FROM c."Call initiation"), (0)::numeric) + COALESCE(EXTRACT(epoch FROM c."Talk time"), (0)::numeric)) + COALESCE(EXTRACT(epoch FROM c."Post call"), (0)::numeric)) - COALESCE(EXTRACT(epoch FROM eff.tpause), (0)::numeric)) + EXTRACT(epoch FROM COALESCE(stats.study, '00:00:00'::interval))) + EXTRACT(epoch FROM COALESCE(stats.conference, '00:00:00'::interval))))
+            ELSE (0)::numeric
+        END, (0)::numeric), 2), (0)::numeric))::integer AS available,
+    COALESCE((EXTRACT(epoch FROM c.vm))::bigint, (0)::bigint) AS voice_mail,
+    COALESCE(ch.chat_aht, (0)::bigint) AS chat_aht,
+    (((COALESCE(ch.task_accepts, (0)::bigint) + COALESCE(ch.chat_accepts, (0)::bigint)) + COALESCE(c.handled, (0)::bigint)) - COALESCE(c.user_2user, (0)::bigint)) AS task_accepts,
+    (COALESCE(EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))), (0)::numeric))::bigint AS online,
+    COALESCE(ch.chat_accepts, (0)::bigint) AS chat_accepts,
+    COALESCE(rate.count, (0)::bigint) AS score_count,
+    (COALESCE(EXTRACT(epoch FROM eff.processing), ((0)::bigint)::numeric))::integer AS processing,
+    COALESCE(rate.score_optional_avg, (0)::numeric) AS score_optional_avg,
+    COALESCE(rate.score_optional_sum, ((0)::bigint)::numeric) AS score_optional_sum,
+    COALESCE(rate.score_required_avg, (0)::numeric) AS score_required_avg,
+    COALESCE(rate.score_required_sum, ((0)::bigint)::numeric) AS score_required_sum
+   FROM ((((((agents a
+     LEFT JOIN call_center.cc_agent_with_user u ON ((u.id = a.id)))
+     LEFT JOIN stats ON ((stats.agent_id = a.id)))
+     LEFT JOIN eff ON ((eff.agent_id = a.id)))
+     LEFT JOIN calls c ON ((c.user_id = a.user_id)))
+     LEFT JOIN attempts ch ON ((ch.agent_id = a.id)))
+     LEFT JOIN rate ON ((rate.user_id = a.user_id)))
+  WITH NO DATA;
+
+
+--
+-- Name: cc_agent_today_stats_updated; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
+--
+
+CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats_updated AS
  WITH agents AS MATERIALIZED (
          SELECT a_1.id,
             usr.id AS user_id,
@@ -4911,7 +5068,9 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.bridged_id,
     call_center.cc_get_lookup(cc.id, (cc.common_name)::character varying) AS contact,
     c.contact_id,
-    c.search_number
+    c.search_number,
+    c.hide_missed,
+    c.redial_id
    FROM (((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
@@ -5246,7 +5405,8 @@ CREATE TABLE call_center.cc_email_profile (
     smtp_host character varying,
     params jsonb,
     auth_type character varying DEFAULT 'plain'::character varying NOT NULL,
-    listen boolean DEFAULT false NOT NULL
+    listen boolean DEFAULT false NOT NULL,
+    token jsonb
 );
 
 
@@ -5283,7 +5443,8 @@ CREATE VIEW call_center.cc_email_profile_list AS
     t.description,
     t.enabled,
     t.password,
-    t.listen
+    t.listen,
+    (((t.token ->> 'expiry'::text) IS NOT NULL) AND ((t.token ->> 'access_token'::text) IS NOT NULL)) AS logged
    FROM (((call_center.cc_email_profile t
      LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
      LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
@@ -6290,7 +6451,9 @@ CREATE VIEW call_center.cc_queue_list AS
     q.processing_sec,
     q.processing_renewal_sec,
     jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec) AS task_processing,
-    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
+    q.team_id,
+    q.tags
    FROM (((((((((((((call_center.cc_queue q
      LEFT JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_auth au ON ((au.id = q.grantee_id)))
@@ -6541,54 +6704,6 @@ CREATE SEQUENCE call_center.cc_skils_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_skils_id_seq OWNED BY call_center.cc_skill.id;
-
-
---
--- Name: cc_sys_distribute_queue_bucket_seg; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_sys_distribute_queue_bucket_seg AS
- SELECT s.queue_id,
-    s.bucket_id,
-    (s.member_waiting)::integer AS member_waiting,
-        CASE
-            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN s.member_waiting
-            ELSE (((ceil((((s.member_count * cbiq.ratio) / 100))::double precision))::integer - log.log))::bigint
-        END AS lim,
-    cbiq.ratio
-   FROM ((( SELECT s_1.queue_id,
-            s_1.bucket_id,
-            sum(s_1.member_waiting) AS member_waiting,
-            sum(s_1.member_count) AS member_count
-           FROM call_center.cc_queue_statistics s_1
-          GROUP BY s_1.queue_id, s_1.bucket_id) s
-     LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((s.queue_id = cbiq.queue_id) AND (s.bucket_id = cbiq.bucket_id))))
-     LEFT JOIN LATERAL call_center.cc_member_attempt_log_day_f((s.queue_id)::integer, (s.bucket_id)::integer) log(log) ON ((s.bucket_id IS NOT NULL)))
-  WHERE ((s.member_waiting > 0) AND ((
-        CASE
-            WHEN ((s.bucket_id IS NULL) OR (s.member_waiting < 2)) THEN s.member_waiting
-            ELSE (((round((((s.member_count * cbiq.ratio) / 100))::double precision))::integer - COALESCE(log.log, 0)))::bigint
-        END)::numeric > (0)::numeric));
-
-
---
--- Name: cc_sys_distribute_queue; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_sys_distribute_queue AS
- SELECT q.domain_id,
-    q.id,
-    q.type,
-    q.strategy,
-    q.team_id,
-    q.calendar_id,
-    cqs.bucket_id,
-    cqs.lim AS buckets_cnt,
-    cqs.ratio
-   FROM (call_center.cc_queue q
-     JOIN call_center.cc_sys_distribute_queue_bucket_seg cqs ON ((q.id = cqs.queue_id)))
-  WHERE (q.enabled AND (cqs.member_waiting > 0) AND (cqs.lim > 0) AND (q.type > 1))
-  ORDER BY q.domain_id, q.priority DESC, cqs.ratio DESC NULLS LAST;
 
 
 --
@@ -8098,7 +8213,7 @@ CREATE INDEX cc_calls_history_queue_ids_index ON call_center.cc_calls_history US
 -- Name: cc_calls_history_sn_ops_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_calls_history_sn_ops_idx ON call_center.cc_calls_history USING gin (search_number gin_trgm_ops);
+CREATE INDEX cc_calls_history_sn_ops_idx ON call_center.cc_calls_history USING gin (COALESCE(search_number, call_center.cc_array_to_string((ARRAY[destination, from_number, to_number])::text[], '|'::text)) gin_trgm_ops);
 
 
 --
@@ -8501,6 +8616,13 @@ CREATE INDEX cc_member_variable_message_id ON call_center.cc_member USING btree 
 
 
 --
+-- Name: cc_member_variables_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_variables_idx ON call_center.cc_member USING gin (variables jsonb_path_ops);
+
+
+--
 -- Name: cc_outbound_resource_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -8673,6 +8795,13 @@ CREATE INDEX cc_outbound_resource_updated_by_index ON call_center.cc_outbound_re
 --
 
 CREATE UNIQUE INDEX cc_pause_cause_domain_id_name_uindex ON call_center.cc_pause_cause USING btree (domain_id, name);
+
+
+--
+-- Name: cc_pause_cause_domain_id_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_pause_cause_domain_id_udx ON call_center.cc_pause_cause USING btree (id, domain_id);
 
 
 --
@@ -9035,12 +9164,12 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
              JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
              JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
           WHERE ((NOT (a.disabled IS TRUE)) AND (NOT (EXISTS ( SELECT 1
-                   FROM unnest(c.excepts) x(disabled, date, name, repeat)
+                   FROM unnest(c.excepts) x(disabled, date, name, repeat, work_start, work_stop, working)
                   WHERE ((NOT (x.disabled IS TRUE)) AND
                         CASE
                             WHEN (x.repeat IS TRUE) THEN (to_char((((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text) = to_char((((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text))
                             ELSE (((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date = ((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)
-                        END)))))
+                        END AND (NOT (x.working AND ((((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) >= x.work_start) AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) <= x.work_stop)))))))))
           GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id
         ), resources AS MATERIALIZED (
          SELECT l_1.queue_id,

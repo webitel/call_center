@@ -1,12 +1,16 @@
 package agent_manager
 
 import (
+	"fmt"
 	"github.com/webitel/call_center/model"
+	"strconv"
+	"sync"
 )
 
 type Agent struct {
 	info    *model.Agent
 	manager AgentManager
+	sync.RWMutex
 }
 
 func NewAgent(info *model.Agent, am AgentManager) AgentObject {
@@ -44,6 +48,13 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 	return agent.info.UpdatedAt != updatedAt
 }
 
+func (agent *Agent) StoreStatus(s model.AgentStatus) {
+	agent.Lock()
+	agent.info.Status = s.Status
+	agent.info.StatusPayload = s.StatusPayload
+	agent.Unlock()
+}
+
 // TODO
 func (agent *Agent) GetCallEndpoints() []string {
 	if agent.info.Destination == nil {
@@ -72,18 +83,6 @@ func (agent *Agent) SetTeamUpdatedAt(at int64) {
 	agent.info.TeamUpdatedAt = at
 }
 
-func (agent *Agent) Online(onDemand bool) (*model.AgentOnlineData, *model.AppError) {
-	return agent.manager.SetOnline(agent, onDemand)
-}
-
-func (agent *Agent) Offline() *model.AppError {
-	return agent.manager.SetOffline(agent, nil)
-}
-
-func (agent *Agent) SetOnBreak() *model.AppError {
-	return agent.manager.SetPause(agent, nil, nil)
-}
-
 func (agent *Agent) SetBreakOut() *model.AppError {
 	return agent.manager.SetBreakOut(agent)
 }
@@ -107,4 +106,26 @@ func (agent *Agent) Variables() map[string]string {
 
 func (agent *Agent) HasPush() bool {
 	return agent.info.HasPush
+}
+
+func (agent *Agent) HookData() map[string]string {
+	agent.RLock()
+	defer agent.RUnlock()
+
+	data := map[string]string{
+		"agent_id":   strconv.Itoa(agent.Id()),
+		"user_id":    fmt.Sprintf("%d", agent.UserId()),
+		"team_id":    fmt.Sprintf("%d", agent.TeamId()),
+		"agent_name": agent.Name(),
+		"status":     agent.info.Status,
+	}
+
+	if agent.info.StatusPayload != nil {
+		data["status_payload"] = *agent.info.StatusPayload
+	}
+	if agent.info.Extension != nil {
+		data["destination"] = *agent.info.Extension
+	}
+
+	return data
 }
