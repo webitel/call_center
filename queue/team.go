@@ -9,12 +9,18 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
+	"golang.org/x/sync/singleflight"
+	"net/http"
 	"sync"
 )
 
 const (
 	MAX_TEAM_CACHE        = 10000
 	MAX_TEAM_EXPIRE_CACHE = 60 * 60 * 24
+)
+
+var (
+	teamGroupRequest singleflight.Group
 )
 
 type teamManager struct {
@@ -85,7 +91,6 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	defer tm.Unlock()
 
 	var team *agentTeam
-	var err *model.AppError
 
 	if t, ok := tm.cache.Get(id); ok {
 		team = t.(*agentTeam)
@@ -94,15 +99,31 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 		}
 	}
 
-	data, err := tm.store.Team().Get(id)
-	if err != nil {
-		return nil, err
-	}
-	team = NewTeam(data, tm)
+	v, err, shared := teamGroupRequest.Do(fmt.Sprintf("%d-%d", id, updatedAt), func() (interface{}, error) {
+		data, err := tm.store.Team().Get(id)
+		if err != nil {
+			return nil, err
+		}
 
-	tm.cache.AddWithDefaultExpires(id, team)
-	wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
-	return team, err
+		return NewTeam(data, tm), nil
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case *model.AppError:
+			return nil, err.(*model.AppError)
+		default:
+			return nil, model.NewAppError("Queue", "queue.manager.team.get", nil, err.Error(), http.StatusInternalServerError)
+		}
+	}
+	team = v.(*agentTeam)
+
+	if !shared {
+		tm.cache.AddWithDefaultExpires(id, team)
+		wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
+	}
+
+	return team, nil
 }
 
 func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject) *model.AppError {
