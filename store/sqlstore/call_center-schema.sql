@@ -1063,6 +1063,17 @@ $$;
 
 
 --
+-- Name: cc_bridged_id(uuid); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_bridged_id(uuid) RETURNS uuid
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+select lega.bridged_id from call_center.cc_calls_history lega where lega.id = $1
+$_$;
+
+
+--
 -- Name: cc_call_active_numbers(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -4931,7 +4942,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.parent_id,
     c.transfer_from,
         CASE
-            WHEN ((c.parent_id IS NOT NULL) AND (c.transfer_to IS NULL) AND ((c.id)::text <> (lega.bridged_id)::text)) THEN lega.bridged_id
+            WHEN ((c.parent_id IS NOT NULL) AND (c.transfer_to IS NULL) AND (c.id <> call_center.cc_bridged_id(c.parent_id))) THEN call_center.cc_bridged_id(c.parent_id)
             ELSE c.transfer_to
         END AS transfer_to,
     call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
@@ -4964,7 +4975,20 @@ CREATE VIEW call_center.cc_calls_history_list AS
             ELSE (0)::bigint
         END AS bill_sec,
     c.sip_code,
-    f.files,
+    ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
+           FROM ( SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    f1.name
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                UNION ALL
+                 SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    f1.name
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) AS files,
     call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup(c.member_id, cm.name) AS member,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
@@ -4997,13 +5021,13 @@ CREATE VIEW call_center.cc_calls_history_list AS
     cma.display,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
-          WHERE ((c.parent_id IS NULL) AND (hp.parent_id = c.id)))) AS has_children,
+          WHERE ((c.parent_id IS NULL) AND (hp.parent_id = c.id) AND (hp.created_at > (c.created_at)::date)))) AS has_children,
     (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
     c.grantee_id,
     ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
            FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
                    FROM call_center.cc_calls_history chh
-                  WHERE ((chh.parent_id = c.id) AND (chh.hold IS NOT NULL))
+                  WHERE ((chh.parent_id = c.id) AND (chh.created_at > (c.created_at)::date) AND (chh.hold IS NOT NULL))
                 UNION
                  SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
           WHERE (x.hi IS NOT NULL)) AS hold,
@@ -5048,7 +5072,14 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.blind_transfer,
     ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
            FROM storage.file_jobs j
-          WHERE (j.file_id = ANY (f.file_ids))) AS files_job,
+          WHERE (j.file_id IN ( SELECT f_1.id
+                   FROM ( SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                        UNION
+                         SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1))) AS files_job,
     ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff.id, ff.name))) AS data
            FROM (storage.file_transcript tr
              LEFT JOIN storage.files ff ON ((ff.id = tr.file_id)))
@@ -5072,22 +5103,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.hide_missed,
     c.redial_id,
     (lega.bridged_id IS NOT NULL) AS parent_bridged
-   FROM (((((((((((((((call_center.cc_calls_history c
-     LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
-            json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
-           FROM ( SELECT f1.id,
-                    f1.size,
-                    f1.mime_type,
-                    f1.name
-                   FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
-                UNION ALL
-                 SELECT f1.id,
-                    f1.size,
-                    f1.mime_type,
-                    f1.name
-                   FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) f ON (((c.answered_at IS NOT NULL) OR (c.bridged_at IS NOT NULL))))
+   FROM ((((((((((((((call_center.cc_calls_history c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -5097,10 +5113,10 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
      LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
      LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
-     LEFT JOIN call_center.cc_calls_history lega ON (((c.parent_id IS NOT NULL) AND (lega.id = c.parent_id))))
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
-     LEFT JOIN directory.wbt_user aru ON (((ar.* IS NOT NULL) AND (aru.id = ar.rated_user_id))))
-     LEFT JOIN directory.wbt_user arub ON (((ar.* IS NOT NULL) AND (arub.id = ar.created_by))))
+     LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
+     LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
+     LEFT JOIN call_center.cc_calls_history lega ON ((lega.id = c.parent_id)))
      LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)));
 
 
