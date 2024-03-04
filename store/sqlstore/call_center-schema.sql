@@ -5070,7 +5070,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.contact_id,
     c.search_number,
     c.hide_missed,
-    c.redial_id
+    c.redial_id,
+    (lega.bridged_id IS NOT NULL) AS parent_bridged
    FROM (((((((((((((((call_center.cc_calls_history c
      LEFT JOIN LATERAL ( SELECT array_agg(f_1.id) AS file_ids,
             json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
@@ -6752,6 +6753,56 @@ ALTER SEQUENCE call_center.cc_team_acl_id_seq OWNED BY call_center.cc_team_acl.i
 
 
 --
+-- Name: cc_team_events; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_team_events (
+    id integer NOT NULL,
+    team_id integer NOT NULL,
+    event character varying NOT NULL,
+    schema_id integer NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by bigint NOT NULL
+);
+
+
+--
+-- Name: cc_team_events_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_team_events_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_team_events_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_team_events_id_seq OWNED BY call_center.cc_team_events.id;
+
+
+--
+-- Name: cc_team_events_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_team_events_list AS
+ SELECT qe.id,
+    call_center.cc_get_lookup((qe.schema_id)::bigint, s.name) AS schema,
+    qe.event,
+    qe.enabled,
+    qe.team_id,
+    qe.schema_id
+   FROM (call_center.cc_team_events qe
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = qe.schema_id)));
+
+
+--
 -- Name: cc_team_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
 --
 
@@ -7018,8 +7069,8 @@ CREATE VIEW call_center.cc_user_status_view AS
  SELECT u.dc AS domain_id,
     u.id,
     COALESCE(u.name, (u.username)::text) AS name,
-    pr.status AS presence,
-    a.status,
+    COALESCE(pr.status, '{}'::name[]) AS presence,
+    COALESCE(a.status, ''::character varying) AS status,
     COALESCE(u.extension, ''::name) AS extension,
     row_number() OVER (PARTITION BY u.dc ORDER BY
         CASE
@@ -7346,6 +7397,13 @@ ALTER TABLE ONLY call_center.cc_team ALTER COLUMN id SET DEFAULT nextval('call_c
 --
 
 ALTER TABLE ONLY call_center.cc_team_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_acl_id_seq'::regclass);
+
+
+--
+-- Name: cc_team_events id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_events ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_events_id_seq'::regclass);
 
 
 --
@@ -7750,6 +7808,14 @@ ALTER TABLE ONLY call_center.cc_skill
 
 ALTER TABLE ONLY call_center.cc_team_acl
     ADD CONSTRAINT cc_team_acl_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_team_events cc_team_events_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_events
+    ADD CONSTRAINT cc_team_events_pk PRIMARY KEY (id);
 
 
 --
@@ -9019,6 +9085,13 @@ CREATE INDEX cc_team_domain_id_name_index ON call_center.cc_team USING btree (do
 --
 
 CREATE UNIQUE INDEX cc_team_domain_udx ON call_center.cc_team USING btree (id, domain_id);
+
+
+--
+-- Name: cc_team_events_team_id_schema_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_team_events_team_id_schema_id_uindex ON call_center.cc_team_events USING btree (team_id, schema_id);
 
 
 --
@@ -10767,6 +10840,30 @@ ALTER TABLE ONLY call_center.cc_team_acl
 
 ALTER TABLE ONLY call_center.cc_team_acl
     ADD CONSTRAINT cc_team_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_team_events cc_team_events_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_events
+    ADD CONSTRAINT cc_team_events_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id);
+
+
+--
+-- Name: cc_team_events cc_team_events_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_events
+    ADD CONSTRAINT cc_team_events_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_team_events cc_team_events_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_events
+    ADD CONSTRAINT cc_team_events_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
