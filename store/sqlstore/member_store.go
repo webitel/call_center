@@ -599,6 +599,22 @@ where a.timeout < now() and a.node_id = :NodeId and not a.schema_processing is t
 	return attempts, nil
 }
 
+func (s *SqlMemberStore) SetTimeoutError(id int64) *model.AppError {
+	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
+set schema_processing = false,
+    result = 'timeout error'
+where id = :Id;`, map[string]interface{}{
+		"Id": id,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.SetTimeoutError", "store.sql_member.set_timeouts.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, perNum bool) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
