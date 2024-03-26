@@ -138,6 +138,8 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 		confirm = true
 	default:
 		// TODO
+		confirm = true
+		att.Log("warn: bad pre-schema, set default confirm attempt")
 	}
 
 	if res.Variables != nil {
