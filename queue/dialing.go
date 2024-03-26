@@ -122,6 +122,10 @@ func (d *DialingImpl) routeIdleAgents() {
 				} else {
 					d.queueManager.TimeoutLeavingMember(a)
 				}
+			} else {
+				// TODO
+				d.queueManager.store.Member().SetTimeoutError(v.AttemptId)
+				wlog.Error("attempt[%d] error: not found in cache, set timeout error")
 			}
 		}
 	} else {
