@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-const ServiceName = "iiicall_center"
+const ServiceName = "call_center"
 
 const (
 	APP_DEREGESTER_CRITICAL_TTL = time.Minute * 2
