@@ -9,11 +9,11 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.1.0
-	github.com/webitel/engine v0.0.0-20231219131344-033714018987
-	github.com/webitel/flow_manager v0.0.0-20230928094914-a9c915fbadcb
-	github.com/webitel/protos/cc v0.0.0-20240327130525-7501c51c7a8e
-	github.com/webitel/protos/fs v0.0.0-20231219144336-af0e727d5b1e
-	github.com/webitel/protos/workflow v0.0.0-20231219144336-af0e727d5b1e
+	github.com/webitel/engine v0.0.0-20240327135406-7469d4bcb04b
+	github.com/webitel/flow_manager v0.0.0-20240318151852-e35870a75700
+	github.com/webitel/protos/cc v0.0.0-20240327132302-ffcc68b6314f
+	github.com/webitel/protos/fs v0.0.0-20240327130525-7501c51c7a8e
+	github.com/webitel/protos/workflow v0.0.0-20240327132302-ffcc68b6314f
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
 	golang.org/x/sync v0.4.0
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
@@ -35,13 +35,12 @@ require (
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/mattn/go-sqlite3 v1.14.6 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/webitel/protos/engine v0.0.0-20231219125449-5b30bbcb08c0 // indirect
+	github.com/webitel/protos/engine v0.0.0-20240327132302-ffcc68b6314f // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
@@ -49,7 +48,7 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231012201019-e917dd12ba7a // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231012201019-e917dd12ba7a // indirect
