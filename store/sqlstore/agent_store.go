@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/lib/pq"
@@ -21,7 +22,7 @@ func NewSqlAgentStore(sqlStore SqlStore) store.AgentStore {
 func (s *SqlAgentStore) CreateTableIfNotExists() {
 }
 
-func (s SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
+func (s *SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `update call_center.cc_member_attempt a
 set state = :Active
@@ -48,7 +49,7 @@ returning t.*`, map[string]interface{}{
 	}
 }
 
-func (s SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
+func (s *SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
 	if err := s.GetReplica().SelectOne(&agent, `select a.id,
        a.user_id,
@@ -99,7 +100,7 @@ where a.id = :Id
 	}
 }
 
-func (s SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError) {
+func (s *SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError) {
 
 	var res []string
 
@@ -114,7 +115,7 @@ func (s SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, *
 	return res, nil
 }
 
-func (s SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
+func (s *SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
 	_, err := s.GetMaster().Exec(`insert into call_center.cc_agent_missed_attempt (attempt_id, agent_id, cause) 
   values (:AttemptId, :AgentId, :Cause)`, map[string]interface{}{
 		"AttemptId": attemptId,
@@ -129,7 +130,7 @@ func (s SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string)
 	return nil
 }
 
-func (s SqlAgentStore) RefreshEndStateDay5Min() *model.AppError {
+func (s *SqlAgentStore) RefreshEndStateDay5Min() *model.AppError {
 	_, err := s.GetMaster().Exec(`refresh materialized view call_center.cc_agent_end_state_day_5min`)
 	if err != nil {
 		return model.NewAppError("SqlAgentStore.RefreshEndStateDay5Min", "store.sql_queue.refresh_state_5min.app_error",
@@ -138,7 +139,7 @@ func (s SqlAgentStore) RefreshEndStateDay5Min() *model.AppError {
 	return nil
 }
 
-func (s SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
+func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	var data *model.AgentOnlineData
 
 	err := s.GetMaster().SelectOne(&data, `select timestamp, channel
@@ -156,7 +157,7 @@ func (s SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnline
 	return data, nil
 }
 
-func (s SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
+func (s *SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
 	if _, err := s.GetMaster().Exec(`with ag as (
 	update call_center.cc_agent
 			set status = :Status,
@@ -180,7 +181,7 @@ where c.agent_id = ag.id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError) {
+func (s *SqlAgentStore) CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError) {
 	var res bool
 	err := s.GetMaster().SelectOne(&res, `select exists(SELECT 1
 FROM call_center.cc_agent a_1
@@ -216,7 +217,7 @@ WHERE (q_1.team_id IS NULL OR a_1.team_id = q_1.team_id)
 	return !res, nil
 }
 
-func (s SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError) {
+func (s *SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError) {
 	var res []*model.CallNoAnswer
 	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
 from call_center.cc_member_attempt at
@@ -239,7 +240,7 @@ where at.agent_id = :AgentId
 	return res, nil
 }
 
-func (s SqlAgentStore) WaitingChannel(agentId int, channel string) (int64, *model.AppError) {
+func (s *SqlAgentStore) WaitingChannel(agentId int, channel string) (int64, *model.AppError) {
 	timestamp, err := s.GetMaster().SelectInt(`select call_center.cc_view_timestamp(joined_at) as timestamp
 from call_center.cc_agent_set_channel_waiting(:AgentId, :Channel) as (joined_at timestamptz)`, map[string]interface{}{
 		"AgentId": agentId,
@@ -259,7 +260,7 @@ from call_center.cc_agent_set_channel_waiting(:AgentId, :Channel) as (joined_at 
 	return timestamp, nil
 }
 
-func (s SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
+func (s *SqlAgentStore) SetOnBreak(agentId int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update call_center.cc_agent
 set status = :Status,
 	last_status_change = now()
@@ -276,7 +277,7 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) CreateMissed(missed *model.MissedAgentAttempt) *model.AppError {
+func (s *SqlAgentStore) CreateMissed(missed *model.MissedAgentAttempt) *model.AppError {
 	_, err := s.GetMaster().Exec(`insert into call_center.cc_agent_missed_attempt (attempt_id, agent_id, cause, missed_at)
 values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 		"AttemptId": missed.AttemptId,
@@ -293,7 +294,7 @@ values (:AttemptId, :AgentId, :Cause, :MissedAt)`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
+func (s *SqlAgentStore) GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError) {
 	var channels []*model.ChannelTimeout
 	_, err := s.GetMaster().Select(&channels, `update call_center.cc_agent_channel c
 	set state = 'waiting',
@@ -311,7 +312,7 @@ returning a.user_id, channel, call_center.cc_view_timestamp(joined_at) as timest
 	return channels, nil
 }
 
-func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
+func (s *SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
 	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_agent_today_pause_cause`)
 
 	if err != nil {
@@ -322,7 +323,7 @@ func (s SqlAgentStore) RefreshAgentPauseCauses() *model.AppError {
 	return nil
 }
 
-func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
+func (s *SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_agent_today_stats`)
 
 	if err != nil {
@@ -334,7 +335,7 @@ func (s SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 }
 
 // todo need index
-func (s SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
+func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey
 	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at,
        not exists(
@@ -382,7 +383,7 @@ for update skip locked`, map[string]interface{}{
 	return res, nil
 }
 
-func (s SqlAgentStore) LosePredictAttempt(id int) *model.AppError {
+func (s *SqlAgentStore) LosePredictAttempt(id int) *model.AppError {
 	_, err := s.GetMaster().Exec(`update call_center.cc_agent_channel
 set lose_attempt = lose_attempt + 1
 where agent_id = :AgentId and state != 'waiting'`, map[string]interface{}{
@@ -395,4 +396,30 @@ where agent_id = :AgentId and state != 'waiting'`, map[string]interface{}{
 	}
 
 	return nil
+}
+
+func (s *SqlAgentStore) AgentTriggerJob(ctx context.Context, domainId int64, agentId int32, triggerId int32) (*model.AgentTriggerJob, *model.AppError) {
+	var tr model.AgentTriggerJob
+	err := s.GetReplica().WithContext(ctx).SelectOne(&tr, `select
+    tr.schema_id,
+    a.user_id,
+    coalesce(u.extension, '') extension,
+    coalesce(u.email, '') email,
+    coalesce(u.name::varchar, u.username) name,
+    u.profile as variables
+from call_center.cc_team_trigger tr
+    inner join call_center.cc_agent a on a.id = :AgentId and a.team_id = tr.team_id
+    inner join directory.wbt_user u on u.id = a.user_id
+where tr.id = :Id and a.domain_id = :DomainId`, map[string]interface{}{
+		"AgentId":  agentId,
+		"DomainId": domainId,
+		"Id":       triggerId,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.AgentTriggerJob", "store.sql_agent.run_trigger.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return &tr, nil
 }

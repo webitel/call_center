@@ -103,3 +103,24 @@ func (api *agentApi) CloseTask(appId string, domainId, attemptId int64) error {
 
 	return err
 }
+
+func (api *agentApi) RunTrigger(ctx context.Context, domainId int64, agentId int32, triggerId int32, vars map[string]string) (string, error) {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return "", err
+	}
+
+	var res *cc.RunTriggerResponse
+	res, err = cli.Agent().RunTrigger(ctx, &cc.RunTriggerRequest{
+		DomainId:  domainId,
+		TriggerId: triggerId,
+		AgentId:   agentId,
+		Variables: vars,
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return res.JobId, nil
+}

@@ -1,10 +1,13 @@
 package app
 
 import (
+	"context"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
 	"net/http"
+	"strconv"
 )
 
 func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
@@ -147,6 +150,38 @@ func (app *App) AcceptAgentTask(attemptId int64) *model.AppError {
 
 func (app *App) CloseAgentTask(attemptId int64) *model.AppError {
 	return app.dialing.Manager().CloseAgentTask(attemptId)
+}
+
+func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, agentId int32, triggerId int32, vars map[string]string) (string, *model.AppError) {
+	data, appErr := app.Store.Agent().AgentTriggerJob(ctx, domainId, agentId, triggerId)
+	if appErr != nil {
+		return "", appErr
+	}
+
+	if vars == nil {
+		vars = make(map[string]string)
+	}
+
+	for k, v := range data.Variables {
+		vars[k] = v
+	}
+
+	vars["agent_id"] = strconv.Itoa(int(agentId))
+	vars["user_id"] = strconv.Itoa(int(data.UserId))
+	vars["email"] = data.Email
+	vars["extension"] = data.Extension
+	vars["agent_name"] = data.Name
+
+	jobId, err := app.flowManager.Queue().StartFlow(&workflow.StartFlowRequest{
+		SchemaId:  data.SchemaId,
+		DomainId:  domainId,
+		Variables: vars,
+	})
+	if err != nil {
+		return "", model.NewAppError("RunTeamTrigger", "app.fm.start_flow", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	return jobId, nil
 }
 
 func getString(p *string) string {

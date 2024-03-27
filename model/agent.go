@@ -177,3 +177,12 @@ type AgentInQueueStatistic struct {
 	CallsAnswered     int        `json:"calls_answered" db:"calls_answered"`
 	CallsAbandoned    int        `json:"calls_abandoned" db:"calls_abandoned"`
 }
+
+type AgentTriggerJob struct {
+	SchemaId  uint32    `json:"schema_id" db:"schema_id"`
+	Extension string    `json:"extension" db:"extension"`
+	Email     string    `json:"email" db:"email"`
+	UserId    int64     `json:"user_id" db:"user_id"`
+	Name      string    `json:"name" db:"name"`
+	Variables StringMap `json:"variables" db:"variables"`
+}
