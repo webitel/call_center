@@ -398,20 +398,20 @@ where agent_id = :AgentId and state != 'waiting'`, map[string]interface{}{
 	return nil
 }
 
-func (s *SqlAgentStore) AgentTriggerJob(ctx context.Context, domainId int64, agentId int32, triggerId int32) (*model.AgentTriggerJob, *model.AppError) {
+func (s *SqlAgentStore) AgentTriggerJob(ctx context.Context, domainId int64, userId int64, triggerId int32) (*model.AgentTriggerJob, *model.AppError) {
 	var tr model.AgentTriggerJob
 	err := s.GetReplica().WithContext(ctx).SelectOne(&tr, `select
     tr.schema_id,
-    a.user_id,
+    a.id as agent_id,
     coalesce(u.extension, '') extension,
     coalesce(u.email, '') email,
     coalesce(u.name::varchar, u.username) name,
     u.profile as variables
-from call_center.cc_team_trigger tr
-    inner join call_center.cc_agent a on a.id = :AgentId and a.team_id = tr.team_id
-    inner join directory.wbt_user u on u.id = a.user_id
-where tr.id = :Id and a.domain_id = :DomainId`, map[string]interface{}{
-		"AgentId":  agentId,
+from directory.wbt_user u
+    inner join call_center.cc_agent a on a.user_id = u.id
+    inner join call_center.cc_team_trigger tr on tr.team_id = a.team_id
+where tr.id = :Id and u.dc = :DomainId and u.id = :UserId`, map[string]interface{}{
+		"UserId":   userId,
 		"DomainId": domainId,
 		"Id":       triggerId,
 	})

@@ -11,7 +11,7 @@ require (
 	github.com/streadway/amqp v1.1.0
 	github.com/webitel/engine v0.0.0-20231219131344-033714018987
 	github.com/webitel/flow_manager v0.0.0-20230928094914-a9c915fbadcb
-	github.com/webitel/protos/cc v0.0.0-20240327112629-2581d12d96d4
+	github.com/webitel/protos/cc v0.0.0-20240327130525-7501c51c7a8e
 	github.com/webitel/protos/fs v0.0.0-20231219144336-af0e727d5b1e
 	github.com/webitel/protos/workflow v0.0.0-20231219144336-af0e727d5b1e
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28

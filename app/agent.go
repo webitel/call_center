@@ -152,8 +152,8 @@ func (app *App) CloseAgentTask(attemptId int64) *model.AppError {
 	return app.dialing.Manager().CloseAgentTask(attemptId)
 }
 
-func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, agentId int32, triggerId int32, vars map[string]string) (string, *model.AppError) {
-	data, appErr := app.Store.Agent().AgentTriggerJob(ctx, domainId, agentId, triggerId)
+func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, userId int64, triggerId int32, vars map[string]string) (string, *model.AppError) {
+	data, appErr := app.Store.Agent().AgentTriggerJob(ctx, domainId, userId, triggerId)
 	if appErr != nil {
 		return "", appErr
 	}
@@ -166,8 +166,8 @@ func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, agentId int3
 		vars[k] = v
 	}
 
-	vars["agent_id"] = strconv.Itoa(int(agentId))
-	vars["user_id"] = strconv.Itoa(int(data.UserId))
+	vars["agent_id"] = strconv.Itoa(int(data.AgentId))
+	vars["user_id"] = strconv.Itoa(int(userId))
 	vars["email"] = data.Email
 	vars["extension"] = data.Extension
 	vars["agent_name"] = data.Name

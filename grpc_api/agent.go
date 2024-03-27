@@ -12,17 +12,6 @@ type agent struct {
 	cc.UnsafeAgentServiceServer
 }
 
-func (api *agent) RunTrigger(ctx context.Context, in *cc.RunTriggerRequest) (*cc.RunTriggerResponse, error) {
-	jobId, err := api.app.RunTeamTrigger(ctx, in.DomainId, in.AgentId, in.TriggerId, in.Variables)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cc.RunTriggerResponse{
-		JobId: jobId,
-	}, nil
-}
-
 func NewAgentApi(a *app.App) *agent {
 	return &agent{app: a}
 }
@@ -105,4 +94,15 @@ func (api *agent) CloseTask(_ context.Context, in *cc.CloseTaskRequest) (*cc.Clo
 	}
 
 	return &cc.CloseTaskResponse{}, nil
+}
+
+func (api *agent) RunTrigger(ctx context.Context, in *cc.RunTriggerRequest) (*cc.RunTriggerResponse, error) {
+	jobId, err := api.app.RunTeamTrigger(ctx, in.DomainId, in.UserId, in.TriggerId, in.Variables)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.RunTriggerResponse{
+		JobId: jobId,
+	}, nil
 }

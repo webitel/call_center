@@ -127,7 +127,7 @@ type AgentStore interface {
 	OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError)
 	LosePredictAttempt(id int) *model.AppError
 	CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError)
-	AgentTriggerJob(ctx context.Context, domainId int64, agentId int32, triggerId int32) (*model.AgentTriggerJob, *model.AppError)
+	AgentTriggerJob(ctx context.Context, domainId int64, userId int64, triggerId int32) (*model.AgentTriggerJob, *model.AppError)
 }
 
 type TeamStore interface {

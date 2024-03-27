@@ -182,7 +182,7 @@ type AgentTriggerJob struct {
 	SchemaId  uint32    `json:"schema_id" db:"schema_id"`
 	Extension string    `json:"extension" db:"extension"`
 	Email     string    `json:"email" db:"email"`
-	UserId    int64     `json:"user_id" db:"user_id"`
+	AgentId   int32     `json:"agent_id" db:"agent_id"`
 	Name      string    `json:"name" db:"name"`
 	Variables StringMap `json:"variables" db:"variables"`
 }
