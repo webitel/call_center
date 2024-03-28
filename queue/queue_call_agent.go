@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-type JoinAgentQueue struct {
+type JoinAgentCallQueue struct {
 	CallingQueue
 }
 
-func (queue *JoinAgentQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
+func (queue *JoinAgentCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 	mCall, ok := queue.CallManager().GetCall(*attempt.member.MemberCallId)
 	if !ok {
 		return NewErrorCallRequired(queue, attempt)
@@ -23,7 +23,7 @@ func (queue *JoinAgentQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 	return nil
 }
 
-func (queue *JoinAgentQueue) run(attempt *Attempt, mCall call_manager.Call) {
+func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 	var calling = true
 	var team *agentTeam

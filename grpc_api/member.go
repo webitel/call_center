@@ -355,6 +355,59 @@ stop:
 	return nil
 }
 
+func (api *member) TaskJoinToAgent(in *cc.TaskJoinToAgentRequest, out cc.MemberService_TaskJoinToAgentServer) error {
+	ctx := context.Background()
+	attempt, err := api.app.Queue().Manager().DistributeTaskToAgent(ctx, in)
+	if err != nil {
+		return err
+	}
+
+	bridged := attempt.On(queue.AttemptHookBridgedAgent)
+	leaving := attempt.On(queue.AttemptHookLeaving)
+
+	out.Send(&cc.QueueEvent{
+		Data: &cc.QueueEvent_Joined{
+			Joined: &cc.QueueEvent_JoinedData{
+				AttemptId: attempt.Id(),
+				AppId:     "",
+			},
+		},
+	})
+
+	for {
+		select {
+		case <-leaving:
+			out.Send(&cc.QueueEvent{
+				Data: &cc.QueueEvent_Leaving{
+					Leaving: &cc.QueueEvent_LeavingData{
+						Result: attempt.Result(),
+					},
+				},
+			})
+			goto stop
+		case _, ok := <-bridged:
+			if ok {
+				br := &cc.QueueEvent_BridgedData{
+					AgentId: 0,
+				}
+
+				if attempt.AgentId() != nil {
+					br.AgentId = int32(*attempt.AgentId())
+				}
+				out.Send(&cc.QueueEvent{
+					Data: &cc.QueueEvent_Bridged{
+						Bridged: br,
+					},
+				})
+			}
+		}
+	}
+
+stop:
+
+	return nil
+}
+
 func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error) {
 
 	err := api.app.Queue().Manager().AttemptProcessingActionForm(in.AttemptId, in.Action, in.Fields)

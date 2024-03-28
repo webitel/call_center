@@ -503,7 +503,7 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		settings.ProcessingRenewalSec = in.Processing.RenewalSec
 	}
 
-	var queue = JoinAgentQueue{
+	var queue = JoinAgentCallQueue{
 		CallingQueue: CallingQueue{
 			BaseQueue: NewBaseQueue(queueManager, queueManager.resourceManager, settings),
 		},
@@ -526,6 +526,10 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 	}
 
 	return attempt, nil
+}
+
+func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (*Attempt, *model.AppError) {
+	return nil, model.NewAppError("TOFO", "ddd", nil, "", 500)
 }
 
 func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*Attempt, *model.AppError) {
