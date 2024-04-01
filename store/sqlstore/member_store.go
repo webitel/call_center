@@ -214,6 +214,36 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 	return att, nil
 }
 
+func (s SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool) (*model.TaskToAgent, *model.AppError) {
+	var att *model.TaskToAgent
+
+	err := s.GetMaster().SelectOne(&att, `select *
+from call_center.cc_distribute_task_to_agent(:Node, :DomainId, :AgentId, :Dest::jsonb, :Variables)
+as x (
+    attempt_id int8,
+    destination jsonb,
+    variables jsonb,
+    team_id int,
+    team_updated_at int8,
+    agent_updated_at int8
+)
+where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]interface{}{
+		"Node":      node,
+		"DomainId":  domainId,
+		"Dest":      dest,
+		"Variables": model.MapToJson(vars),
+		"AgentId":   agentId,
+		"Force":     force,
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeTaskToAgent", "store.sql_member.distribute_task_agent.app_error", nil,
+			fmt.Sprintf("AgentId=%v %s", agentId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return att, nil
+}
+
 func (s SqlMemberStore) DistributeCallToQueueCancel(id int64) *model.AppError {
 	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set result = 'cancel',

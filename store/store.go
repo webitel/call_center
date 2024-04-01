@@ -51,6 +51,7 @@ type MemberStore interface {
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
 	DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool) (*model.InboundCallAgent, *model.AppError)
+	DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool) (*model.TaskToAgent, *model.AppError)
 
 	/*
 		Flow control

@@ -123,7 +123,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 			granteeId: settings.GranteeId,
-		}, QueueOfflineSettingsFromBytes(settings.Payload)), nil
+		}, OfflineSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeInboundCall:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
@@ -138,7 +138,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 			BaseQueue: base,
 			HoldMusic: settings.HoldMusic,
 			granteeId: settings.GranteeId,
-		}, QueueIVRSettingsFromBytes(settings.Payload)), nil
+		}, IVRSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypePreviewCall:
 		return NewPreviewCallQueue(CallingQueue{
@@ -165,7 +165,7 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 		return NewInboundChatQueue(base, InboundChatQueueFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeAgentTask:
-		return NewTaskAgentQueue(base, TaskAgentSettingsFromBytes(settings.Payload)), nil
+		return NewTaskInboundQueue(base, TaskInboundSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeOutboundTask:
 		return NewTaskOutboundQueue(base, TaskOutboundQueueSettingsFromBytes(settings.Payload)), nil

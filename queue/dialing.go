@@ -40,19 +40,19 @@ func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentMan
 	return &dialing
 }
 
-func (dialing *DialingImpl) Manager() *QueueManager {
-	return dialing.queueManager
+func (d *DialingImpl) Manager() *QueueManager {
+	return d.queueManager
 }
 
-func (dialing *DialingImpl) Start() {
+func (d *DialingImpl) Start() {
 	wlog.Debug("starting dialing service")
-	dialing.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, dialing.routeData)
+	d.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, d.routeData)
 
-	dialing.startOnce.Do(func() {
-		go dialing.watcher.Start()
-		go dialing.queueManager.Start()
-		go dialing.statisticsManager.Start()
-		go dialing.expiredManager.Start()
+	d.startOnce.Do(func() {
+		go d.watcher.Start()
+		go d.queueManager.Start()
+		go d.statisticsManager.Start()
+		go d.expiredManager.Start()
 	})
 }
 

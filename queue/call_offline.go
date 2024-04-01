@@ -25,7 +25,7 @@ type OfflineCallQueue struct {
 	OfflineQueueSettings
 }
 
-func QueueOfflineSettingsFromBytes(data []byte) OfflineQueueSettings {
+func OfflineSettingsFromBytes(data []byte) OfflineQueueSettings {
 	var settings OfflineQueueSettings
 	json.Unmarshal(data, &settings)
 	return settings
