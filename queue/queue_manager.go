@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
@@ -407,12 +408,27 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 	// FIXME add domain
 	var agent agent_manager.AgentObject
 
+	qParams := &model.QueueDumpParams{
+		QueueName: in.QueueName,
+	}
+
+	if qParams.QueueName == "" {
+		qParams.QueueName = "agent"
+	}
+
+	if in.Processing != nil && in.Processing.Enabled {
+		qParams.HasReporting = model.NewBool(true)
+		qParams.ProcessingSec = in.Processing.Sec
+		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
+	}
+
 	res, err := queueManager.store.Member().DistributeCallToAgent(
 		queueManager.app.GetInstanceId(),
 		in.GetMemberCallId(),
 		in.GetVariables(),
 		in.GetAgentId(),
 		in.CancelDistribute,
+		qParams,
 	)
 
 	if err != nil {
@@ -479,16 +495,12 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		MemberCallId:   &res.CallId,
 	})
 
-	if in.QueueName == "" {
-		in.QueueName = "Agent"
-	}
-
 	settings := &model.Queue{
 		Id:                   0,
 		DomainId:             in.DomainId,
 		DomainName:           "TODO",
 		Type:                 10,
-		Name:                 in.QueueName,
+		Name:                 qParams.QueueName,
 		Strategy:             "",
 		Payload:              nil,
 		TeamId:               &res.TeamId,
@@ -497,10 +509,10 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		ProcessingRenewalSec: 15,
 		Hooks:                nil,
 	}
-	if in.Processing != nil && in.Processing.Enabled {
+	if qParams.HasReporting != nil && *qParams.HasReporting {
 		settings.Processing = true
-		settings.ProcessingSec = in.Processing.Sec
-		settings.ProcessingRenewalSec = in.Processing.RenewalSec
+		settings.ProcessingSec = qParams.ProcessingSec
+		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
 	}
 
 	var queue = JoinAgentCallQueue{
@@ -530,13 +542,33 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 
 func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (*Attempt, *model.AppError) {
 	var agent agent_manager.AgentObject
+
+	qParams := &model.QueueDumpParams{
+		QueueName: in.QueueName,
+	}
+	if qParams.QueueName == "" {
+		qParams.QueueName = "agent"
+	}
+
+	if in.Processing != nil && in.Processing.Enabled {
+		qParams.HasReporting = model.NewBool(true)
+		qParams.ProcessingSec = in.Processing.Sec
+		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
+		if in.Processing.FormSchemaId > 0 {
+			qParams.HasForm = model.NewBool(true)
+		}
+	}
+
+	dest, _ := json.Marshal(in.Destination)
+
 	res, err := queueManager.store.Member().DistributeTaskToAgent(
 		queueManager.app.GetInstanceId(),
 		in.DomainId,
 		in.GetAgentId(),
-		[]byte(`{"destination":"1232131231"}`),
+		dest,
 		in.GetVariables(),
 		in.CancelDistribute,
+		qParams,
 	)
 
 	if err != nil {
@@ -569,16 +601,12 @@ func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in 
 		Name:           res.Name,
 	})
 
-	if in.QueueName == "" {
-		in.QueueName = "Agent"
-	}
-
 	settings := &model.Queue{
 		Id:                   0,
 		DomainId:             in.DomainId,
 		DomainName:           "TODO",
 		Type:                 model.QueueTypeAgentTask,
-		Name:                 in.QueueName,
+		Name:                 qParams.QueueName,
 		Strategy:             "",
 		Payload:              nil,
 		TeamId:               &res.TeamId,
@@ -586,15 +614,18 @@ func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in 
 		ProcessingSec:        30,
 		ProcessingRenewalSec: 15,
 		Hooks:                nil,
-		FormSchemaId:         model.NewInt(604),
 		Variables: map[string]string{
 			"wbt_auto_answer": "true",
 		},
 	}
-	if in.Processing != nil && in.Processing.Enabled {
+
+	if qParams.HasReporting != nil && *qParams.HasReporting {
 		settings.Processing = true
-		settings.ProcessingSec = in.Processing.Sec
-		settings.ProcessingRenewalSec = in.Processing.RenewalSec
+		settings.ProcessingSec = qParams.ProcessingSec
+		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
+		if in.Processing.FormSchemaId > 0 {
+			settings.FormSchemaId = model.NewInt(int(in.Processing.FormSchemaId))
+		}
 	}
 
 	var queue = TaskAgent{

@@ -172,11 +172,11 @@ as x (
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool) (*model.InboundCallAgent, *model.AppError) {
+func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError) {
 	var att *model.InboundCallAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
-from call_center.cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId)
+from call_center.cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId, :Prams::jsonb)
 as x (
     attempt_id int8,
     destination jsonb,
@@ -204,6 +204,7 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 		"Variables":    model.MapToJson(vars),
 		"AgentId":      agentId,
 		"Force":        force,
+		"Prams":        params.ToJson(),
 	})
 
 	if err != nil {
@@ -214,11 +215,11 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool) (*model.TaskToAgent, *model.AppError) {
+func (s SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError) {
 	var att *model.TaskToAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
-from call_center.cc_distribute_task_to_agent(:Node, :DomainId, :AgentId, :Dest::jsonb, :Variables)
+from call_center.cc_distribute_task_to_agent(:Node, :DomainId, :AgentId, :Dest::jsonb, :Variables, :Params::jsonb)
 as x (
     attempt_id int8,
     destination jsonb,
@@ -234,6 +235,7 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 		"Variables": model.MapToJson(vars),
 		"AgentId":   agentId,
 		"Force":     force,
+		"Params":    params.ToJson(),
 	})
 
 	if err != nil {
