@@ -27,7 +27,7 @@ type IVRQueue struct {
 	QueueIVRSettings
 }
 
-func QueueIVRSettingsFromBytes(data []byte) QueueIVRSettings {
+func IVRSettingsFromBytes(data []byte) QueueIVRSettings {
 	var settings QueueIVRSettings
 	json.Unmarshal(data, &settings)
 	return settings

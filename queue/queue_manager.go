@@ -529,7 +529,95 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 }
 
 func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (*Attempt, *model.AppError) {
-	return nil, model.NewAppError("TOFO", "ddd", nil, "", 500)
+	var agent agent_manager.AgentObject
+	res, err := queueManager.store.Member().DistributeTaskToAgent(
+		queueManager.app.GetInstanceId(),
+		in.DomainId,
+		in.GetAgentId(),
+		[]byte(`{"destination":"1232131231"}`),
+		in.GetVariables(),
+		in.CancelDistribute,
+	)
+
+	if err != nil {
+		wlog.Error(err.Error())
+		return nil, err
+	}
+
+	if in.CancelDistribute {
+		err = queueManager.CancelAgentDistribute(in.GetAgentId())
+		if err != nil {
+			wlog.Error(err.Error())
+		}
+	}
+
+	agent, err = queueManager.agentManager.GetAgent(int(in.GetAgentId()), res.AgentUpdatedAt)
+	if err != nil {
+		wlog.Error(err.Error())
+		return nil, err
+	}
+
+	attempt, _ := queueManager.CreateAttemptIfNotExists(ctx, &model.MemberAttempt{
+		Id:             res.AttemptId,
+		CreatedAt:      time.Now(),
+		Result:         nil,
+		Destination:    res.Destination,
+		AgentId:        model.NewInt(int(in.AgentId)),
+		AgentUpdatedAt: &res.AgentUpdatedAt,
+		TeamUpdatedAt:  model.NewInt64(res.TeamUpdatedAt),
+		Variables:      res.Variables,
+		Name:           res.Name,
+	})
+
+	if in.QueueName == "" {
+		in.QueueName = "Agent"
+	}
+
+	settings := &model.Queue{
+		Id:                   0,
+		DomainId:             in.DomainId,
+		DomainName:           "TODO",
+		Type:                 model.QueueTypeAgentTask,
+		Name:                 in.QueueName,
+		Strategy:             "",
+		Payload:              nil,
+		TeamId:               &res.TeamId,
+		Processing:           false,
+		ProcessingSec:        30,
+		ProcessingRenewalSec: 15,
+		Hooks:                nil,
+		FormSchemaId:         model.NewInt(604),
+		Variables: map[string]string{
+			"wbt_auto_answer": "true",
+		},
+	}
+	if in.Processing != nil && in.Processing.Enabled {
+		settings.Processing = true
+		settings.ProcessingSec = in.Processing.Sec
+		settings.ProcessingRenewalSec = in.Processing.RenewalSec
+	}
+
+	var queue = TaskAgent{
+		BaseQueue: NewBaseQueue(queueManager, queueManager.resourceManager, settings),
+	}
+
+	attempt.queue = &queue
+	attempt.agent = agent
+	attempt.domainId = queue.domainId
+	attempt.channel = model.QueueChannelTask
+
+	if err = queue.DistributeAttempt(attempt); err != nil {
+		wlog.Error(err.Error())
+		queueManager.Abandoned(attempt)
+		queueManager.LeavingMember(attempt)
+
+		return nil, err
+	} else {
+		wlog.Info(fmt.Sprintf("[%s] join member %s[%v] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+			attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
+	}
+
+	return attempt, nil
 }
 
 func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (*Attempt, *model.AppError) {

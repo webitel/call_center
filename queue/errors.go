@@ -44,13 +44,3 @@ func NewErrorVariableRequired(queue QueueObject, attempt *Attempt, name string) 
 		http.StatusBadRequest,
 	)
 }
-
-func NewErrorCommunicationPatternRequired(queue QueueObject, attempt *Attempt) *model.AppError {
-	return model.NewAppError(
-		"Queue",
-		"queue.distribute.invalid_communication_pattern.error",
-		map[string]interface{}{"QueueId": queue.Id(), "AttemptId": attempt.Id()},
-		"",
-		http.StatusUnauthorized,
-	)
-}
