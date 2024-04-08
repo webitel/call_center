@@ -1,15 +1,16 @@
 package grpc_api
 
 import (
+	grpc "buf.build/gen/go/webitel/cc/grpc/go/_gogrpc"
+	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/protos/cc"
 )
 
 type agent struct {
 	app *app.App
-	cc.UnsafeAgentServiceServer
+	grpc.UnsafeAgentServiceServer
 }
 
 func NewAgentApi(a *app.App) *agent {

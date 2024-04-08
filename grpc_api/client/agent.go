@@ -1,8 +1,8 @@
 package client
 
 import (
+	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
-	"github.com/webitel/protos/cc"
 )
 
 type agentApi struct {

@@ -1,10 +1,10 @@
 package app
 
 import (
+	workflow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"context"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
 	"net/http"
 	"strconv"

@@ -1474,6 +1474,237 @@ ALTER TABLE ONLY storage.media_files
 
 
 --
+-- Name: SCHEMA storage; Type: ACL; Schema: -; Owner: -
+--
+
+GRANT USAGE ON SCHEMA storage TO grafana;
+
+
+--
+-- Name: TABLE media_files; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.media_files TO grafana;
+
+
+--
+-- Name: TABLE file_jobs; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_jobs TO grafana;
+
+
+--
+-- Name: TABLE file_transcript; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_transcript TO grafana;
+
+
+--
+-- Name: TABLE files; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.files TO grafana;
+
+
+--
+-- Name: TABLE cognitive_profile_services; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.cognitive_profile_services TO grafana;
+
+
+--
+-- Name: TABLE cognitive_profile_services_acl; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.cognitive_profile_services_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cognitive_profile_services_acl_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.cognitive_profile_services_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cognitive_profile_services_view; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.cognitive_profile_services_view TO grafana;
+
+
+--
+-- Name: SEQUENCE cognitive_profiles_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.cognitive_profiles_id_seq TO grafana;
+
+
+--
+-- Name: TABLE file_backend_profiles; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_backend_profiles TO grafana;
+
+
+--
+-- Name: TABLE file_backend_profiles_acl; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_backend_profiles_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE file_backend_profiles_acl_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.file_backend_profiles_acl_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE file_backend_profiles_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.file_backend_profiles_id_seq TO grafana;
+
+
+--
+-- Name: TABLE files_statistics; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.files_statistics TO grafana;
+
+
+--
+-- Name: TABLE file_backend_profiles_view; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_backend_profiles_view TO grafana;
+
+
+--
+-- Name: SEQUENCE file_jobs_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.file_jobs_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE file_transcript_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.file_transcript_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE files_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.files_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE files_statistics_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.files_statistics_id_seq TO grafana;
+
+
+--
+-- Name: TABLE import_template; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.import_template TO grafana;
+
+
+--
+-- Name: TABLE import_template_acl; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.import_template_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE import_template_acl_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.import_template_acl_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE import_template_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.import_template_id_seq TO grafana;
+
+
+--
+-- Name: TABLE import_template_view; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.import_template_view TO grafana;
+
+
+--
+-- Name: TABLE jobs; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.jobs TO grafana;
+
+
+--
+-- Name: SEQUENCE media_files_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.media_files_id_seq TO grafana;
+
+
+--
+-- Name: TABLE media_files_view; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.media_files_view TO grafana;
+
+
+--
+-- Name: TABLE schedulers; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.schedulers TO grafana;
+
+
+--
+-- Name: SEQUENCE schedulers_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.schedulers_id_seq TO grafana;
+
+
+--
+-- Name: TABLE upload_file_jobs; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.upload_file_jobs TO grafana;
+
+
+--
+-- Name: SEQUENCE upload_file_jobs_id_seq; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE storage.upload_file_jobs_id_seq TO grafana;
+
+
+--
+-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: storage; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA storage GRANT SELECT ON TABLES  TO grafana;
+
+
+--
 -- PostgreSQL database dump complete
 --
 

@@ -1157,7 +1157,8 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     amd_ai_result character varying,
     amd_ai_logs character varying[],
     amd_ai_positive boolean,
-    contact_id bigint
+    contact_id bigint,
+    schema_ids integer[]
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -1553,8 +1554,7 @@ $$;
 
 CREATE PROCEDURE call_center.cc_distribute(IN disable_omnichannel boolean)
     LANGUAGE plpgsql
-    AS $$
-begin
+    AS $$begin
     if NOT pg_try_advisory_xact_lock(132132117) then
         raise exception 'LOCK';
     end if;
@@ -1567,7 +1567,7 @@ begin
     )
        , ins as (
         insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
-                                                   communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id, sticky_agent_id)
+                                                   communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id, sticky_agent_id, queue_params)
             select case when q.type = 7 then 'task' else 'call' end, --todo
                    dis.id,
                    dis.queue_id,
@@ -1581,7 +1581,8 @@ begin
                    dis.resource_group_id,
                    q.domain_id,
                    m.import_id,
-                   case when q.type = 5 and q.sticky_agent then dis.agent_id end
+                   case when q.type = 5 and q.sticky_agent then dis.agent_id end,
+                   call_center.cc_queue_params(q)
             from dis
                      inner join call_center.cc_queue q on q.id = dis.queue_id
                      inner join call_center.cc_member m on m.id = dis.id
@@ -1612,11 +1613,10 @@ $$;
 
 CREATE FUNCTION call_center.cc_distribute_direct_member_to_queue(_node_name character varying, _member_id bigint, _communication_id integer, _agent_id bigint) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id bigint, agent_updated_at bigint, team_updated_at bigint, seq integer, communication_idx integer)
     LANGUAGE plpgsql
-    AS $$
-BEGIN
+    AS $$BEGIN
     return query with attempts as (
         insert into call_center.cc_member_attempt (state, queue_id, member_id, destination, communication_idx, node_id, agent_id, resource_id,
-                                       bucket_id, seq, team_id, domain_id)
+                                       bucket_id, seq, team_id, domain_id, queue_params)
             select 1,
                    m.queue_id,
                    m.id,
@@ -1628,7 +1628,8 @@ BEGIN
                    m.bucket_id,
                    m.attempts + 1,
                    q.team_id,
-                   q.domain_id
+                   q.domain_id,
+                   call_center.cc_queue_params(q)
             from call_center.cc_member m
                      inner join call_center.cc_queue q on q.id = m.queue_id
                      inner join lateral (
@@ -1680,13 +1681,12 @@ $$;
 
 
 --
--- Name: cc_distribute_inbound_call_to_agent(character varying, character varying, jsonb, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_call_to_agent(character varying, character varying, jsonb, integer, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_call_to_agent(_node_name character varying, _call_id character varying, variables_ jsonb, _agent_id integer DEFAULT NULL::integer) RETURNS record
+CREATE FUNCTION call_center.cc_distribute_inbound_call_to_agent(_node_name character varying, _call_id character varying, variables_ jsonb, _agent_id integer DEFAULT NULL::integer, q_params jsonb DEFAULT NULL::jsonb) RETURNS record
     LANGUAGE plpgsql
-    AS $$
-declare
+    AS $$declare
     _domain_id int8;
     _team_updated_at int8;
     _agent_updated_at int8;
@@ -1764,9 +1764,9 @@ BEGIN
   end if;
 
 
-  insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id)
+  insert into call_center.cc_member_attempt (domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id, queue_params)
   values (_domain_id, 'waiting', _team_id_, _call_id, jsonb_build_object('destination', _number),
-              _node_name, _agent_id, _call.attempt_id)
+              _node_name, _agent_id, _call.attempt_id, q_params)
   returning * into _attempt;
 
   update call_center.cc_calls
@@ -1815,8 +1815,7 @@ $$;
 
 CREATE FUNCTION call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
     LANGUAGE plpgsql
-    AS $$
-declare
+    AS $$declare
 _timezone_id             int4;
     _discard_abandoned_after int4;
     _weight                  int4;
@@ -1836,6 +1835,7 @@ _timezone_id             int4;
     _name                  varchar;
     _max_waiting_size        int;
     _grantee_id              int8;
+    _qparams jsonb;
 BEGIN
 select c.timezone_id,
        (payload ->> 'discard_abandoned_after')::int discard_abandoned_after,
@@ -1849,13 +1849,14 @@ select c.timezone_id,
        q.type,
        q.sticky_agent,
        (payload ->> 'max_waiting_size')::int        max_size,
-        q.grantee_id
+        q.grantee_id,
+        call_center.cc_queue_params(q)
 from call_center.cc_queue q
          inner join flow.calendar c on q.calendar_id = c.id
          left join call_center.cc_team ct on q.team_id = ct.id
 where q.id = _queue_id
     into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _grantee_id;
+        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _grantee_id, _qparams;
 
 if
 not _q_type = 1 then
@@ -1973,10 +1974,10 @@ end if;
 insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight,
                                            member_call_id, destination, node_id, sticky_agent_id,
                                            list_communication_id,
-                                           parent_id)
+                                           parent_id, queue_params)
 values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id,
         jsonb_build_object('destination', _number, 'name', coalesce(_name, _number)),
-        _node_name, _sticky_agent_id, null, _call.attempt_id)
+        _node_name, _sticky_agent_id, null, _call.attempt_id, _qparams)
     returning * into _attempt;
 
 update call_center.cc_calls
@@ -2029,8 +2030,7 @@ $$;
 
 CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
     LANGUAGE plpgsql
-    AS $$
-declare
+    AS $$declare
     _timezone_id int4;
     _discard_abandoned_after int4;
     _weight int4;
@@ -2052,6 +2052,7 @@ declare
     _inviter_user_id varchar;
     _sticky bool;
     _max_waiting_size int;
+    _qparams jsonb;
 BEGIN
   select c.timezone_id,
            (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
@@ -2064,13 +2065,14 @@ BEGIN
          q.enabled,
          q.type,
          q.sticky_agent,
-         (payload->>'max_waiting_size')::int max_size
+         (payload->>'max_waiting_size')::int max_size,
+         call_center.cc_queue_params(q)
   from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _qparams;
 
   if not _q_type = 6 then
       raise exception 'queue type not inbound chat';
@@ -2173,12 +2175,13 @@ BEGIN
       _sticky_agent_id = null;
   end if;
 
-  insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id, destination, node_id, sticky_agent_id, list_communication_id)
+  insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id,
+                                             destination, node_id, sticky_agent_id, list_communication_id, queue_params)
   values (_domain_id, 'chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id::varchar,
           jsonb_build_object('destination', _con_name, 'name', _client_name, 'msg', _last_msg, 'chat', _con_type),
               _node_name, _sticky_agent_id, (select clc.id
                             from call_center.cc_list_communications clc
-                            where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)))
+                            where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)), _qparams)
   returning * into _attempt;
 
 
@@ -2232,6 +2235,68 @@ begin return query
         ;
 end
 $_$;
+
+
+--
+-- Name: cc_distribute_task_to_agent(character varying, bigint, integer, jsonb, jsonb, jsonb); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_distribute_task_to_agent(_node_name character varying, _domain_id bigint, _agent_id integer, _destination jsonb, variables_ jsonb, _qparams jsonb) RETURNS record
+    LANGUAGE plpgsql
+    AS $$declare
+    _team_updated_at int8;
+    _agent_updated_at int8;
+    _team_id_ int;
+
+    _attempt record;
+
+    _a_status varchar;
+    _a_state varchar;
+    _busy_ext bool;
+BEGIN
+
+  select
+    a.team_id,
+    t.updated_at,
+    a.status,
+    cac.state,
+    (a.updated_at - extract(epoch from u.updated_at))::int8,
+    exists (select 1 from call_center.cc_calls c where c.user_id = a.user_id and c.queue_id isnull and c.hangup_at isnull ) busy_ext
+  from call_center.cc_agent a
+      inner join call_center.cc_team t on t.id = a.team_id
+      inner join call_center.cc_agent_channel cac on a.id = cac.agent_id and cac.channel = 'task'
+      inner join directory.wbt_user u on u.id = a.user_id
+  where a.id = _agent_id -- check attempt
+    and a.domain_id = _domain_id
+  for update
+  into _team_id_,
+      _team_updated_at,
+      _a_status,
+      _a_state,
+      _agent_updated_at,
+      _busy_ext
+      ;
+
+  if _team_id_ isnull then
+      raise exception 'not found agent';
+  end if;
+
+
+  insert into call_center.cc_member_attempt (channel, domain_id, state, team_id, member_call_id, destination, node_id, agent_id, queue_params)
+  values ('task', _domain_id, 'waiting', _team_id_, null, _destination,
+              _node_name, _agent_id, _qparams)
+  returning * into _attempt;
+
+  return row(
+      _attempt.id::int8,
+      _attempt.destination::jsonb,
+      variables_::jsonb,
+      _team_id_::int,
+      _team_updated_at::int8,
+      _agent_updated_at::int8
+  );
+END;
+$$;
 
 
 --
@@ -2978,6 +3043,58 @@ $$;
 
 
 --
+-- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_queue (
+    id integer NOT NULL,
+    strategy character varying(20) NOT NULL,
+    enabled boolean NOT NULL,
+    payload jsonb,
+    calendar_id integer NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
+    name character varying NOT NULL,
+    variables jsonb DEFAULT '{}'::jsonb NOT NULL,
+    domain_id bigint NOT NULL,
+    dnc_list_id bigint,
+    type smallint DEFAULT 1 NOT NULL,
+    team_id bigint,
+    created_at bigint NOT NULL,
+    created_by bigint,
+    updated_by bigint,
+    schema_id integer,
+    description character varying DEFAULT ''::character varying,
+    ringtone_id integer,
+    do_schema_id integer,
+    after_schema_id integer,
+    sticky_agent boolean DEFAULT false NOT NULL,
+    processing boolean DEFAULT false NOT NULL,
+    processing_sec integer DEFAULT 30 NOT NULL,
+    processing_renewal_sec integer DEFAULT 0 NOT NULL,
+    grantee_id bigint,
+    recall_calendar boolean DEFAULT false,
+    form_schema_id integer,
+    tags character varying[]
+);
+
+
+--
+-- Name: cc_queue_params(call_center.cc_queue); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_queue_params(q call_center.cc_queue) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    select jsonb_build_object('has_reporting', q.processing)
+    || jsonb_build_object('has_form', q.processing and q.form_schema_id notnull)
+    || jsonb_build_object('processing_sec', q.processing_sec)
+    || jsonb_build_object('processing_renewal_sec', q.processing_renewal_sec)
+    || jsonb_build_object('queue_name', q.name) as queue_params;
+$$;
+
+
+--
 -- Name: cc_resource_set_error(bigint, bigint, character varying, character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -3212,6 +3329,31 @@ BEGIN
   values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id, old.attempt_id);
 
   RETURN new;
+END;
+$$;
+
+
+--
+-- Name: cc_team_event_changed_tg(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_team_event_changed_tg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        update call_center.cc_team
+        set updated_at = (extract(epoch from now()) * 1000)::int8
+        where id = old.team_id;
+
+        return old;
+    else
+        update call_center.cc_team
+        set updated_at = (extract(epoch from new.updated_at) * 1000)::int8,
+            updated_by = new.updated_by
+        where id = new.team_id;
+
+        return new;
+    end if;
 END;
 $$;
 
@@ -3880,7 +4022,8 @@ CREATE TABLE call_center.cc_calls_history (
     contact_id bigint,
     search_number text,
     hide_missed boolean,
-    redial_id uuid
+    redial_id uuid,
+    schema_ids integer[]
 );
 
 
@@ -3933,246 +4076,10 @@ COMMENT ON COLUMN call_center.cc_member_attempt_history.result IS 'fixme';
 
 
 --
--- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_queue (
-    id integer NOT NULL,
-    strategy character varying(20) NOT NULL,
-    enabled boolean NOT NULL,
-    payload jsonb,
-    calendar_id integer NOT NULL,
-    priority integer DEFAULT 0 NOT NULL,
-    updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
-    name character varying NOT NULL,
-    variables jsonb DEFAULT '{}'::jsonb NOT NULL,
-    domain_id bigint NOT NULL,
-    dnc_list_id bigint,
-    type smallint DEFAULT 1 NOT NULL,
-    team_id bigint,
-    created_at bigint NOT NULL,
-    created_by bigint,
-    updated_by bigint,
-    schema_id integer,
-    description character varying DEFAULT ''::character varying,
-    ringtone_id integer,
-    do_schema_id integer,
-    after_schema_id integer,
-    sticky_agent boolean DEFAULT false NOT NULL,
-    processing boolean DEFAULT false NOT NULL,
-    processing_sec integer DEFAULT 30 NOT NULL,
-    processing_renewal_sec integer DEFAULT 0 NOT NULL,
-    grantee_id bigint,
-    recall_calendar boolean DEFAULT false,
-    form_schema_id integer,
-    tags character varying[]
-);
-
-
---
 -- Name: cc_agent_today_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
- WITH agents AS MATERIALIZED (
-         SELECT a_1.id,
-            usr.id AS user_id,
-                CASE
-                    WHEN (a_1.last_state_change < (d."from")::timestamp with time zone) THEN (d."from")::timestamp with time zone
-                    WHEN (a_1.last_state_change < d."to") THEN a_1.last_state_change
-                    ELSE a_1.last_state_change
-                END AS cur_state_change,
-            a_1.status,
-            a_1.status_payload,
-            a_1.last_state_change,
-            (lasts.last_at)::timestamp with time zone AS last_at,
-            lasts.state AS last_state,
-            lasts.status_payload AS last_payload,
-            COALESCE(top.top_at, a_1.last_state_change) AS top_at,
-            COALESCE(top.state, a_1.status) AS top_state,
-            COALESCE(top.status_payload, a_1.status_payload) AS top_payload,
-            d."from",
-            d."to",
-            usr.dc AS domain_id,
-            COALESCE(t.sys_name, 'UTC'::text) AS tz_name
-           FROM ((((((call_center.cc_agent a_1
-             RIGHT JOIN directory.wbt_user usr ON ((usr.id = a_1.user_id)))
-             LEFT JOIN flow.region r ON ((r.id = a_1.region_id)))
-             LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
-             LEFT JOIN LATERAL ( SELECT now() AS "to",
-                    ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone)) AS "from") d ON (true))
-             LEFT JOIN LATERAL ( SELECT aa.state,
-                    d."from" AS last_at,
-                    aa.payload AS status_payload
-                   FROM call_center.cc_agent_state_history aa
-                  WHERE ((aa.agent_id = a_1.id) AND (aa.channel IS NULL) AND ((aa.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (aa.joined_at < (d."from")::timestamp with time zone))
-                  ORDER BY aa.joined_at DESC
-                 LIMIT 1) lasts ON ((a_1.last_state_change > d."from")))
-             LEFT JOIN LATERAL ( SELECT a2.state,
-                    d."to" AS top_at,
-                    a2.payload AS status_payload
-                   FROM call_center.cc_agent_state_history a2
-                  WHERE ((a2.agent_id = a_1.id) AND (a2.channel IS NULL) AND ((a2.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])) AND (a2.joined_at > d."to"))
-                  ORDER BY a2.joined_at
-                 LIMIT 1) top ON (true))
-        ), d AS MATERIALIZED (
-         SELECT x.agent_id,
-            x.joined_at,
-            x.state,
-            x.payload
-           FROM ( SELECT a_1.agent_id,
-                    a_1.joined_at,
-                    a_1.state,
-                    a_1.payload
-                   FROM call_center.cc_agent_state_history a_1,
-                    agents
-                  WHERE ((a_1.agent_id = agents.id) AND (a_1.joined_at >= agents."from") AND (a_1.joined_at <= agents."to") AND (a_1.channel IS NULL) AND ((a_1.state)::text = ANY (ARRAY[('pause'::character varying)::text, ('online'::character varying)::text, ('offline'::character varying)::text])))
-                UNION
-                 SELECT agents.id,
-                    agents.cur_state_change,
-                    agents.status,
-                    agents.status_payload
-                   FROM agents
-                  WHERE (1 = 1)) x
-          ORDER BY x.joined_at DESC
-        ), s AS MATERIALIZED (
-         SELECT d.agent_id,
-            d.joined_at,
-            d.state,
-            d.payload,
-            (COALESCE(lag(d.joined_at) OVER (PARTITION BY d.agent_id ORDER BY d.joined_at DESC), now()) - d.joined_at) AS dur
-           FROM d
-          ORDER BY d.joined_at DESC
-        ), eff AS (
-         SELECT h.agent_id,
-            sum((COALESCE(h.reporting_at, h.leaving_at) - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS aht,
-            sum((h.reporting_at - h.leaving_at)) FILTER (WHERE ((h.reporting_at IS NOT NULL) AND ((h.reporting_at - h.leaving_at) > '00:00:00'::interval))) AS processing,
-            sum(((h.reporting_at - h.leaving_at) - ((q.processing_sec || 's'::text))::interval)) FILTER (WHERE ((h.reporting_at IS NOT NULL) AND q.processing AND ((h.reporting_at - h.leaving_at) > (((q.processing_sec + 1) || 's'::text))::interval))) AS tpause
-           FROM ((agents
-             JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
-             LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
-          WHERE ((h.domain_id = agents.domain_id) AND (h.joined_at >= (agents."from")::timestamp with time zone) AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
-          GROUP BY h.agent_id
-        ), attempts AS (
-         SELECT cma.agent_id,
-            count(*) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))) AS chat_accepts,
-            (avg(EXTRACT(epoch FROM (COALESCE(cma.reporting_at, cma.leaving_at) - cma.bridged_at))) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'chat'::text))))::bigint AS chat_aht,
-            count(*) FILTER (WHERE ((cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = 'task'::text))) AS task_accepts
-           FROM (agents
-             JOIN call_center.cc_member_attempt_history cma ON ((cma.agent_id = agents.id)))
-          WHERE ((cma.joined_at >= (agents."from")::timestamp with time zone) AND (cma.joined_at <= agents."to") AND (cma.domain_id = agents.domain_id) AND (cma.bridged_at IS NOT NULL) AND ((cma.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])))
-          GROUP BY cma.agent_id
-        ), calls AS (
-         SELECT h.user_id,
-            count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
-            count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NOT NULL))) AS inbound_bridged,
-            count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
-            count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
-            count(*) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS user_2user,
-            count(*) FILTER (WHERE ((((h.direction)::text = 'inbound'::text) OR (cq.type = 3)) AND (h.bridged_at IS NULL))) AS missed,
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
-            count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
-            count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
-            sum((h.hangup_at - h.created_at)) FILTER (WHERE (((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS direct_out_dur,
-            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'inbound'::text) AND (h.parent_id IS NOT NULL))) AS "avg bill inbound",
-            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((h.direction)::text = 'outbound'::text))) AS "avg bill outbound",
-            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "sum bill",
-            avg((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS avg_talk,
-            sum(((h.hold_sec || ' sec'::text))::interval) AS "sum hold",
-            avg(((h.hold_sec || ' sec'::text))::interval) FILTER (WHERE (h.hold_sec > 0)) AS avg_hold,
-            sum((COALESCE(h.answered_at, h.bridged_at, h.hangup_at) - h.created_at)) AS "Call initiation",
-            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS "Talk time",
-            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NOT NULL))) AS queue_talk_sec,
-            sum((cc.reporting_at - cc.leaving_at)) FILTER (WHERE (cc.reporting_at IS NOT NULL)) AS "Post call",
-            sum((h.hangup_at - h.bridged_at)) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND ((cc.description)::text = 'Voice mail'::text))) AS vm
-           FROM ((((agents
-             JOIN call_center.cc_calls_history h ON ((h.user_id = agents.user_id)))
-             LEFT JOIN call_center.cc_queue cq ON ((h.queue_id = cq.id)))
-             LEFT JOIN call_center.cc_member_attempt_history cc ON (((cc.agent_call_id)::text = (h.id)::text)))
-             LEFT JOIN call_center.cc_calls_history pc ON (((pc.id = h.parent_id) AND (pc.created_at > ((now())::date - '2 days'::interval)))))
-          WHERE ((h.domain_id = agents.domain_id) AND (h.created_at > ((now())::date - '2 days'::interval)) AND (h.created_at >= (agents."from")::timestamp with time zone) AND (h.created_at <= agents."to"))
-          GROUP BY h.user_id
-        ), stats AS MATERIALIZED (
-         SELECT s.agent_id,
-            min(s.joined_at) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS login,
-            max(s.joined_at) FILTER (WHERE ((s.state)::text = 'offline'::text)) AS logout,
-            sum(s.dur) FILTER (WHERE ((s.state)::text = ANY (ARRAY[('online'::character varying)::text, ('pause'::character varying)::text]))) AS online,
-            sum(s.dur) FILTER (WHERE ((s.state)::text = 'pause'::text)) AS pause,
-            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Навчання'::text))) AS study,
-            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Нарада'::text))) AS conference,
-            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Обід'::text))) AS lunch,
-            sum(s.dur) FILTER (WHERE (((s.state)::text = 'pause'::text) AND ((s.payload)::text = 'Технічна перерва'::text))) AS tech
-           FROM (((s
-             LEFT JOIN agents ON ((agents.id = s.agent_id)))
-             LEFT JOIN eff eff_1 ON ((eff_1.agent_id = s.agent_id)))
-             LEFT JOIN calls ON ((calls.user_id = agents.user_id)))
-          GROUP BY s.agent_id
-        ), rate AS (
-         SELECT a_1.user_id,
-            count(*) AS count,
-            avg(ar.score_required) AS score_required_avg,
-            sum(ar.score_required) AS score_required_sum,
-            avg(ar.score_optional) AS score_optional_avg,
-            sum(ar.score_optional) AS score_optional_sum
-           FROM (agents a_1
-             JOIN call_center.cc_audit_rate ar ON ((ar.rated_user_id = a_1.user_id)))
-          WHERE ((ar.created_at >= (date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) AT TIME ZONE a_1.tz_name)) AND (ar.created_at <= (((date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) + '1 mon'::interval) - '1 day 00:00:01'::interval) AT TIME ZONE a_1.tz_name)))
-          GROUP BY a_1.user_id
-        )
- SELECT a.id AS agent_id,
-    a.user_id,
-    a.domain_id,
-    COALESCE(c.missed, (0)::bigint) AS call_missed,
-    COALESCE(c.abandoned, (0)::bigint) AS call_abandoned,
-    COALESCE(c.inbound_bridged, (0)::bigint) AS call_inbound,
-    COALESCE(c.handled, (0)::bigint) AS call_handled,
-    COALESCE((EXTRACT(epoch FROM c.avg_talk))::bigint, (0)::bigint) AS avg_talk_sec,
-    COALESCE((EXTRACT(epoch FROM c.avg_hold))::bigint, (0)::bigint) AS avg_hold_sec,
-    COALESCE((EXTRACT(epoch FROM c."Talk time"))::bigint, (0)::bigint) AS sum_talk_sec,
-    COALESCE((EXTRACT(epoch FROM c.queue_talk_sec))::bigint, (0)::bigint) AS queue_talk_sec,
-    LEAST(round(COALESCE(
-        CASE
-            WHEN ((stats.online > '00:00:00'::interval) AND (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) > (0)::numeric)) THEN (((((((COALESCE(EXTRACT(epoch FROM c."Call initiation"), (0)::numeric) + COALESCE(EXTRACT(epoch FROM c."Talk time"), (0)::numeric)) + COALESCE(EXTRACT(epoch FROM c."Post call"), (0)::numeric)) - COALESCE(EXTRACT(epoch FROM eff.tpause), (0)::numeric)) + EXTRACT(epoch FROM COALESCE(stats.study, '00:00:00'::interval))) + EXTRACT(epoch FROM COALESCE(stats.conference, '00:00:00'::interval))) / EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval)))) * (100)::numeric)
-            ELSE (0)::numeric
-        END, (0)::numeric), 2), (100)::numeric) AS occupancy,
-    round(COALESCE(
-        CASE
-            WHEN (stats.online > '00:00:00'::interval) THEN ((EXTRACT(epoch FROM (stats.online - COALESCE(stats.pause, '00:00:00'::interval))) / EXTRACT(epoch FROM stats.online)) * (100)::numeric)
-            ELSE (0)::numeric
-        END, (0)::numeric), 2) AS utilization,
-    (GREATEST(round(COALESCE(
-        CASE
-            WHEN ((stats.online > '00:00:00'::interval) AND (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) > (0)::numeric)) THEN (EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))) - (((((COALESCE(EXTRACT(epoch FROM c."Call initiation"), (0)::numeric) + COALESCE(EXTRACT(epoch FROM c."Talk time"), (0)::numeric)) + COALESCE(EXTRACT(epoch FROM c."Post call"), (0)::numeric)) - COALESCE(EXTRACT(epoch FROM eff.tpause), (0)::numeric)) + EXTRACT(epoch FROM COALESCE(stats.study, '00:00:00'::interval))) + EXTRACT(epoch FROM COALESCE(stats.conference, '00:00:00'::interval))))
-            ELSE (0)::numeric
-        END, (0)::numeric), 2), (0)::numeric))::integer AS available,
-    COALESCE((EXTRACT(epoch FROM c.vm))::bigint, (0)::bigint) AS voice_mail,
-    COALESCE(ch.chat_aht, (0)::bigint) AS chat_aht,
-    (((COALESCE(ch.task_accepts, (0)::bigint) + COALESCE(ch.chat_accepts, (0)::bigint)) + COALESCE(c.handled, (0)::bigint)) - COALESCE(c.user_2user, (0)::bigint)) AS task_accepts,
-    (COALESCE(EXTRACT(epoch FROM (stats.online - COALESCE(stats.lunch, '00:00:00'::interval))), (0)::numeric))::bigint AS online,
-    COALESCE(ch.chat_accepts, (0)::bigint) AS chat_accepts,
-    COALESCE(rate.count, (0)::bigint) AS score_count,
-    (COALESCE(EXTRACT(epoch FROM eff.processing), ((0)::bigint)::numeric))::integer AS processing,
-    COALESCE(rate.score_optional_avg, (0)::numeric) AS score_optional_avg,
-    COALESCE(rate.score_optional_sum, ((0)::bigint)::numeric) AS score_optional_sum,
-    COALESCE(rate.score_required_avg, (0)::numeric) AS score_required_avg,
-    COALESCE(rate.score_required_sum, ((0)::bigint)::numeric) AS score_required_sum
-   FROM ((((((agents a
-     LEFT JOIN call_center.cc_agent_with_user u ON ((u.id = a.id)))
-     LEFT JOIN stats ON ((stats.agent_id = a.id)))
-     LEFT JOIN eff ON ((eff.agent_id = a.id)))
-     LEFT JOIN calls c ON ((c.user_id = a.user_id)))
-     LEFT JOIN attempts ch ON ((ch.agent_id = a.id)))
-     LEFT JOIN rate ON ((rate.user_id = a.user_id)))
-  WITH NO DATA;
-
-
---
--- Name: cc_agent_today_stats_updated; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
---
-
-CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats_updated AS
  WITH agents AS MATERIALIZED (
          SELECT a_1.id,
             usr.id AS user_id,
@@ -4751,7 +4658,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     form_fields jsonb,
     form_view jsonb,
     import_id character varying(120),
-    schema_processing boolean DEFAULT false
+    schema_processing boolean DEFAULT false,
+    queue_params jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -6862,6 +6770,65 @@ CREATE VIEW call_center.cc_team_list AS
 
 
 --
+-- Name: cc_team_trigger; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_team_trigger (
+    id integer NOT NULL,
+    team_id integer NOT NULL,
+    name character varying NOT NULL,
+    description character varying,
+    enabled boolean DEFAULT false NOT NULL,
+    schema_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by bigint
+);
+
+
+--
+-- Name: cc_team_trigger_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_team_trigger_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_team_trigger_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_team_trigger_id_seq OWNED BY call_center.cc_team_trigger.id;
+
+
+--
+-- Name: cc_team_trigger_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_team_trigger_list AS
+ SELECT qt.id,
+    call_center.cc_get_lookup((qt.schema_id)::bigint, s.name) AS schema,
+    qt.name,
+    qt.description,
+    qt.enabled,
+    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS created_by,
+    qt.created_at,
+    call_center.cc_get_lookup(uu.id, (COALESCE(uu.name, (uu.username)::text))::character varying) AS updated_by,
+    qt.team_id,
+    qt.schema_id
+   FROM (((call_center.cc_team_trigger qt
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = qt.schema_id)))
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = qt.created_by)))
+     LEFT JOIN directory.wbt_user uu ON ((uu.id = qt.updated_by)));
+
+
+--
 -- Name: cc_trigger; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -7423,6 +7390,13 @@ ALTER TABLE ONLY call_center.cc_team_events ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: cc_team_trigger id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_trigger ALTER COLUMN id SET DEFAULT nextval('call_center.cc_team_trigger_id_seq'::regclass);
+
+
+--
 -- Name: cc_trigger id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -7840,6 +7814,14 @@ ALTER TABLE ONLY call_center.cc_team_events
 
 ALTER TABLE ONLY call_center.cc_team
     ADD CONSTRAINT cc_team_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_team_trigger cc_team_trigger_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_trigger
+    ADD CONSTRAINT cc_team_trigger_pkey PRIMARY KEY (id);
 
 
 --
@@ -9111,6 +9093,13 @@ CREATE UNIQUE INDEX cc_team_events_team_id_schema_id_uindex ON call_center.cc_te
 
 
 --
+-- Name: cc_team_trigger_schema_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_team_trigger_schema_id_index ON call_center.cc_team_trigger USING btree (schema_id);
+
+
+--
 -- Name: cc_team_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -9649,6 +9638,13 @@ CREATE TRIGGER cc_queue_events_changed AFTER INSERT OR DELETE OR UPDATE ON call_
 --
 
 CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_queue FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_queue');
+
+
+--
+-- Name: cc_team_events cc_team_events_changed; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_team_events_changed AFTER INSERT OR DELETE OR UPDATE ON call_center.cc_team_events FOR EACH ROW EXECUTE FUNCTION call_center.cc_team_event_changed_tg();
 
 
 --
@@ -10883,6 +10879,22 @@ ALTER TABLE ONLY call_center.cc_team_events
 
 
 --
+-- Name: cc_team_trigger cc_team_trigger_acr_routing_scheme_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_trigger
+    ADD CONSTRAINT cc_team_trigger_acr_routing_scheme_id_fk FOREIGN KEY (schema_id) REFERENCES flow.acr_routing_scheme(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_team_trigger cc_team_trigger_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team_trigger
+    ADD CONSTRAINT cc_team_trigger_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON DELETE CASCADE;
+
+
+--
 -- Name: cc_team cc_team_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -11000,6 +11012,1035 @@ ALTER TABLE ONLY call_center.cc_trigger
 
 ALTER TABLE ONLY call_center.system_settings
     ADD CONSTRAINT systemc_settings_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: SCHEMA call_center; Type: ACL; Schema: -; Owner: -
+--
+
+GRANT USAGE ON SCHEMA call_center TO grafana;
+
+
+--
+-- Name: TABLE cc_calls; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_calls TO grafana;
+
+
+--
+-- Name: TABLE cc_queue; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_status_log; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_status_log TO grafana;
+
+
+--
+-- Name: TABLE cc_agent; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_agent_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_agent_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_attempt; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_attempt TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_agent_attempt_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_agent_attempt_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_channel; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_channel TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_state_history; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_state_history TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_agent_history_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_agent_history_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_agent_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_agent_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_in_queue_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_in_queue_view TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_with_user; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_with_user TO grafana;
+
+
+--
+-- Name: TABLE cc_skill; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_skill TO grafana;
+
+
+--
+-- Name: TABLE cc_skill_in_agent; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_skill_in_agent TO grafana;
+
+
+--
+-- Name: TABLE cc_team; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_agent_status_log_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_agent_status_log_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_today_pause_cause; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_today_pause_cause TO grafana;
+
+
+--
+-- Name: TABLE cc_audit_rate; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_audit_rate TO grafana;
+
+
+--
+-- Name: TABLE cc_calls_history; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_calls_history TO grafana;
+
+
+--
+-- Name: TABLE cc_member_attempt_history; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_attempt_history TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_today_stats; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_today_stats TO grafana;
+
+
+--
+-- Name: TABLE cc_agent_waiting; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_agent_waiting TO grafana;
+
+
+--
+-- Name: TABLE cc_member_attempt_transferred; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_attempt_transferred TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_attempt_transferred_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_attempt_transferred_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_audit_form; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_audit_form TO grafana;
+
+
+--
+-- Name: TABLE cc_audit_form_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_audit_form_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_audit_form_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_audit_form_acl_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_audit_form_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_audit_form_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_audit_form_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_audit_form_view TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_audit_rate_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_audit_rate_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_audit_rate_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_audit_rate_view TO grafana;
+
+
+--
+-- Name: TABLE cc_bucket; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_bucket TO grafana;
+
+
+--
+-- Name: TABLE cc_bucket_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_bucket_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_bucket_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_bucket_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_bucket_in_queue; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_bucket_in_queue TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_bucket_in_queue_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_bucket_in_queue_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_bucket_in_queue_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_bucket_in_queue_view TO grafana;
+
+
+--
+-- Name: TABLE cc_bucket_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_bucket_view TO grafana;
+
+
+--
+-- Name: TABLE cc_member; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member TO grafana;
+
+
+--
+-- Name: TABLE cc_member_attempt; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_attempt TO grafana;
+
+
+--
+-- Name: TABLE cc_call_active_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_call_active_list TO grafana;
+
+
+--
+-- Name: TABLE cc_calls_annotation; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_calls_annotation TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_call_annotation_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_call_annotation_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_call_list_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_call_list_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_calls_history_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_calls_history_list TO grafana;
+
+
+--
+-- Name: TABLE cc_calls_transcribe; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_calls_transcribe TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_calls_transcribe_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_calls_transcribe_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_cluster; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_cluster TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_cluster_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_cluster_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_communication; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_communication TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_communication_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_communication_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_communication_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_communication_list TO grafana;
+
+
+--
+-- Name: TABLE cc_distribute_stage_1; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_distribute_stage_1 TO grafana;
+
+
+--
+-- Name: TABLE system_settings; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.system_settings TO grafana;
+
+
+--
+-- Name: TABLE cc_distribute_stats; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_distribute_stats TO grafana;
+
+
+--
+-- Name: TABLE cc_email; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_email TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_email_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_email_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_email_profile; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_email_profile TO grafana;
+
+
+--
+-- Name: TABLE cc_email_profile_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_email_profile_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_email_profiles_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_email_profiles_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_inbound_stats; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_inbound_stats TO grafana;
+
+
+--
+-- Name: TABLE cc_list_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_list_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_list_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_list_communications; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list_communications TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_list_communications_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_list_communications_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_list_communications_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list_communications_view TO grafana;
+
+
+--
+-- Name: TABLE cc_list_statistics; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list_statistics TO grafana;
+
+
+--
+-- Name: TABLE cc_list_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_list_view TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_skill; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_skill TO grafana;
+
+
+--
+-- Name: TABLE cc_manual_queue_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_manual_queue_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_member_attempt_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_member_attempt_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_member_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_member_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_member_messages; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_messages TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_member_messages_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_member_messages_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource TO grafana;
+
+
+--
+-- Name: TABLE cc_member_view_attempt; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_view_attempt TO grafana;
+
+
+--
+-- Name: TABLE cc_member_view_attempt_history; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_member_view_attempt_history TO grafana;
+
+
+--
+-- Name: TABLE cc_notification; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_notification TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_notification_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_notification_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_outbound_resource_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_display; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_display TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_outbound_resource_display_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_display_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_display_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_display_view TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_group; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_group TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_group_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_group_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_outbound_resource_group_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_group_acl_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_outbound_resource_group_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_group_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_group_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_group_view TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_in_group; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_in_group TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_outbound_resource_in_group_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_in_group_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_in_group_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_in_group_view TO grafana;
+
+
+--
+-- Name: TABLE cc_outbound_resource_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_outbound_resource_view TO grafana;
+
+
+--
+-- Name: TABLE cc_pause_cause; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_pause_cause TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_pause_cause_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_pause_cause_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_pause_cause_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_pause_cause_list TO grafana;
+
+
+--
+-- Name: TABLE cc_preset_query; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_preset_query TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_preset_query_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_preset_query_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_preset_query_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_preset_query_list TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_events; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_events TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_events_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_events_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_events_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_events_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_statistics; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_statistics TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_list TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_report_general; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_report_general TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_resource; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_resource TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_resource_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_resource_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_resource_id_seq1; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_resource_id_seq1 TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_resource_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_resource_view TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_queue_skill_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_queue_skill_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_skill_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_skill_list TO grafana;
+
+
+--
+-- Name: TABLE cc_queue_skill_statistics; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_queue_skill_statistics TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_skill_in_agent_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_skill_in_agent_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_skill_in_agent_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_skill_in_agent_view TO grafana;
+
+
+--
+-- Name: TABLE cc_skill_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_skill_view TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_skils_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_skils_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_sys_queue_distribute_resources; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_sys_queue_distribute_resources TO grafana;
+
+
+--
+-- Name: TABLE cc_team_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_team_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_team_acl_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_team_events; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_events TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_team_events_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_team_events_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_team_events_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_events_list TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_team_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_team_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_team_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_list TO grafana;
+
+
+--
+-- Name: TABLE cc_team_trigger; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_trigger TO grafana;
+
+
+--
+-- Name: TABLE cc_team_trigger_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_team_trigger_list TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_acl TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_trigger_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_trigger_acl_id_seq TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_trigger_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_trigger_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_job; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_job TO grafana;
+
+
+--
+-- Name: SEQUENCE cc_trigger_job_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.cc_trigger_job_id_seq TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_job_log; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_job_log TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_job_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_job_list TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_job_log_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_job_log_list TO grafana;
+
+
+--
+-- Name: TABLE cc_trigger_list; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_trigger_list TO grafana;
+
+
+--
+-- Name: TABLE cc_user_status_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_user_status_view TO grafana;
+
+
+--
+-- Name: SEQUENCE systemc_settings_id_seq; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON SEQUENCE call_center.systemc_settings_id_seq TO grafana;
+
+
+--
+-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: call_center; Owner: -
+--
+
+ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA call_center GRANT SELECT ON TABLES  TO grafana;
 
 
 --

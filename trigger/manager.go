@@ -1,13 +1,13 @@
 package trigger
 
 import (
+	flow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/flow_manager/client"
-	flow "github.com/webitel/protos/workflow"
 	"github.com/webitel/wlog"
 	"sync"
 	"time"

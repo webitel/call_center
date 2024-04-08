@@ -1,7 +1,7 @@
 package client
 
 import (
-	proto "github.com/webitel/protos/cc"
+	gogrpc "buf.build/gen/go/webitel/cc/grpc/go/_gogrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"time"
@@ -11,8 +11,8 @@ type ccConnection struct {
 	name   string
 	host   string
 	client *grpc.ClientConn
-	agent  proto.AgentServiceClient
-	member proto.MemberServiceClient
+	agent  gogrpc.AgentServiceClient
+	member gogrpc.MemberServiceClient
 }
 
 func NewCCConnection(name, url string) (*ccConnection, error) {
@@ -28,8 +28,8 @@ func NewCCConnection(name, url string) (*ccConnection, error) {
 		return nil, err
 	}
 
-	connection.agent = proto.NewAgentServiceClient(connection.client)
-	connection.member = proto.NewMemberServiceClient(connection.client)
+	connection.agent = gogrpc.NewAgentServiceClient(connection.client)
+	connection.member = gogrpc.NewMemberServiceClient(connection.client)
 
 	return connection, nil
 }
@@ -54,10 +54,10 @@ func (conn *ccConnection) Close() error {
 	return nil
 }
 
-func (conn *ccConnection) Agent() proto.AgentServiceClient {
+func (conn *ccConnection) Agent() gogrpc.AgentServiceClient {
 	return conn.agent
 }
 
-func (conn *ccConnection) Member() proto.MemberServiceClient {
+func (conn *ccConnection) Member() gogrpc.MemberServiceClient {
 	return conn.member
 }

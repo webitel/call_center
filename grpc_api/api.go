@@ -1,8 +1,8 @@
 package grpc_api
 
 import (
+	gogrpc "buf.build/gen/go/webitel/cc/grpc/go/_gogrpc"
 	"github.com/webitel/call_center/app"
-	"github.com/webitel/protos/cc"
 	"google.golang.org/grpc"
 )
 
@@ -20,6 +20,6 @@ func Init(a *app.App, server *grpc.Server) {
 	api.agent = NewAgentApi(a)
 	api.member = NewMemberApi(a)
 
-	cc.RegisterAgentServiceServer(server, api.agent)
-	cc.RegisterMemberServiceServer(server, api.member)
+	gogrpc.RegisterAgentServiceServer(server, api.agent)
+	gogrpc.RegisterMemberServiceServer(server, api.member)
 }

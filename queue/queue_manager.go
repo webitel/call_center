@@ -1,6 +1,7 @@
 package queue
 
 import (
+	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/protos/cc"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
 	"net/http"

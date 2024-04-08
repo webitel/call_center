@@ -1,9 +1,9 @@
 package queue
 
 import (
+	workflow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/protos/workflow"
 )
 
 const (

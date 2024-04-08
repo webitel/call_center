@@ -1,11 +1,12 @@
 package client
 
 import (
+	grpc "buf.build/gen/go/webitel/cc/grpc/go/_gogrpc"
+	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/discovery"
-	"github.com/webitel/protos/cc"
 	"github.com/webitel/wlog"
 	"sync"
 )
@@ -30,10 +31,10 @@ type MemberApi interface {
 	AttemptResult(result *cc.AttemptResultRequest) error
 	RenewalResult(domainId, attemptId int64, renewal uint32) error
 
-	JoinCallToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (cc.MemberService_CallJoinToQueueClient, error)
-	JoinChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (cc.MemberService_ChatJoinToQueueClient, error)
-	CallJoinToAgent(ctx context.Context, in *cc.CallJoinToAgentRequest) (cc.MemberService_CallJoinToAgentClient, error)
-	TaskJoinToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (cc.MemberService_TaskJoinToAgentClient, error)
+	JoinCallToQueue(ctx context.Context, in *cc.CallJoinToQueueRequest) (grpc.MemberService_CallJoinToQueueClient, error)
+	JoinChatToQueue(ctx context.Context, in *cc.ChatJoinToQueueRequest) (grpc.MemberService_ChatJoinToQueueClient, error)
+	CallJoinToAgent(ctx context.Context, in *cc.CallJoinToAgentRequest) (grpc.MemberService_CallJoinToAgentClient, error)
+	TaskJoinToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (grpc.MemberService_TaskJoinToAgentClient, error)
 
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 	CancelAgentDistribute(ctx context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error)
