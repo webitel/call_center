@@ -7,7 +7,7 @@ require (
 	buf.build/gen/go/webitel/cc/protocolbuffers/go v1.33.0-20240404135440-3efb61ebef03.1
 	buf.build/gen/go/webitel/fs/grpc/go v1.3.0-20240404140117-b025f673b11a.2
 	buf.build/gen/go/webitel/fs/protocolbuffers/go v1.33.0-20240404140117-b025f673b11a.1
-	buf.build/gen/go/webitel/workflow/protocolbuffers/go v1.33.0-20240404140117-0cc0abc10b4f.1
+	buf.build/gen/go/webitel/workflow/protocolbuffers/go v1.33.0-20240411132047-cd3c8f61d791.1
 	github.com/go-gorp/gorp v2.2.0+incompatible
 	github.com/lib/pq v1.10.9
 	github.com/olebedev/emitter v0.0.0-20190110104742-e8d1457e6aee
@@ -27,7 +27,7 @@ require (
 	buf.build/gen/go/webitel/chat/grpc/go v1.3.0-20240402124150-079f64c1d382.2 // indirect
 	buf.build/gen/go/webitel/chat/protocolbuffers/go v1.33.0-20240402124150-079f64c1d382.1 // indirect
 	buf.build/gen/go/webitel/engine/protocolbuffers/go v1.33.0-20240402125447-cb375844242f.1 // indirect
-	buf.build/gen/go/webitel/workflow/grpc/go v1.3.0-20240404140117-0cc0abc10b4f.2 // indirect
+	buf.build/gen/go/webitel/workflow/grpc/go v1.3.0-20240411120545-24ef43af6db3.2 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

@@ -191,9 +191,18 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult
 		}
 	}
 
+	var sc *flow.FlowScope
+	if att.channel == model.QueueChannelCall && att.memberChannel != nil {
+		sc = &flow.FlowScope{
+			Channel: att.channel,
+			Id:      att.memberChannel.Id(),
+		}
+	}
+
 	res, err := qm.app.FlowManager().Queue().ResultAttempt(&flow.ResultAttemptRequest{
 		DomainId: att.queue.DomainId(),
 		SchemaId: *att.queue.AfterSchemaId(),
+		Scope:    sc,
 		Variables: model.UnionStringMaps(
 			att.queue.Variables(),
 			att.ExportSchemaVariables(),
