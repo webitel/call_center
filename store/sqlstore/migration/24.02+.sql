@@ -866,3 +866,7 @@ ALTER TABLE ONLY call_center.cc_team_trigger
     ADD CONSTRAINT cc_team_trigger_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON DELETE CASCADE;
 
 
+update call_center.cc_agent
+set task_count = greatest(task_count, 1),
+    chat_count = greatest(chat_count, 1),
+    progressive_count = greatest(progressive_count, 1);
