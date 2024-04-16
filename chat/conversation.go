@@ -164,6 +164,13 @@ func (c *Conversation) LastSession() *ChatSession {
 	return c.sessions[len(c.sessions)-1]
 }
 
+func (c *Conversation) Cause() string {
+	c.RLock()
+	cause := c.cause
+	c.RUnlock()
+	return cause
+}
+
 func (c *Conversation) ReportingAt() int64 {
 	c.RLock()
 	defer c.RUnlock()

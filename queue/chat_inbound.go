@@ -13,6 +13,8 @@ import (
 const (
 	inviterChannelId = "inviter_channel_id"
 	inviterUserId    = "inviter_user_id"
+
+	transferResult = "cc_transfer_result"
 )
 
 const (
@@ -246,7 +248,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 						team.Bridged(attempt, agent)
 					case chat.ChatStateClose:
-						attempt.Log("closed")
+						attempt.Log("closed cause:" + conv.Cause())
 						conv.SetStop()
 
 					default:
@@ -272,7 +274,10 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 		if aSess != nil && aSess.StopAt() == 0 {
 			aSess.Close()
 		}
-		if conv.BridgedAt() > 0 {
+		transferredProcessing := conv.Cause() == "transfer" &&
+			queue.GetVariable(transferResult) == model.MEMBER_CAUSE_ABANDONED
+
+		if conv.BridgedAt() > 0 && !transferredProcessing {
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
 		} else {
 			team.Missed(attempt, agent)
