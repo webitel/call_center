@@ -420,6 +420,9 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		qParams.HasReporting = model.NewBool(true)
 		qParams.ProcessingSec = in.Processing.Sec
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
+		if in.Processing.GetForm().GetId() > 0 {
+			qParams.HasForm = model.NewBool(true)
+		}
 	}
 
 	res, err := queueManager.store.Member().DistributeCallToAgent(
@@ -513,6 +516,9 @@ func (queueManager *QueueManager) DistributeCallToAgent(ctx context.Context, in 
 		settings.Processing = true
 		settings.ProcessingSec = qParams.ProcessingSec
 		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
+		if in.Processing.GetForm().GetId() > 0 {
+			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
+		}
 	}
 
 	var queue = JoinAgentCallQueue{
@@ -554,7 +560,7 @@ func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in 
 		qParams.HasReporting = model.NewBool(true)
 		qParams.ProcessingSec = in.Processing.Sec
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
-		if in.Processing.FormSchemaId > 0 {
+		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
 		}
 	}
@@ -623,8 +629,8 @@ func (queueManager *QueueManager) DistributeTaskToAgent(ctx context.Context, in 
 		settings.Processing = true
 		settings.ProcessingSec = qParams.ProcessingSec
 		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
-		if in.Processing.FormSchemaId > 0 {
-			settings.FormSchemaId = model.NewInt(int(in.Processing.FormSchemaId))
+		if in.Processing.GetForm().GetId() > 0 {
+			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
 		}
 	}
 
