@@ -32,6 +32,7 @@ type CallCommands interface {
 	StopPlayback(id string) *AppError
 	UpdateCid(id, number, name string) *AppError
 	ParkPlaybackFile(id, path, leg string) *AppError
+	BreakPark(id string, vars map[string]string) *AppError
 
 	Close() error
 }

@@ -27,6 +27,7 @@ type PreviewSettings struct {
 	WaitBetweenRetriesDesc bool   `json:"wait_between_retries_desc"`
 	AllowGreetingAgent     bool   `json:"allow_greeting_agent"`
 	transferAfter          string
+	usePark                bool
 }
 
 func PreviewSettingsFromBytes(data []byte) PreviewSettings {
@@ -42,11 +43,18 @@ func NewPreviewCallQueue(callQueue CallingQueue, settings PreviewSettings) Queue
 	if settings.transferAfter != "" {
 		callQueue.DelVariable(model.CallVarTransferAfter)
 	}
-
-	return &PreviewCallQueue{
+	q := &PreviewCallQueue{
 		CallingQueue:    callQueue,
 		PreviewSettings: settings,
 	}
+
+	tmp := callQueue.GetVariable("wbt_preview_park")
+	if tmp != "" {
+		q.usePark = tmp == "true"
+		callQueue.DelVariable("wbt_preview_park")
+	}
+
+	return q
 }
 
 func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
@@ -159,6 +167,18 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	attempt.memberChannel = call
 	attempt.agentChannel = call
+
+	if queue.usePark {
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "park",
+			Args:    "",
+		})
+
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "playback",
+			Args:    "tone_stream://L=1;%(400,400,425)",
+		})
+	}
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",

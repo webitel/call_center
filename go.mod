@@ -3,10 +3,10 @@ module github.com/webitel/call_center
 go 1.19
 
 require (
-	buf.build/gen/go/webitel/cc/grpc/go v1.3.0-20240404135440-3efb61ebef03.2
-	buf.build/gen/go/webitel/cc/protocolbuffers/go v1.33.0-20240416084443-1c27890044ed.1
-	buf.build/gen/go/webitel/fs/grpc/go v1.3.0-20240404140117-b025f673b11a.2
-	buf.build/gen/go/webitel/fs/protocolbuffers/go v1.33.0-20240404140117-b025f673b11a.1
+	buf.build/gen/go/webitel/cc/grpc/go v1.3.0-20240425073914-85c52be6ff00.2
+	buf.build/gen/go/webitel/cc/protocolbuffers/go v1.33.0-20240425073914-85c52be6ff00.1
+	buf.build/gen/go/webitel/fs/grpc/go v1.3.0-20240425073915-5e104cd55a71.2
+	buf.build/gen/go/webitel/fs/protocolbuffers/go v1.33.0-20240425073915-5e104cd55a71.1
 	buf.build/gen/go/webitel/workflow/protocolbuffers/go v1.33.0-20240411132047-cd3c8f61d791.1
 	github.com/go-gorp/gorp v2.2.0+incompatible
 	github.com/lib/pq v1.10.9

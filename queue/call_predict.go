@@ -35,6 +35,7 @@ type PredictCallQueueSettings struct {
 	MaxAgentLine     uint    `json:"max_agent_line"`
 	PlaybackSilence  uint    `json:"playback_silence"`
 	AutoAnswerTone   *string `json:"auto_answer_tone"`
+	transferAfter    string
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
@@ -52,6 +53,11 @@ func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettin
 
 	if settings.MaxWaitTime == 0 {
 		settings.MaxWaitTime = 30
+	}
+
+	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
+	if settings.transferAfter != "" {
+		callQueue.DelVariable(model.CallVarTransferAfter)
 	}
 
 	return &PredictCallQueue{
@@ -398,6 +404,13 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
 							agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
+						}
+
+						if queue.transferAfter != "" {
+							mCall.SerVariables(map[string]string{
+								model.CallVarTransferAfter: queue.transferAfter,
+								"hangup_after_bridge":      "false",
+							})
 						}
 
 					case call_manager.CALL_STATE_HANGUP:

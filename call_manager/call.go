@@ -78,6 +78,7 @@ type Call interface {
 	Stats() map[string]string
 	SetOtherChannelVar(vars map[string]string) *model.AppError
 	AiResult() model.AmdAiResult
+	BreakPark(vars map[string]string) *model.AppError
 }
 
 type CallAction struct {
@@ -742,6 +743,10 @@ func (call *CallImpl) ResetBridge() {
 	call.bridgeAt = 0
 	call.bridgedId = nil
 	call.Unlock()
+}
+
+func (call *CallImpl) BreakPark(vars map[string]string) *model.AppError {
+	return call.api.BreakPark(call.id, vars)
 }
 
 func (call *CallImpl) Stats() map[string]string {

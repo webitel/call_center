@@ -18,6 +18,7 @@ type OfflineQueueSettings struct {
 	WaitBetweenRetries uint64 `json:"wait_between_retries"`
 	MaxAttempts        uint   `json:"max_attempts"`
 	PerNumbers         bool   `json:"per_numbers"`
+	transferAfter      string
 }
 
 type OfflineCallQueue struct {
@@ -32,6 +33,11 @@ func OfflineSettingsFromBytes(data []byte) OfflineQueueSettings {
 }
 
 func NewOfflineCallQueue(callQueue CallingQueue, settings OfflineQueueSettings) QueueObject {
+	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
+	if settings.transferAfter != "" {
+		callQueue.DelVariable(model.CallVarTransferAfter)
+	}
+
 	return &OfflineCallQueue{
 		CallingQueue:         callQueue,
 		OfflineQueueSettings: settings,

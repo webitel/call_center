@@ -468,6 +468,25 @@ func (c *CallConnection) UpdateCid(id, number, name string) *model.AppError {
 	return nil
 }
 
+func (c *CallConnection) BreakPark(id string, vars map[string]string) *model.AppError {
+	res, err := c.api.BreakPark(context.Background(), &fs.BreakParkRequest{
+		Id:        id,
+		Variables: vars,
+	})
+
+	if err != nil {
+		return model.NewAppError("BreakPark", "external.break_park.app_error", nil, err.Error(),
+			http.StatusInternalServerError)
+	}
+
+	if !res.Ok {
+		return model.NewAppError("BreakPark", "external.break_park.valid", nil, err.Error(),
+			http.StatusBadRequest)
+	}
+
+	return nil
+}
+
 func (c *CallConnection) close() {
 	c.client.Close()
 }

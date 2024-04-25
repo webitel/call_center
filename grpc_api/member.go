@@ -427,3 +427,14 @@ func (api *member) InterceptAttempt(ctx context.Context, in *cc.InterceptAttempt
 
 	return &cc.InterceptAttemptResponse{}, nil
 }
+
+func (api *member) ResumeAttempt(ctx context.Context, in *cc.ResumeAttemptRequest) (*cc.ResumeAttemptResponse, error) {
+	err := api.app.Queue().Manager().ResumeAttempt(in.AttemptId, in.DomainId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.ResumeAttemptResponse{
+		Ok: true,
+	}, nil
+}

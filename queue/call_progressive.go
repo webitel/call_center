@@ -28,6 +28,7 @@ type ProgressiveCallQueueSettings struct {
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
 	AutoAnswerTone         *string                 `json:"auto_answer_tone"`
+	transferAfter          string
 }
 
 func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {
@@ -37,6 +38,12 @@ func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {
 }
 
 func NewProgressiveCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSettings) QueueObject {
+
+	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
+	if settings.transferAfter != "" {
+		callQueue.DelVariable(model.CallVarTransferAfter)
+	}
+
 	return &ProgressiveCallQueue{
 		CallingQueue:                 callQueue,
 		ProgressiveCallQueueSettings: settings,

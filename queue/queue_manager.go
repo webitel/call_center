@@ -868,6 +868,25 @@ func (queueManager *QueueManager) SetAttemptCancel(id int64, result string) bool
 
 }
 
+func (queueManager *QueueManager) ResumeAttempt(id int64, domainId int64) *model.AppError {
+	att, ok := queueManager.GetAttempt(id)
+	if !ok || att.domainId != domainId {
+		return model.NewAppError("QM", "qm.resume_attempt.valid", nil, "Not found", http.StatusNotFound)
+	}
+
+	att.agentChannel.Id()
+	call, ok := att.agentChannel.(call_manager.Call)
+	if ok {
+		err := call.BreakPark(nil)
+		if err != nil {
+			att.Log(err.Error())
+			return model.NewAppError("QM", "qm.resume_attempt.call", nil, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	return nil
+}
+
 func (queueManager *QueueManager) Abandoned(attempt *Attempt) {
 	res, err := queueManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil,
 		attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial, attempt.description, attempt.stickyAgentId)

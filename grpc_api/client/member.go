@@ -148,3 +148,17 @@ func (api *memberApi) InterceptAttempt(ctx context.Context, domainId int64, atte
 
 	return err
 }
+
+func (api *memberApi) ResumeAttempt(ctx context.Context, attemptId int64, domainId int64) error {
+	cli, err := api.cli.getRandomClient()
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.member.ResumeAttempt(ctx, &proto.ResumeAttemptRequest{
+		DomainId:  domainId,
+		AttemptId: attemptId,
+	})
+
+	return err
+}
