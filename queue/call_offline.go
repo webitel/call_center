@@ -175,6 +175,12 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				team.Answered(attempt, agent)
 			case call_manager.CALL_STATE_BRIDGE:
 				team.Bridged(attempt, agent)
+				if queue.transferAfter != "" {
+					call.SetOtherChannelVar(map[string]string{
+						model.CallVarTransferAfter: queue.transferAfter,
+						"hangup_after_bridge":      "false",
+					})
+				}
 			}
 		case <-call.HangupChan():
 			calling = false

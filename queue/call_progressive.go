@@ -250,6 +250,13 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 									agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
 								}
 
+								if queue.transferAfter != "" {
+									mCall.SerVariables(map[string]string{
+										model.CallVarTransferAfter: queue.transferAfter,
+										"hangup_after_bridge":      "false",
+									})
+								}
+
 								//team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_HANGUP:
 
