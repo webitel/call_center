@@ -53,6 +53,7 @@ type Call interface {
 	WaitSeconds() int
 
 	AmdResult() string
+	HasAmdError() bool
 	IsHuman() bool
 
 	WaitForHangup()
@@ -531,6 +532,17 @@ func (call *CallImpl) HangupAt() int64 {
 
 func (call *CallImpl) IsHuman() bool {
 	return call.amdResult == AmdHuman || call.amdResult == AmdNotSure
+}
+
+func (call *CallImpl) HasAmdError() bool {
+	call.RLock()
+	f := call.amdAiResult
+	call.RUnlock()
+	if f.Error != "" || f.Result == "undefined" {
+		return true
+	}
+
+	return false
 }
 
 func (call *CallImpl) DurationSeconds() int {
