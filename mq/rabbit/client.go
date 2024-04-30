@@ -96,6 +96,9 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 			wlog.Error(fmt.Sprintf("%s :\n%s", err.Error(), string(msg.Body)))
 			return
 		}
+		if ev.Event == "heartbeat" {
+			return // TODO
+		}
 		a.callEvent <- ev
 
 	case model.ChatExchange:
