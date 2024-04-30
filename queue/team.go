@@ -126,8 +126,8 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	return team, nil
 }
 
-func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject) *model.AppError {
-	team, err := tm.GetTeam(agent.TeamId(), agent.TeamUpdatedAt())
+func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject, teamUpdatedAt int64) *model.AppError {
+	team, err := tm.GetTeam(agent.TeamId(), teamUpdatedAt)
 	if err != nil {
 		return err
 	}

@@ -1238,8 +1238,8 @@ func (queueManager *QueueManager) FlipAttemptResource(attempt *Attempt, skipp []
 	return res, nil
 }
 
-func (queueManager *QueueManager) AgentTeamHook(event string, agent agent_manager.AgentObject) {
-	queueManager.teamManager.HookAgent(event, agent)
+func (queueManager *QueueManager) AgentTeamHook(event string, agent agent_manager.AgentObject, teamUpdatedAt int64) {
+	queueManager.teamManager.HookAgent(event, agent, teamUpdatedAt)
 }
 
 // waitTimeout waits for the waitgroup for the specified max timeout.

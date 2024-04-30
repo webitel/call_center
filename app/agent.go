@@ -38,7 +38,7 @@ func (app *App) SetAgentOnline(agentId int, onDemand bool) (*model.AgentOnlineDa
 		if err != nil {
 			return nil, err
 		}
-		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
 		return data, nil
 	}
 }
@@ -67,7 +67,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 		if err != nil {
 			return err
 		}
-		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
 		return nil
 	}
 }
@@ -106,7 +106,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 		if err != nil {
 			return err
 		}
-		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj)
+		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
 		return nil
 	}
 }
@@ -116,7 +116,7 @@ func (app *App) SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppErro
 	if err != nil {
 		return err
 	}
-	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agent)
+	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agent, agent.TeamUpdatedAt())
 
 	return nil
 }
