@@ -406,7 +406,7 @@ func (s *SqlAgentStore) AgentTriggerJob(ctx context.Context, domainId int64, use
     coalesce(u.extension, '') extension,
     coalesce(u.email, '') email,
     coalesce(u.name::varchar, u.username) name,
-    u.profile as variables
+    coalesce(u.profile, '{}') as variables
 from directory.wbt_user u
     inner join call_center.cc_agent a on a.user_id = u.id
     inner join call_center.cc_team_trigger tr on tr.team_id = a.team_id
