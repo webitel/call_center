@@ -81,6 +81,7 @@ type Attempt struct {
 	processingForm        model.ProcessingForm
 	processingFormStarted bool
 	bridgedAt             int64
+	stateChanged          int64
 	manualDistribution    bool
 }
 
@@ -199,8 +200,9 @@ func (a *Attempt) SetAgent(agent agent_manager.AgentObject) {
 func (a *Attempt) SetState(state string) {
 	a.Lock()
 	a.state = state
+	a.stateChanged = model.GetMillis()
 	if state == model.MemberStateBridged && a.bridgedAt == 0 {
-		a.bridgedAt = model.GetMillis()
+		a.bridgedAt = a.stateChanged
 	}
 	a.Unlock()
 
@@ -218,6 +220,21 @@ func (a *Attempt) BridgedAt() int64 {
 	defer a.RUnlock()
 
 	return a.bridgedAt
+}
+
+func (a *Attempt) HandleSec() int64 {
+	a.RLock()
+	brAt := a.bridgedAt
+	ch := a.stateChanged
+	state := a.state
+	a.RUnlock()
+	if brAt == 0 {
+		return 0
+	}
+	if state == model.MemberStateBridged {
+		return int64(model.GetMillis()-brAt) / 1000
+	}
+	return int64(ch-brAt) / 1000
 }
 
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
@@ -420,6 +437,8 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["user_id"] = fmt.Sprintf("%v", a.agent.UserId())
 		res["agent_extension"] = a.agent.CallNumber()
 	}
+
+	res["cc_handle_sec"] = fmt.Sprintf("%d", a.HandleSec())
 
 	return res
 }

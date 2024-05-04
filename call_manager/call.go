@@ -537,7 +537,7 @@ func (call *CallImpl) HasAmdError() bool {
 	call.RLock()
 	f := call.amdAiResult
 	call.RUnlock()
-	if f.Error != "" || f.Result == "undefined" {
+	if f.Error != "" /*|| f.Result == "undefined"*/ {
 		return true
 	}
 
