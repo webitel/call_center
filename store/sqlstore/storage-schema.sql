@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.6 (Debian 15.6-1.pgdg120+2)
--- Dumped by pg_dump version 15.6 (Debian 15.6-1.pgdg120+2)
+-- Dumped from database version 15.7 (Debian 15.7-1.pgdg120+1)
+-- Dumped by pg_dump version 15.7 (Debian 15.7-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -346,7 +346,8 @@ CREATE TABLE storage.files (
     removed boolean,
     not_exists boolean,
     domain_id bigint NOT NULL,
-    view_name character varying
+    view_name character varying,
+    sha256sum character varying
 );
 
 
@@ -856,7 +857,8 @@ CREATE TABLE storage.upload_file_jobs (
     attempts integer DEFAULT 0 NOT NULL,
     domain_id bigint NOT NULL,
     view_name character varying,
-    props jsonb
+    props jsonb,
+    sha256sum character varying
 );
 
 
