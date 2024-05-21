@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.6 (Debian 15.6-1.pgdg120+2)
--- Dumped by pg_dump version 15.6 (Debian 15.6-1.pgdg120+2)
+-- Dumped from database version 15.7 (Debian 15.7-1.pgdg120+1)
+-- Dumped by pg_dump version 15.7 (Debian 15.7-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -339,38 +339,6 @@ CREATE TABLE flow.calendar_timezones (
 
 
 --
--- Name: calendar; Type: TABLE; Schema: flow; Owner: -
---
-
-CREATE TABLE flow.calendar (
-    id integer NOT NULL,
-    start_at bigint,
-    end_at bigint,
-    name character varying NOT NULL,
-    domain_id bigint NOT NULL,
-    description character varying(200),
-    timezone_id integer NOT NULL,
-    created_at bigint NOT NULL,
-    created_by bigint,
-    updated_at bigint NOT NULL,
-    updated_by bigint,
-    excepts flow.calendar_except_date[],
-    accepts flow.calendar_accept_time[]
-);
-
-
---
--- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: -
---
-
-CREATE TABLE flow.calendar_timezone_offsets (
-    id smallint NOT NULL,
-    utc_offset interval,
-    names text[]
-);
-
-
---
 -- Name: acr_routing_scheme; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -400,6 +368,38 @@ CREATE TABLE flow.acr_routing_scheme (
 --
 
 COMMENT ON COLUMN flow.acr_routing_scheme.state IS 'draft / new / used';
+
+
+--
+-- Name: calendar; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.calendar (
+    id integer NOT NULL,
+    start_at bigint,
+    end_at bigint,
+    name character varying NOT NULL,
+    domain_id bigint NOT NULL,
+    description character varying(200),
+    timezone_id integer NOT NULL,
+    created_at bigint NOT NULL,
+    created_by bigint,
+    updated_at bigint NOT NULL,
+    updated_by bigint,
+    excepts flow.calendar_except_date[],
+    accepts flow.calendar_accept_time[]
+);
+
+
+--
+-- Name: calendar_timezone_offsets; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.calendar_timezone_offsets (
+    id smallint NOT NULL,
+    utc_offset interval,
+    names text[]
+);
 
 
 --

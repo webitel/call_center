@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.6 (Debian 15.6-1.pgdg120+2)
--- Dumped by pg_dump version 15.6 (Debian 15.6-1.pgdg120+2)
+-- Dumped from database version 15.7 (Debian 15.7-1.pgdg120+1)
+-- Dumped by pg_dump version 15.7 (Debian 15.7-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1158,7 +1158,10 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     amd_ai_logs character varying[],
     amd_ai_positive boolean,
     contact_id bigint,
-    schema_ids integer[]
+    schema_ids integer[],
+    heartbeat timestamp with time zone,
+    hangup_phrase character varying,
+    blind_transfers jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -1829,6 +1832,7 @@ _timezone_id             int4;
     _enabled                 bool;
     _q_type                  smallint;
     _sticky                  bool;
+    _sticky_ignore_status                  bool;
     _call                    record;
     _attempt                 record;
     _number                  varchar;
@@ -1849,6 +1853,8 @@ select c.timezone_id,
        q.type,
        q.sticky_agent,
        (payload ->> 'max_waiting_size')::int        max_size,
+        case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
+             then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
         q.grantee_id,
         call_center.cc_queue_params(q)
 from call_center.cc_queue q
@@ -1856,7 +1862,7 @@ from call_center.cc_queue q
          left join call_center.cc_team ct on q.team_id = ct.id
 where q.id = _queue_id
     into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _grantee_id, _qparams;
+        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _grantee_id, _qparams;
 
 if
 not _q_type = 1 then
@@ -1956,7 +1962,7 @@ _sticky_agent_id notnull and _sticky then
                       from call_center.cc_agent a
                       where a.id = _sticky_agent_id
                         and a.domain_id = _domain_id
-                        and a.status = 'online'
+                        and (a.status = 'online' or _sticky_ignore_status is true)
                         and exists(select 1
                                    from call_center.cc_skill_in_agent sa
                                             inner join call_center.cc_queue_skill qs
@@ -2051,6 +2057,7 @@ CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name chara
     _inviter_channel_id varchar;
     _inviter_user_id varchar;
     _sticky bool;
+    _sticky_ignore_status bool;
     _max_waiting_size int;
     _qparams jsonb;
 BEGIN
@@ -2066,13 +2073,15 @@ BEGIN
          q.type,
          q.sticky_agent,
          (payload->>'max_waiting_size')::int max_size,
+         case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
+             then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
          call_center.cc_queue_params(q)
   from call_center.cc_queue q
     inner join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _qparams;
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _qparams;
 
   if not _q_type = 6 then
       raise exception 'queue type not inbound chat';
@@ -2128,18 +2137,6 @@ BEGIN
             message='Bad request inviter_channel_id or user_id';
   end if;
 
-  --TODO
---   select clc.id
---     into _list_comm_id
---     from cc_list_communications clc
---     where (clc.list_id = dnc_list_id_ and clc.number = _call.from_number)
---   limit 1;
-
---   if _list_comm_id notnull then
---           insert into cc_member_attempt(channel, queue_id, state, leaving_at, member_call_id, result, list_communication_id)
---           values ('call', _queue_id, 'leaving', now(), _call_id, 'banned', _list_comm_id);
---           raise exception 'number % banned', _call.from_number;
---   end if;
 
   if  _discard_abandoned_after > 0 then
       select
@@ -2160,7 +2157,7 @@ BEGIN
                     from call_center.cc_agent a
                     where a.id = _sticky_agent_id
                       and a.domain_id = _domain_id
-                      and a.status = 'online'
+                      and (a.status = 'online' or _sticky_ignore_status is true)
                       and exists(select 1
                                  from call_center.cc_skill_in_agent sa
                                           inner join call_center.cc_queue_skill qs
@@ -3654,37 +3651,6 @@ ALTER SEQUENCE call_center.cc_agent_acl_id_seq OWNED BY call_center.cc_agent_acl
 
 
 --
--- Name: cc_agent_attempt; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_agent_attempt (
-    id bigint NOT NULL,
-    queue_id bigint NOT NULL,
-    agent_id bigint,
-    attempt_id bigint NOT NULL
-);
-
-
---
--- Name: cc_agent_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
---
-
-CREATE SEQUENCE call_center.cc_agent_attempt_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: cc_agent_attempt_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
---
-
-ALTER SEQUENCE call_center.cc_agent_attempt_id_seq OWNED BY call_center.cc_agent_attempt.id;
-
-
---
 -- Name: cc_agent_channel; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -3694,7 +3660,6 @@ CREATE TABLE call_center.cc_agent_channel (
     channel character varying NOT NULL,
     joined_at timestamp with time zone DEFAULT now() NOT NULL,
     timeout timestamp with time zone,
-    max_opened integer DEFAULT 1 NOT NULL,
     no_answers integer DEFAULT 0 NOT NULL,
     queue_id integer,
     last_offering_at timestamp with time zone,
@@ -3704,7 +3669,8 @@ CREATE TABLE call_center.cc_agent_channel (
     channel_changed_at timestamp with time zone DEFAULT now() NOT NULL,
     online boolean DEFAULT false NOT NULL,
     lose_attempt integer DEFAULT 0 NOT NULL,
-    attempt_id integer
+    attempt_id integer,
+    max_opened smallint DEFAULT 0
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
@@ -4023,7 +3989,9 @@ CREATE TABLE call_center.cc_calls_history (
     search_number text,
     hide_missed boolean,
     redial_id uuid,
-    schema_ids integer[]
+    schema_ids integer[],
+    hangup_phrase character varying,
+    blind_transfers jsonb
 );
 
 
@@ -4968,7 +4936,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
         CASE
             WHEN (c.parent_id IS NOT NULL) THEN ''::text
             WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
-            WHEN (((c.cause)::text = 'ORIGINATOR_CANCEL'::text) OR (((c.cause)::text = 'LOSE_RACE'::text) AND (cq.type = 4))) THEN 'cancelled'::text
+            WHEN (((c.cause)::text = 'ORIGINATOR_CANCEL'::text) OR (((c.cause)::text = 'NORMAL_UNSPECIFIED'::text) AND (c.amd_ai_result IS NOT NULL)) OR (((c.cause)::text = 'LOSE_RACE'::text) AND (cq.type = 4))) THEN 'cancelled'::text
             WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
             WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
             CASE
@@ -5010,8 +4978,16 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.search_number,
     c.hide_missed,
     c.redial_id,
-    (lega.bridged_id IS NOT NULL) AS parent_bridged
-   FROM ((((((((((((((call_center.cc_calls_history c
+    (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history lega
+          WHERE ((lega.id = c.parent_id) AND (lega.bridged_id IS NOT NULL)))) AS parent_bridged,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(ash.id, ash.name)) AS jsonb_agg
+           FROM flow.acr_routing_scheme ash
+          WHERE (ash.id = ANY (c.schema_ids))) AS schemas,
+    c.schema_ids,
+    c.hangup_phrase,
+    c.blind_transfers
+   FROM (((((((((((((call_center.cc_calls_history c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -5024,7 +5000,6 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
-     LEFT JOIN call_center.cc_calls_history lega ON ((lega.id = c.parent_id)))
      LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)));
 
 
@@ -5457,7 +5432,7 @@ ALTER SEQUENCE call_center.cc_list_acl_id_seq OWNED BY call_center.cc_list_acl.i
 
 CREATE TABLE call_center.cc_list_communications (
     list_id bigint NOT NULL,
-    number character varying(25) NOT NULL,
+    number character varying(256) NOT NULL,
     id bigint NOT NULL,
     description text,
     expire_at timestamp with time zone
@@ -7110,13 +7085,6 @@ ALTER TABLE ONLY call_center.cc_agent_acl ALTER COLUMN id SET DEFAULT nextval('c
 
 
 --
--- Name: cc_agent_attempt id; Type: DEFAULT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_agent_attempt ALTER COLUMN id SET DEFAULT nextval('call_center.cc_agent_attempt_id_seq'::regclass);
-
-
---
 -- Name: cc_agent_state_history id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -7430,14 +7398,6 @@ ALTER TABLE ONLY call_center.system_settings ALTER COLUMN id SET DEFAULT nextval
 
 ALTER TABLE ONLY call_center.cc_agent_acl
     ADD CONSTRAINT cc_agent_acl_pk PRIMARY KEY (id);
-
-
---
--- Name: cc_agent_attempt cc_agent_attempt_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_agent_attempt
-    ADD CONSTRAINT cc_agent_attempt_pk PRIMARY KEY (id);
 
 
 --
@@ -7875,13 +7835,6 @@ CREATE UNIQUE INDEX cc_agent_acl_object_subject_udx ON call_center.cc_agent_acl 
 --
 
 CREATE UNIQUE INDEX cc_agent_acl_subject_object_udx ON call_center.cc_agent_acl USING btree (subject, object) INCLUDE (access);
-
-
---
--- Name: cc_agent_attempt_id_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_agent_attempt_id_uindex ON call_center.cc_agent_attempt USING btree (id);
 
 
 --
@@ -9100,6 +9053,20 @@ CREATE INDEX cc_team_trigger_schema_id_index ON call_center.cc_team_trigger USIN
 
 
 --
+-- Name: cc_team_trigger_team_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_team_trigger_team_id_name_uindex ON call_center.cc_team_trigger USING btree (team_id, name);
+
+
+--
+-- Name: cc_team_trigger_team_id_schema_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_team_trigger_team_id_schema_id_uindex ON call_center.cc_team_trigger USING btree (team_id, schema_id);
+
+
+--
 -- Name: cc_team_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -9756,14 +9723,6 @@ ALTER TABLE ONLY call_center.cc_agent_acl
 
 ALTER TABLE ONLY call_center.cc_agent_acl
     ADD CONSTRAINT cc_agent_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
-
-
---
--- Name: cc_agent_attempt cc_agent_attempt_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_agent_attempt
-    ADD CONSTRAINT cc_agent_attempt_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -11061,20 +11020,6 @@ GRANT SELECT ON TABLE call_center.cc_agent_acl TO grafana;
 --
 
 GRANT SELECT ON SEQUENCE call_center.cc_agent_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_agent_attempt; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_attempt TO grafana;
-
-
---
--- Name: SEQUENCE cc_agent_attempt_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_agent_attempt_id_seq TO grafana;
 
 
 --
