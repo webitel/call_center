@@ -79,6 +79,7 @@ type Attempt struct {
 	stickyAgentId     *int32
 
 	processingForm        model.ProcessingForm
+	processingFields      sync.Map
 	processingFormStarted bool
 	bridgedAt             int64
 	manualDistribution    bool
@@ -156,6 +157,25 @@ func (a *Attempt) ProcessingFormStarted() bool {
 	defer a.RUnlock()
 
 	return a.processingFormStarted
+}
+
+func (a *Attempt) UpdateProcessingFields(fields map[string]string) {
+	for k, v := range fields {
+		a.processingFields.Store(k, v)
+	}
+}
+
+func (a *Attempt) ProcessingFields() map[string]string {
+	if !a.processingFormStarted {
+		return nil
+	}
+	res := make(map[string]string)
+	a.processingFields.Range(func(key, value any) bool {
+		res[fmt.Sprintf("%s", key)] = fmt.Sprintf("%s", value)
+		return true
+	})
+
+	return res
 }
 
 func (a *Attempt) SetMemberStopCause(cause *string) {
@@ -338,6 +358,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
 		res[k] = fmt.Sprintf("%v", v)
+	}
+
+	for k, v := range a.ProcessingFields() {
+		res[k] = v
 	}
 
 	if a.member.Seq != nil {
