@@ -536,6 +536,7 @@ begin
             reporting_at = now(),
             leaving_at = case when leaving_at isnull then now() else leaving_at end,
             result = status_,
+            variables = case when variables_ notnull then coalesce(variables::jsonb, '{}') || variables_ else variables end,
             description = description_
     where id = attempt_id_ and state != 'leaving'
     returning * into attempt;
@@ -4032,7 +4033,8 @@ CREATE TABLE call_center.cc_member_attempt_history (
     transferred_attempt_id bigint,
     parent_id bigint,
     form_fields jsonb,
-    import_id character varying(120)
+    import_id character varying(120),
+    variables jsonb
 );
 
 
@@ -4627,7 +4629,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     form_view jsonb,
     import_id character varying(120),
     schema_processing boolean DEFAULT false,
-    queue_params jsonb
+    queue_params jsonb,
+    variables jsonb
 )
 WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
