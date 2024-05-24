@@ -66,6 +66,7 @@ func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action stri
 	}
 
 	if attempt.processingForm != nil && attempt.agent != nil {
+		attempt.UpdateProcessingFields(fields)
 		_, err := attempt.processingForm.ActionForm(attempt.Context, action, fields)
 		if err != nil {
 			attempt.Log(err.Error())
