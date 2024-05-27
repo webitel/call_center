@@ -46,7 +46,7 @@ type SqlSettings struct {
 	MaxIdleConns                *int
 	ConnMaxLifetimeMilliseconds *int
 	MaxOpenConns                *int
-	Trace                       bool
+	Trace                       int
 	AtRestEncryptKey            string
 	QueryTimeout                *int
 }
