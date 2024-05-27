@@ -5,8 +5,8 @@ import (
 	dbsql "database/sql"
 	"errors"
 	"fmt"
-	sqltrace "log"
 	"os"
+	"strings"
 	"time"
 
 	"encoding/json"
@@ -104,6 +104,25 @@ func (ss *SqlSupplier) GetAllConns() []*gorp.DbMap {
 	return all
 }
 
+type logger struct {
+	ms time.Duration
+}
+
+func (l *logger) Printf(format string, v ...interface{}) {
+	if len(v) == 4 {
+		if dur, ok := v[3].(time.Duration); ok && dur > l.ms {
+			if s, ok := v[1].(string); ok {
+				s = strings.Replace(s, "\n", "\\n", -1)
+				if len(s) > 300 {
+					s = s[0:299]
+				}
+				wlog.Warn(fmt.Sprintf("[sql_debug] time = %v, sql: %s", dur, s))
+			}
+			//wlog.Warn(fmt.Sprintf(format, v...))
+		}
+	}
+}
+
 func setupConnection(con_type string, dataSource string, settings *model.SqlSettings) *gorp.DbMap {
 	db, err := dbsql.Open(*settings.DriverName, dataSource)
 	if err != nil {
@@ -145,8 +164,10 @@ func setupConnection(con_type string, dataSource string, settings *model.SqlSett
 		os.Exit(EXIT_NO_DRIVER)
 	}
 
-	if settings.Trace {
-		dbmap.TraceOn("[SQL]", sqltrace.New(os.Stdout, "", sqltrace.LstdFlags))
+	if settings.Trace > 0 {
+		dbmap.TraceOn("[SQL]", &logger{
+			ms: time.Duration(time.Millisecond * 100 * time.Duration(settings.Trace)),
+		})
 	}
 
 	return dbmap
