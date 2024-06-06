@@ -480,7 +480,7 @@ func (c *CallConnection) BreakPark(id string, vars map[string]string) *model.App
 	}
 
 	if !res.Ok {
-		return model.NewAppError("BreakPark", "external.break_park.valid", nil, err.Error(),
+		return model.NewAppError("BreakPark", "external.break_park.valid", nil, "Bad request",
 			http.StatusBadRequest)
 	}
 
