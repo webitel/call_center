@@ -213,11 +213,11 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult
 
 	if err != nil {
 		// TODO
-		wlog.Error(fmt.Sprintf("AfterDistributeSchema error: %s duration=%s", err.Error(), time.Since(st)))
+		wlog.Error(fmt.Sprintf("AfterDistributeSchema [%d] error: %s duration=%s", att.Id(), err.Error(), time.Since(st)))
 		return nil, false
 	}
 
-	att.Log(fmt.Sprintf("AfterDistributeSchema job_id=%s duration=%s", res.Id, time.Since(st)))
+	att.Log(fmt.Sprintf("AfterDistributeSchema [%d] job_id=%s duration=%s", att.Id(), res.Id, time.Since(st)))
 
 	switch v := res.Result.(type) {
 	case *flow.ResultAttemptResponse_Success_:
