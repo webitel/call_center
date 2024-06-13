@@ -101,8 +101,13 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	conv, err = queue.ChatManager().NewConversation(queue.domainId, *attempt.MemberCallId(), inviterId, invUserId,
 		model.UnionStringMaps(attempt.ExportVariables(), queue.variables))
 	if err != nil {
-		//FIXME
 		attempt.Log(err.Error())
+		queue.queueManager.Abandoned(attempt)
+		go func() {
+			attempt.Emit(AttemptHookLeaving)
+			attempt.Off("*")
+		}()
+		return
 	}
 
 	loop := conv.Active()
