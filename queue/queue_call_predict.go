@@ -386,18 +386,18 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 					case call_manager.CALL_STATE_ACCEPT:
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
-						time.Sleep(time.Millisecond * 250)
+						time.Sleep(time.Millisecond * 200)
 						if err = agentCall.Bridge(mCall); err != nil {
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 							}
 							printfIfErr(err)
-						}
-
-						if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
-							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
-						} else if queue.AutoAnswer() {
-							agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
+						} else {
+							if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
+								mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
+							} else if queue.AutoAnswer() {
+								agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
+							}
 						}
 
 					case call_manager.CALL_STATE_HANGUP:
