@@ -15,6 +15,7 @@ type AgentManager interface {
 	//internal
 	SetAgentOnBreak(agentId int) *model.AppError
 	MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError
+	SetHookAutoOfflineAgent(hook HookAutoOfflineAgent)
 }
 
 type AgentObject interface {

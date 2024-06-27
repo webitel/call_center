@@ -351,8 +351,10 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
             where p.user_id = a.user_id
                 and p.status = 'web'
                 and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
-                ) ws
+                ) ws,
+       t.updated_at as team_updated_at
 from call_center.cc_agent a
+	left join call_center.cc_team t on t.id = a.team_id
 where a.status in ('online', 'break_out')
     and not exists(SELECT 1
         FROM directory.wbt_session s
@@ -371,7 +373,7 @@ where a.status in ('online', 'break_out')
                     or (p.status = 'web' and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval)
                 )
     )
-for update skip locked`, map[string]interface{}{
+for update of a skip locked`, map[string]interface{}{
 		"Sec": sec,
 	})
 
