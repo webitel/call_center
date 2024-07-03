@@ -97,6 +97,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine.Start()
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ)
+	app.agentManager.SetHookAutoOfflineAgent(app.hookAutoOfflineAgent)
 	app.agentManager.Start()
 
 	app.flowManager = client.NewFlowManager(app.Cluster().ServiceDiscovery())

@@ -184,6 +184,11 @@ func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, userId int64
 	return jobId, nil
 }
 
+func (app *App) hookAutoOfflineAgent(agent agent_manager.AgentObject) {
+	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agent, agent.TeamUpdatedAt())
+	return
+}
+
 func getString(p *string) string {
 	if p == nil {
 		return ""

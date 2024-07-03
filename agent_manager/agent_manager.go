@@ -21,13 +21,16 @@ var (
 	MaxAgentOnlineWithOutSocSec = 60
 )
 
+type HookAutoOfflineAgent func(agent AgentObject)
+
 type agentManager struct {
-	store       store.Store
-	mq          mq.MQ
-	watcher     *utils.Watcher
-	nodeId      string
-	startOnce   sync.Once
-	agentsCache utils.ObjectCache
+	store                store.Store
+	mq                   mq.MQ
+	watcher              *utils.Watcher
+	nodeId               string
+	startOnce            sync.Once
+	agentsCache          utils.ObjectCache
+	hookAutoOfflineAgent HookAutoOfflineAgent
 	sync.Mutex
 }
 
@@ -39,6 +42,10 @@ func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ) AgentManager {
 	am.agentsCache = utils.NewLruWithParams(sizeAgentChane, "Agents", expireAgentCache, "")
 
 	return &am
+}
+
+func (am *agentManager) SetHookAutoOfflineAgent(hook HookAutoOfflineAgent) {
+	am.hookAutoOfflineAgent = hook
 }
 
 func (am *agentManager) Start() {
@@ -193,9 +200,14 @@ func (am *agentManager) changeDeadlineState() {
 						*s = *s + "/sip"
 					}
 				}
+				if a.TeamUpdatedAt() != v.TeamUpdatedAt {
+					a.SetTeamUpdatedAt(v.TeamUpdatedAt)
+				}
 				err = am.SetOffline(a, s)
 				if err != nil {
 					wlog.Error(err.Error())
+				} else if am.hookAutoOfflineAgent != nil {
+					am.hookAutoOfflineAgent(a)
 				}
 			}
 		}
