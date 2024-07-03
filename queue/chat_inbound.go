@@ -198,7 +198,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						if queue.settings.MaxIdleAgent > 0 && timeoutStrategy {
 							attempt.Log("max idle agent")
 							attempt.SetResult(AttemptResultAgentTimeout)
-							aSess.Leave()
+							aSess.Leave(model.AgentTimeout)
 							break
 						}
 
@@ -211,14 +211,14 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						if queue.settings.MaxIdleClient > 0 && timeoutStrategy {
 							attempt.Log("max idle client")
 							attempt.SetResult(AttemptResultClientTimeout)
-							aSess.Leave()
+							aSess.Leave(model.ClientTimeout)
 							break
 						}
 
 						if queue.settings.MaxIdleDialog > 0 && aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleDialog {
 							attempt.Log("max idle dialog")
 							attempt.SetResult(AttemptResultDialogTimeout)
-							aSess.Leave()
+							aSess.Leave("todo silence timeout")
 							break
 						}
 
@@ -277,7 +277,8 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 
 	if agent != nil && team != nil {
 		if aSess != nil && aSess.StopAt() == 0 {
-			aSess.Close()
+			// TODO: what reason is this?
+			aSess.Close("")
 		}
 		transferredProcessing := conv.Cause() == "transfer" &&
 			queue.GetVariable(transferResult) == model.MEMBER_CAUSE_ABANDONED

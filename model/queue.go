@@ -47,6 +47,14 @@ const (
 )
 
 const (
+	AgentTimeout   LeaveCause = "agent_timeout"
+	ClientTimeout             = "client_timeout"
+	SilenceTimeout            = "silence_timeout"
+)
+
+type LeaveCause string
+
+const (
 	QueueAutoAnswerVariable = "wbt_auto_answer"
 )
 
