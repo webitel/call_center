@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"github.com/webitel/call_center/model"
+	"time"
 )
 
 var (
@@ -18,6 +19,7 @@ var (
 	resourceCidType          = flag.String("resource_cid_type", "", "CID Type: none / Remote-Party-ID / P-Asserted-Identity")
 	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
 	sqlDebug                 = flag.Int("sql_debug", 0, "Debug sql lvl (0-9)")
+	bridgeSleep              = flag.Duration("before_bridge_sleep", time.Millisecond*200, "Before bridge sleep time")
 )
 
 func (a *App) Config() *model.Config {
@@ -42,6 +44,7 @@ func loadConfig() (*model.Config, error) {
 		QueueSettings: model.QueueSettings{
 			WaitChannelClose:  waitChannelClose != nil && *waitChannelClose > 0,
 			EnableOmnichannel: enableOmnichannel != nil && *enableOmnichannel > 0,
+			BridgeSleep:       *bridgeSleep,
 		},
 		ServiceSettings: model.ServiceSettings{
 			NodeId: appId,

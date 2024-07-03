@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"time"
 )
 
 const (
@@ -16,8 +17,9 @@ type CallingQueueObject interface {
 
 type CallingQueue struct {
 	BaseQueue
-	HoldMusic *model.RingtoneFile
-	granteeId *int
+	HoldMusic   *model.RingtoneFile
+	granteeId   *int
+	bridgeSleep time.Duration
 }
 
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
