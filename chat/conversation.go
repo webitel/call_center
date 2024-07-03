@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/chat_manager"
+	enginemodel "github.com/webitel/engine/model"
 	"github.com/webitel/wlog"
 	"net/http"
 	"strings"
@@ -139,7 +140,7 @@ func (c *Conversation) Reporting(noLeave bool) *model.AppError {
 	c.Unlock()
 
 	if !noLeave {
-		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId)
+		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId, enginemodel.AgentLeave)
 		if err != nil {
 			return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 		}
