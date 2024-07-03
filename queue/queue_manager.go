@@ -43,6 +43,7 @@ type QueueManager struct {
 	callManager      call_manager.CallManager
 	teamManager      *teamManager
 	waitChannelClose bool
+	bridgeSleep      time.Duration
 	sync.Mutex
 }
 
@@ -54,7 +55,7 @@ var (
 	queueGroup singleflight.Group
 )
 
-func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager) *QueueManager {
+func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager, agentManager agent_manager.AgentManager, bridgeSleep time.Duration) *QueueManager {
 	return &QueueManager{
 		store:            s,
 		app:              app,
@@ -62,6 +63,7 @@ func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.C
 		resourceManager:  resourceManager,
 		agentManager:     agentManager,
 		mq:               m,
+		bridgeSleep:      bridgeSleep,
 		teamManager:      NewTeamManager(app, s, m),
 		input:            make(chan *Attempt),
 		stop:             make(chan struct{}),
