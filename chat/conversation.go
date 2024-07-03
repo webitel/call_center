@@ -139,7 +139,7 @@ func (c *Conversation) Reporting(noLeave bool) *model.AppError {
 	c.Unlock()
 
 	if !noLeave {
-		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId)
+		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId, "")
 		if err != nil {
 			return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 		}
