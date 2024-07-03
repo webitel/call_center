@@ -14,7 +14,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.1.0
-	github.com/webitel/engine v0.0.0-20240703095009-cdc3ac7a5118
+	github.com/webitel/engine v0.0.0-20240703124144-4b6ca5c48050
 	github.com/webitel/flow_manager v0.0.0-20240408104238-6ef381ff2d58
 	github.com/webitel/wlog v0.0.0-20220608103744-93b33e61bd28
 	golang.org/x/sync v0.6.0
@@ -26,8 +26,8 @@ require (
 	4d63.com/gocheckcompilerdirectives v1.2.1 // indirect
 	4d63.com/gochecknoglobals v0.2.1 // indirect
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20231027202514-3f42134f4c56.2 // indirect
-	buf.build/gen/go/webitel/chat/grpc/go v1.4.0-20240702143950-364c79a4f8d2.2 // indirect
-	buf.build/gen/go/webitel/chat/protocolbuffers/go v1.34.2-20240702143950-364c79a4f8d2.2 // indirect
+	buf.build/gen/go/webitel/chat/grpc/go v1.4.0-20240703121916-db3266bbfcd3.2 // indirect
+	buf.build/gen/go/webitel/chat/protocolbuffers/go v1.34.2-20240703121916-db3266bbfcd3.2 // indirect
 	buf.build/gen/go/webitel/engine/grpc/go v1.4.0-20240618123100-3e740393d1cc.1 // indirect
 	buf.build/gen/go/webitel/engine/protocolbuffers/go v1.34.2-20240627112700-3fe53516f45c.2 // indirect
 	buf.build/gen/go/webitel/logger/grpc/go v1.3.0-20240404135439-f6c7830c29dd.2 // indirect

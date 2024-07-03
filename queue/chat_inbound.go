@@ -218,7 +218,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						if queue.settings.MaxIdleDialog > 0 && aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleDialog {
 							attempt.Log("max idle dialog")
 							attempt.SetResult(AttemptResultDialogTimeout)
-							aSess.Leave("todo silence timeout")
+							aSess.Leave(model.SilenceTimeout)
 							break
 						}
 
