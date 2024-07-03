@@ -392,7 +392,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 					case call_manager.CALL_STATE_ACCEPT:
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
-						time.Sleep(time.Millisecond * 200)
+						if queue.bridgeSleep > 0 {
+							time.Sleep(queue.bridgeSleep)
+						}
+
 						if err = agentCall.Bridge(mCall); err != nil {
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
@@ -460,7 +463,13 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			}
 
 			if agentCall.BridgeAt() == 0 {
-				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				agentCause := agentCall.HangupCause()
+				if agentCause == model.CALL_HANGUP_ORIGINATOR_CANCEL || agentCause == model.CALL_HANGUP_LOSE_RACE {
+					team.WaitingAgentAndWaitingAttempt(attempt, agent)
+				} else {
+					team.MissedAgentAndWaitingAttempt(attempt, agent)
+				}
+
 				attempt.SetState(model.MemberStateWaitAgent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
 					//TODO WaitForHangup

@@ -120,45 +120,51 @@ func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, sett
 	switch settings.Type {
 	case model.QueueTypeOfflineCall:
 		return NewOfflineCallQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, OfflineSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeInboundCall:
 		inboundSettings := model.QueueInboundSettingsFromBytes(settings.Payload)
 		return NewInboundQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, inboundSettings), nil
 
 	case model.QueueTypeIVRCall:
 		return NewIVRQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, IVRSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypePreviewCall:
 		return NewPreviewCallQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, PreviewSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeProgressiveCall:
 		return NewProgressiveCallQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, ProgressiveSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypePredictCall:
 		return NewPredictCallQueue(CallingQueue{
-			BaseQueue: base,
-			HoldMusic: settings.HoldMusic,
-			granteeId: settings.GranteeId,
+			BaseQueue:   base,
+			HoldMusic:   settings.HoldMusic,
+			granteeId:   settings.GranteeId,
+			bridgeSleep: queueManager.bridgeSleep,
 		}, PredictCallQueueSettingsFromBytes(settings.Payload)), nil
 
 	case model.QueueTypeInboundChat:

@@ -71,6 +71,7 @@ type MemberStore interface {
 	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string, perNum bool,
 		excludeNum bool, redial bool, desc *string, stickyAgentId *int32) (*model.AttemptLeaving, *model.AppError)
 
+	SetAttemptWaitingAgent(attemptId int64, agentHoldSec int) *model.AppError
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
 	SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64, perNum bool) (*model.MissedAgent, *model.AppError)
 	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
