@@ -3,6 +3,7 @@ package chat
 import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/chat_manager"
+	enginemodel "github.com/webitel/engine/model"
 	"net/http"
 	"sync"
 )
@@ -96,8 +97,8 @@ func (c *ChatSession) IdleSec() int64 {
 	return (model.GetMillis() - t) / 1000
 }
 
-func (c *ChatSession) Leave() *model.AppError {
-	err := c.cli.Leave(c.UserId, c.SessionId(), c.ConversationId)
+func (c *ChatSession) Leave(cause model.LeaveCause) *model.AppError {
+	err := c.cli.Leave(c.UserId, c.SessionId(), c.ConversationId, enginemodel.LeaveCause(cause))
 	if err != nil {
 		return model.NewAppError("ChatSession", "chat_session.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
@@ -114,11 +115,11 @@ func (c *ChatSession) Decline() *model.AppError {
 	return nil
 }
 
-func (c *ChatSession) Close() *model.AppError {
+func (c *ChatSession) Close(reason model.LeaveCause) *model.AppError {
 	if c.ChannelId == "" && c.InviteId != "" {
 		return c.Decline()
 	} else {
-		return c.Leave()
+		return c.Leave(reason)
 	}
 }
 
