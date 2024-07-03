@@ -24,7 +24,7 @@ func (s *SqlMemberStore) CreateTableIfNotExists() {
 
 }
 
-func (s SqlMemberStore) ReserveMembersByNode(nodeId string, enableOmnichannel bool) (int64, *model.AppError) {
+func (s *SqlMemberStore) ReserveMembersByNode(nodeId string, enableOmnichannel bool) (int64, *model.AppError) {
 	if i, err := s.GetMaster().SelectNullInt(`call call_center.cc_distribute(:DisableOmnichannel::bool)`, map[string]interface{}{
 		"DisableOmnichannel": !enableOmnichannel,
 	}); err != nil {
@@ -36,7 +36,7 @@ func (s SqlMemberStore) ReserveMembersByNode(nodeId string, enableOmnichannel bo
 	}
 }
 
-func (s SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) (int64, *model.AppError) {
+func (s *SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) (int64, *model.AppError) {
 	if i, err := s.GetMaster().SelectInt(`select s as count
 			from call_center.cc_un_reserve_members_with_resources($1, $2) s`, nodeId, cause); err != nil {
 		return 0, model.NewAppError("SqlMemberStore.UnReserveMembers", "store.sql_member.un_reserve_member_resources.app_error",
@@ -46,7 +46,7 @@ func (s SqlMemberStore) UnReserveMembersByNode(nodeId, cause string) (int64, *mo
 	}
 }
 
-func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError) {
+func (s *SqlMemberStore) GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError) {
 	var members []*model.MemberAttempt
 	if _, err := s.GetMaster().Select(&members, `select *
 			from call_center.cc_set_active_members($1) s`, nodeId); err != nil {
@@ -58,7 +58,7 @@ func (s SqlMemberStore) GetActiveMembersAttempt(nodeId string) ([]*model.MemberA
 	}
 }
 
-func (s SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
+func (s *SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State
 			where id = :Id`, map[string]interface{}{"Id": id, "State": state}); err != nil {
@@ -69,7 +69,7 @@ func (s SqlMemberStore) SetAttemptState(id int64, state int) *model.AppError {
 	return nil
 }
 
-func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
+func (s *SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State,
 				agent_id = null,
@@ -86,7 +86,7 @@ func (s SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
+func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
 	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 			set state = :State,
 				agent_id = null,
@@ -103,7 +103,7 @@ func (s SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError {
+func (s *SqlMemberStore) SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError {
 	_, err := s.GetMaster().Exec(`call call_center.cc_attempt_distribute_cancel(:Id::int8, :Desc::varchar, :NextSec::int4, :Stop::bool, :Vars::jsonb)`,
 		map[string]interface{}{
 			"Id":      id,
@@ -121,7 +121,7 @@ func (s SqlMemberStore) SetDistributeCancel(id int64, description string, nextDi
 	return nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError) {
+func (s *SqlMemberStore) DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError) {
 	var att *model.InboundCallQueue
 	err := s.GetMaster().SelectOne(&att, `select *
 from call_center.cc_distribute_inbound_call_to_queue(:AppId::varchar, :QueueId::int8, :CallId::varchar, :Variables::jsonb,
@@ -172,7 +172,7 @@ as x (
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError) {
+func (s *SqlMemberStore) DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError) {
 	var att *model.InboundCallAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
@@ -215,7 +215,7 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError) {
+func (s *SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError) {
 	var att *model.TaskToAgent
 
 	err := s.GetMaster().SelectOne(&att, `select *
@@ -246,7 +246,7 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 	return att, nil
 }
 
-func (s SqlMemberStore) DistributeCallToQueueCancel(id int64) *model.AppError {
+func (s *SqlMemberStore) DistributeCallToQueueCancel(id int64) *model.AppError {
 	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set result = 'cancel',
     state = 'leaving',
@@ -264,7 +264,7 @@ where id = :Id`, map[string]interface{}{
 	return nil
 }
 
-func (s SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundChatQueue, *model.AppError) {
+func (s *SqlMemberStore) DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundChatQueue, *model.AppError) {
 	var attempt *model.InboundChatQueue
 
 	var v *string
@@ -313,7 +313,7 @@ as x (
 	return attempt, nil
 }
 
-func (s SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
+func (s *SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
 	err := s.GetMaster().SelectOne(&res, `select * from call_center.cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
 		map[string]interface{}{
@@ -440,6 +440,23 @@ where x.last_state_change notnull `, map[string]interface{}{
 	}
 
 	return res, nil
+}
+
+func (s *SqlMemberStore) SetAttemptWaitingAgent(attemptId int64, agentHoldSec int) *model.AppError {
+	_, err := s.GetMaster().SelectNullInt(`select 1 as ok
+from call_center.cc_attempt_waiting_agent(:AttemptId, :AgentHoldSec)
+    as x (last_state_change timestamptz, no_answers int)
+where x.last_state_change notnull `, map[string]interface{}{
+		"AttemptId":    attemptId,
+		"AgentHoldSec": agentHoldSec,
+	})
+
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.SetAttemptWaitingAgent", "store.sql_member.set_attempt_waiting_agent.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", attemptId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
 }
 
 func (s *SqlMemberStore) SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError) {
@@ -725,7 +742,7 @@ where x.last_state_change notnull`, map[string]interface{}{
 	return result, nil
 }
 
-func (s SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppError) {
+func (s *SqlMemberStore) SaveToHistory() ([]*model.HistoryAttempt, *model.AppError) {
 	var res []*model.HistoryAttempt
 
 	_, err := s.GetMaster().Select(&res, `with del as materialized (
@@ -765,7 +782,7 @@ returning id, result`)
 	return res, nil
 }
 
-func (s SqlMemberStore) CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError) {
+func (s *SqlMemberStore) CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError) {
 	res, err := s.GetMaster().SelectStr(`insert into call_center.cc_msg_participants (name, conversation_id, attempt_id)
 select :Name, parent.conversation_id, :AttemptId
 from call_center.cc_msg_participants parent
@@ -786,7 +803,7 @@ returning channel_id`, map[string]interface{}{
 
 }
 
-func (s SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
+func (s *SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
 	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_distribute_stats`)
 
 	if err != nil {
