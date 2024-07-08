@@ -231,7 +231,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							return
 						}
 
-						if agentCall.HangupAt() == 0 {
+						if agentCall.HangupAt() == 0 && !(mCall.Direction() == model.CallDirectionOutbound && mCall.TransferFrom() != nil) {
 							if mCall.BridgeAt() > 0 {
 								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
 							} else {
