@@ -179,7 +179,6 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 
 	res := &CallImpl{
 		callRequest: nil,
-		direction:   model.CALL_DIRECTION_INBOUND, //FIXME
 		id:          call.Id,
 		api:         cli,
 		cm:          cm,
@@ -188,6 +187,12 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 		acceptAt:    call.AnsweredAt,
 		ringingAt:   call.CreatedAt,
 		state:       CALL_STATE_ACCEPT, //FIXME
+	}
+
+	if call.Direction == model.CALL_DIRECTION_OUTBOUND {
+		res.direction = model.CALL_DIRECTION_OUTBOUND
+	} else {
+		res.direction = model.CALL_DIRECTION_INBOUND
 	}
 
 	res.info = model.CallActionInfo{
@@ -243,7 +248,6 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 
 	res := &CallImpl{
 		callRequest: nil,
-		direction:   model.CALL_DIRECTION_INBOUND, //FIXME
 		id:          call.Id,
 		api:         cli,
 		cm:          cm,
@@ -254,10 +258,16 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 		state:       CALL_STATE_ACCEPT, //FIXME
 	}
 
+	if call.Direction == model.CALL_DIRECTION_OUTBOUND {
+		res.direction = model.CALL_DIRECTION_OUTBOUND
+	} else {
+		res.direction = model.CALL_DIRECTION_INBOUND
+	}
+
 	res.info = model.CallActionInfo{
 		GatewayId:   nil,
 		UserId:      nil,
-		Direction:   "inbound",
+		Direction:   call.Direction,
 		Destination: call.Destination,
 		From: &model.CallEndpoint{
 			Type:   "dest",

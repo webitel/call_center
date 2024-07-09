@@ -26,7 +26,6 @@ require (
 	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20231027202514-3f42134f4c56.2 // indirect
 	buf.build/gen/go/webitel/chat/grpc/go v1.4.0-20240703121916-db3266bbfcd3.2 // indirect
 	buf.build/gen/go/webitel/chat/protocolbuffers/go v1.34.2-20240703121916-db3266bbfcd3.2 // indirect
-	buf.build/gen/go/webitel/engine/grpc/go v1.4.0-20240618123100-3e740393d1cc.1 // indirect
 	buf.build/gen/go/webitel/engine/protocolbuffers/go v1.34.2-20240627112700-3fe53516f45c.2 // indirect
 	buf.build/gen/go/webitel/webitel-go/grpc/go v1.3.0-20240527133231-c12eb2a85c36.3 // indirect
 	buf.build/gen/go/webitel/webitel-go/protocolbuffers/go v1.34.1-20240527133231-c12eb2a85c36.1 // indirect
