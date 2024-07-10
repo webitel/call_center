@@ -961,7 +961,7 @@ func (queueManager *QueueManager) closeBeforeReporting(attemptId int64, res *mod
 		break
 	case model.QueueChannelChat:
 		var conv *chat.Conversation
-		if a != nil {
+		if a != nil && a.TransferredAt() == 0 {
 			if conv, err = queueManager.GetChat(a.memberChannel.Id()); err == nil {
 				err = conv.Reporting(false)
 			}
