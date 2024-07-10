@@ -82,6 +82,7 @@ type Attempt struct {
 	processingFields      sync.Map
 	processingFormStarted bool
 	bridgedAt             int64
+	transferredAt         int64 // todo work in chat
 	manualDistribution    bool
 }
 
@@ -150,6 +151,21 @@ func (a *Attempt) MarkProcessingFormStarted() {
 	a.Lock()
 	a.processingFormStarted = true
 	a.Unlock()
+}
+
+func (a *Attempt) MarkTransferred() {
+	a.Lock()
+	if a.transferredAt == 0 {
+		a.transferredAt = model.GetMillis()
+	}
+	a.Unlock()
+}
+
+func (a *Attempt) TransferredAt() int64 {
+	a.RLock()
+	t := a.transferredAt
+	a.RUnlock()
+	return t
 }
 
 func (a *Attempt) ProcessingFormStarted() bool {

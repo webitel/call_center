@@ -280,11 +280,15 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			// TODO: what reason is this?
 			aSess.Close("")
 		}
-		transferredProcessing := conv.Cause() == "transfer" &&
+		transferred := conv.Cause() == "transfer"
+		if transferred {
+			attempt.MarkTransferred()
+		}
+		transferredProcessing := transferred &&
 			queue.GetVariable(transferResult) == model.MEMBER_CAUSE_ABANDONED
 
 		if conv.BridgedAt() > 0 && !transferredProcessing {
-			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, false)
+			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, transferred)
 		} else {
 			team.Missed(attempt, agent)
 			queue.queueManager.LeavingMember(attempt)
