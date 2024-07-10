@@ -1049,7 +1049,7 @@ func (queueManager *QueueManager) ReportingAttempt(attemptId int64, result model
 			if err != nil {
 				attempt.Log(err.Error())
 			}
-			if err != errNotFoundConnection {
+			if err != errNotFoundConnection && attempt.state != model.MemberStateProcessing {
 				return err
 			}
 		}
