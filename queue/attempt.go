@@ -538,6 +538,12 @@ func (a *Attempt) Log(info string) {
 	//})
 }
 
+func (a *Attempt) LogIfError(err error) {
+	if err != nil {
+		wlog.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), err.Error()))
+	}
+}
+
 func (a *Attempt) LogsData() []byte {
 	data, _ := json.Marshal(a)
 	return data

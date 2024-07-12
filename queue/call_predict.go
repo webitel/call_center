@@ -6,7 +6,6 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 	"time"
 )
 
@@ -311,7 +310,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	attempt.Log("answer & wait agent")
 	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
-		wlog.Error(err.Error())
+		attempt.LogIfError(err)
 		time.Sleep(time.Second * 3)
 		return
 	}
@@ -341,14 +340,14 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				calling = false
 				break
 			} else {
-				wlog.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+				attempt.Log(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
 			}
 
 		case <-ags:
 			agent = attempt.Agent()
 			team, err = queue.GetTeam(attempt)
 			if err != nil {
-				wlog.Error(err.Error())
+				attempt.LogIfError(err)
 				time.Sleep(time.Second * 3)
 				return
 			}
@@ -379,7 +378,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
 			agentCall.Invite()
 
-			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
+			attempt.Log(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 		top:
 			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
@@ -400,7 +399,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 							}
-							printfIfErr(err)
+							attempt.LogIfError(err)
 						} else {
 							if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 								mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
@@ -420,7 +419,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
 							attempt.Log("receive transfer")
 							if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
-								wlog.Error(err.Error())
+								attempt.LogIfError(err)
 							} else {
 								if nc.HangupAt() == 0 {
 									if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
@@ -428,7 +427,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 										attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
 										//transferred = true
 									} else {
-										wlog.Error(err.Error())
+										attempt.LogIfError(err)
 									}
 
 									agentCall = nc
@@ -485,7 +484,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
+		attempt.Log(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
 	}
 
 	if mCall.HangupCause() == "" && (agentCall == nil || !agentCall.Transferred()) {
