@@ -461,6 +461,12 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				}
 			}
 
+			// todo
+			if attempt.BridgedAt() == 0 && agentCall.HangupAt() == 0 {
+				attempt.Log("agent call is active")
+				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
+			}
+
 			if agentCall.BridgeAt() == 0 {
 				agentCause := agentCall.HangupCause()
 				if agentCause == model.CALL_HANGUP_ORIGINATOR_CANCEL || agentCause == model.CALL_HANGUP_LOSE_RACE {
