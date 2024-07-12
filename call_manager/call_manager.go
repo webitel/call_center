@@ -95,7 +95,7 @@ func (cm *CallManagerImpl) Start() {
 					if !ok {
 						return
 					}
-					cm.handleCallAction(e)
+					go cm.handleCallAction(e)
 				}
 			}
 		}()
