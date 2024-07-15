@@ -329,18 +329,21 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		select {
 		case <-timeout.C:
 			calling = false
+			attempt.Log("timeout")
 			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
 			mCall.WaitForHangup()
 		case <-attempt.Context.Done():
 			calling = false
+			attempt.Log("context done")
 			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
 			mCall.WaitForHangup()
 		case c := <-mCall.State():
+			attempt.Log(fmt.Sprintf("change call state to %s", c.String()))
 			if c == call_manager.CALL_STATE_HANGUP {
 				calling = false
 				break
-			} else {
-				attempt.Log(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+			} else if c == call_manager.CALL_STATE_BRIDGE {
+				timeout.Stop()
 			}
 
 		case <-ags:
