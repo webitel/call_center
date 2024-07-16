@@ -226,7 +226,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								team.Offering(attempt, agent, agentCall, mCall)
 
 							case call_manager.CALL_STATE_ACCEPT:
-								time.Sleep(time.Millisecond * 250)
+								if queue.bridgeSleep > 0 {
+									time.Sleep(queue.bridgeSleep)
+								}
 								if err = agentCall.Bridge(mCall); err != nil {
 									if agentCall.HangupAt() == 0 {
 										agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)

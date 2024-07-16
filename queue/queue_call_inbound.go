@@ -168,7 +168,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							"cc_agent_id": strconv.Itoa(agent.Id()),
 						})
 						//
-						time.Sleep(time.Millisecond * 250)
+						if queue.bridgeSleep > 0 {
+							time.Sleep(queue.bridgeSleep)
+						}
 						if err = agentCall.Bridge(mCall); err != nil {
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)

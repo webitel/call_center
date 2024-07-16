@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 const (
 	DEFAULT_LOCALE = "en"
 
@@ -73,6 +75,7 @@ type DiscoverySettings struct {
 type QueueSettings struct {
 	WaitChannelClose  bool
 	EnableOmnichannel bool
+	BridgeSleep       time.Duration
 }
 
 type Config struct {

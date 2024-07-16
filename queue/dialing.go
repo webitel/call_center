@@ -28,7 +28,7 @@ type DialingImpl struct {
 	startOnce         sync.Once
 }
 
-func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store) Dialing {
+func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store, bridgeSleep time.Duration) Dialing {
 	var dialing DialingImpl
 	dialing.app = app
 	dialing.store = s
@@ -36,7 +36,7 @@ func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentMan
 	dialing.resourceManager = NewResourceManager(app)
 	dialing.statisticsManager = NewStatisticsManager(s)
 	dialing.expiredManager = NewExpiredManager(app, s)
-	dialing.queueManager = NewQueueManager(app, s, m, callManager, dialing.resourceManager, agentManager)
+	dialing.queueManager = NewQueueManager(app, s, m, callManager, dialing.resourceManager, agentManager, bridgeSleep)
 	return &dialing
 }
 

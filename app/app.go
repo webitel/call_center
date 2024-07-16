@@ -109,7 +109,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, err
 	}
 
-	app.dialing = queue.NewDialing(app, app.MQ, app.callManager, app.agentManager, app.Store)
+	app.dialing = queue.NewDialing(app, app.MQ, app.callManager, app.agentManager, app.Store, app.Config().QueueSettings.BridgeSleep)
 	app.dialing.Start()
 
 	app.triggerManager = trigger.NewManager(*app.id, app.Store, app.flowManager)
