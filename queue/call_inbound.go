@@ -129,6 +129,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 			if queue.props.ManualDistribution {
 				cr.SetAutoAnswer()
+				cr.Variables[model.QueueManualDistribute] = "true"
 			}
 
 			cr.Variables["wbt_parent_id"] = mCall.Id()

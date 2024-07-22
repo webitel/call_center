@@ -151,6 +151,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 
 			if queue.settings.ManualDistribution {
 				vars[model.QueueAutoAnswerVariable] = "true"
+				vars[model.QueueManualDistribute] = "true"
 			}
 
 			//todo close

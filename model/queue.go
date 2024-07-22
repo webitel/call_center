@@ -56,6 +56,7 @@ type LeaveCause string
 
 const (
 	QueueAutoAnswerVariable = "wbt_auto_answer"
+	QueueManualDistribute   = "cc_manual_distribution"
 )
 
 type RingtoneFile struct {
