@@ -323,19 +323,22 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 	for calling {
 		select {
 		case <-timeout.C:
+			attempt.Log("timeout")
 			calling = false
 			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
 			mCall.WaitForHangup()
 		case <-attempt.Context.Done():
+			attempt.Log("context done")
 			calling = false
 			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
 			mCall.WaitForHangup()
 		case c := <-mCall.State():
+			attempt.Log(fmt.Sprintf("member change call state to %s", c.String()))
 			if c == call_manager.CALL_STATE_HANGUP {
 				calling = false
 				break
-			} else {
-				wlog.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+			} else if c == call_manager.CALL_STATE_BRIDGE {
+				timeout.Stop()
 			}
 
 		case <-ags:
@@ -379,13 +382,12 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
 				case state := <-agentCall.State():
-					attempt.Log(fmt.Sprintf("agent call state %d", state))
+					attempt.Log(fmt.Sprintf("agent call state %s", state.String()))
 					switch state {
 					case call_manager.CALL_STATE_RINGING:
 						team.Offering(attempt, agent, agentCall, mCall)
 
 					case call_manager.CALL_STATE_ACCEPT:
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						if queue.bridgeSleep > 0 {
 							time.Sleep(queue.bridgeSleep)
 						}
@@ -395,6 +397,8 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 							}
 							printfIfErr(err)
 						} else {
+							go attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
+
 							if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 								mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 							} else if queue.AutoAnswer() {
