@@ -421,6 +421,10 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		res["member_id"] = strconv.Itoa(int(*a.member.MemberId))
 	}
 
+	if a.member.BucketId != nil {
+		res["bucket_id"] = strconv.Itoa(int(*a.member.BucketId))
+	}
+
 	if a.agentChannel != nil {
 		res["agent_channel_id"] = a.agentChannel.Id()
 	}

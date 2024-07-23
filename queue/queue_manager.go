@@ -396,6 +396,7 @@ func (queueManager *QueueManager) DistributeCall(ctx context.Context, in *cc.Cal
 		Variables:           res.Variables,
 		Name:                res.Name,
 		MemberCallId:        &res.CallId,
+		BucketId:            bucketId,
 	})
 
 	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
@@ -704,6 +705,7 @@ func (queueManager *QueueManager) DistributeChatToQueue(ctx context.Context, in 
 		Variables:           res.Variables,
 		Name:                res.Name,
 		MemberCallId:        &res.ConversationId,
+		BucketId:            bucketId,
 	})
 
 	if _, err = queueManager.DistributeAttempt(attempt); err != nil {
