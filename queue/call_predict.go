@@ -393,7 +393,6 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						team.Offering(attempt, agent, agentCall, mCall)
 
 					case call_manager.CALL_STATE_ACCEPT:
-						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
 						if queue.bridgeSleep > 0 {
 							time.Sleep(queue.bridgeSleep)
 						}
