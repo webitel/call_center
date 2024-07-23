@@ -397,8 +397,6 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 							}
 							printfIfErr(err)
 						} else {
-							go attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
-
 							if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 								mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 							} else if queue.AutoAnswer() {
