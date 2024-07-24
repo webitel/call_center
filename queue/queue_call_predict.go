@@ -391,6 +391,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						if queue.bridgeSleep > 0 {
 							time.Sleep(queue.bridgeSleep)
 						}
+						start := time.Now()
 						if err = agentCall.Bridge(mCall); err != nil {
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
@@ -403,6 +404,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 								agentCall.BroadcastTone(queue.AutoAnswerTone, "aleg")
 							}
 						}
+						attempt.Log(fmt.Sprintf("bridge duration %s", time.Since(start)))
 
 					case call_manager.CALL_STATE_HANGUP:
 						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
