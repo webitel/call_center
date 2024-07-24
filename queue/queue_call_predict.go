@@ -388,10 +388,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						team.Offering(attempt, agent, agentCall, mCall)
 
 					case call_manager.CALL_STATE_ACCEPT:
+						start := time.Now()
 						if queue.bridgeSleep > 0 {
 							time.Sleep(queue.bridgeSleep)
 						}
-						start := time.Now()
 						if err = agentCall.Bridge(mCall); err != nil {
 							if agentCall.HangupAt() == 0 {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
