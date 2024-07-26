@@ -1,6 +1,6 @@
 module github.com/webitel/call_center
 
-go 1.19
+go 1.22.0
 
 require (
 	buf.build/gen/go/webitel/cc/grpc/go v1.3.0-20240425073914-85c52be6ff00.2
