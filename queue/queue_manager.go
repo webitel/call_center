@@ -281,6 +281,7 @@ func (queueManager *QueueManager) DistributeAttempt(attempt *Attempt) (QueueObje
 		} else {
 			attempt.Log("this destination is barred")
 		}
+		queue.Leaving(attempt)
 		return nil, nil
 	}
 
