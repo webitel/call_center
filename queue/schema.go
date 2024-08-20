@@ -40,10 +40,18 @@ func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 		return
 	}
 	att.processingForm = pf
-	e := NewNextFormEvent(att, att.agent.UserId())
-	appErr := qm.mq.AgentChannelEvent(att.channel, att.domainId, att.QueueId(), att.agent.UserId(), e)
+
+	// TODO DEV-4420, implement mx
+	agent := att.Agent()
+	if agent == nil {
+		att.Log("set form error: not found agent")
+		return
+	}
+
+	e := NewNextFormEvent(att, agent.UserId())
+	appErr := qm.mq.AgentChannelEvent(att.channel, att.domainId, att.QueueId(), agent.UserId(), e)
 	if appErr != nil {
-		wlog.Error(err.Error())
+		wlog.Error(appErr.Error())
 	}
 }
 
