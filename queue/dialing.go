@@ -73,6 +73,14 @@ func (d *DialingImpl) routeIdleAttempts() {
 		return
 	}
 
+	start := time.Now()
+	defer func() {
+		diff := time.Now().Sub(start)
+		if diff > time.Second*1 {
+			wlog.Debug(fmt.Sprintf("distribute time: %s / routeIdleAttempts", time.Now().Sub(start)))
+		}
+	}()
+
 	if channels, err := d.store.Agent().GetChannelTimeout(); err == nil {
 		for _, v := range channels {
 			//todo
@@ -87,7 +95,6 @@ func (d *DialingImpl) routeIdleAttempts() {
 	members, err := d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
 	if err != nil {
 		wlog.Error(err.Error())
-		time.Sleep(time.Second)
 		return
 	}
 
@@ -107,6 +114,14 @@ func (d *DialingImpl) routeIdleAgents() {
 	if !d.app.IsReady() {
 		return
 	}
+
+	start := time.Now()
+	defer func() {
+		diff := time.Now().Sub(start)
+		if diff > time.Second*1 {
+			wlog.Debug(fmt.Sprintf("distribute time: %s / routeIdleAgents", time.Now().Sub(start)))
+		}
+	}()
 
 	//// FIXME engine
 	if attempts, err := d.store.Member().GetTimeouts(d.app.GetInstanceId()); err == nil {
@@ -138,13 +153,11 @@ func (d *DialingImpl) routeIdleAgents() {
 		}
 	} else {
 		wlog.Error(err.Error())
-		time.Sleep(time.Second)
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
 	if err != nil {
 		wlog.Error(err.Error())
-		time.Sleep(time.Second)
 		return
 	}
 

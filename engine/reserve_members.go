@@ -24,7 +24,7 @@ func (e *EngineImp) ReserveMembers() {
 		}
 		diff := time.Now().Sub(st)
 		if diff > time.Second*2 {
-			wlog.Debug(fmt.Sprintf("distribute time: %s", time.Now().Sub(st)))
+			wlog.Debug(fmt.Sprintf("distribute time: %s / reserve", time.Now().Sub(st)))
 		}
 	}
 }
