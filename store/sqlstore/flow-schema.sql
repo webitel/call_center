@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.7 (Debian 15.7-1.pgdg120+1)
--- Dumped by pg_dump version 15.7 (Debian 15.7-1.pgdg120+1)
+-- Dumped from database version 15.8 (Debian 15.8-1.pgdg120+1)
+-- Dumped by pg_dump version 15.8 (Debian 15.8-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -31,7 +31,8 @@ CREATE TYPE flow.calendar_accept_time AS (
 	disabled boolean,
 	day smallint,
 	start_time_of_day smallint,
-	end_time_of_day smallint
+	end_time_of_day smallint,
+	special boolean
 );
 
 
@@ -70,10 +71,10 @@ CREATE FUNCTION flow.calendar_accepts_to_jsonb(flow.calendar_accept_time[]) RETU
     LANGUAGE sql IMMUTABLE
     AS $_$
 select jsonb_agg(x.r)
-    from (
-             select row_to_json(a) r
-             from unnest($1) a
-    ) x;
+from (select row_to_json(a) r
+      from unnest($1) a
+      where a.special isnull
+         or a.special is false) x;
 $_$;
 
 
@@ -191,6 +192,35 @@ $_$;
 
 
 --
+-- Name: calendar_json_to_accepts(jsonb, jsonb); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.calendar_json_to_accepts(jsonb, jsonb) RETURNS flow.calendar_accept_time[]
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+select array(
+               select row (disabled, wday, start_time_of_day, end_time_of_day, special)::flow.calendar_accept_time
+               from (select (x -> 'disabled')::bool as         disabled,
+                            (x -> 'day')::smallint             wday,
+                            (x -> 'start_time_of_day')::smallint
+                                                               start_time_of_day,
+                            (x -> 'end_time_of_day')::smallint end_time_of_day,
+                            (false)::bool                      special
+                     from jsonb_array_elements($1) x
+                     union all
+                     select (s -> 'disabled')::bool as         disabled,
+                            (s -> 'day')::smallint             wday,
+                            (s -> 'start_time_of_day')::smallint
+                                                               start_time_of_day,
+                            (s -> 'end_time_of_day')::smallint end_time_of_day,
+                            (true)::bool                       special
+                     from jsonb_array_elements($2) as s) x
+               order by x.wday, x.start_time_of_day
+       )::flow.calendar_accept_time[]
+$_$;
+
+
+--
 -- Name: calendar_json_to_excepts(jsonb); Type: FUNCTION; Schema: flow; Owner: -
 --
 
@@ -202,6 +232,20 @@ select array(
        from jsonb_array_elements($1) x
        order by x -> 'date'
    )::flow.calendar_except_date[]
+$_$;
+
+
+--
+-- Name: calendar_specials_to_jsonb(flow.calendar_accept_time[]); Type: FUNCTION; Schema: flow; Owner: -
+--
+
+CREATE FUNCTION flow.calendar_specials_to_jsonb(flow.calendar_accept_time[]) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+select jsonb_agg(x.r)
+from (select row_to_json(a) r
+      from unnest($1) a
+      where a.special is true) x;
 $_$;
 
 
@@ -719,7 +763,8 @@ CREATE VIEW flow.calendar_view AS
     c.updated_at,
     flow.get_lookup(u.id, (u.name)::character varying) AS updated_by,
     flow.calendar_accepts_to_jsonb(c.accepts) AS accepts,
-    flow.arr_type_to_jsonb(c.excepts) AS excepts
+    flow.arr_type_to_jsonb(c.excepts) AS excepts,
+    flow.calendar_specials_to_jsonb(c.accepts) AS specials
    FROM (((flow.calendar c
      LEFT JOIN flow.calendar_timezones ct ON ((c.timezone_id = ct.id)))
      LEFT JOIN directory.wbt_user uc ON ((uc.id = c.created_by)))

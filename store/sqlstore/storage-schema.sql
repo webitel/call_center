@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.7 (Debian 15.7-1.pgdg120+1)
--- Dumped by pg_dump version 15.7 (Debian 15.7-1.pgdg120+1)
+-- Dumped from database version 15.8 (Debian 15.8-1.pgdg120+1)
+-- Dumped by pg_dump version 15.8 (Debian 15.8-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -320,7 +320,7 @@ CREATE TABLE storage.file_transcript (
     transcript text NOT NULL,
     log jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    profile_id integer NOT NULL,
+    profile_id integer,
     locale character varying DEFAULT 'none'::character varying NOT NULL,
     phrases jsonb,
     channels jsonb,
@@ -1158,7 +1158,7 @@ CREATE UNIQUE INDEX file_jobs_file_id_uindex ON storage.file_jobs USING btree (f
 -- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
 --
 
-CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, profile_id, locale);
+CREATE UNIQUE INDEX file_transcript_file_id_profile_id_locale_uindex ON storage.file_transcript USING btree (file_id, COALESCE(profile_id, 0), locale);
 
 
 --
