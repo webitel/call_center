@@ -20,6 +20,7 @@ var (
 	resourceIgnoreEarlyMedia = flag.String("resource_ignore_early_media", "", "Ignore Early Media: True / False / Consume / Ring Ready")
 	sqlDebug                 = flag.Int("sql_debug", 0, "Debug sql lvl (0-9)")
 	bridgeSleep              = flag.Duration("before_bridge_sleep", time.Millisecond*200, "Before bridge sleep time")
+	pollingInterval          = flag.Duration("polling_interval", time.Millisecond*500, "Polling distribute interval (default 500ms)")
 )
 
 func (a *App) Config() *model.Config {
@@ -45,6 +46,7 @@ func loadConfig() (*model.Config, error) {
 			WaitChannelClose:  waitChannelClose != nil && *waitChannelClose > 0,
 			EnableOmnichannel: enableOmnichannel != nil && *enableOmnichannel > 0,
 			BridgeSleep:       *bridgeSleep,
+			PollingInterval:   *pollingInterval,
 		},
 		ServiceSettings: model.ServiceSettings{
 			NodeId: appId,

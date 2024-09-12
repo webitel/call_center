@@ -2176,3 +2176,6 @@ create unique index cc_agent_today_stats_uidx
 
 create unique index cc_agent_today_stats_usr_uidx
     on call_center.cc_agent_today_stats (user_id);
+
+alter table call_center.cc_queue
+    alter column calendar_id drop not null;
