@@ -13,6 +13,7 @@ func (e *EngineImp) ReserveMembers() {
 		time.Sleep(time.Second * 5)
 		return
 	}
+	fmt.Println("S")
 	st := time.Now()
 	cnt, err := e.store.Member().ReserveMembersByNode(e.nodeId, e.enableOmnichannel)
 	if err != nil {

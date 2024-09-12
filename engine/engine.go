@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var DEFAULT_WATCHER_POLLING_INTERVAL = 800
+var DEFAULT_WATCHER_POLLING_INTERVAL = 500
 
 type App interface {
 	IsReady() bool
