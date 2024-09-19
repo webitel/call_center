@@ -93,7 +93,8 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ)
 	app.callManager.Start()
 
-	app.engine = engine.NewEngine(app, *app.id, app.Store, app.Config().QueueSettings.EnableOmnichannel)
+	app.engine = engine.NewEngine(app, *app.id, app.Store, app.Config().QueueSettings.EnableOmnichannel,
+		app.Config().QueueSettings.PollingInterval)
 	app.engine.Start()
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ)

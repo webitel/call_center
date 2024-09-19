@@ -76,6 +76,7 @@ type QueueSettings struct {
 	WaitChannelClose  bool
 	EnableOmnichannel bool
 	BridgeSleep       time.Duration
+	PollingInterval   time.Duration
 }
 
 type Config struct {
