@@ -2179,3 +2179,628 @@ create unique index cc_agent_today_stats_usr_uidx
 
 alter table call_center.cc_queue
     alter column calendar_id drop not null;
+
+
+create or replace view call_center.cc_distribute_stage_1
+            (id, type, strategy, team_id, buckets, types, resources, offset_ids, lim, domain_id, priority, sticky_agent,
+             sticky_agent_sec, recall_calendar, wait_between_retries_desc, strict_circuit, ins, min_wt)
+as
+WITH queues AS MATERIALIZED (SELECT q_1.domain_id,
+                                    q_1.id,
+                                    q_1.calendar_id,
+                                    q_1.type,
+                                    q_1.sticky_agent,
+                                    q_1.recall_calendar,
+                                    CASE
+                                        WHEN jsonb_typeof(q_1.payload -> 'ignore_calendar'::text) = 'boolean'::text
+                                            THEN (q_1.payload -> 'ignore_calendar'::text)::boolean
+                                        ELSE false
+                                        END                                                                                  AS ignore_calendar,
+                                    CASE
+                                        WHEN q_1.sticky_agent
+                                            THEN COALESCE((q_1.payload -> 'sticky_agent_sec'::text)::integer, 30)
+                                        ELSE NULL::integer
+                                        END                                                                                  AS sticky_agent_sec,
+                                    CASE
+                                        WHEN q_1.strategy::text = 'lifo'::text THEN 1
+                                        WHEN q_1.strategy::text = 'strict_fifo'::text THEN 2
+                                        ELSE 0
+                                        END                                                                                  AS strategy,
+                                    q_1.priority,
+                                    q_1.team_id,
+                                    (q_1.payload -> 'max_calls'::text)::integer                                              AS lim,
+                                    (q_1.payload -> 'wait_between_retries_desc'::text)::boolean                              AS wait_between_retries_desc,
+                                    COALESCE((q_1.payload -> 'strict_circuit'::text)::boolean, false)                        AS strict_circuit,
+                                    array_agg(
+                                            ROW (m.bucket_id::integer, m.member_waiting::integer, m.op)::call_center.cc_sys_distribute_bucket
+                                            ORDER BY cbiq.priority DESC NULLS LAST, cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
+                                    m.op,
+                                    min(m.min_wt)                                                                            AS min_wt
+                             FROM (WITH mem AS MATERIALIZED (SELECT a.queue_id,
+                                                                    a.bucket_id,
+                                                                    count(*)                                     AS member_waiting,
+                                                                    false                                        AS op,
+                                                                    min(EXTRACT(epoch FROM a.joined_at)::bigint) AS min_wt
+                                                             FROM call_center.cc_member_attempt a
+                                                             WHERE a.bridged_at IS NULL
+                                                               AND a.leaving_at IS NULL
+                                                               AND a.state::text = 'wait_agent'::text
+                                                             GROUP BY a.queue_id, a.bucket_id
+                                                             UNION ALL
+                                                             SELECT q_2.queue_id,
+                                                                    q_2.bucket_id,
+                                                                    q_2.member_waiting,
+                                                                    true AS op,
+                                                                    0    AS min_wt
+                                                             FROM call_center.cc_queue_statistics q_2
+                                                             WHERE q_2.member_waiting > 0)
+                                   SELECT rank() OVER (PARTITION BY mem.queue_id ORDER BY mem.op) AS pos,
+                                          mem.queue_id,
+                                          mem.bucket_id,
+                                          mem.member_waiting,
+                                          mem.op,
+                                          mem.min_wt
+                                   FROM mem) m
+                                      JOIN call_center.cc_queue q_1 ON q_1.id = m.queue_id
+                                      LEFT JOIN call_center.cc_bucket_in_queue cbiq
+                                                ON cbiq.queue_id = m.queue_id AND cbiq.bucket_id = m.bucket_id
+                             WHERE m.member_waiting > 0
+                               AND q_1.enabled
+                               AND q_1.type > 0
+                               AND NOT COALESCE((q_1.payload -> 'manual_distribution'::text)::boolean, false)
+                               AND (cbiq.bucket_id IS NULL OR NOT cbiq.disabled)
+                             GROUP BY q_1.domain_id, q_1.id, q_1.calendar_id, q_1.type, m.op
+                             LIMIT 1024),
+     calend AS MATERIALIZED (SELECT c.id                                                                            AS calendar_id,
+                                    queues.id                                                                       AS queue_id,
+                                    CASE
+                                        WHEN queues.recall_calendar AND
+                                             NOT (tz.offset_id = ANY (array_agg(DISTINCT o1.id)))
+                                            THEN array_agg(DISTINCT o1.id)::integer[] + tz.offset_id::integer
+                                        ELSE array_agg(DISTINCT o1.id)::integer[]
+                                        END                                                                         AS l,
+                                    queues.recall_calendar AND
+                                    NOT (tz.offset_id = ANY (array_agg(DISTINCT o1.id)))                            AS recall_calendar,
+                                    tz.offset_id = ANY (array_agg(DISTINCT o1.id))                                  AS in_calendar
+                             FROM flow.calendar c
+                                      LEFT JOIN flow.calendar_timezones tz ON tz.id = c.timezone_id
+                                      JOIN queues ON queues.calendar_id = c.id
+                                      JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day)
+                                           ON true
+                                      JOIN flow.calendar_timezone_offsets o1 ON (a.day + 1) =
+                                                                                date_part('isodow'::text, timezone(o1.names[1], now()))::integer AND
+                                                                                (to_char(timezone(o1.names[1], now()), 'SSSS'::text)::integer /
+                                                                                 60) >= a.start_time_of_day AND
+                                                                                (to_char(timezone(o1.names[1], now()), 'SSSS'::text)::integer /
+                                                                                 60) <= a.end_time_of_day
+                             WHERE NOT a.disabled IS TRUE
+                               AND NOT (EXISTS(SELECT 1
+                                               FROM unnest(c.excepts) x(disabled, date, name, repeat, work_start, work_stop, working)
+                                               WHERE NOT x.disabled IS TRUE
+                                                 AND CASE
+                                                         WHEN x.repeat IS TRUE THEN to_char(
+                                                                                            (CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name)::date::timestamp with time zone,
+                                                                                            'MM-DD'::text) = to_char(
+                                                                                            (to_timestamp((x.date / 1000)::double precision) AT TIME ZONE
+                                                                                             tz.sys_name)::date::timestamp with time zone,
+                                                                                            'MM-DD'::text)
+                                                         ELSE (CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name)::date =
+                                                              (to_timestamp((x.date / 1000)::double precision) AT TIME ZONE
+                                                               tz.sys_name)::date
+                                                   END
+                                                 AND NOT (x.working AND
+                                                          (to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text)::integer /
+                                                           60) >= x.work_start AND
+                                                          (to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text)::integer /
+                                                           60) <= x.work_stop)))
+                             GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id),
+     resources AS MATERIALIZED (SELECT l_1.queue_id,
+                                       array_agg(ROW (cor.communication_id, cor.id::bigint, (l_1.l & l2.x::integer[])::smallint[], cor.resource_group_id::integer)::call_center.cc_sys_distribute_type) AS types,
+                                       array_agg(ROW (cor.id::bigint, (cor."limit" - used.cnt)::integer, cor.patterns)::call_center.cc_sys_distribute_resource)                                         AS resources,
+                                       call_center.cc_array_merge_agg(l_1.l & l2.x::integer[])                                                                                                          AS offset_ids
+                                FROM calend l_1
+                                         JOIN (SELECT corg.queue_id,
+                                                      corg.priority,
+                                                      corg.resource_group_id,
+                                                      corg.communication_id,
+                                                      corg."time",
+                                                      (corg.cor).id                      AS id,
+                                                      (corg.cor)."limit"                 AS "limit",
+                                                      (corg.cor).enabled                 AS enabled,
+                                                      (corg.cor).updated_at              AS updated_at,
+                                                      (corg.cor).rps                     AS rps,
+                                                      (corg.cor).domain_id               AS domain_id,
+                                                      (corg.cor).reserve                 AS reserve,
+                                                      (corg.cor).variables               AS variables,
+                                                      (corg.cor).number                  AS number,
+                                                      (corg.cor).max_successively_errors AS max_successively_errors,
+                                                      (corg.cor).name                    AS name,
+                                                      (corg.cor).last_error_id           AS last_error_id,
+                                                      (corg.cor).successively_errors     AS successively_errors,
+                                                      (corg.cor).created_at              AS created_at,
+                                                      (corg.cor).created_by              AS created_by,
+                                                      (corg.cor).updated_by              AS updated_by,
+                                                      (corg.cor).error_ids               AS error_ids,
+                                                      (corg.cor).gateway_id              AS gateway_id,
+                                                      (corg.cor).email_profile_id        AS email_profile_id,
+                                                      (corg.cor).payload                 AS payload,
+                                                      (corg.cor).description             AS description,
+                                                      (corg.cor).patterns                AS patterns,
+                                                      (corg.cor).failure_dial_delay      AS failure_dial_delay,
+                                                      (corg.cor).last_error_at           AS last_error_at
+                                               FROM calend calend_1
+                                                        JOIN (SELECT DISTINCT cqr.queue_id,
+                                                                              corig.priority,
+                                                                              corg_1.id AS resource_group_id,
+                                                                              corg_1.communication_id,
+                                                                              corg_1."time",
+                                                                              CASE
+                                                                                  WHEN cor_1.enabled AND gw.enable
+                                                                                      THEN ROW (cor_1.id, cor_1."limit", cor_1.enabled, cor_1.updated_at, cor_1.rps, cor_1.domain_id, cor_1.reserve, cor_1.variables, cor_1.number, cor_1.max_successively_errors, cor_1.name, cor_1.last_error_id, cor_1.successively_errors, cor_1.created_at, cor_1.created_by, cor_1.updated_by, cor_1.error_ids, cor_1.gateway_id, cor_1.email_profile_id, cor_1.payload, cor_1.description, cor_1.patterns, cor_1.failure_dial_delay, cor_1.last_error_at, NULL::jsonb)::call_center.cc_outbound_resource
+                                                                                  WHEN cor2.enabled AND gw2.enable
+                                                                                      THEN ROW (cor2.id, cor2."limit", cor2.enabled, cor2.updated_at, cor2.rps, cor2.domain_id, cor2.reserve, cor2.variables, cor2.number, cor2.max_successively_errors, cor2.name, cor2.last_error_id, cor2.successively_errors, cor2.created_at, cor2.created_by, cor2.updated_by, cor2.error_ids, cor2.gateway_id, cor2.email_profile_id, cor2.payload, cor2.description, cor2.patterns, cor2.failure_dial_delay, cor2.last_error_at, NULL::jsonb)::call_center.cc_outbound_resource
+                                                                                  ELSE NULL::call_center.cc_outbound_resource
+                                                                                  END   AS cor
+                                                              FROM call_center.cc_queue_resource cqr
+                                                                       JOIN call_center.cc_outbound_resource_group corg_1
+                                                                            ON cqr.resource_group_id = corg_1.id
+                                                                       JOIN call_center.cc_outbound_resource_in_group corig
+                                                                            ON corg_1.id = corig.group_id
+                                                                       JOIN call_center.cc_outbound_resource cor_1
+                                                                            ON cor_1.id = corig.resource_id::integer
+                                                                       JOIN directory.sip_gateway gw ON gw.id = cor_1.gateway_id
+                                                                       LEFT JOIN call_center.cc_outbound_resource cor2
+                                                                                 ON cor2.id = corig.reserve_resource_id AND cor2.enabled
+                                                                       LEFT JOIN directory.sip_gateway gw2 ON gw2.id = cor2.gateway_id AND cor2.enabled
+                                                              WHERE CASE
+                                                                        WHEN cor_1.enabled AND gw.enable THEN cor_1.id
+                                                                        WHEN cor2.enabled AND gw2.enable THEN cor2.id
+                                                                        ELSE NULL::integer
+                                                                        END IS NOT NULL
+                                                              ORDER BY cqr.queue_id, corig.priority DESC) corg
+                                                             ON corg.queue_id = calend_1.queue_id) cor
+                                              ON cor.queue_id = l_1.queue_id
+                                         JOIN LATERAL ( WITH times
+                                                                 AS (SELECT (e.value -> 'start_time_of_day'::text)::integer AS start,
+                                                                            (e.value -> 'end_time_of_day'::text)::integer   AS "end"
+                                                                     FROM jsonb_array_elements(cor."time") e(value))
+                                                        SELECT array_agg(DISTINCT t.id) AS x
+                                                        FROM flow.calendar_timezone_offsets t,
+                                                             times,
+                                                             LATERAL ( SELECT timezone(t.names[1], CURRENT_TIMESTAMP) AS t) with_timezone
+                                                        WHERE (to_char(with_timezone.t, 'SSSS'::text)::integer / 60) >=
+                                                              times.start
+                                                          AND (to_char(with_timezone.t, 'SSSS'::text)::integer / 60) <=
+                                                              times."end") l2 ON l2.* IS NOT NULL
+                                         LEFT JOIN LATERAL ( SELECT count(*) AS cnt
+                                                             FROM (SELECT 1 AS cnt
+                                                                   FROM call_center.cc_member_attempt c_1
+                                                                   WHERE c_1.resource_id = cor.id
+                                                                     AND (c_1.state::text <> ALL
+                                                                          (ARRAY ['leaving'::character varying::text, 'processing'::character varying::text]))) c) used
+                                                   ON true
+                                WHERE cor.enabled
+                                  AND (cor.last_error_at IS NULL OR cor.last_error_at <=
+                                                                    (now() - ((cor.failure_dial_delay || ' s'::text)::interval)))
+                                  AND (cor."limit" - used.cnt) > 0
+                                GROUP BY l_1.queue_id)
+SELECT q.id,
+       q.type,
+       q.strategy::smallint AS strategy,
+       q.team_id,
+       q.buckets,
+       r.types,
+       r.resources,
+       CASE
+           WHEN q.type = ANY ('{7,8}'::smallint[]) THEN calend.l
+           ELSE r.offset_ids
+           END              AS offset_ids,
+       CASE
+           WHEN q.lim = '-1'::integer THEN NULL::integer
+           ELSE GREATEST((q.lim - COALESCE(l.usage, 0::bigint))::integer, 0)
+           END              AS lim,
+       q.domain_id,
+       q.priority,
+       q.sticky_agent,
+       q.sticky_agent_sec,
+       calend.recall_calendar,
+       q.wait_between_retries_desc,
+       q.strict_circuit,
+       q.op                 AS ins,
+       q.min_wt
+FROM queues q
+         LEFT JOIN calend ON calend.queue_id = q.id
+         LEFT JOIN resources r ON q.op AND r.queue_id = q.id
+         LEFT JOIN LATERAL ( SELECT count(*) AS usage
+                             FROM call_center.cc_member_attempt a
+                             WHERE a.queue_id = q.id
+                               AND a.state::text <> 'leaving'::text) l ON q.lim > 0
+WHERE q.type = 7
+   OR (q.type = ANY (ARRAY [1, 6])) AND (q.ignore_calendar OR calend.in_calendar)
+   OR q.type = 8 AND GREATEST((q.lim - COALESCE(l.usage, 0::bigint))::integer, 0) > 0
+   OR q.type = 5 AND NOT q.op
+   OR q.op AND (q.type = ANY (ARRAY [2, 3, 4, 5])) AND r.* IS NOT NULL
+ORDER BY q.domain_id, q.priority DESC, q.op;
+
+
+create or replace function call_center.cc_distribute_inbound_call_to_queue(_node_name character varying, _queue_id bigint, _call_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) returns record
+    language plpgsql
+as
+$$declare
+    _timezone_id             int4;
+    _discard_abandoned_after int4;
+    _weight                  int4;
+    dnc_list_id_ int4;
+    _domain_id               int8;
+    _calendar_id             int4;
+    _queue_updated_at        int8;
+    _team_updated_at         int8;
+    _team_id_                int;
+    _list_comm_id            int8;
+    _enabled                 bool;
+    _q_type                  smallint;
+    _sticky                  bool;
+    _sticky_ignore_status                  bool;
+    _call                    record;
+    _attempt                 record;
+    _number                  varchar;
+    _name                  varchar;
+    _max_waiting_size        int;
+    _grantee_id              int8;
+    _qparams jsonb;
+    _ignore_calendar bool;
+BEGIN
+    select c.timezone_id,
+           (payload ->> 'discard_abandoned_after')::int discard_abandoned_after,
+           q.domain_id,
+           q.dnc_list_id,
+           q.calendar_id,
+           q.updated_at,
+           ct.updated_at,
+           q.team_id,
+           q.enabled,
+           q.type,
+           q.sticky_agent,
+           (payload ->> 'max_waiting_size')::int        max_size,
+           case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
+                    then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
+           q.grantee_id,
+           call_center.cc_queue_params(q),
+           case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
+    from call_center.cc_queue q
+             left join flow.calendar c on q.calendar_id = c.id
+             left join call_center.cc_team ct on q.team_id = ct.id
+    where q.id = _queue_id
+    into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _grantee_id, _qparams, _ignore_calendar;
+
+    if
+        not _q_type = 1 then
+        raise exception 'queue not inbound';
+    end if;
+
+    if
+        not _enabled = true then
+        raise exception 'queue disabled';
+    end if;
+
+    select *
+    from call_center.cc_calls c
+    where c.id = _call_id::uuid
+--   for update
+    into _call;
+
+    if
+            _call.domain_id != _domain_id then
+        raise exception 'the queue on another domain';
+    end if;
+
+    if
+            _call.id isnull or _call.direction isnull then
+        raise exception 'not found call';
+    ELSIF
+                _call.direction <> 'outbound' or _call.user_id notnull then
+        _number = _call.from_number;
+        _name = _call.from_name;
+    else
+        _number = _call.destination;
+    end if;
+
+--   raise  exception '%', _name;
+
+
+    if not _ignore_calendar and
+       not exists(select accept
+                  from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+                           as x (name varchar, excepted varchar, accept bool, expire bool)
+                  where accept
+                    and excepted is null
+                    and not expire)
+    then
+        raise exception 'number % calendar not working [%]', _number, _calendar_id;
+    end if;
+
+
+    if
+            _max_waiting_size > 0 then
+        if (select count(*)
+            from call_center.cc_member_attempt aa
+            where aa.queue_id = _queue_id
+              and aa.bridged_at isnull
+              and aa.leaving_at isnull
+              and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+            raise exception using
+                errcode = 'MAXWS',
+                message = 'Queue maximum waiting size';
+        end if;
+    end if;
+
+    if
+        dnc_list_id_ notnull then
+        select clc.id
+        into _list_comm_id
+        from call_center.cc_list_communications clc
+        where (clc.list_id = dnc_list_id_
+            and clc.number = _number)
+        limit 1;
+    end if;
+
+    if
+        _list_comm_id notnull then
+        raise exception 'number % banned', _number;
+    end if;
+
+    if
+            _discard_abandoned_after > 0 then
+        select case
+                   when log.result = 'abandoned' then
+                           extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+                   else coalesce(_priority, 0)
+                   end
+        from call_center.cc_member_attempt_history log
+        where log.leaving_at >= (now() - (_discard_abandoned_after || ' sec')::interval)
+          and log.queue_id = _queue_id
+          and log.destination ->> 'destination' = _number
+        order by log.leaving_at desc
+        limit 1
+        into _weight;
+    end if;
+
+    if
+            _sticky_agent_id notnull and _sticky then
+        if not exists(select 1
+                      from call_center.cc_agent a
+                      where a.id = _sticky_agent_id
+                        and a.domain_id = _domain_id
+                        and (a.status = 'online' or _sticky_ignore_status is true)
+                        and exists(select 1
+                                   from call_center.cc_skill_in_agent sa
+                                            inner join call_center.cc_queue_skill qs
+                                                       on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                   where sa.agent_id = _sticky_agent_id
+                                     and sa.enabled
+                                     and sa.capacity between qs.min_capacity and qs.max_capacity)
+            ) then
+            _sticky_agent_id = null;
+        end if;
+    else
+        _sticky_agent_id = null;
+    end if;
+
+    insert into call_center.cc_member_attempt (domain_id, state, queue_id, team_id, member_id, bucket_id, weight,
+                                               member_call_id, destination, node_id, sticky_agent_id,
+                                               list_communication_id,
+                                               parent_id, queue_params, queue_type)
+    values (_domain_id, 'waiting', _queue_id, _team_id_, null, bucket_id_, coalesce(_weight, _priority), _call_id,
+            jsonb_build_object('destination', _number, 'name', coalesce(_name, _number)),
+            _node_name, _sticky_agent_id, null, _call.attempt_id, _qparams, 1) -- todo inbound queue
+    returning * into _attempt;
+
+    update call_center.cc_calls
+    set queue_id   = _attempt.queue_id,
+        team_id    = _team_id_,
+        attempt_id = _attempt.id,
+        payload    = case when jsonb_typeof(variables_::jsonb) = 'object' then variables_ else coalesce(payload, '{}') end, --coalesce(variables_, '{}'),
+        grantee_id = _grantee_id
+    where id = _call_id::uuid
+    returning * into _call;
+
+    if
+            _call.id isnull or _call.direction isnull then
+        raise exception 'not found call';
+    end if;
+
+    return row (
+        _attempt.id::int8,
+        _attempt.queue_id::int,
+        _queue_updated_at::int8,
+        _attempt.destination::jsonb,
+        variables_::jsonb,
+        _call.from_name::varchar,
+        _team_updated_at::int8,
+        _call.id::varchar,
+        _call.state::varchar,
+        _call.direction::varchar,
+        _call.destination::varchar,
+        call_center.cc_view_timestamp(_call.timestamp)::int8,
+        _call.app_id::varchar,
+        _number::varchar,
+        case
+            when (_call.direction <> 'outbound'
+                and _call.to_name:: varchar <> ''
+                and _call.to_name:: varchar notnull)
+                then _call.from_name::varchar
+            else _call.to_name::varchar end,
+        call_center.cc_view_timestamp(_call.answered_at)::int8,
+        call_center.cc_view_timestamp(_call.bridged_at)::int8,
+        call_center.cc_view_timestamp(_call.created_at)::int8
+        );
+
+END;
+$$;
+
+create or replace function call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) returns record
+    language plpgsql
+as
+$$declare
+    _timezone_id int4;
+    _discard_abandoned_after int4;
+    _weight int4;
+    dnc_list_id_ int4;
+    _domain_id int8;
+    _calendar_id int4;
+    _queue_updated_at int8;
+    _team_updated_at int8;
+    _team_id_ int;
+    _enabled bool;
+    _q_type smallint;
+    _attempt record;
+    _con_created timestamptz;
+    _con_name varchar;
+    _con_type varchar;
+    _last_msg varchar;
+    _client_name varchar;
+    _inviter_channel_id varchar;
+    _inviter_user_id varchar;
+    _sticky bool;
+    _sticky_ignore_status bool;
+    _max_waiting_size int;
+    _qparams jsonb;
+    _ignore_calendar bool;
+BEGIN
+    select c.timezone_id,
+           (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
+           q.domain_id,
+           q.dnc_list_id,
+           q.calendar_id,
+           q.updated_at,
+           ct.updated_at,
+           q.team_id,
+           q.enabled,
+           q.type,
+           q.sticky_agent,
+           (payload->>'max_waiting_size')::int max_size,
+           case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
+                    then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
+           call_center.cc_queue_params(q),
+           case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
+    from call_center.cc_queue q
+             left join flow.calendar c on q.calendar_id = c.id
+             left join call_center.cc_team ct on q.team_id = ct.id
+    where  q.id = _queue_id
+    into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+        _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _qparams, _ignore_calendar;
+
+    if not _q_type = 6 then
+        raise exception 'queue type not inbound chat';
+    end if;
+
+    if not _enabled = true then
+        raise exception 'queue disabled';
+    end if;
+
+    if not _ignore_calendar and not exists(select accept
+                                           from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+                                                    as x (name varchar, excepted varchar, accept bool, expire bool)
+                                           where accept and excepted is null and not expire) then
+        raise exception 'conversation [%] calendar not working [%] [%]', _conversation_id, _calendar_id, _queue_id;
+    end if;
+
+    if _max_waiting_size > 0 then
+        if (select count(*) from call_center.cc_member_attempt aa
+            where aa.queue_id = _queue_id
+              and aa.bridged_at isnull
+              and aa.leaving_at isnull
+              and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+            raise exception using
+                errcode='MAXWS',
+                message='Queue maximum waiting size';
+        end if;
+    end if;
+
+    select cli.external_id,
+           c.created_at,
+           c.id::varchar inviter_channel_id,
+           c.user_id,
+           c.name,
+           lst.message,
+           c.type
+    from chat.channel c
+             left join chat.client cli on cli.id = c.user_id
+             left join lateral (
+        select coalesce(m.text, m.file_name, 'empty') message
+        from chat.message m
+        where m.conversation_id = _conversation_id::uuid
+        order by created_at desc
+        limit 1
+        ) lst on true -- todo
+    where c.closed_at isnull
+      and c.conversation_id = _conversation_id::uuid
+      and not c.internal
+    into _con_name, _con_created, _inviter_channel_id, _inviter_user_id, _client_name, _last_msg, _con_type;
+
+    if coalesce(_inviter_channel_id, '') = '' or coalesce(_inviter_user_id, '') = '' isnull then
+        raise exception using
+            errcode='VALID',
+            message='Bad request inviter_channel_id or user_id';
+    end if;
+
+
+    if  _discard_abandoned_after > 0 then
+        select
+            case when log.result = 'abandoned' then
+                         extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+                 else coalesce(_priority, 0) end
+        from call_center.cc_member_attempt_history log
+        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+          and log.queue_id = _queue_id
+          and log.destination->>'destination' = _con_name
+        order by log.leaving_at desc
+        limit 1
+        into _weight;
+    end if;
+
+    if _sticky_agent_id notnull and _sticky then
+        if not exists(select 1
+                      from call_center.cc_agent a
+                      where a.id = _sticky_agent_id
+                        and a.domain_id = _domain_id
+                        and (a.status = 'online' or _sticky_ignore_status is true)
+                        and exists(select 1
+                                   from call_center.cc_skill_in_agent sa
+                                            inner join call_center.cc_queue_skill qs
+                                                       on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                   where sa.agent_id = _sticky_agent_id
+                                     and sa.enabled
+                                     and sa.capacity between qs.min_capacity and qs.max_capacity)
+            ) then
+            _sticky_agent_id = null;
+        end if;
+    else
+        _sticky_agent_id = null;
+    end if;
+
+    insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id,
+                                               destination, node_id, sticky_agent_id, list_communication_id, queue_params, queue_type)
+    values (_domain_id, 'chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id::varchar,
+            jsonb_build_object('destination', _con_name, 'name', _client_name, 'msg', _last_msg, 'chat', _con_type),
+            _node_name, _sticky_agent_id, (select clc.id
+                                           from call_center.cc_list_communications clc
+                                           where (clc.list_id = dnc_list_id_ and clc.number = _conversation_id)), _qparams, 6) -- todo inbound chat queue
+    returning * into _attempt;
+
+
+    return row(
+        _attempt.id::int8,
+        _attempt.queue_id::int,
+        _queue_updated_at::int8,
+        _attempt.destination::jsonb,
+                coalesce((variables_::jsonb), '{}'::jsonb) || jsonb_build_object('inviter_channel_id', _inviter_channel_id) || jsonb_build_object('inviter_user_id', _inviter_user_id),
+        _conversation_id::varchar,
+        _team_updated_at::int8,
+
+        _conversation_id::varchar,
+        call_center.cc_view_timestamp(_con_created)::int8
+        );
+END;
+$$;
