@@ -1887,7 +1887,7 @@ _timezone_id             int4;
 BEGIN
 select c.timezone_id,
        (payload ->> 'discard_abandoned_after')::int discard_abandoned_after,
-        c.domain_id,
+        q.domain_id,
        q.dnc_list_id,
        q.calendar_id,
        q.updated_at,
@@ -1903,7 +1903,7 @@ select c.timezone_id,
         call_center.cc_queue_params(q),
         case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
 from call_center.cc_queue q
-         inner join flow.calendar c on q.calendar_id = c.id
+         left join flow.calendar c on q.calendar_id = c.id
          left join call_center.cc_team ct on q.team_id = ct.id
 where q.id = _queue_id
     into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
@@ -1944,7 +1944,7 @@ end if;
 --   raise  exception '%', _name;
 
 
-    if not _ignore_calendar and
+    if not _calendar_id isnull  and not _ignore_calendar and
 not exists(select accept
                    from flow.calendar_check_timing(_domain_id, _calendar_id, null)
                             as x (name varchar, excepted varchar, accept bool, expire bool)
@@ -2109,7 +2109,7 @@ CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name chara
 BEGIN
   select c.timezone_id,
            (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
-         c.domain_id,
+         q.domain_id,
          q.dnc_list_id,
          q.calendar_id,
          q.updated_at,
@@ -2124,7 +2124,7 @@ BEGIN
          call_center.cc_queue_params(q),
          case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
   from call_center.cc_queue q
-    inner join flow.calendar c on q.calendar_id = c.id
+    left join flow.calendar c on q.calendar_id = c.id
     left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
@@ -2138,10 +2138,10 @@ BEGIN
       raise exception 'queue disabled';
   end if;
 
-  if not _ignore_calendar and not exists(select accept
+  if not _calendar_id isnull  and (not _ignore_calendar and not exists(select accept
             from flow.calendar_check_timing(_domain_id, _calendar_id, null)
             as x (name varchar, excepted varchar, accept bool, expire bool)
-            where accept and excepted is null and not expire) then
+            where accept and excepted is null and not expire)) then
       raise exception 'conversation [%] calendar not working [%] [%]', _conversation_id, _calendar_id, _queue_id;
   end if;
 
@@ -3096,7 +3096,7 @@ CREATE TABLE call_center.cc_queue (
     strategy character varying(20) NOT NULL,
     enabled boolean NOT NULL,
     payload jsonb,
-    calendar_id integer NOT NULL,
+    calendar_id integer,
     priority integer DEFAULT 0 NOT NULL,
     updated_at bigint DEFAULT ((date_part('epoch'::text, now()) * (1000)::double precision))::bigint NOT NULL,
     name character varying NOT NULL,
@@ -3821,7 +3821,11 @@ CREATE TABLE call_center.cc_skill (
     id integer NOT NULL,
     name character varying NOT NULL,
     domain_id bigint NOT NULL,
-    description character varying DEFAULT ''::character varying NOT NULL
+    description character varying DEFAULT ''::character varying NOT NULL,
+    created_at timestamp with time zone,
+    created_by bigint,
+    updated_at timestamp with time zone,
+    updated_by bigint
 );
 
 
@@ -3862,7 +3866,8 @@ CREATE TABLE call_center.cc_team (
     updated_by bigint,
     admin_ids integer[],
     invite_chat_timeout smallint DEFAULT 30 NOT NULL,
-    task_accept_timeout smallint DEFAULT 30 NOT NULL
+    task_accept_timeout smallint DEFAULT 30 NOT NULL,
+    forecast_calculation_id bigint
 );
 
 
@@ -3971,7 +3976,8 @@ CREATE TABLE call_center.cc_audit_rate (
     score_optional numeric DEFAULT 0 NOT NULL,
     comment text,
     call_id character varying,
-    rated_user_id bigint NOT NULL
+    rated_user_id bigint NOT NULL,
+    call_created_at timestamp with time zone
 );
 
 
@@ -4055,7 +4061,7 @@ CREATE TABLE call_center.cc_member_attempt_history (
     weight integer,
     resource_id integer,
     node_id character varying(20),
-    result character varying(25) NOT NULL,
+    result character varying(200) NOT NULL,
     agent_id integer,
     bucket_id bigint,
     display character varying(50),
@@ -4125,8 +4131,8 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
              LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
              LEFT JOIN LATERAL ( SELECT now() AS "to",
                         CASE
-                            WHEN (((((now())::date + '1 day'::interval) - t.utc_offset))::timestamp with time zone < now()) THEN ((((now())::date + '1 day'::interval) - t.utc_offset))::timestamp with time zone
-                            ELSE (((now())::date - t.utc_offset))::timestamp with time zone
+                            WHEN (((((now())::date + '1 day'::interval) - COALESCE(t.utc_offset, '00:00:00'::interval)))::timestamp with time zone < now()) THEN ((((now())::date + '1 day'::interval) - COALESCE(t.utc_offset, '00:00:00'::interval)))::timestamp with time zone
+                            ELSE (((now())::date - COALESCE(t.utc_offset, '00:00:00'::interval)))::timestamp with time zone
                         END AS "from") d ON (true))
              LEFT JOIN LATERAL ( SELECT aa.state,
                     d."from" AS last_at,
@@ -4198,7 +4204,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
             count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
             count(*) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS user_2user,
-            count(*) FILTER (WHERE ((((h.direction)::text = 'inbound'::text) OR (cq.type = 3)) AND (h.bridged_at IS NULL))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (NOT (h.hide_missed IS TRUE)) AND (pc.bridged_at IS NULL))) AS missed,
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
             count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(0)::smallint, (3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
             count(*) FILTER (WHERE ((h.parent_id IS NULL) AND ((h.direction)::text = 'outbound'::text) AND (h.queue_id IS NULL))) AS "direct outboud",
@@ -5314,7 +5320,8 @@ CREATE TABLE call_center.cc_email (
     html text,
     attachment_ids bigint[],
     contact_ids bigint[],
-    owner_id bigint
+    owner_id bigint,
+    cid jsonb
 );
 
 
@@ -6584,6 +6591,39 @@ CREATE TABLE call_center.cc_queue_skill_statistics (
 
 
 --
+-- Name: cc_skill_acl; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_skill_acl (
+    id bigint NOT NULL,
+    dc bigint NOT NULL,
+    grantor bigint,
+    object integer NOT NULL,
+    subject bigint NOT NULL,
+    access smallint DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: cc_skill_acl_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_skill_acl_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_skill_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_skill_acl_id_seq OWNED BY call_center.cc_skill_acl.id;
+
+
+--
 -- Name: cc_skill_in_agent_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
 --
 
@@ -6637,17 +6677,23 @@ CREATE VIEW call_center.cc_skill_in_agent_view AS
 --
 
 CREATE VIEW call_center.cc_skill_view AS
- SELECT c.id,
-    c.name,
-    c.description,
-    c.domain_id,
+ SELECT s.id,
+    s.created_at,
+    call_center.cc_get_lookup(c.id, (COALESCE(c.name, (c.username)::text))::character varying) AS created_by,
+    s.updated_at,
+    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS updated_by,
+    s.name,
+    s.description,
+    s.domain_id,
     agents.active_agents,
     agents.total_agents
-   FROM (call_center.cc_skill c
+   FROM (((call_center.cc_skill s
+     LEFT JOIN directory.wbt_user c ON ((c.id = s.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = s.updated_by)))
      LEFT JOIN LATERAL ( SELECT count(DISTINCT sa.agent_id) FILTER (WHERE sa.enabled) AS active_agents,
             count(DISTINCT sa.agent_id) AS total_agents
            FROM call_center.cc_skill_in_agent sa
-          WHERE (sa.skill_id = c.id)) agents ON (true));
+          WHERE (sa.skill_id = s.id)) agents ON (true));
 
 
 --
@@ -6804,8 +6850,10 @@ CREATE VIEW call_center.cc_team_list AS
     t.domain_id,
     t.admin_ids,
     t.invite_chat_timeout,
-    t.task_accept_timeout
-   FROM call_center.cc_team t;
+    t.task_accept_timeout,
+    call_center.cc_get_lookup((fc.id)::bigint, (fc.name)::character varying) AS forecast_calculation
+   FROM (call_center.cc_team t
+     LEFT JOIN wfm.forecast_calculation fc ON ((fc.id = t.forecast_calculation_id)));
 
 
 --
@@ -7394,6 +7442,13 @@ ALTER TABLE ONLY call_center.cc_skill ALTER COLUMN id SET DEFAULT nextval('call_
 
 
 --
+-- Name: cc_skill_acl id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl ALTER COLUMN id SET DEFAULT nextval('call_center.cc_skill_acl_id_seq'::regclass);
+
+
+--
 -- Name: cc_skill_in_agent id; Type: DEFAULT; Schema: call_center; Owner: -
 --
 
@@ -7801,6 +7856,14 @@ ALTER TABLE ONLY call_center.cc_queue_statistics
 
 
 --
+-- Name: cc_skill_acl cc_skill_acl_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_pk PRIMARY KEY (id);
+
+
+--
 -- Name: cc_skill_in_agent cc_skill_in_agent_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -8034,6 +8097,13 @@ CREATE UNIQUE INDEX cc_audit_form_domain_id_name_uindex ON call_center.cc_audit_
 --
 
 CREATE UNIQUE INDEX cc_audit_form_id_domain_id_uindex ON call_center.cc_audit_form USING btree (id, domain_id);
+
+
+--
+-- Name: cc_audit_rate_call_created_at; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_audit_rate_call_created_at ON call_center.cc_audit_rate USING btree (call_created_at);
 
 
 --
@@ -9033,10 +9103,45 @@ CREATE UNIQUE INDEX cc_queue_statistics_queue_id_bucket_id_skill_id_uindex ON ca
 
 
 --
+-- Name: cc_skill_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_skill_acl_grantor_idx ON call_center.cc_skill_acl USING btree (grantor);
+
+
+--
+-- Name: cc_skill_acl_object_subject_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_skill_acl_object_subject_udx ON call_center.cc_skill_acl USING btree (object, subject) INCLUDE (access);
+
+
+--
+-- Name: cc_skill_acl_subject_object_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_skill_acl_subject_object_udx ON call_center.cc_skill_acl USING btree (subject, object) INCLUDE (access);
+
+
+--
+-- Name: cc_skill_created_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_skill_created_by_index ON call_center.cc_skill USING btree (created_by);
+
+
+--
 -- Name: cc_skill_domain_id_name_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_skill_domain_id_name_index ON call_center.cc_skill USING btree (domain_id, name);
+
+
+--
+-- Name: cc_skill_domain_id_udx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_skill_domain_id_udx ON call_center.cc_skill USING btree (id, domain_id);
 
 
 --
@@ -9072,6 +9177,13 @@ CREATE UNIQUE INDEX cc_skill_in_agent_skill_id_agent_id_capacity_uindex ON call_
 --
 
 CREATE INDEX cc_skill_in_agent_updated_by_index ON call_center.cc_skill_in_agent USING btree (updated_by);
+
+
+--
+-- Name: cc_skill_updated_by_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_skill_updated_by_index ON call_center.cc_skill USING btree (updated_by);
 
 
 --
@@ -9303,7 +9415,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
            FROM ((((flow.calendar c
              LEFT JOIN flow.calendar_timezones tz ON ((tz.id = c.timezone_id)))
              JOIN queues ON ((queues.calendar_id = c.id)))
-             JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
+             JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day, special) ON (true))
              JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
           WHERE ((NOT (a.disabled IS TRUE)) AND (NOT (EXISTS ( SELECT 1
                    FROM unnest(c.excepts) x(disabled, date, name, repeat, work_start, work_stop, working)
@@ -9311,7 +9423,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                         CASE
                             WHEN (x.repeat IS TRUE) THEN (to_char((((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text) = to_char((((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)::timestamp with time zone, 'MM-DD'::text))
                             ELSE (((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date = ((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)
-                        END AND (NOT (x.working AND ((((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) >= x.work_start) AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) <= x.work_stop)))))))))
+                        END AND (NOT (x.working AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) >= x.work_start) AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) <= x.work_stop))))))))
           GROUP BY c.id, queues.id, queues.recall_calendar, tz.offset_id
         ), resources AS MATERIALIZED (
          SELECT l_1.queue_id,
@@ -9420,38 +9532,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6])) AND ((NOT q.ignore_calendar) OR calend.in_calendar)) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
+  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
   ORDER BY q.domain_id, q.priority DESC, q.op;
-
-
---
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
 
 
 --
@@ -9555,6 +9637,36 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
              JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
           WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
           GROUP BY ROLLUP(q.queue_id)) a ON (true));
+
+
+--
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
 
 
 --
@@ -9702,6 +9814,13 @@ CREATE TRIGGER cc_queue_events_changed AFTER INSERT OR DELETE OR UPDATE ON call_
 --
 
 CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_queue FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_queue');
+
+
+--
+-- Name: cc_skill cc_skill_set_rbac_acl; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_skill_set_rbac_acl AFTER INSERT ON call_center.cc_skill FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_skill');
 
 
 --
@@ -10140,14 +10259,6 @@ ALTER TABLE ONLY call_center.cc_calls_annotation
 
 ALTER TABLE ONLY call_center.cc_calls_annotation
     ADD CONSTRAINT cc_calls_annotation_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
-
-
---
--- Name: cc_calls_history cc_calls_history_cc_team_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_calls_history
-    ADD CONSTRAINT cc_calls_history_cc_team_id_fk FOREIGN KEY (team_id) REFERENCES call_center.cc_team(id) ON UPDATE SET NULL ON DELETE SET NULL;
 
 
 --
@@ -10823,6 +10934,54 @@ ALTER TABLE ONLY call_center.cc_queue
 
 
 --
+-- Name: cc_skill_acl cc_skill_acl_cc_skill_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_cc_skill_id_fk FOREIGN KEY (object) REFERENCES call_center.cc_skill(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_skill_acl cc_skill_acl_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_domain_fk FOREIGN KEY (dc) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_skill_acl cc_skill_acl_grantor_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_grantor_fk FOREIGN KEY (grantor, dc) REFERENCES directory.wbt_auth(id, dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_skill_acl cc_skill_acl_grantor_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_grantor_id_fk FOREIGN KEY (grantor) REFERENCES directory.wbt_auth(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_skill_acl cc_skill_acl_object_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_object_fk FOREIGN KEY (object, dc) REFERENCES call_center.cc_skill(id, domain_id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_skill_acl cc_skill_acl_subject_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill_acl
+    ADD CONSTRAINT cc_skill_acl_subject_fk FOREIGN KEY (subject, dc) REFERENCES directory.wbt_auth(id, dc) ON DELETE CASCADE;
+
+
+--
 -- Name: cc_skill_in_agent cc_skill_in_agent_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -10860,6 +11019,22 @@ ALTER TABLE ONLY call_center.cc_skill_in_agent
 
 ALTER TABLE ONLY call_center.cc_skill
     ADD CONSTRAINT cc_skill_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc);
+
+
+--
+-- Name: cc_skill cc_skill_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill
+    ADD CONSTRAINT cc_skill_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_skill cc_skill_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skill
+    ADD CONSTRAINT cc_skill_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -10932,6 +11107,14 @@ ALTER TABLE ONLY call_center.cc_team_events
 
 ALTER TABLE ONLY call_center.cc_team_events
     ADD CONSTRAINT cc_team_events_wbt_user_id_fk FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_team cc_team_forecast_calculation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_team
+    ADD CONSTRAINT cc_team_forecast_calculation_id_fk FOREIGN KEY (forecast_calculation_id) REFERENCES wfm.forecast_calculation(id) ON DELETE SET NULL;
 
 
 --
@@ -11894,6 +12077,13 @@ GRANT SELECT ON TABLE call_center.cc_queue_skill_list TO grafana;
 --
 
 GRANT SELECT ON TABLE call_center.cc_queue_skill_statistics TO grafana;
+
+
+--
+-- Name: TABLE cc_skill_acl; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.cc_skill_acl TO grafana;
 
 
 --
