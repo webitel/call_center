@@ -930,7 +930,8 @@ SELECT t.id,
        t.domain_id,
        t.admin_ids,
        t.invite_chat_timeout,
-       t.task_accept_timeout
+       t.task_accept_timeout,
+       null::jsonb as forecast_calculation
 FROM call_center.cc_team t;
 
 
