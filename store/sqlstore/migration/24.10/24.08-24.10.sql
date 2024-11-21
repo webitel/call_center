@@ -96,7 +96,7 @@ FROM ((storage.file_policies p
 
 
 
-drop view storage.files_list;
+drop view if exists storage.files_list;
 --
 -- Name: files_list; Type: VIEW; Schema: storage; Owner: -
 --
