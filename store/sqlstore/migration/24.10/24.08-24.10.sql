@@ -930,10 +930,8 @@ SELECT t.id,
        t.domain_id,
        t.admin_ids,
        t.invite_chat_timeout,
-       t.task_accept_timeout,
-       call_center.cc_get_lookup((fc.id)::bigint, (fc.name)::character varying) AS forecast_calculation
-FROM (call_center.cc_team t
-    LEFT JOIN wfm.forecast_calculation fc ON ((fc.id = t.forecast_calculation_id)));
+       t.task_accept_timeout
+FROM call_center.cc_team t;
 
 
 --
@@ -1302,15 +1300,6 @@ ALTER TABLE ONLY call_center.cc_skill
 
 ALTER TABLE ONLY call_center.cc_skill
     ADD CONSTRAINT cc_skill_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
-
-
---
--- Name: cc_team cc_team_forecast_calculation_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
---
-
-ALTER TABLE ONLY call_center.cc_team
-    ADD CONSTRAINT cc_team_forecast_calculation_id_fk FOREIGN KEY (forecast_calculation_id) REFERENCES wfm.forecast_calculation(id) ON DELETE SET NULL;
-
 
 
 drop VIEW call_center.cc_call_active_list;
