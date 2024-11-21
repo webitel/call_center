@@ -930,8 +930,11 @@ SELECT t.id,
        t.domain_id,
        t.admin_ids,
        t.invite_chat_timeout,
-       t.task_accept_timeout
-FROM call_center.cc_team t;
+       t.task_accept_timeout,
+       call_center.cc_get_lookup((fc.id)::bigint, (fc.name)::character varying) AS forecast_calculation
+FROM (call_center.cc_team t
+    LEFT JOIN wfm.forecast_calculation fc ON ((fc.id = t.forecast_calculation_id)));
+;
 
 
 --
