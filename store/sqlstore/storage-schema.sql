@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.8 (Debian 15.8-1.pgdg120+1)
--- Dumped by pg_dump version 15.8 (Debian 15.8-1.pgdg120+1)
+-- Dumped from database version 15.9 (Debian 15.9-1.pgdg120+1)
+-- Dumped by pg_dump version 15.9 (Debian 15.9-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -347,7 +347,12 @@ CREATE TABLE storage.files (
     not_exists boolean,
     domain_id bigint NOT NULL,
     view_name character varying,
-    sha256sum character varying
+    sha256sum character varying,
+    channel character varying,
+    thumbnail jsonb,
+    retention_until timestamp with time zone,
+    uploaded_at timestamp with time zone GENERATED ALWAYS AS (to_timestamp((((created_at)::numeric / (1000)::numeric))::double precision)) STORED,
+    uploaded_by bigint
 );
 
 
@@ -589,6 +594,95 @@ ALTER SEQUENCE storage.file_jobs_id_seq OWNED BY storage.file_jobs.id;
 
 
 --
+-- Name: file_policies; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.file_policies (
+    id integer NOT NULL,
+    domain_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by bigint,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by bigint,
+    name character varying DEFAULT ''::character varying NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    mime_types character varying[],
+    speed_download integer DEFAULT 0 NOT NULL,
+    speed_upload integer DEFAULT 0 NOT NULL,
+    description character varying,
+    channels character varying[],
+    retention_days integer DEFAULT 0 NOT NULL,
+    max_upload_size bigint DEFAULT 0 NOT NULL,
+    "position" integer NOT NULL
+);
+
+
+--
+-- Name: file_policies_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.file_policies_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: file_policies_id_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.file_policies_id_seq OWNED BY storage.file_policies.id;
+
+
+--
+-- Name: file_policies_position_seq; Type: SEQUENCE; Schema: storage; Owner: -
+--
+
+CREATE SEQUENCE storage.file_policies_position_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: file_policies_position_seq; Type: SEQUENCE OWNED BY; Schema: storage; Owner: -
+--
+
+ALTER SEQUENCE storage.file_policies_position_seq OWNED BY storage.file_policies."position";
+
+
+--
+-- Name: file_policies_view; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.file_policies_view AS
+ SELECT p.id,
+    p.domain_id,
+    p.created_at,
+    storage.get_lookup(c.id, (COALESCE(c.name, (c.username)::text))::character varying) AS created_by,
+    p.updated_at,
+    storage.get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS updated_by,
+    p.enabled,
+    p.name,
+    p.description,
+    p.channels,
+    p.mime_types,
+    p.speed_download,
+    p.speed_upload,
+    p.max_upload_size,
+    row_number() OVER (PARTITION BY p.domain_id ORDER BY p."position" DESC) AS "position"
+   FROM ((storage.file_policies p
+     LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = p.updated_by)));
+
+
+--
 -- Name: file_transcript_id_seq; Type: SEQUENCE; Schema: storage; Owner: -
 --
 
@@ -624,6 +718,35 @@ CREATE SEQUENCE storage.files_id_seq
 --
 
 ALTER SEQUENCE storage.files_id_seq OWNED BY storage.files.id;
+
+
+--
+-- Name: files_list; Type: VIEW; Schema: storage; Owner: -
+--
+
+CREATE VIEW storage.files_list AS
+ SELECT f.id,
+    f.name,
+    f.view_name,
+    f.size,
+    f.mime_type,
+    f.uuid,
+    f.uuid AS reference_id,
+    storage.get_lookup(p.id, (p.name)::character varying) AS profile,
+    f.uploaded_at,
+    storage.get_lookup(u.id, COALESCE((u.username)::character varying, (u.name)::character varying)) AS uploaded_by,
+    f.sha256sum,
+    f.channel,
+    f.thumbnail,
+    f.retention_until,
+    f.domain_id,
+    f.profile_id,
+    f.created_at,
+    f.properties,
+    f.instance
+   FROM ((storage.files f
+     LEFT JOIN storage.file_backend_profiles p ON ((f.id = f.profile_id)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = f.uploaded_by)));
 
 
 --
@@ -858,7 +981,8 @@ CREATE TABLE storage.upload_file_jobs (
     domain_id bigint NOT NULL,
     view_name character varying,
     props jsonb,
-    sha256sum character varying
+    sha256sum character varying,
+    channel character varying
 );
 
 
@@ -914,6 +1038,20 @@ ALTER TABLE ONLY storage.file_backend_profiles_acl ALTER COLUMN id SET DEFAULT n
 --
 
 ALTER TABLE ONLY storage.file_jobs ALTER COLUMN id SET DEFAULT nextval('storage.file_jobs_id_seq'::regclass);
+
+
+--
+-- Name: file_policies id; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies ALTER COLUMN id SET DEFAULT nextval('storage.file_policies_id_seq'::regclass);
+
+
+--
+-- Name: file_policies position; Type: DEFAULT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies ALTER COLUMN "position" SET DEFAULT nextval('storage.file_policies_position_seq'::regclass);
 
 
 --
@@ -995,6 +1133,14 @@ ALTER TABLE ONLY storage.file_backend_profiles
 
 ALTER TABLE ONLY storage.file_jobs
     ADD CONSTRAINT file_jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: file_policies file_policies_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies
+    ADD CONSTRAINT file_policies_pkey PRIMARY KEY (id);
 
 
 --
@@ -1155,6 +1301,34 @@ CREATE UNIQUE INDEX file_jobs_file_id_uindex ON storage.file_jobs USING btree (f
 
 
 --
+-- Name: file_policies_created_by_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_policies_created_by_index ON storage.file_policies USING btree (created_by);
+
+
+--
+-- Name: file_policies_domain_id_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_policies_domain_id_index ON storage.file_policies USING btree (domain_id);
+
+
+--
+-- Name: file_policies_id_domain_id_uindex; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX file_policies_id_domain_id_uindex ON storage.file_policies USING btree (id, domain_id);
+
+
+--
+-- Name: file_policies_updated_by_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX file_policies_updated_by_index ON storage.file_policies USING btree (updated_by);
+
+
+--
 -- Name: file_transcript_file_id_profile_id_locale_uindex; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1211,6 +1385,13 @@ CREATE INDEX files_created_at_removed_index ON storage.files USING btree (create
 
 
 --
+-- Name: files_domain_id_uploaded_at_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_domain_id_uploaded_at_index ON storage.files USING btree (domain_id, uploaded_at DESC);
+
+
+--
 -- Name: files_domain_id_uuid_index; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1225,6 +1406,13 @@ CREATE INDEX files_profile_id_created_at_index ON storage.files USING btree (cre
 
 
 --
+-- Name: files_retention_until_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_retention_until_index ON storage.files USING btree (retention_until) WHERE (retention_until IS NOT NULL);
+
+
+--
 -- Name: files_statistics_domain_id_profile_id_mime_type_uindex; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1236,6 +1424,13 @@ CREATE UNIQUE INDEX files_statistics_domain_id_profile_id_mime_type_uindex ON st
 --
 
 CREATE UNIQUE INDEX files_statistics_id_uindex ON storage.files_statistics USING btree (id);
+
+
+--
+-- Name: files_uploaded_by_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_uploaded_by_index ON storage.files USING btree (uploaded_by);
 
 
 --
@@ -1292,6 +1487,13 @@ CREATE TRIGGER cognitive_profile_services_set_rbac_acl AFTER INSERT ON storage.c
 --
 
 CREATE TRIGGER file_backend_profiles_set_rbac_acl AFTER INSERT ON storage.file_backend_profiles FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_backend_profiles');
+
+
+--
+-- Name: file_policies file_policies_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER file_policies_set_rbac_acl AFTER INSERT ON storage.file_policies FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_policies');
 
 
 --
@@ -1396,6 +1598,30 @@ ALTER TABLE ONLY storage.cognitive_profile_services_acl
 
 
 --
+-- Name: file_policies file_policies_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies
+    ADD CONSTRAINT file_policies_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: file_policies file_policies_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies
+    ADD CONSTRAINT file_policies_wbt_user_id_fk FOREIGN KEY (created_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
+-- Name: file_policies file_policies_wbt_user_id_fk_2; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.file_policies
+    ADD CONSTRAINT file_policies_wbt_user_id_fk_2 FOREIGN KEY (updated_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
+
+
+--
 -- Name: file_transcript file_transcript_cognitive_profile_services_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
 --
 
@@ -1409,6 +1635,14 @@ ALTER TABLE ONLY storage.file_transcript
 
 ALTER TABLE ONLY storage.file_transcript
     ADD CONSTRAINT file_transcript_files_id_fk FOREIGN KEY (file_id) REFERENCES storage.files(id) ON UPDATE SET NULL ON DELETE SET NULL;
+
+
+--
+-- Name: files files_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.files
+    ADD CONSTRAINT files_wbt_user_id_fk FOREIGN KEY (uploaded_by) REFERENCES directory.wbt_user(id) ON DELETE SET NULL;
 
 
 --
@@ -1595,6 +1829,20 @@ GRANT SELECT ON SEQUENCE storage.file_jobs_id_seq TO grafana;
 
 
 --
+-- Name: TABLE file_policies; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_policies TO grafana;
+
+
+--
+-- Name: TABLE file_policies_view; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.file_policies_view TO grafana;
+
+
+--
 -- Name: SEQUENCE file_transcript_id_seq; Type: ACL; Schema: storage; Owner: -
 --
 
@@ -1606,6 +1854,13 @@ GRANT SELECT ON SEQUENCE storage.file_transcript_id_seq TO grafana;
 --
 
 GRANT SELECT ON SEQUENCE storage.files_id_seq TO grafana;
+
+
+--
+-- Name: TABLE files_list; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.files_list TO grafana;
 
 
 --
