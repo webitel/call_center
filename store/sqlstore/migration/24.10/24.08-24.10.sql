@@ -791,7 +791,7 @@ WITH agents AS MATERIALIZED (
            sum(ar.score_optional) AS score_optional_sum
     FROM (agents a_1
         JOIN call_center.cc_audit_rate ar ON ((ar.rated_user_id = a_1.user_id)))
-    WHERE ((ar.created_at >= (date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) AT TIME ZONE a_1.tz_name)) AND (ar.created_at <= (((date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) + '1 mon'::interval) - '1 day 00:00:01'::interval) AT TIME ZONE a_1.tz_name)))
+    WHERE ((ar.call_created_at >= (date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) AT TIME ZONE a_1.tz_name)) AND (ar.call_created_at <= (((date_trunc('month'::text, (now() AT TIME ZONE a_1.tz_name)) + '1 mon'::interval) - '1 day 00:00:01'::interval) AT TIME ZONE a_1.tz_name)))
     GROUP BY a_1.user_id
 )
 SELECT a.id AS agent_id,
@@ -1448,3 +1448,13 @@ FROM (((((((call_center.cc_member_attempt t
 
 
 refresh materialized view call_center.cc_agent_today_stats;
+
+update call_center.cc_audit_rate a
+set call_created_at = x.created_at
+from (
+         select ar.id, h.created_at
+         from call_center.cc_audit_rate ar
+                  inner join call_center.cc_calls_history h on h.id = ar.call_id::uuid
+         where ar.call_created_at isnull
+     ) x
+where a.id = x.id
