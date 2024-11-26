@@ -1114,7 +1114,7 @@ func (queueManager *QueueManager) doLeavingReporting(attemptId int64, attempt *A
 		}
 
 		// FIXME
-		if attempt.queue.TypeName() == "predictive" && attempt.memberChannel != nil {
+		if (attempt.queue.TypeName() == "predictive" || attempt.queue.TypeName() == "inbound") && attempt.memberChannel != nil {
 			select {
 			case <-attempt.memberChannel.(*call_manager.CallImpl).HangupChan():
 				break
