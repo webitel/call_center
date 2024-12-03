@@ -28,7 +28,7 @@ const (
 	CALL_IGNORE_EARLY_MEDIA_VARIABLE = "ignore_early_media"
 	CALL_DIRECTION_VARIABLE          = "webitel_direction"
 
-	CALL_ANSWER_APPLICATION   = "answer"
+	CallAnswerApplication     = "answer"
 	CALL_SLEEP_APPLICATION    = "sleep"
 	CALL_PLAYBACK_APPLICATION = "playback"
 	CALL_HANGUP_APPLICATION   = "hangup"
@@ -306,7 +306,11 @@ func (c *CallActionData) GetEvent() interface{} {
 
 	if c.Data != nil {
 		if err := json.Unmarshal([]byte(*c.Data), &c.parsed); err != nil {
-			wlog.Error(fmt.Sprintf("parse call %s [%s] error: %s", c.Id, c.Event, err.Error()))
+			wlog.Error(fmt.Sprintf("parse call %s [%s] error: %s", c.Id, c.Event, err.Error()),
+				wlog.Err(err),
+				wlog.String("call_id", c.Id),
+				wlog.String("event", c.Event),
+			)
 		}
 	}
 	return c.parsed

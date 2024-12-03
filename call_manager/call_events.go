@@ -3,7 +3,6 @@ package call_manager
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
@@ -54,6 +53,6 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		call.setAmd(action.(*model.CallActionAMD))
 
 	default:
-		wlog.Warn(fmt.Sprintf("call %s not have handler action %s", data.Id, data.Event))
+		cm.log.Warn(fmt.Sprintf("call %s not have handler action %s", data.Id, data.Event))
 	}
 }

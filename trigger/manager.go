@@ -31,9 +31,10 @@ type Manager struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	flow            client.FlowManager
+	log             *wlog.Logger
 }
 
-func NewManager(nodeId string, s store.Store, fw client.FlowManager) *Manager {
+func NewManager(nodeId string, s store.Store, fw client.FlowManager, log *wlog.Logger) *Manager {
 	m := &Manager{
 		nodeId:          nodeId,
 		store:           s,
@@ -41,6 +42,10 @@ func NewManager(nodeId string, s store.Store, fw client.FlowManager) *Manager {
 		stopped:         make(chan struct{}),
 		jobs:            make(chan model.TriggerJob, QueueSize),
 		flow:            fw,
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("name", "trigger"),
+		),
 	}
 	m.ctx, m.cancel = context.WithCancel(context.TODO())
 
@@ -48,7 +53,7 @@ func NewManager(nodeId string, s store.Store, fw client.FlowManager) *Manager {
 }
 
 func (m *Manager) Start() *model.AppError {
-	wlog.Info("starting trigger service")
+	m.log.Info("starting trigger service")
 	m.watcher = utils.MakeWatcher("Trigger", m.pollingInterval, m.schedule)
 
 	m.startOnce.Do(func() {
@@ -74,7 +79,9 @@ func (m *Manager) Stop() *model.AppError {
 func (m *Manager) clean() {
 	err := m.store.Trigger().CleanActive(m.nodeId)
 	if err != nil {
-		wlog.Error(err.Error())
+		m.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second * 5)
 	}
 }
@@ -82,14 +89,18 @@ func (m *Manager) clean() {
 func (m *Manager) schedule() {
 	err := m.store.Trigger().ScheduleNewJobs()
 	if err != nil {
-		wlog.Error(err.Error())
+		m.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second * 5)
 	}
 	var jobs []model.TriggerJob
 
 	jobs, err = m.store.Trigger().FetchIdleJobs(m.nodeId, LimitJobs)
 	if err != nil {
-		wlog.Error(err.Error())
+		m.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second * 5)
 	}
 
@@ -109,14 +120,19 @@ func (m *Manager) listen() {
 				data:    j,
 				manager: m,
 				ctx:     m.ctx,
+				log: m.log.With(
+					wlog.Int64("job_id", j.Id),
+					wlog.String("trigger", j.Name),
+					wlog.Int("trigger_id", j.TriggerId),
+				),
 			})
 		}
 	}
 }
 
 func (m *Manager) runJob(j Job) {
-	wlog.Debug(fmt.Sprintf("[trigger] %s job_id: %d started...", j.data.Name, j.data.Id))
-	defer wlog.Debug(fmt.Sprintf("[trigger] %s job_id: %d stopped", j.data.Name, j.data.Id))
+	j.log.Debug(fmt.Sprintf("[trigger] %s job_id: %d started...", j.data.Name, j.data.Id))
+	defer j.log.Debug(fmt.Sprintf("[trigger] %s job_id: %d stopped", j.data.Name, j.data.Id))
 
 	res, err := m.flow.Queue().StartSyncFlow(&flow.StartSyncFlowRequest{
 		SchemaId:   j.data.Parameters.SchemaId,
@@ -128,15 +144,21 @@ func (m *Manager) runJob(j Job) {
 		"job_id": res,
 	}
 	if err != nil {
-		wlog.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, err.Error()))
+		j.log.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, err.Error()),
+			wlog.Err(err),
+		)
 		if appErr := m.store.Trigger().SetError(&j.data, err); appErr != nil {
-			wlog.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, appErr.Error()))
+			j.log.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, appErr.Error()),
+				wlog.Err(err),
+			)
 		}
 		return
 	}
 
 	if appErr := m.store.Trigger().SetResult(&j.data); appErr != nil {
-		wlog.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, appErr.Error()))
+		j.log.Error(fmt.Sprintf("job: %d, error: %s", j.data.Id, appErr.Error()),
+			wlog.Err(err),
+		)
 	}
 	return
 }

@@ -21,15 +21,20 @@ type ChatManager struct {
 	mq        mq.MQ
 	chats     utils.ObjectCache
 	api       chat_manager.ChatManager
+	log       *wlog.Logger
 }
 
-func NewChatManager(discovery discovery.ServiceDiscovery, mq mq.MQ) *ChatManager {
+func NewChatManager(discovery discovery.ServiceDiscovery, mq mq.MQ, log *wlog.Logger) *ChatManager {
 	return &ChatManager{
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 		api:     chat_manager.NewChatManager(discovery),
 		mq:      mq,
 		chats:   utils.NewLruWithParams(maxOpenedChat, "Chats", expireCacheChat, ""),
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("name", "chat manager"),
+		),
 	}
 }
 
@@ -37,14 +42,14 @@ func (m *ChatManager) Start() error {
 	m.startOnce.Do(func() {
 		go func() {
 			defer func() {
-				wlog.Debug("stopped chat")
+				m.log.Debug("stopped chat")
 				close(m.stopped)
 			}()
 
 			for {
 				select {
 				case <-m.stop:
-					wlog.Debug("chat received stop signal")
+					m.log.Debug("chat received stop signal")
 					return
 				case e, ok := <-m.mq.ConsumeChatEvent():
 					if !ok {

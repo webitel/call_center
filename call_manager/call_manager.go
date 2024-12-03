@@ -52,11 +52,16 @@ type CallManagerImpl struct {
 	proxy     string
 	cdr       string
 	startOnce sync.Once
+	log       *wlog.Logger
 }
 
-func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ) CallManager {
+func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ, log *wlog.Logger) CallManager {
 	return &CallManagerImpl{
-		nodeId:           nodeId,
+		nodeId: nodeId,
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("name", "call manager"),
+		),
 		poolConnections:  discovery.NewPoolConnections(),
 		serviceDiscovery: serviceDiscovery,
 		mq:               mq,
@@ -67,7 +72,7 @@ func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, 
 }
 
 func (cm *CallManagerImpl) Start() {
-	wlog.Debug("starting call manager service")
+	cm.log.Debug("starting call manager service")
 
 	if services, err := cm.serviceDiscovery.GetByName(model.CLUSTER_CALL_SERVICE_NAME); err != nil {
 		panic(err) //TODO
@@ -82,14 +87,14 @@ func (cm *CallManagerImpl) Start() {
 		go cm.watcher.Start()
 		go func() {
 			defer func() {
-				wlog.Debug("stopped CallManager")
+				cm.log.Debug("stopped CallManager")
 				close(cm.stopped)
 			}()
 
 			for {
 				select {
 				case <-cm.stop:
-					wlog.Debug("callManager received stop signal")
+					cm.log.Debug("callManager received stop signal")
 					return
 				case e, ok := <-cm.mq.ConsumeCallEvent():
 					if !ok {
@@ -103,7 +108,7 @@ func (cm *CallManagerImpl) Start() {
 }
 
 func (cm *CallManagerImpl) Stop() {
-	wlog.Debug("callManager Stopping")
+	cm.log.Debug("callManager Stopping")
 
 	if cm.watcher != nil {
 		cm.watcher.Stop()
@@ -173,7 +178,9 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 			err = cc.UpdateCid()
 		}
 		cc.ResetBridge()
-		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
+		cm.log.Debug(fmt.Sprintf("call %s is queue", call.Id),
+			wlog.String("call_id", call.Id),
+		)
 		return cc, err
 	}
 
@@ -187,6 +194,10 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 		acceptAt:    call.AnsweredAt,
 		ringingAt:   call.CreatedAt,
 		state:       CALL_STATE_ACCEPT, //FIXME
+		log: cm.log.With(
+			wlog.String("call_id", call.Id),
+			wlog.String("connection", cli.Name()),
+		),
 	}
 
 	if call.Direction == model.CALL_DIRECTION_OUTBOUND {
@@ -213,7 +224,7 @@ func (cm *CallManagerImpl) InboundCallQueue(call *model.Call, ringtone string, v
 
 	cm.saveToCacheCall(res)
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
+	res.log.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
 
 	return res, nil
 }
@@ -228,7 +239,7 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 			err = cc.UpdateCid()
 		}
 		cc.ResetBridge()
-		wlog.Debug(fmt.Sprintf("call %s is queue", call.Id))
+		cc.Log().Debug(fmt.Sprintf("call %s is queue", call.Id))
 		return cc, err
 	}
 
@@ -256,6 +267,10 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 		acceptAt:    call.AnsweredAt,
 		ringingAt:   call.CreatedAt,
 		state:       CALL_STATE_ACCEPT, //FIXME
+		log: cm.log.With(
+			wlog.String("call_id", call.Id),
+			wlog.String("connection", cli.Name()),
+		),
 	}
 
 	if call.Direction == model.CALL_DIRECTION_OUTBOUND {
@@ -288,7 +303,7 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 
 	cm.saveToCacheCall(res)
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
+	res.log.Debug(fmt.Sprintf("[%s] call %s init request", res.NodeName(), res.Id()))
 
 	return res, nil
 }
@@ -324,22 +339,30 @@ func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 	var sps int
 	client, err := external_commands.NewCallConnection(v.Id, fmt.Sprintf("%s:%d", v.Host, v.Port))
 	if err != nil {
-		wlog.Error(fmt.Sprintf("connection %s error: %s", v.Id, err.Error()))
+		cm.log.Error(fmt.Sprintf("connection %s error: %s", v.Id, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	if version, err = client.GetServerVersion(); err != nil {
-		wlog.Error(fmt.Sprintf("connection %s get version error: %s", v.Id, err.Error()))
+		cm.log.Error(fmt.Sprintf("connection %s get version error: %s", v.Id, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	if sps, err = client.GetRemoteSps(); err != nil {
-		wlog.Error(fmt.Sprintf("connection %s get SPS error: %s", v.Id, err.Error()))
+		cm.log.Error(fmt.Sprintf("connection %s get SPS error: %s", v.Id, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	if cdr, err = client.GetCdrUri(); err != nil {
-		wlog.Error(fmt.Sprintf("connection %s get CDR error: %s", v.Id, err.Error()))
+		cm.log.Error(fmt.Sprintf("connection %s get CDR error: %s", v.Id, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
@@ -352,19 +375,23 @@ func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
 	//FIXME add connection proxy value
 	cm.proxy, err = client.GetParameter("outbound_sip_proxy")
 	if err != nil {
-		wlog.Error(fmt.Sprintf("connection %s get proxy error: %s", v.Id, err.Error()))
+		cm.log.Error(fmt.Sprintf("connection %s get proxy error: %s", v.Id, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	if cm.flowSocketUri == "" {
 		if cm.flowSocketUri, err = client.GetSocketUri(); err != nil {
-			wlog.Error(fmt.Sprintf("connection %s get flow uri error: %s", v.Id, err.Error()))
+			cm.log.Error(fmt.Sprintf("connection %s get flow uri error: %s", v.Id, err.Error()),
+				wlog.Err(err),
+			)
 			return
 		}
 	}
 
 	cm.poolConnections.Append(client)
-	wlog.Debug(fmt.Sprintf("register connection %s [%s] [sps=%d]", client.Name(), version, sps))
+	cm.log.Debug(fmt.Sprintf("register connection %s [%s] [sps=%d]", client.Name(), version, sps))
 }
 
 func (cm *CallManagerImpl) getApiConnection() (model.CallCommands, *model.AppError) {
@@ -386,7 +413,9 @@ func (cm *CallManagerImpl) getApiConnectionById(id string) (model.CallCommands, 
 func (cm *CallManagerImpl) wakeUp() {
 	list, err := cm.serviceDiscovery.GetByName(model.CLUSTER_CALL_SERVICE_NAME)
 	if err != nil {
-		wlog.Error(err.Error())
+		cm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 
@@ -399,12 +428,12 @@ func (cm *CallManagerImpl) wakeUp() {
 }
 
 func (cm *CallManagerImpl) saveToCacheCall(call Call) {
-	wlog.Debug(fmt.Sprintf("[%s] call %s save to store", call.NodeName(), call.Id()))
+	call.Log().Debug(fmt.Sprintf("[%s] call %s save to store", call.NodeName(), call.Id()))
 	cm.calls.AddWithDefaultExpires(call.Id(), call)
 }
 
 func (cm *CallManagerImpl) removeFromCacheCall(call Call) {
-	wlog.Debug(fmt.Sprintf("[%s] call %s remove from store", call.NodeName(), call.Id()))
+	call.Log().Debug(fmt.Sprintf("[%s] call %s remove from store", call.NodeName(), call.Id()))
 	cm.calls.Remove(call.Id())
 }
 

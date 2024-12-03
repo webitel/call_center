@@ -3,6 +3,7 @@ package agent_manager
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 	"strconv"
 	"sync"
 )
@@ -10,14 +11,25 @@ import (
 type Agent struct {
 	info    *model.Agent
 	manager AgentManager
+	log     *wlog.Logger
 	sync.RWMutex
 }
 
-func NewAgent(info *model.Agent, am AgentManager) AgentObject {
+func NewAgent(info *model.Agent, am AgentManager, log *wlog.Logger) AgentObject {
 	return &Agent{
 		info:    info,
 		manager: am,
+		log: log.With(
+			wlog.Int64("user_id", info.GetUserId()),
+			wlog.Int("agent_id", info.Id),
+			wlog.Int("team_id", info.TeamId),
+			wlog.Int64("domain_id", info.DomainId),
+		),
 	}
+}
+
+func (agent *Agent) Log() *wlog.Logger {
+	return agent.log
 }
 
 func (agent *Agent) DomainId() int64 {

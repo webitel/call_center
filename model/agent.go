@@ -187,3 +187,10 @@ type AgentTriggerJob struct {
 	Name      string    `json:"name" db:"name"`
 	Variables StringMap `json:"variables" db:"variables"`
 }
+
+func (agent *Agent) GetUserId() int64 {
+	if agent.UserId != nil {
+		return *agent.UserId
+	}
+	return 0
+}

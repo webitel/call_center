@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
 	"github.com/webitel/engine/discovery"
+	"github.com/webitel/wlog"
 	"sync"
 	"testing"
 )
@@ -18,13 +19,13 @@ func TestCallManager(t *testing.T) {
 
 	mq := rabbit.NewRabbitMQ(model.MessageQueueSettings{
 		Url: "amqp://webitel:webitel@10.9.8.111:5672?heartbeat=10",
-	}, TEST_NODE_ID)
+	}, TEST_NODE_ID, wlog.GlobalLogger())
 
 	service, _ := discovery.NewServiceDiscovery(TEST_NODE_ID, "10.9.8.111:8500", func() (bool, error) {
 		return true, nil
 	})
 
-	cm := NewCallManager(TEST_NODE_ID, service, mq)
+	cm := NewCallManager(TEST_NODE_ID, service, mq, &wlog.Logger{})
 	cm.Start()
 
 	var i = 0
@@ -93,7 +94,7 @@ func testWaitForHangup(cm CallManager, t *testing.T) {
 		},
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: model.CALL_ANSWER_APPLICATION,
+				AppName: model.CallActionActiveName,
 			},
 			{
 				AppName: model.CALL_HANGUP_APPLICATION,
@@ -129,7 +130,7 @@ func testCallCancel(cm CallManager, t *testing.T) {
 		Timeout: 5,
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: model.CALL_ANSWER_APPLICATION,
+				AppName: model.CallActionActiveName,
 			},
 			{
 				AppName: model.CALL_SLEEP_APPLICATION,
@@ -185,7 +186,7 @@ func testCallAnswer(cm CallManager, t *testing.T) {
 		},
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: model.CALL_ANSWER_APPLICATION,
+				AppName: model.CallActionActiveName,
 			},
 			{
 				AppName: model.CALL_HANGUP_APPLICATION,
@@ -383,7 +384,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 		},
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: model.CALL_ANSWER_APPLICATION,
+				AppName: model.CallActionActiveName,
 			},
 
 			{
@@ -401,7 +402,7 @@ func testParentCall(cm CallManager, t *testing.T) {
 		},
 		Applications: []*model.CallRequestApplication{
 			{
-				AppName: model.CALL_ANSWER_APPLICATION,
+				AppName: model.CallActionActiveName,
 			},
 			{
 				AppName: model.CALL_SLEEP_APPLICATION,

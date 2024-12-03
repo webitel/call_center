@@ -21,8 +21,6 @@ const (
 
 const (
 	EXIT_DECLARE_EXCHANGE = 110
-	EXIT_DECLARE_QUEUE    = 111
-	EXIT_BIND             = 112
 )
 
 type AMQP struct {
@@ -39,9 +37,10 @@ type AMQP struct {
 	callEvent          chan model.CallActionData
 	chatEvent          chan model.ChatEvent
 	queueEvent         mq.QueueEvent
+	log                *wlog.Logger
 }
 
-func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string) mq.LayeredMQLayer {
+func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog.Logger) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
 		errorChan: make(chan *amqp.Error, 1),
@@ -50,6 +49,11 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string) mq.Layere
 		callEvent: make(chan model.CallActionData, 100),
 		chatEvent: make(chan model.ChatEvent),
 		nodeName:  nodeName,
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("protocol", "amqp"),
+			wlog.String("name", "rabbit"),
+		),
 	}
 	mq_.queueEvent = NewQueueMQ(mq_)
 	mq_.initConnection()
@@ -63,10 +67,10 @@ func (a *AMQP) QueueEvent() mq.QueueEvent {
 
 func (a *AMQP) listen() {
 	defer func() {
-		wlog.Info("close amqp listener")
+		a.log.Info("close amqp listener")
 		close(a.stopped)
 	}()
-	wlog.Info("start amqp listener")
+	a.log.Info("start amqp listener")
 
 	for {
 		select {
@@ -77,10 +81,12 @@ func (a *AMQP) listen() {
 			if !ok {
 				break
 			}
-			wlog.Error(fmt.Sprintf("amqp connection receive error: %s", err.Error()))
+			a.log.Error(fmt.Sprintf("amqp connection receive error: %s", err.Error()),
+				wlog.Err(err),
+			)
 			a.initConnection()
 		case <-a.stop:
-			wlog.Debug("listener call received stop signal")
+			a.log.Debug("listener call received stop signal")
 			return
 		}
 	}
@@ -88,12 +94,18 @@ func (a *AMQP) listen() {
 
 func (a *AMQP) readMessage(msg *amqp.Delivery) {
 	//fmt.Println(string(msg.Body))
+	log := a.log.With(
+		wlog.String("exchange", msg.Exchange),
+		wlog.String("routing", msg.RoutingKey),
+	)
 	switch msg.Exchange {
 	case model.CallExchange:
 		var ev model.CallActionData
 		err := json.Unmarshal(msg.Body, &ev)
 		if err != nil {
-			wlog.Error(fmt.Sprintf("%s :\n%s", err.Error(), string(msg.Body)))
+			log.Error(fmt.Sprintf("%s :\n%s", err.Error(), string(msg.Body)),
+				wlog.Err(err),
+			)
 			return
 		}
 		if ev.Event == "heartbeat" {
@@ -102,37 +114,43 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 		a.callEvent <- ev
 
 	case model.ChatExchange:
-		a.readChatEvent(msg.Body, msg.RoutingKey)
+		a.readChatEvent(msg.Body, msg.RoutingKey, log)
 
 	default:
-		wlog.Error(fmt.Sprintf("no handler for message %s", string(msg.Body)))
+		log.Error(fmt.Sprintf("no handler for message %s", string(msg.Body)))
 
 	}
 }
 
-func (a *AMQP) readChatEvent(data []byte, rk string) {
+func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 	rks := strings.Split(rk, ".")
 	if len(rks) != 4 {
-		wlog.Error(fmt.Sprintf("event %s: bad rk format", rk))
+		log.Error(fmt.Sprintf("event %s: bad rk format", rk))
 		return
 	}
 
 	domainId, err := strconv.Atoi(rks[2])
 	if err != nil {
-		wlog.Error(fmt.Sprintf("event %s: bad domainId", rk))
+		log.Error(fmt.Sprintf("event %s: bad domainId", rk),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	userId, err := strconv.Atoi(rks[3])
 	if err != nil {
-		wlog.Error(fmt.Sprintf("event %s: bad userId", rk))
+		log.Error(fmt.Sprintf("event %s: bad userId", rk),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	var body map[string]interface{}
 
 	if err = json.Unmarshal(data, &body); err != nil {
-		wlog.Error(fmt.Sprintf("event %s: error json unmarshal %s", rk, err.Error()))
+		log.Error(fmt.Sprintf("event %s: error json unmarshal %s", rk, err.Error()),
+			wlog.Err(err),
+		)
 		return
 	}
 
@@ -151,14 +169,14 @@ func (a *AMQP) initConnection() {
 	var err error
 
 	if a.connectionAttempts >= MAX_ATTEMPTS_CONNECT {
-		wlog.Critical(fmt.Sprintf("Failed to open AMQP connection..."))
+		a.log.Critical(fmt.Sprintf("Failed to open AMQP connection..."))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
 	a.connectionAttempts++
 	a.connection, err = amqp.Dial(a.settings.Url)
 	if err != nil {
-		wlog.Critical(fmt.Sprintf("Failed to open AMQP connection to err:%v", err.Error()))
+		a.log.Critical(fmt.Sprintf("Failed to open AMQP connection to err:%v", err.Error()))
 		time.Sleep(time.Second * RECONNECT_SEC)
 		a.initConnection()
 	} else {
@@ -166,7 +184,7 @@ func (a *AMQP) initConnection() {
 		a.channel, err = a.connection.Channel()
 
 		if err != nil {
-			wlog.Critical(fmt.Sprintf("Failed to open AMQP channel to err:%v", err.Error()))
+			a.log.Critical(fmt.Sprintf("Failed to open AMQP channel to err:%v", err.Error()))
 			time.Sleep(time.Second)
 			os.Exit(1)
 		} else {
@@ -228,31 +246,36 @@ func (a *AMQP) initExchange() {
 		nil,
 	)
 	if err != nil {
-		wlog.Critical(fmt.Sprintf("Failed to declare AMQP exchange to err:%v", err.Error()))
+		a.log.Critical(fmt.Sprintf("Failed to declare AMQP exchange to err:%v", err.Error()),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second)
 		os.Exit(EXIT_DECLARE_EXCHANGE)
 	}
 }
 
 func (a *AMQP) Close() {
-	wlog.Debug("AMQP receive stop client")
+	a.log.Debug("AMQP receive stop client")
 	close(a.stop)
 	<-a.stopped
 
 	if a.channel != nil {
 		a.channel.Close()
-		wlog.Debug("close AMQP channel")
+		a.log.Debug("close AMQP channel")
 	}
 
 	if a.connection != nil {
 		a.connection.Close()
-		wlog.Debug("close AMQP connection")
+		a.log.Debug("close AMQP connection")
 	}
 }
 
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 	//todo, check connection
-	wlog.Debug(fmt.Sprintf("publish %s [%s]", key, string(data)))
+	a.log.Debug(fmt.Sprintf("publish %s [%s]", key, string(data)),
+		wlog.String("routing", key),
+		wlog.String("exchange", model.CallCenterExchange),
+	)
 	err := a.channel.Publish(
 		model.CallCenterExchange,
 		key,

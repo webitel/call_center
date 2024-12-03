@@ -21,7 +21,7 @@ type DoDistributeResult struct {
 	Cancel        bool
 }
 
-func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
+func (qm *Manager) StartProcessingForm(schemaId int, att *Attempt) {
 	if schemaId == 0 {
 		return
 	}
@@ -55,7 +55,7 @@ func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 	}
 }
 
-func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+func (qm *Manager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("action-%d", attemptId), func() (interface{}, error) {
 		return nil, qm.attemptProcessingActionForm(attemptId, action, fields)
 	})
@@ -63,7 +63,7 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 	return err
 }
 
-func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+func (qm *Manager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 
 	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v (%v)", attemptId, attemptId, fields))
 
@@ -102,7 +102,7 @@ func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action stri
 	return nil
 }
 
-func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {
+func (qm *Manager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {
 	if queue.doSchema == nil {
 
 		return true
@@ -158,7 +158,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	return confirm
 }
 
-func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
+func (qm *Manager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	if res, ok := attempt.AfterDistributeSchema(); ok {
 		if res.Status == AttemptResultSuccess {
 			qm.SetAttemptSuccess(attempt, res.Variables)
@@ -173,7 +173,7 @@ func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	return false
 }
 
-func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
+func (qm *Manager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
 	if att.queue == nil || att.queue.AfterSchemaId() == nil {
 
 		return nil, false

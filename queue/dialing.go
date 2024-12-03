@@ -19,13 +19,14 @@ type DialingImpl struct {
 	app               App
 	store             store.Store
 	watcher           *utils.Watcher
-	queueManager      *QueueManager
+	queueManager      *Manager
 	resourceManager   *ResourceManager
 	statisticsManager *StatisticsManager
 	expiredManager    *ExpiredManager
 	agentManager      agent_manager.AgentManager
 	callManager       call_manager.CallManager
 	startOnce         sync.Once
+	log               *wlog.Logger
 }
 
 func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentManager agent_manager.AgentManager, s store.Store, bridgeSleep time.Duration) Dialing {
@@ -37,15 +38,19 @@ func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentMan
 	dialing.statisticsManager = NewStatisticsManager(s)
 	dialing.expiredManager = NewExpiredManager(app, s)
 	dialing.queueManager = NewQueueManager(app, s, m, callManager, dialing.resourceManager, agentManager, bridgeSleep)
+	dialing.log = dialing.queueManager.log.With(
+		wlog.Namespace("context"),
+		wlog.String("name", "dialing_manager"),
+	)
 	return &dialing
 }
 
-func (d *DialingImpl) Manager() *QueueManager {
+func (d *DialingImpl) Manager() *Manager {
 	return d.queueManager
 }
 
 func (d *DialingImpl) Start() {
-	wlog.Debug("starting dialing service")
+	d.log.Debug("starting dialing service")
 	d.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, d.routeData)
 
 	d.startOnce.Do(func() {
@@ -134,16 +139,23 @@ func (d *DialingImpl) routeIdleAgents() {
 	// FIXME engine
 	if hists, err := d.store.Member().SaveToHistory(); err == nil {
 		for _, h := range hists {
-			wlog.Debug(fmt.Sprintf("Attempt=%d result %s", h.Id, h.Result))
+			d.log.Debug(fmt.Sprintf("Attempt=%d result %s", h.Id, h.Result),
+				wlog.Int64("attempt_id", h.Id),
+				wlog.String("result", h.Result),
+			)
 		}
 	} else {
-		wlog.Error(err.Error())
+		d.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second)
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
 	if err != nil {
-		wlog.Error(err.Error())
+		d.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second)
 		return
 	}
@@ -151,7 +163,9 @@ func (d *DialingImpl) routeIdleAgents() {
 	for _, v := range result {
 		agent, err := d.agentManager.GetAgent(v.AgentId, v.AgentUpdatedAt)
 		if err != nil {
-			wlog.Error(err.Error())
+			d.log.Error(err.Error(),
+				wlog.Err(err),
+			)
 			continue
 		}
 		agent.SetTeamUpdatedAt(v.TeamUpdatedAt)
@@ -161,13 +175,17 @@ func (d *DialingImpl) routeIdleAgents() {
 
 func (d *DialingImpl) routeAgentToAttempt(attemptId int64, agent agent_manager.AgentObject) {
 	if attempt, ok := d.queueManager.membersCache.Get(attemptId); ok {
-
-		if _, err := d.queueManager.GetQueue(int(attempt.(*Attempt).QueueId()), attempt.(*Attempt).QueueUpdatedAt()); err == nil {
-			attempt.(*Attempt).DistributeAgent(agent)
+		att := attempt.(*Attempt)
+		if _, err := d.queueManager.GetQueue(att.QueueId(), att.QueueUpdatedAt()); err == nil {
+			att.DistributeAgent(agent)
 		} else {
-			wlog.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()))
+			att.log.Error(fmt.Sprintf("Not found queue AttemptId=%d for agent %s", attemptId, agent.Name()),
+				wlog.Err(err),
+			)
 		}
 	} else {
-		wlog.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()))
+		d.log.Error(fmt.Sprintf("Not found active attempt Id=%d for agent %s", attemptId, agent.Name()),
+			wlog.Int64("attempt_id", attemptId),
+		)
 	}
 }

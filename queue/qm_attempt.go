@@ -4,10 +4,10 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-func (queueManager *QueueManager) SetFindAgentState(attemptId int64) *model.AppError {
-	return queueManager.store.Member().SetAttemptFindAgent(attemptId)
+func (qm *Manager) SetFindAgentState(attemptId int64) *model.AppError {
+	return qm.store.Member().SetAttemptFindAgent(attemptId)
 }
 
-func (queueManager *QueueManager) AnswerPredictAndFindAgent(attemptId int64) *model.AppError {
-	return queueManager.store.Member().AnswerPredictAndFindAgent(attemptId)
+func (qm *Manager) AnswerPredictAndFindAgent(attemptId int64) *model.AppError {
+	return qm.store.Member().AnswerPredictAndFindAgent(attemptId)
 }

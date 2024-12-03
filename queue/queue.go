@@ -15,7 +15,7 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 	TypeName() string
-	Manager() *QueueManager
+	Manager() *Manager
 
 	DistributeAttempt(attempt *Attempt) *model.AppError
 
@@ -54,7 +54,7 @@ type BaseQueue struct {
 	typeId               int8
 	name                 string
 	resourceManager      *ResourceManager
-	queueManager         *QueueManager
+	queueManager         *Manager
 	variables            map[string]string
 	teamId               *int
 	schemaId             *int
@@ -71,7 +71,7 @@ type BaseQueue struct {
 	amdPlaybackFileUri   *string
 }
 
-func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
+func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
 	base := BaseQueue{
 		channel:              settings.Channel(),
 		id:                   settings.Id,
@@ -114,7 +114,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 	return base
 }
 
-func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
+func NewQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := NewBaseQueue(queueManager, resourceManager, settings)
 
 	switch settings.Type {
@@ -186,7 +186,7 @@ func (queue *BaseQueue) HasForm() bool {
 	return queue.formSchemaId != nil && queue.Processing()
 }
 
-func (queue *BaseQueue) Manager() *QueueManager {
+func (queue *BaseQueue) Manager() *Manager {
 	return queue.queueManager
 }
 
