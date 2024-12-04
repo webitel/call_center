@@ -86,19 +86,25 @@ func (d *DialingImpl) routeIdleAttempts() {
 			err = d.queueManager.mq.AgentChannelEvent(v.Channel, v.DomainId, 0, v.UserId, waiting)
 		}
 	} else {
-		wlog.Error(err.Error()) ///TODO return ?
+		d.log.Error(err.Error(),
+			wlog.Err(err),
+		) ///TODO return ?
 	}
 
 	members, err := d.store.Member().GetActiveMembersAttempt(d.app.GetInstanceId())
 	if err != nil {
-		wlog.Error(err.Error())
+		d.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		time.Sleep(time.Second)
 		return
 	}
 
 	for _, v := range members {
 		if v.MemberId == nil {
-			wlog.Warn(fmt.Sprintf("Attempt=%d is canceled", v.Id))
+			d.log.Warn(fmt.Sprintf("Attempt=%d is canceled", v.Id),
+				wlog.Int64("attempt_id", v.Id),
+			)
 			continue
 		}
 		v.CreatedAt = time.Now()
@@ -130,11 +136,13 @@ func (d *DialingImpl) routeIdleAgents() {
 			} else {
 				// TODO
 				d.queueManager.store.Member().SetTimeoutError(v.AttemptId)
-				wlog.Error("attempt[%d] error: not found in cache, set timeout error")
+				d.log.Error("attempt[%d] error: not found in cache, set timeout error")
 			}
 		}
 	} else {
-		wlog.Error(err.Error()) ///TODO return ?
+		d.log.Error(err.Error(),
+			wlog.Err(err),
+		) ///TODO return ?
 	}
 	// FIXME engine
 	if hists, err := d.store.Member().SaveToHistory(); err == nil {

@@ -131,7 +131,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			agent = attempt.Agent()
 			team, err = queue.GetTeam(attempt)
 			if err != nil {
-				wlog.Error(err.Error())
+				attempt.log.Error(err.Error(),
+					wlog.Err(err),
+				)
 				return
 			}
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
@@ -177,7 +179,9 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			aSess = conv.LastSession()
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
 
-			wlog.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()))
+			attempt.log.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()),
+				wlog.String("conversation_id", conv.MemberSession().Id()),
+			)
 
 		top:
 			for conv.Active() && aSess.StopAt() == 0 { //

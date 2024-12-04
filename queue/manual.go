@@ -31,14 +31,18 @@ func (qm *Manager) stopWaitingList() {
 func (qm *Manager) listWaiting() {
 	list, err := qm.store.Member().WaitingList()
 	if err != nil {
-		wlog.Error(err.Error())
+		qm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	for _, v := range list {
 		err = qm.app.NotificationWaitingList(v)
 		if err != nil {
-			wlog.Error(err.Error())
+			qm.log.Error(err.Error(),
+				wlog.Err(err),
+			)
 		}
 	}
 }

@@ -88,7 +88,7 @@ type Attempt struct {
 }
 
 func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logger) *Attempt {
-	return &Attempt{
+	a := &Attempt{
 		state:         model.MemberStateIdle,
 		member:        member,
 		Context:       ctx,
@@ -100,6 +100,13 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logg
 			wlog.String("name", member.Name),
 		),
 	}
+	if member.MemberId != nil {
+		a.log = a.log.With(
+			wlog.Int64("member_id", *member.MemberId),
+		)
+	}
+
+	return a
 }
 
 // Change attempt settings

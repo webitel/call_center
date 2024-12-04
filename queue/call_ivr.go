@@ -154,10 +154,13 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 
 	call.Invite()
 	if call.Err() != nil {
+		// TODO
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("calling %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()))
+	attempt.log.Debug(fmt.Sprintf("calling %s for member %s attemptId %v", call.Id(), attempt.Name(), attempt.Id()),
+		wlog.String("call_id", call.Id()),
+	)
 
 	var calling = true
 
@@ -175,7 +178,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				_, err := queue.queueManager.store.Member().
 					SetAttemptOffering(attempt.Id(), nil, nil, model.NewString(call.Id()), &dst, &callerIdNumber)
 				if err != nil {
-					wlog.Error(err.Error())
+					attempt.log.Error(err.Error(),
+						wlog.Err(err),
+					)
 				}
 
 			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
@@ -188,7 +193,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				attempt.SetState(model.MemberStateBridged)
 				_, err := queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
 				if err != nil {
-					wlog.Error(err.Error())
+					attempt.log.Error(err.Error(),
+						wlog.Err(err),
+					)
 				}
 
 			case call_manager.CALL_STATE_HANGUP:

@@ -6,7 +6,6 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type OfflineQueueSettings struct {
@@ -188,7 +187,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	}
 
 	if call.BillSeconds() > 0 || call.AcceptAt() > 0 { //FIXME Accept or Bridge ?
-		wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+		attempt.log.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0, call.Transferred())
 	} else {
 		team.Missed(attempt, agent)

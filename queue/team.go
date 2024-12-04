@@ -35,6 +35,7 @@ type agentTeam struct {
 	data        *model.Team
 	teamManager *teamManager
 	hook        HookHub
+	log         *wlog.Logger
 }
 
 func NewTeam(info *model.Team, tm *teamManager) *agentTeam {
@@ -42,6 +43,12 @@ func NewTeam(info *model.Team, tm *teamManager) *agentTeam {
 		data:        info,
 		teamManager: tm,
 		hook:        NewHookHub(info.Hooks),
+		log: wlog.GlobalLogger().With(
+			wlog.Namespace("context"),
+			wlog.String("name", "team"),
+			wlog.Int64("team_id", info.Id),
+			wlog.Int64("domain_id", info.DomainId),
+		),
 	}
 }
 
@@ -120,7 +127,7 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 
 	if !shared {
 		tm.cache.AddWithDefaultExpires(id, team)
-		wlog.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
+		team.log.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
 	}
 
 	return team, nil
@@ -142,9 +149,11 @@ func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject, 
 
 		id, err := tm.app.FlowManager().Queue().StartFlow(req)
 		if err != nil {
-			wlog.Error(fmt.Sprintf("hook \"%s\", error: %s", event, err.Error()))
+			team.log.Error(fmt.Sprintf("hook \"%s\", error: %s", event, err.Error()),
+				wlog.Err(err),
+			)
 		} else {
-			wlog.Debug(fmt.Sprintf("hook \"%s\" external job_id: %s", event, id))
+			team.log.Debug(fmt.Sprintf("hook \"%s\" external job_id: %s", event, id))
 		}
 
 		//call_manager.DUMP(req.Variables)
@@ -221,7 +230,9 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 		e := NewWrapTimeEventEvent(attempt.channel, model.NewInt64(attempt.Id()), agent.UserId(), res.Timestamp, res.Timestamp+(int64(tm.WrapUpTime()*1000)))
 		err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 		if err != nil {
-			wlog.Error(err.Error())
+			attempt.log.Error(err.Error(),
+				wlog.Err(err),
+			)
 		}
 	} else {
 		attempt.Log(err.Error())
@@ -275,7 +286,9 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	}
 	timestamp, err := tm.teamManager.store.Member().SetAttemptReporting(attempt.Id(), timeoutSec)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 
@@ -288,7 +301,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
+	attempt.log.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
@@ -375,9 +388,11 @@ func (tm *agentTeam) WaitingAgentAndWaitingAttempt(attempt *Attempt, agent agent
 
 func (tm *agentTeam) SetAgentMaxNoAnswer(agent agent_manager.AgentObject) {
 	if err := tm.teamManager.app.SetAgentBreakOut(agent); err != nil {
-		wlog.Error(fmt.Sprintf("agent \"%s\" change to [break_out] error %s", agent.Name(), err.Error()))
+		agent.Log().Error(fmt.Sprintf("agent \"%s\" change to [break_out] error %s", agent.Name(), err.Error()),
+			wlog.Err(err),
+		)
 	} else {
-		wlog.Debug(fmt.Sprintf("agent \"%s\" changed status to [break_out], maximum no answers in team \"%s\"", agent.Name(), tm.Name()))
+		agent.Log().Debug(fmt.Sprintf("agent \"%s\" changed status to [break_out], maximum no answers in team \"%s\"", agent.Name(), tm.Name()))
 	}
 }
 

@@ -221,7 +221,10 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					}
 
 					printfIfErr(agentCall.Invite())
-					wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
+					attempt.log.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()),
+						wlog.String("call_id", mCall.Id()),
+						wlog.String("agent_call_id", agentCall.Id()),
+					)
 
 				top:
 					for agentCall.HangupCause() == "" && mCall.HangupCause() == "" && agentCall.TransferTo() == nil {
@@ -266,7 +269,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
 									attempt.Log("receive transfer")
 									if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
-										wlog.Error(err.Error())
+										attempt.log.Error(err.Error(),
+											wlog.Err(err),
+										)
 									} else {
 										if nc.HangupAt() == 0 {
 											if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
@@ -274,7 +279,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 												attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
 												//transferred = true
 											} else {
-												wlog.Error(err.Error())
+												attempt.log.Error(err.Error(),
+													wlog.Err(err),
+												)
 											}
 
 											agentCall = nc
@@ -332,7 +339,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		queue.queueManager.LeavingMember(attempt)
 	} else {
 		if agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
-			wlog.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
+			attempt.log.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
 			if agentCall.HangupAt() == 0 && agentCall.TransferTo() == nil && mCall.HangupAt() > 0 {

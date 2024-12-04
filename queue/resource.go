@@ -3,6 +3,7 @@ package queue
 import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/wlog"
 	"math/rand"
 )
 
@@ -21,6 +22,7 @@ type ResourceObject interface {
 	Variables() map[string]string
 	Take()
 	Gateway() *model.SipGateway
+	Log() *wlog.Logger
 }
 
 //type Gateway interface {
@@ -44,9 +46,10 @@ type Resource struct {
 	gatewayId             *int64
 	emailProfileId        *int
 	gateway               model.SipGateway
+	log                   *wlog.Logger
 }
 
-func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceObject, *model.AppError) {
+func NewResource(config *model.OutboundResource, gw model.SipGateway, log *wlog.Logger) (ResourceObject, *model.AppError) {
 	r := &Resource{
 		id:                    config.Id,
 		updatedAt:             config.UpdatedAt,
@@ -58,6 +61,11 @@ func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceO
 		variables:             model.MapStringInterfaceToString(config.Variables),
 		displayNumbers:        config.DisplayNumbers,
 		gateway:               gw,
+		log: log.With(
+			wlog.String("scope", "resource"),
+			wlog.Int("resource_id", config.Id),
+			wlog.Int64("gateway_id", gw.Id),
+		),
 	}
 
 	if config.ErrorIds != nil {
@@ -76,6 +84,10 @@ func NewResource(config *model.OutboundResource, gw model.SipGateway) (ResourceO
 
 func (r *Resource) Name() string {
 	return r.name
+}
+
+func (r *Resource) Log() *wlog.Logger {
+	return r.log
 }
 
 func (r *Resource) GetDisplay() string {
