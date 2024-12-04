@@ -52,7 +52,9 @@ func (queue *TaskOutboundQueue) run(attempt *Attempt) {
 
 	_, err := queue.queueManager.store.Member().SetAttemptBridged(attempt.Id())
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 	}
 	attempt.SetState(model.MemberStateBridged)
 

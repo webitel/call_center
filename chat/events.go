@@ -25,16 +25,21 @@ var (
 func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 	chat, err := m.GetConversation(e.ConversationId())
 	if err != nil {
-		wlog.Warn(fmt.Sprintf("chat %s [%s]: %s", e.ConversationId(), e.Name, err.Error()))
+		m.log.Warn(fmt.Sprintf("chat %s [%s]: %s", e.ConversationId(), e.Name, err.Error()),
+			wlog.Err(err),
+			wlog.String("conversation_id", e.ConversationId()),
+		)
 		return
 	}
 
 	if chat == nil {
-		wlog.Debug(fmt.Sprintf("skip chat %s", e.ConversationId()))
+		m.log.Debug(fmt.Sprintf("skip chat %s", e.ConversationId()),
+			wlog.String("conversation_id", e.ConversationId()),
+		)
 		return
 	}
 
-	wlog.Debug(fmt.Sprintf("chat receive [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
+	chat.log.Debug(fmt.Sprintf("chat receive [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
 
 	switch e.Name {
 	case ChatEventInvite:
@@ -50,6 +55,6 @@ func (m *ChatManager) handleEvent(e *model.ChatEvent) {
 		chat.setClose(e.Timestamp(), strings.ToLower(e.Cause()))
 		//m.RemoveConversation(chat)
 	default:
-		wlog.Warn(fmt.Sprintf("skip [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
+		chat.log.Warn(fmt.Sprintf("skip [%s] domaind_id=%d user_id=%d vdata=%v", e.Name, e.DomainId, e.UserId, e.Data))
 	}
 }

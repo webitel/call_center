@@ -1,6 +1,9 @@
 package agent_manager
 
-import "github.com/webitel/call_center/model"
+import (
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
+)
 
 type AgentManager interface {
 	Start()
@@ -39,4 +42,5 @@ type AgentObject interface {
 	HasPush() bool
 	HookData() map[string]string
 	StoreStatus(s model.AgentStatus)
+	Log() *wlog.Logger
 }

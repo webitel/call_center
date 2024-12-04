@@ -20,6 +20,7 @@ type cluster struct {
 	info            *discovery.ClusterData
 	watcher         *utils.Watcher
 	discovery       discovery.ServiceDiscovery
+	log             *wlog.Logger
 }
 
 type Cluster interface {
@@ -35,7 +36,7 @@ func NewServiceDiscovery(id, addr string, check func() (bool, error)) (discovery
 	return discovery.NewConsul(id, addr, check)
 }
 
-func NewCluster(nodeId, addr string, st store.ClusterStore) (Cluster, error) {
+func NewCluster(nodeId, addr string, st store.ClusterStore, log *wlog.Logger) (Cluster, error) {
 
 	cons, err := NewServiceDiscovery(nodeId, addr, func() (bool, error) {
 		return true, nil //TODO
@@ -50,11 +51,14 @@ func NewCluster(nodeId, addr string, st store.ClusterStore) (Cluster, error) {
 		nodeId:          nodeId,
 		store:           st,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,
+		log: log.With(wlog.Namespace("context"),
+			wlog.String("name", "cluster"),
+		),
 	}, nil
 }
 
 func (c *cluster) Start(pubHost string, pubPort int) error {
-	wlog.Info(fmt.Sprintf("starting cluster [%s] service", c.nodeId))
+	c.log.Info("starting cluster")
 	err := c.discovery.RegisterService(model.ServiceName, pubHost, pubPort, model.APP_SERVICE_TTL, model.APP_DEREGESTER_CRITICAL_TTL)
 	if err != nil {
 		return err
@@ -87,7 +91,9 @@ func (c *cluster) Setup() error {
 		return err
 	} else {
 		c.info = info
-		wlog.Debug(fmt.Sprintf("cluster [%s] master = %v", c.nodeId, info.Master))
+		c.log.Debug(fmt.Sprintf("master = %v", info.Master),
+			wlog.Any("master", info.Master),
+		)
 	}
 
 	return nil

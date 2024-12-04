@@ -24,11 +24,13 @@ type ExpiredManager struct {
 	watcher   *utils.Watcher
 	startOnce sync.Once
 	pool      *utils.Pool
+	log       *wlog.Logger
 }
 
 type ExpiredJob struct {
 	app App
 	model.ExpiredMember
+	log *wlog.Logger
 }
 
 func NewExpiredManager(app App, store store.Store) *ExpiredManager {
@@ -36,11 +38,15 @@ func NewExpiredManager(app App, store store.Store) *ExpiredManager {
 	manager.app = app
 	manager.store = store
 	manager.pool = utils.NewPool(ExpiredWorkers, ExpiredQueue)
+	manager.log = wlog.GlobalLogger().With(
+		wlog.Namespace("context"),
+		wlog.String("name", "expired_manager"),
+	)
 	return &manager
 }
 
 func (s *ExpiredManager) Start() {
-	wlog.Debug("starting expired service")
+	s.log.Debug("starting expired service")
 	s.watcher = utils.MakeWatcher("Expired", ExpiredPollingInterval, s.job)
 	s.startOnce.Do(func() {
 		go s.watcher.Start()
@@ -54,14 +60,20 @@ func (s *ExpiredManager) Stop() {
 func (s *ExpiredManager) job() {
 	st := time.Now()
 	if hooks, err := s.store.Member().SetExpired(ExpiredLimit); err != nil {
-		wlog.Error(err.Error())
+		s.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 	} else {
-		wlog.Debug(fmt.Sprintf("set expired members time: %s, hook count %d", time.Now().Sub(st), len(hooks)))
+		s.log.Debug(fmt.Sprintf("set expired members time: %s, hook count %d", time.Now().Sub(st), len(hooks)))
 
 		for _, v := range hooks {
 			s.pool.Exec(&ExpiredJob{
 				app:           s.app,
 				ExpiredMember: *v,
+				log: s.log.With(
+					wlog.Int64("member_id", v.MemberId),
+					wlog.Any("schema_id", v.SchemaId),
+				),
 			})
 		}
 
@@ -80,8 +92,11 @@ func (v *ExpiredJob) Execute() {
 	}
 
 	if id, err := v.app.FlowManager().Queue().StartFlow(req); err != nil {
-		wlog.Error(fmt.Sprintf("hook \"leaving\" expired (time %s) member_id=%d, error: %s", time.Now().Sub(st), v.MemberId, err.Error()))
+		v.log.Error(fmt.Sprintf("hook \"leaving\" expired (time %s) member_id=%d, error: %s", time.Now().Sub(st),
+			v.MemberId, err.Error()),
+			wlog.Err(err),
+		)
 	} else {
-		wlog.Debug(fmt.Sprintf("hook \"leaving\" expired (time %s) member_id=%d, job_id: %s", time.Now().Sub(st), v.MemberId, id))
+		v.log.Debug(fmt.Sprintf("hook \"leaving\" expired (time %s) member_id=%d, job_id: %s", time.Now().Sub(st), v.MemberId, id))
 	}
 }

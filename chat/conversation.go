@@ -43,10 +43,13 @@ type Conversation struct {
 	currentState  ChatState
 	state         chan ChatState
 	cause         string
+	log           *wlog.Logger
 	sync.RWMutex
 }
 
-func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, inviterUserId string, variables map[string]string) *Conversation {
+func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, inviterUserId string, variables map[string]string,
+	log *wlog.Logger) *Conversation {
+
 	// todo
 	sess := &ChatSession{
 		inviterId:      inviterId,
@@ -76,6 +79,11 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		state:         make(chan ChatState, 5), //TODO
 		cli:           cli,
 		lastMessageAt: model.GetMillis(),
+		log: log.With(
+			wlog.String("conversation_id", id),
+			wlog.Int64("domain_id", domainId),
+			wlog.String("connection", cli.Name()),
+		),
 	}
 }
 
@@ -85,7 +93,7 @@ func (cm *ChatManager) NewConversation(domainId int64, id, inviterId, inviterUse
 		return nil, model.NewAppError("Chat.Inbound", "chat.inbound.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
 
-	conv := newConversation(cli, domainId, id, inviterId, inviterUserId, variables)
+	conv := newConversation(cli, domainId, id, inviterId, inviterUserId, variables, cm.log)
 	cm.StoreConversation(conv)
 	return conv, nil
 }
@@ -235,7 +243,7 @@ func (c *Conversation) setInvite(inviteId string, timestamp int64) {
 		sess.InviteAt = timestamp
 		c.state <- ChatStateInvite
 	} else {
-		wlog.Warn(fmt.Sprintf("Conversation invite %s not found inviteId %s", c.id, inviteId))
+		c.log.Warn(fmt.Sprintf("Conversation invite %s not found inviteId %s", c.id, inviteId))
 	}
 }
 
@@ -259,7 +267,7 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 		c.bridgetAt = timestamp // TODO created from register in queue
 		c.state <- ChatStateBridge
 	} else {
-		wlog.Warn(fmt.Sprintf("Conversation %s not found chanel_id %s", c.id, channelId))
+		c.log.Warn(fmt.Sprintf("Conversation %s not found chanel_id %s", c.id, channelId))
 	}
 }
 
@@ -297,7 +305,7 @@ func (c *Conversation) setDeclined(inviteId string, timestamp int64) {
 		sess.Unlock()
 		c.state <- ChatStateDeclined
 	} else {
-		wlog.Warn(fmt.Sprintf("Conversation decline %s not found inviteId %s", c.id, inviteId))
+		c.log.Warn(fmt.Sprintf("Conversation decline %s not found inviteId %s", c.id, inviteId))
 	}
 }
 

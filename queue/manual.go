@@ -15,30 +15,34 @@ var (
 	waitingListWatcher   *utils.Watcher
 )
 
-func (qm *QueueManager) listenWaitingList() {
+func (qm *Manager) listenWaitingList() {
 	startOnceWaitingList.Do(func() {
 		waitingListWatcher = utils.MakeWatcher("WaitingList", waitingListPollingInterval, qm.listWaiting)
 		go waitingListWatcher.Start()
 	})
 }
 
-func (qm *QueueManager) stopWaitingList() {
+func (qm *Manager) stopWaitingList() {
 	if waitingListWatcher != nil {
 		waitingListWatcher.Stop()
 	}
 }
 
-func (qm *QueueManager) listWaiting() {
+func (qm *Manager) listWaiting() {
 	list, err := qm.store.Member().WaitingList()
 	if err != nil {
-		wlog.Error(err.Error())
+		qm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 
 	for _, v := range list {
 		err = qm.app.NotificationWaitingList(v)
 		if err != nil {
-			wlog.Error(err.Error())
+			qm.log.Error(err.Error(),
+				wlog.Err(err),
+			)
 		}
 	}
 }

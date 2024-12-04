@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"encoding/json"
@@ -104,22 +103,18 @@ func (ss *SqlSupplier) GetAllConns() []*gorp.DbMap {
 	return all
 }
 
-type logger struct {
-	ms time.Duration
+type sqlLogger struct {
+	log         *wlog.Logger
+	minDuration time.Duration
 }
 
-func (l *logger) Printf(format string, v ...interface{}) {
-	if len(v) == 4 {
-		if dur, ok := v[3].(time.Duration); ok && dur > l.ms {
-			if s, ok := v[1].(string); ok {
-				s = strings.Replace(s, "\n", "\\n", -1)
-				if len(s) > 300 {
-					s = s[0:299]
-				}
-				wlog.Warn(fmt.Sprintf("[sql_debug] time = %v, sql: %s", dur, s))
-			}
-			//wlog.Warn(fmt.Sprintf(format, v...))
-		}
+func (l *sqlLogger) Printf(format string, v ...any) {
+	if l.minDuration < v[3].(time.Duration) {
+		l.log.Warn("sql query",
+			wlog.String("query", v[1].(string)),
+			wlog.String("parameters", v[2].(string)),
+			wlog.Duration("duration", v[3].(time.Duration)),
+		)
 	}
 }
 
@@ -164,9 +159,12 @@ func setupConnection(con_type string, dataSource string, settings *model.SqlSett
 		os.Exit(EXIT_NO_DRIVER)
 	}
 
-	if settings.Trace > 0 {
-		dbmap.TraceOn("[SQL]", &logger{
-			ms: time.Duration(time.Millisecond * 100 * time.Duration(settings.Trace)),
+	if settings.Log {
+		dbmap.TraceOn("", &sqlLogger{
+			minDuration: settings.LogMinDuration,
+			log: wlog.GlobalLogger().With(
+				wlog.Namespace("sql"),
+			),
 		})
 	}
 
@@ -183,9 +181,9 @@ func (s *SqlSupplier) initConnection() {
 		}
 	}
 
-	if len(s.settings.DataSourceSearchReplicas) > 0 {
-		s.searchReplicas = make([]*gorp.DbMap, len(s.settings.DataSourceSearchReplicas))
-		for i, replica := range s.settings.DataSourceSearchReplicas {
+	if len(s.settings.DataSourceReplicas) > 0 {
+		s.searchReplicas = make([]*gorp.DbMap, len(s.settings.DataSourceReplicas))
+		for i, replica := range s.settings.DataSourceReplicas {
 			s.searchReplicas[i] = setupConnection(fmt.Sprintf("search-replica-%v", i), replica, s.settings)
 		}
 	}

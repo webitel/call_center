@@ -15,7 +15,7 @@ type QueueObject interface {
 	Name() string
 	IsExpire(int64) bool
 	TypeName() string
-	Manager() *QueueManager
+	Manager() *Manager
 
 	DistributeAttempt(attempt *Attempt) *model.AppError
 
@@ -43,6 +43,7 @@ type QueueObject interface {
 	AutoAnswerValue() interface{}
 	RingtoneUri() string
 	AmdPlaybackUri() *string // todo move to amd
+	Log() *wlog.Logger
 }
 
 type BaseQueue struct {
@@ -54,7 +55,7 @@ type BaseQueue struct {
 	typeId               int8
 	name                 string
 	resourceManager      *ResourceManager
-	queueManager         *QueueManager
+	queueManager         *Manager
 	variables            map[string]string
 	teamId               *int
 	schemaId             *int
@@ -69,9 +70,10 @@ type BaseQueue struct {
 	endless              bool
 	hooks                HookHub
 	amdPlaybackFileUri   *string
+	log                  *wlog.Logger
 }
 
-func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
+func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
 	base := BaseQueue{
 		channel:              settings.Channel(),
 		id:                   settings.Id,
@@ -93,6 +95,11 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 		processingRenewalSec: settings.ProcessingRenewalSec,
 		endless:              settings.Endless,
 		hooks:                NewHookHub(settings.Hooks),
+		log: queueManager.log.With(
+			wlog.Int("queue_id", settings.Id),
+			wlog.Int64("domain_id", settings.DomainId),
+			wlog.String("channel", settings.Channel()),
+		),
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -114,7 +121,7 @@ func NewBaseQueue(queueManager *QueueManager, resourceManager *ResourceManager, 
 	return base
 }
 
-func NewQueue(queueManager *QueueManager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
+func NewQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) (QueueObject, *model.AppError) {
 	base := NewBaseQueue(queueManager, resourceManager, settings)
 
 	switch settings.Type {
@@ -186,7 +193,16 @@ func (queue *BaseQueue) HasForm() bool {
 	return queue.formSchemaId != nil && queue.Processing()
 }
 
-func (queue *BaseQueue) Manager() *QueueManager {
+func (queue *BaseQueue) Log() *wlog.Logger {
+	if queue.log == nil {
+		queue.log = wlog.GlobalLogger() // TODO
+		queue.log.Error("not found logger")
+	}
+
+	return queue.log
+}
+
+func (queue *BaseQueue) Manager() *Manager {
 	return queue.queueManager
 }
 
@@ -357,7 +373,10 @@ func (queue *BaseQueue) Leaving(attempt *Attempt) {
 
 func (tm *agentTeam) Distribute(queue QueueObject, agent agent_manager.AgentObject, e model.Event) {
 	if err := tm.teamManager.mq.AgentChannelEvent(queue.Channel(), queue.DomainId(), queue.Id(), agent.UserId(), e); err != nil {
-		wlog.Error(err.Error())
+		agent.Log().Error(err.Error(),
+			wlog.Err(err),
+			wlog.Int("queue_id", queue.Id()),
+		)
 	}
 }
 
@@ -371,14 +390,18 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 
 	timestamp, err := tm.teamManager.store.Member().SetAttemptOffering(attempt.Id(), agentId, agentCallId, mCallId, &attempt.communication.Destination, attempt.communication.Display)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 	attempt.SetState(model.MemberStateOffering)
 	e := NewOfferingEvent(attempt, agent.UserId(), timestamp, aChannel, mChannel)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return
 	}
 }
@@ -394,7 +417,9 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 		attempt.maxAttempts, attempt.waitBetween, nil, attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial,
 		attempt.description, attempt.stickyAgentId)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 
 		return
 	}
@@ -407,7 +432,9 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 	e := NewWaitingChannelEvent(attempt.channel, agent.UserId(), attId, res.Timestamp)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 	}
 }
 

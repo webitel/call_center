@@ -38,7 +38,9 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 
 	team, err = queue.GetTeam(attempt)
 	if err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		//todo
 		return
 	}
@@ -63,7 +65,11 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
 	agentCall.Invite()
 
-	wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
+	attempt.log.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()),
+		wlog.Int("agent_id", agent.Id()),
+		wlog.Int("team_id", agent.TeamId()),
+		wlog.Int64("user_id", agent.UserId()),
+	)
 
 top:
 	for calling && agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
@@ -100,7 +106,9 @@ top:
 				if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
 					attempt.Log("receive transfer queue")
 					if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
-						wlog.Error(err.Error())
+						attempt.log.Error(err.Error(),
+							wlog.Err(err),
+						)
 					} else {
 						if nc.HangupAt() == 0 {
 							if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(),
@@ -108,7 +116,9 @@ top:
 								agent = newA
 								attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
 							} else {
-								wlog.Error(err.Error())
+								attempt.log.Error(err.Error(),
+									wlog.Err(err),
+								)
 							}
 
 							agentCall = nc
@@ -149,7 +159,7 @@ top:
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
+		attempt.log.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {

@@ -20,20 +20,25 @@ type EngineImp struct {
 	pollingInterval   time.Duration
 	watcher           *utils.Watcher
 	enableOmnichannel bool
+	log               *wlog.Logger
 }
 
-func NewEngine(app App, id string, s store.Store, enableOmnichannel bool, pollingInterval time.Duration) Engine {
+func NewEngine(app App, id string, s store.Store, enableOmnichannel bool, pollingInterval time.Duration, log *wlog.Logger) Engine {
 	return &EngineImp{
 		app:               app,
 		nodeId:            id,
 		store:             s,
 		pollingInterval:   pollingInterval,
 		enableOmnichannel: enableOmnichannel,
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("name", "engine"),
+		),
 	}
 }
 
 func (e *EngineImp) Start() {
-	wlog.Info("starting engine service")
+	e.log.Info("starting engine service")
 	e.watcher = utils.MakeWatcher("Engine", int(e.pollingInterval.Milliseconds()), e.ReserveMembers)
 	e.UnReserveMembers()
 	//e.CleanAllAttempts()

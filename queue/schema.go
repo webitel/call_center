@@ -21,7 +21,7 @@ type DoDistributeResult struct {
 	Cancel        bool
 }
 
-func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
+func (qm *Manager) StartProcessingForm(schemaId int, att *Attempt) {
 	if schemaId == 0 {
 		return
 	}
@@ -51,11 +51,13 @@ func (qm *QueueManager) StartProcessingForm(schemaId int, att *Attempt) {
 	e := NewNextFormEvent(att, agent.UserId())
 	appErr := qm.mq.AgentChannelEvent(att.channel, att.domainId, att.QueueId(), agent.UserId(), e)
 	if appErr != nil {
-		wlog.Error(appErr.Error())
+		att.log.Error(appErr.Error(),
+			wlog.Err(err),
+		)
 	}
 }
 
-func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+func (qm *Manager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("action-%d", attemptId), func() (interface{}, error) {
 		return nil, qm.attemptProcessingActionForm(attemptId, action, fields)
 	})
@@ -63,9 +65,12 @@ func (qm *QueueManager) AttemptProcessingActionForm(attemptId int64, action stri
 	return err
 }
 
-func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
+func (qm *Manager) attemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
 
-	wlog.Debug(fmt.Sprintf("attempt[%d] action form: %v (%v)", attemptId, attemptId, fields))
+	qm.log.Debug(fmt.Sprintf("attempt[%d] action form: %v (%v)", attemptId, attemptId, fields),
+		wlog.Int64("attempt_id", attemptId),
+		wlog.String("action", action),
+	)
 
 	attempt, _ := qm.GetAttempt(attemptId)
 	if attempt == nil {
@@ -79,7 +84,7 @@ func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action stri
 		if err != nil {
 			attempt.Log(err.Error())
 			attempt.processingForm = nil // todo lock
-			qm.store.Member().StoreFormFields(attempt.Id(), fields)
+			printfIfErr(qm.store.Member().StoreFormFields(attempt.Id(), fields))
 		} else {
 			// todo
 			if attempt.processingForm == nil {
@@ -95,14 +100,16 @@ func (qm *QueueManager) attemptProcessingActionForm(attemptId int64, action stri
 		e := NewNextFormEvent(attempt, attempt.agent.UserId())
 		appErr := qm.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), attempt.agent.UserId(), e)
 		if appErr != nil {
-			wlog.Error(appErr.Error())
+			attempt.log.Error(appErr.Error(),
+				wlog.Err(appErr),
+			)
 			return appErr
 		}
 	}
 	return nil
 }
 
-func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {
+func (qm *Manager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool {
 	if queue.doSchema == nil {
 
 		return true
@@ -121,7 +128,9 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 
 	if err != nil {
 		att.Log(fmt.Sprintf("DoDistributeAttempt error=%s duration=%s", err.Error(), time.Since(st)))
-		wlog.Error(fmt.Sprintf("%s", err.Error()))
+		att.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		return true
 	}
 
@@ -133,7 +142,9 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	case *flow.DistributeAttemptResponse_Cancel_:
 		v := res.Result.(*flow.DistributeAttemptResponse_Cancel_).Cancel
 		if err := qm.store.Member().SetDistributeCancel(att.Id(), v.Description, v.NextDistributeSec, v.Stop, res.Variables); err != nil {
-			wlog.Error(fmt.Sprintf("attempt [%d] error: %s", att.Id(), err.Error()))
+			att.log.Error(fmt.Sprintf("attempt [%d] error: %s", att.Id(), err.Error()),
+				wlog.Err(err),
+			)
 		}
 	case *flow.DistributeAttemptResponse_Confirm_:
 		v := res.Result.(*flow.DistributeAttemptResponse_Confirm_).Confirm
@@ -158,7 +169,7 @@ func (qm *QueueManager) DoDistributeSchema(queue *BaseQueue, att *Attempt) bool 
 	return confirm
 }
 
-func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
+func (qm *Manager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	if res, ok := attempt.AfterDistributeSchema(); ok {
 		if res.Status == AttemptResultSuccess {
 			qm.SetAttemptSuccess(attempt, res.Variables)
@@ -173,7 +184,7 @@ func (qm *QueueManager) SendAfterDistributeSchema(attempt *Attempt) bool {
 	return false
 }
 
-func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
+func (qm *Manager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult, bool) {
 	if att.queue == nil || att.queue.AfterSchemaId() == nil {
 
 		return nil, false
@@ -221,7 +232,9 @@ func (qm *QueueManager) AfterDistributeSchema(att *Attempt) (*model.SchemaResult
 
 	if err != nil {
 		// TODO
-		wlog.Error(fmt.Sprintf("AfterDistributeSchema [%d] error: %s duration=%s", att.Id(), err.Error(), time.Since(st)))
+		att.log.Error(fmt.Sprintf("AfterDistributeSchema [%d] error: %s duration=%s", att.Id(), err.Error(), time.Since(st)),
+			wlog.Err(err),
+		)
 		return nil, false
 	}
 

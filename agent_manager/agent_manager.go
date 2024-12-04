@@ -31,15 +31,21 @@ type agentManager struct {
 	startOnce            sync.Once
 	agentsCache          utils.ObjectCache
 	hookAutoOfflineAgent HookAutoOfflineAgent
+	log                  *wlog.Logger
 	sync.Mutex
 }
 
-func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ) AgentManager {
-	var am agentManager
-	am.store = s
-	am.mq = mq_
-	am.nodeId = nodeId
-	am.agentsCache = utils.NewLruWithParams(sizeAgentChane, "Agents", expireAgentCache, "")
+func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ, log *wlog.Logger) AgentManager {
+	am := agentManager{
+		store:       s,
+		mq:          mq_,
+		nodeId:      nodeId,
+		agentsCache: utils.NewLruWithParams(sizeAgentChane, "Agents", expireAgentCache, ""),
+		log: log.With(
+			wlog.Namespace("context"),
+			wlog.String("name", "agent_manager"),
+		),
+	}
 
 	return &am
 }
@@ -49,7 +55,7 @@ func (am *agentManager) SetHookAutoOfflineAgent(hook HookAutoOfflineAgent) {
 }
 
 func (am *agentManager) Start() {
-	wlog.Debug("starting agent service")
+	am.log.Debug("starting agent service")
 	am.watcher = utils.MakeWatcher("AgentManager", watcherPollingInterval, am.changeDeadlineState)
 	am.startOnce.Do(func() {
 		go am.watcher.Start()
@@ -76,18 +82,20 @@ func (am *agentManager) GetAgent(id int, updatedAt int64) (AgentObject, *model.A
 	if a, err := am.store.Agent().Get(id); err != nil {
 		return nil, err
 	} else {
-		agent = NewAgent(a, am)
+		agent = NewAgent(a, am, am.log)
 	}
 
 	am.agentsCache.AddWithDefaultExpires(id, agent)
-	wlog.Debug(fmt.Sprintf("add agent to cache %v", agent.Name()))
+	agent.Log().Debug(fmt.Sprintf("add agent to cache %v", agent.Name()))
 	return agent, nil
 }
 
 func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
 	data, err := am.store.Agent().SetOnline(agent.Id(), onDemand)
 	if err != nil {
-		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" error: %s", agent.Name(), agent.Id(), model.AgentStatusOnline, err.Error()))
+		agent.Log().Error(
+			fmt.Sprintf("agent %s[%d] has been changed status to \"%s\" error: %s", agent.Name(), agent.Id(), model.AgentStatusOnline, err.Error()),
+		)
 		return nil, err
 	}
 
@@ -101,7 +109,7 @@ func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.Agen
 
 func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
 	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
-		wlog.Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
+		agent.Log().Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
 		return err
 	}
 
@@ -186,7 +194,9 @@ func (am *agentManager) SetBreakOut(agent AgentObject) *model.AppError {
 // todo new watcher &
 func (am *agentManager) changeDeadlineState() {
 	if items, err := am.store.Agent().OnlineWithOutActive(MaxAgentOnlineWithOutSocSec); err != nil {
-		wlog.Error(err.Error())
+		am.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 	} else {
 		for _, v := range items {
 			if a, _ := am.GetAgent(v.Id, v.UpdatedAt); a != nil {
@@ -205,7 +215,7 @@ func (am *agentManager) changeDeadlineState() {
 				}
 				err = am.SetOffline(a, s)
 				if err != nil {
-					wlog.Error(err.Error())
+					a.Log().Error(err.Error())
 				} else if am.hookAutoOfflineAgent != nil {
 					am.hookAutoOfflineAgent(a)
 				}

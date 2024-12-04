@@ -231,14 +231,18 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			if call.TransferTo() != nil && call.TransferToAgentId() != nil && call.TransferFromAttemptId() != nil {
 				attempt.Log("receive transfer")
 				if nc, err := queue.GetTransferredCall(*call.TransferTo()); err != nil {
-					wlog.Error(err.Error())
+					attempt.log.Error(err.Error(),
+						wlog.Err(err),
+					)
 				} else {
 					if nc.HangupAt() == 0 {
 						if newA, err := queue.queueManager.TransferFrom(team, attempt, *call.TransferFromAttemptId(), *call.TransferToAgentId(), *call.TransferTo(), nc); err == nil {
 							agent = newA
 							attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", call.Id(), nc.Id(), newA.Name(), attempt.Id(), *call.TransferFromAttemptId()))
 						} else {
-							wlog.Error(err.Error())
+							attempt.log.Error(err.Error(),
+								wlog.Err(err),
+							)
 						}
 
 						call = nc

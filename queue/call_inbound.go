@@ -53,7 +53,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	attempt.SetState(model.MemberStateJoined)
 	attempt.Log("wait agent")
 	if err = queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
-		wlog.Error(err.Error())
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
 		//todo
 		return
 	}
@@ -98,14 +100,18 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				calling = false
 				break
 			} else {
-				wlog.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c))
+				attempt.log.Debug(fmt.Sprintf("[%d] change call state to %s", attempt.Id(), c),
+					wlog.String("state", c.String()),
+				)
 			}
 
 		case <-ags:
 			agent = attempt.Agent()
 			team, err = queue.GetTeam(attempt)
 			if err != nil {
-				wlog.Error(err.Error()) // todo
+				attempt.log.Error(err.Error(),
+					wlog.Err(err),
+				) // todo
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -143,7 +149,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
 			agentCall.Invite()
 
-			wlog.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
+			attempt.log.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
 
 		top:
 			for calling && agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
@@ -200,7 +206,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
 							attempt.Log("receive transfer queue")
 							if nc, err := queue.GetTransferredCall(*agentCall.TransferTo()); err != nil {
-								wlog.Error(err.Error())
+								attempt.log.Error(err.Error(),
+									wlog.Err(err),
+								)
 							} else {
 								if nc.HangupAt() == 0 {
 									if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(),
@@ -208,7 +216,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 										agent = newA
 										attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
 									} else {
-										wlog.Error(err.Error())
+										attempt.log.Error(err.Error(),
+											wlog.Err(err),
+										)
 									}
 
 									agentCall = nc
@@ -265,7 +275,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		wlog.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
+		attempt.log.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
@@ -277,7 +287,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	if mCall.HangupAt() == 0 && mCall.BridgeAt() == 0 {
 		err = mCall.StopPlayback()
 		if err != nil {
-			wlog.Error(err.Error())
+			attempt.log.Error(err.Error(),
+				wlog.Err(err),
+			)
 		}
 	}
 

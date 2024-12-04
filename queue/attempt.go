@@ -63,7 +63,6 @@ type Attempt struct {
 	result *model.AttemptCallback
 
 	Info    AttemptInfo `json:"info"`
-	Logs    []LogItem   `json:"logs"`
 	Context context.Context
 	sync.RWMutex
 
@@ -84,21 +83,30 @@ type Attempt struct {
 	bridgedAt             int64
 	transferredAt         int64 // todo work in chat
 	manualDistribution    bool
+
+	log *wlog.Logger
 }
 
-type LogItem struct {
-	Time int64  `json:"time"`
-	Info string `json:"info"`
-}
-
-func NewAttempt(ctx context.Context, member *model.MemberAttempt) *Attempt {
-	return &Attempt{
+func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logger) *Attempt {
+	a := &Attempt{
 		state:         model.MemberStateIdle,
 		member:        member,
 		Context:       ctx,
 		cancel:        make(chan struct{}),
 		communication: model.MemberDestinationFromBytes(member.Destination),
+		log: log.With(
+			wlog.Int64("attempt_id", member.Id),
+			wlog.Int("queue_id", member.QueueId),
+			wlog.String("name", member.Name),
+		),
 	}
+	if member.MemberId != nil {
+		a.log = a.log.With(
+			wlog.Int64("member_id", *member.MemberId),
+		)
+	}
+
+	return a
 }
 
 // Change attempt settings
@@ -267,7 +275,11 @@ func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
 
 	a.Emit(AttemptHookDistributeAgent, agent)
 
-	wlog.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()))
+	a.log.Debug(fmt.Sprintf("attempt[%d] distribute agent %d", a.Id(), agent.Id()),
+		wlog.Int("agent_id", agent.Id()),
+		wlog.Int("team_id", agent.TeamId()),
+		wlog.Int64("user_id", agent.UserId()),
+	)
 }
 
 func (a *Attempt) TeamUpdatedAt() int64 {
@@ -535,7 +547,7 @@ func (a *Attempt) SetResult(result string) {
 }
 
 func (a *Attempt) Log(info string) {
-	wlog.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), info))
+	a.log.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), info))
 	//a.Logs = append(a.Logs, LogItem{
 	//	Time: model.GetMillis(),
 	//	Info: info,
@@ -544,7 +556,9 @@ func (a *Attempt) Log(info string) {
 
 func (a *Attempt) LogIfError(err error) {
 	if err != nil {
-		wlog.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), err.Error()))
+		a.log.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), err.Error()),
+			wlog.Err(err),
+		)
 	}
 }
 

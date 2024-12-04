@@ -23,6 +23,7 @@ type ResourceManager struct {
 	resourcesCache utils.ObjectCache
 	patternsCache  utils.ObjectCache
 	app            App
+	log            *wlog.Logger
 	sync.Mutex
 }
 
@@ -31,6 +32,10 @@ func NewResourceManager(app App) *ResourceManager {
 		resourcesCache: utils.NewLruWithParams(SIZE_RESOURCES_CACHE, "ResourceManager", EXPIRE_CACHE_ITEM, ""),
 		patternsCache:  utils.NewLruWithParams(SIZE_RESOURCES_CACHE, "ResourcePatternCache", -1, ""),
 		app:            app,
+		log: wlog.GlobalLogger().With(
+			wlog.Namespace("context"),
+			wlog.String("name", "resource_manager"),
+		),
 	}
 }
 
@@ -51,7 +56,7 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 			if gw, err := r.app.GetGateway(config.GatewayId); err != nil {
 				return nil, err
 			} else {
-				resource, _ := NewResource(config, *gw)
+				resource, _ := NewResource(config, *gw, r.log)
 				return resource, nil
 			}
 		}
@@ -70,7 +75,7 @@ func (r *ResourceManager) Get(id int64, updatedAt int64) (ResourceObject, *model
 
 	if !shared {
 		r.resourcesCache.AddWithDefaultExpires(id, dialResource)
-		wlog.Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
+		dialResource.Log().Debug(fmt.Sprintf("add resource %s to cache", dialResource.Name()))
 	}
 
 	return dialResource, nil

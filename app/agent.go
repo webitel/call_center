@@ -124,7 +124,10 @@ func (app *App) SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppErro
 func (app *App) hangupNoAnswerChannels(chs []*model.CallNoAnswer) {
 	for _, ch := range chs {
 		if err := app.callManager.HangupById(ch.Id, ch.AppId); err != nil {
-			wlog.Error(err.Error())
+			app.Log.Error(err.Error(),
+				wlog.Err(err),
+				wlog.String("call_id", ch.Id),
+			)
 		}
 	}
 }

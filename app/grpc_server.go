@@ -18,6 +18,7 @@ import (
 type GrpcServer struct {
 	srv *grpc.Server
 	lis net.Listener
+	log *wlog.Logger
 }
 
 func (grpc *GrpcServer) GetPublicInterface() (string, int) {
@@ -29,29 +30,40 @@ func (grpc *GrpcServer) GetPublicInterface() (string, int) {
 	return h, port
 }
 
-func unaryInterceptor(ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
+func GetUnaryInterceptor(log *wlog.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
 
-	h, err := handler(ctx, req)
+		h, err := handler(ctx, req)
 
-	if err != nil {
-		wlog.Error(fmt.Sprintf("method %s duration %s, error: %v", info.FullMethod, time.Since(start), err.Error()))
+		since := time.Since(start)
 
-		switch err.(type) {
-		case *model.AppError:
-			e := err.(*model.AppError)
-			return h, status.Error(httpCodeToGrpc(e.StatusCode), e.ToJson())
-		default:
-			return h, err
+		if err != nil {
+			log.Error(fmt.Sprintf("method %s duration %s, error: %v", info.FullMethod, since, err.Error()),
+				wlog.Err(err),
+				wlog.Duration("duration", since),
+				wlog.String("method", info.FullMethod),
+			)
+
+			switch err.(type) {
+			case *model.AppError:
+				e := err.(*model.AppError)
+				return h, status.Error(httpCodeToGrpc(e.StatusCode), e.ToJson())
+			default:
+				return h, err
+			}
+		} else {
+			log.Debug(fmt.Sprintf("method %s duration %s, OK", info.FullMethod, since),
+				wlog.Duration("duration", since),
+				wlog.String("method", info.FullMethod),
+			)
 		}
-	} else {
-		wlog.Debug(fmt.Sprintf("method %s duration %s", info.FullMethod, time.Since(start)))
-	}
 
-	return h, err
+		return h, err
+	}
 }
 
 func httpCodeToGrpc(c int) codes.Code {
@@ -70,17 +82,24 @@ func httpCodeToGrpc(c int) codes.Code {
 	}
 }
 
-func NewGrpcServer(settings model.ServerSettings) *GrpcServer {
+func NewGrpcServer(settings model.ServerSettings, log *wlog.Logger) *GrpcServer {
 	address := fmt.Sprintf("%s:%d", settings.Address, settings.Port)
 	lis, err := net.Listen(settings.Network, address)
 	if err != nil {
 		panic(err.Error())
 	}
+
+	grpcLog := log.With(
+		wlog.Namespace("context"),
+		wlog.String("protocol", "grpc"),
+		wlog.String("address", lis.Addr().String()),
+	)
 	return &GrpcServer{
 		lis: lis,
 		srv: grpc.NewServer(
-			grpc.UnaryInterceptor(unaryInterceptor),
+			grpc.UnaryInterceptor(GetUnaryInterceptor(grpcLog)),
 		),
+		log: grpcLog,
 	}
 }
 
@@ -90,8 +109,8 @@ func (s *GrpcServer) Server() *grpc.Server {
 
 func (a *App) StartGrpcServer() error {
 	go func() {
-		defer wlog.Debug(fmt.Sprintf("[grpc] close server listening"))
-		wlog.Debug(fmt.Sprintf("[grpc] server listening %s", a.GrpcServer.lis.Addr().String()))
+		defer a.GrpcServer.log.Debug(fmt.Sprintf("[grpc] close server listening"))
+		a.GrpcServer.log.Debug(fmt.Sprintf("[grpc] server listening %s", a.GrpcServer.lis.Addr().String()))
 		err := a.GrpcServer.srv.Serve(a.GrpcServer.lis)
 		if err != nil {
 			//FIXME

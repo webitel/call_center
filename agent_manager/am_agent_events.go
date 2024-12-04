@@ -3,20 +3,15 @@ package agent_manager
 import (
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
-func (am *agentManager) notifyChangeAgentState(agent AgentObject, state string) {
-	//fmt.Println(agent)
-}
-
 func NewAgentEventStatus(agent AgentObject, event model.AgentEventStatus) model.Event {
-	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), event.Status))
+	agent.Log().Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), event.Status))
 	return model.NewEvent(model.AgentChangedStatusEvent, agent.UserId(), event)
 }
 
 func NewAgentEventOnlineStatus(agent AgentObject, info *model.AgentOnlineData, onDemand bool) model.Event {
-	wlog.Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), model.AgentStatusOnline))
+	agent.Log().Info(fmt.Sprintf("agent %s[%d] has been changed status to \"%s\"", agent.Name(), agent.Id(), model.AgentStatusOnline))
 	return model.NewEvent(model.AgentChangedStatusEvent, agent.UserId(), model.AgentEventOnlineStatus{
 		Channels: info.Channel,
 		OnDemand: onDemand,

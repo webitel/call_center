@@ -80,6 +80,8 @@ type Call interface {
 	SetOtherChannelVar(vars map[string]string) *model.AppError
 	AiResult() model.AmdAiResult
 	BreakPark(vars map[string]string) *model.AppError
+
+	Log() *wlog.Logger
 }
 
 type CallAction struct {
@@ -126,6 +128,8 @@ type CallImpl struct {
 	amdAiResult model.AmdAiResult
 
 	variables map[string]interface{}
+
+	log *wlog.Logger
 
 	sync.RWMutex
 }
@@ -192,11 +196,19 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		hangupCh:    make(chan struct{}),
 		chState:     make(chan CallState, 5), // FIXME
 		state:       CALL_STATE_NEW,
+		log: cm.log.With(
+			wlog.String("call_id", id),
+			wlog.String("connection", api.Name()),
+		),
 	}
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
+	call.log.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
+}
+
+func (call *CallImpl) Log() *wlog.Logger {
+	return call.log
 }
 
 func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
@@ -306,7 +318,7 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 		call.cm.removeFromCacheCall(call)
 		call.hangupAt = e.Timestamp
 		if call.hangupAt == 0 {
-			wlog.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
+			call.log.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
 			call.hangupAt = model.GetMillis()
 		}
 
@@ -363,12 +375,14 @@ func (call *CallImpl) Invite() *model.AppError {
 
 	call.state = CALL_STATE_INVITE
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
+	call.log.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 
 	go func() {
 		_, cause, code, err := call.api.NewCall(call.callRequest)
 		if err != nil {
-			wlog.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()))
+			call.log.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()),
+				wlog.Err(err),
+			)
 			call.setHangup(&model.CallActionHangup{
 				CallAction: call.action,
 				Cause:      cause,
@@ -409,7 +423,7 @@ func (call *CallImpl) NodeName() string {
 func (call *CallImpl) setState(state CallState) {
 	call.state = state
 	call.chState <- state
-	wlog.Debug(fmt.Sprintf("[%s] call %s set state \"%s\"", call.NodeName(), call.Id(), state.String()))
+	call.log.Debug(fmt.Sprintf("[%s] call %s set state \"%s\"", call.NodeName(), call.Id(), state.String()))
 }
 
 func (call *CallImpl) State() <-chan CallState {
@@ -591,7 +605,7 @@ func (call *CallImpl) Err() *model.AppError {
 
 func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]string) *model.AppError {
 	if call.GetState() < CALL_STATE_INVITE {
-		wlog.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
+		call.log.Debug(fmt.Sprintf("[%s] call %s set cancel %s", call.NodeName(), call.Id(), cause))
 		call.setCancel(cause)
 		if call.GetState() == CALL_STATE_NEW {
 			close(call.hangupCh)
@@ -603,7 +617,7 @@ func (call *CallImpl) Hangup(cause string, reporting bool, vars map[string]strin
 		cause = model.CALL_HANGUP_NORMAL_CLEARING
 	}
 
-	wlog.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
+	call.log.Debug(fmt.Sprintf("[%s] call %s send hangup %s", call.NodeName(), call.Id(), cause))
 	// todo set variables
 	err := call.api.HangupCall(call.id, cause, reporting, vars)
 	if err != nil && call.HangupCause() == "" {
