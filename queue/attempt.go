@@ -576,6 +576,14 @@ func (a *Attempt) SetCancel() {
 	}
 }
 
+func (a *Attempt) Canceled() bool {
+	a.RLock()
+	c := a.canceled
+	a.RUnlock()
+
+	return c
+}
+
 func (a *Attempt) Cancel() <-chan struct{} {
 	return a.cancel
 }
