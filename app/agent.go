@@ -123,11 +123,19 @@ func (app *App) SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppErro
 
 func (app *App) hangupNoAnswerChannels(chs []*model.CallNoAnswer) {
 	for _, ch := range chs {
-		if err := app.callManager.HangupById(ch.Id, ch.AppId); err != nil {
-			app.Log.Error(err.Error(),
-				wlog.Err(err),
-				wlog.String("call_id", ch.Id),
-			)
+		if ch.Id != nil && ch.AppId != nil {
+			if err := app.callManager.HangupById(*ch.Id, *ch.AppId); err != nil {
+				app.Log.Error(err.Error(),
+					wlog.Err(err),
+					wlog.String("call_id", *ch.Id),
+				)
+			}
+		} else {
+			// low cps race call DEV-4783
+			att, ok := app.Queue().Manager().GetAttempt(ch.AttemptId)
+			if ok {
+				att.SetCancel()
+			}
 		}
 	}
 }
