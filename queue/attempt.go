@@ -535,6 +535,13 @@ func (a *Attempt) JoinedAt() int64 {
 	return 0
 }
 
+func (a *Attempt) Canceled() bool {
+	a.RLock()
+	c := a.canceled
+	a.RUnlock()
+	return c
+}
+
 func (a *Attempt) SetCancel() {
 	a.Log("cancel")
 	a.Lock()

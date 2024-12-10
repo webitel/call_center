@@ -159,6 +159,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		})
 	}
 
+	if attempt.Canceled() {
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts+1, 0, nil)
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
+
 	//FIXME update member call id
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, mCall))
 	attempt.memberChannel = mCall
