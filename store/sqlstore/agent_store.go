@@ -219,15 +219,17 @@ WHERE (q_1.team_id IS NULL OR a_1.team_id = q_1.team_id)
 
 func (s *SqlAgentStore) GetNoAnswerChannels(agentId int, queueTypes []int) ([]*model.CallNoAnswer, *model.AppError) {
 	var res []*model.CallNoAnswer
-	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id
+	_, err := s.GetMaster().Select(&res, `select c.id, c.app_id, at.id attempt_id
 from call_center.cc_member_attempt at
          left join call_center.cc_queue q on q.id = at.queue_id
          left join call_center.cc_calls c
                    on case when q.type = 4 then c.id::text = at.member_call_id else c.id::text = at.agent_call_id end
+                       and c.answered_at isnull
+                       and c.id notnull
 where at.agent_id = :AgentId
-  and c.answered_at isnull
-  and c.id notnull
-  and (:QueueTypes::smallint[] isnull or q.type = any(:QueueTypes::smallint[]))`, map[string]interface{}{
+  and at.channel = 'call'
+  and at.state = 'offering'
+  and (:QueueTypes::smallint[] isnull or q.type = any (:QueueTypes::smallint[]))`, map[string]interface{}{
 		"AgentId":    agentId,
 		"QueueTypes": pq.Array(queueTypes),
 	})
