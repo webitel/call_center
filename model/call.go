@@ -250,8 +250,9 @@ type CallActionHangup struct {
 }
 
 type CallNoAnswer struct {
-	Id    string `json:"id" db:"id"`
-	AppId string `json:"app_id" db:"app_id"`
+	Id        *string `json:"id" db:"id"`
+	AppId     *string `json:"app_id" db:"app_id"`
+	AttemptId int64   `json:"attempt_id" db:"attempt_id"`
 }
 
 type AmdAiResult struct {
