@@ -940,7 +940,9 @@ func (qm *Manager) SetAttemptCancel(id int64, result string) bool {
 		return false
 	}
 	att.SetResult(result)
-
+	att.log.Debug("SetAttemptCancel",
+		wlog.String("result", result),
+	)
 	att.SetCancel()
 
 	return true
@@ -1311,6 +1313,7 @@ func (qm *Manager) CancelAgentDistribute(agentId int32) *model.AppError {
 	for _, v := range attempts {
 		att, _ := qm.GetAttempt(v)
 		if att != nil && !att.canceled {
+			att.log.Debug("CancelAgentDistribute")
 			att.SetCancel()
 		}
 	}

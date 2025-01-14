@@ -224,6 +224,7 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out grpc.Membe
 	for {
 		select {
 		case <-out.Context().Done():
+			attempt.Log("cancel context")
 			attempt.SetCancel()
 			goto stop
 			//attempt.memberChannel.Id()
