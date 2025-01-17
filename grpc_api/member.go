@@ -49,13 +49,14 @@ func (api *member) CancelAttempt(ctx context.Context, in *cc.CancelAttemptReques
 
 func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest) (*cc.AttemptResultResponse, error) {
 	result := model.AttemptCallback{
-		Status:        in.GetStatus(),
-		Description:   in.GetDescription(),
-		Display:       in.GetDisplay(),
-		Variables:     in.Variables,
-		StickyAgentId: nil,
-		NextCallAt:    nil,
-		ExpireAt:      nil,
+		Status:                   in.GetStatus(),
+		Description:              in.GetDescription(),
+		Display:                  in.GetDisplay(),
+		Variables:                in.Variables,
+		StickyAgentId:            nil,
+		NextCallAt:               nil,
+		ExpireAt:                 nil,
+		OnlyCurrentCommunication: nil,
 	}
 
 	if in.ExpireAt > 0 {
@@ -80,6 +81,10 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 
 	if in.WaitBetweenRetries > 0 {
 		result.WaitBetweenRetries = &in.WaitBetweenRetries
+	}
+
+	if in.OnlyCurrentCommunication {
+		result.OnlyCurrentCommunication = &in.OnlyCurrentCommunication
 	}
 
 	l := len(in.AddCommunications)

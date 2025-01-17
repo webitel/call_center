@@ -668,7 +668,8 @@ func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.Atte
 	var result *model.AttemptReportingResult
 	err := s.GetMaster().SelectOne(&result, `select *
 from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz, 
-	coalesce(:NextCallAt::timestamptz, (:WaitBetweenReq::int || ' sec')::interval + now() ), :StickyAgentId::int, :Vars::jsonb, :MaxAttempts::int, :WaitBetween::int, :ExcludeDest::bool, :PerNum::bool) as
+	coalesce(:NextCallAt::timestamptz, (:WaitBetweenReq::int || ' sec')::interval + now() ), :StickyAgentId::int, :Vars::jsonb, 
+    :MaxAttempts::int, :WaitBetween::int, :ExcludeDest::bool, :PerNum::bool, :OnyCurr::bool) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar, member_id int8)
 where x.channel notnull`, map[string]interface{}{
 		"AttemptId":      attemptId,
@@ -683,6 +684,7 @@ where x.channel notnull`, map[string]interface{}{
 		"ExcludeDest":    callback.ExcludeCurrentCommunication,
 		"PerNum":         perNum,
 		"Vars":           callback.JsonVariables(),
+		"OnyCurr":        callback.OnlyCurrentCommunication,
 	})
 
 	if err != nil {

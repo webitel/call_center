@@ -2,11 +2,9 @@ module github.com/webitel/call_center
 
 go 1.22.5
 
-toolchain go1.22.9
-
 require (
-	buf.build/gen/go/webitel/cc/grpc/go v1.3.0-20240425073914-85c52be6ff00.2
-	buf.build/gen/go/webitel/cc/protocolbuffers/go v1.33.0-20240425073914-85c52be6ff00.1
+	buf.build/gen/go/webitel/cc/grpc/go v1.5.1-20250117130012-7aa88165384f.2
+	buf.build/gen/go/webitel/cc/protocolbuffers/go v1.36.3-20250117130012-7aa88165384f.1
 	buf.build/gen/go/webitel/fs/grpc/go v1.3.0-20240425073915-5e104cd55a71.2
 	buf.build/gen/go/webitel/fs/protocolbuffers/go v1.33.0-20240425073915-5e104cd55a71.1
 	buf.build/gen/go/webitel/workflow/protocolbuffers/go v1.33.0-20240411132047-cd3c8f61d791.1
@@ -29,10 +27,10 @@ require (
 )
 
 require (
-	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.34.2-20231027202514-3f42134f4c56.2 // indirect
+	buf.build/gen/go/grpc-ecosystem/grpc-gateway/protocolbuffers/go v1.36.3-20231027202514-3f42134f4c56.1 // indirect
 	buf.build/gen/go/webitel/chat/grpc/go v1.4.0-20240703121916-db3266bbfcd3.2 // indirect
 	buf.build/gen/go/webitel/chat/protocolbuffers/go v1.34.2-20240703121916-db3266bbfcd3.2 // indirect
-	buf.build/gen/go/webitel/engine/protocolbuffers/go v1.34.2-20240627112700-3fe53516f45c.2 // indirect
+	buf.build/gen/go/webitel/engine/protocolbuffers/go v1.36.3-20240402125447-cb375844242f.1 // indirect
 	buf.build/gen/go/webitel/webitel-go/grpc/go v1.3.0-20240527133231-c12eb2a85c36.3 // indirect
 	buf.build/gen/go/webitel/webitel-go/protocolbuffers/go v1.34.1-20240527133231-c12eb2a85c36.1 // indirect
 	buf.build/gen/go/webitel/workflow/grpc/go v1.3.0-20240411120545-24ef43af6db3.2 // indirect
@@ -82,7 +80,7 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240805194559-2c9e96a0b5d4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240805194559-2c9e96a0b5d4 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.36.3 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
