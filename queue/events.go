@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/flow_manager/model"
+	"github.com/webitel/wlog"
 )
 
 type Channel interface {
@@ -60,8 +61,9 @@ type DistributeEvent struct {
 
 type TransferEvent struct {
 	ChannelEvent
-	ToAttemptId int64      `json:"to_attempt_id"`
-	Distribute  Distribute `json:"distribute"`
+	Form        *flow.FormElem `json:"form"`
+	ToAttemptId int64          `json:"to_attempt_id"`
+	Distribute  Distribute     `json:"distribute"`
 }
 
 type OfferingEvent struct {
@@ -167,6 +169,15 @@ func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, ag
 			MemberId:      a.MemberId(),
 			HasReporting:  r,
 		},
+	}
+
+	if a.processingForm != nil {
+		if err := json.Unmarshal(a.processingForm.Form(), &e.Form); err != nil {
+			a.log.Error(err.Error(), wlog.Err(err))
+		} else {
+			e.Distribute.HasForm = true
+		}
+
 	}
 
 	//todo: send all channel variables ?
