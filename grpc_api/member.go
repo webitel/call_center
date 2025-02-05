@@ -444,3 +444,20 @@ func (api *member) ResumeAttempt(ctx context.Context, in *cc.ResumeAttemptReques
 		Ok: true,
 	}, nil
 }
+
+func (api *member) OutboundCall(*cc.OutboundCallReqeust, grpc.MemberService_OutboundCallServer) error {
+	return errors.New("TODO")
+}
+
+func (api *member) ProcessingFormSave(ctx context.Context, in *cc.ProcessingFormSaveRequest) (*cc.ProcessingFormSaveResponse, error) {
+	err := api.app.Queue().Manager().SaveFormFields(ctx, in.DomainId, in.AttemptId, in.Fields)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.ProcessingFormSaveResponse{}, nil
+}
+
+func (api *member) Transfer(context.Context, *cc.TransferRequest) (*cc.TransferResponse, error) {
+	return nil, errors.New("TODO")
+}

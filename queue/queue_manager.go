@@ -968,6 +968,21 @@ func (qm *Manager) ResumeAttempt(id int64, domainId int64) *model.AppError {
 	return nil
 }
 
+func (qm *Manager) SaveFormFields(ctx context.Context, domainId int64, id int64, fields map[string]string) *model.AppError {
+	att, ok := qm.GetAttempt(id)
+	if !ok || att.domainId != domainId {
+		return model.NewAppError("QM", "qm.save_form_fields.valid", nil, "Not found", http.StatusNotFound)
+	}
+
+	if att.processingFormStarted {
+		att.UpdateProcessingFields(fields)
+	}
+
+	// store db ?
+
+	return nil
+}
+
 func (qm *Manager) Abandoned(attempt *Attempt) {
 	res, err := qm.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil,
 		attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial, attempt.description, attempt.stickyAgentId)
@@ -1271,10 +1286,10 @@ func (qm *Manager) TransferFrom(team *agentTeam, attempt *Attempt, toAttemptId i
 	toAgentSession string, ch Channel) (agent_manager.AgentObject, *model.AppError) {
 	a, err := qm.agentManager.GetAgent(toAgentId, 0)
 	if err != nil {
-		// fixme
 		attempt.log.Error(err.Error(),
 			wlog.Err(err),
 		)
+		return nil, err
 	}
 
 	if err = qm.store.Member().TransferredFrom(attempt.Id(), toAttemptId, a.Id(), toAgentSession); err != nil {
