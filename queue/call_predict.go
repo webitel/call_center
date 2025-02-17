@@ -371,7 +371,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				Args:    "",
 			})
 
-			cr := queue.AgentCallRequest(agent, team, attempt, apps)
+			cr := queue.AgentCallRequest(agent, team, attempt, Caller{
+				Number: attempt.Destination(),
+				Name:   attempt.Name(),
+			}, apps)
 
 			cr.Variables["wbt_parent_id"] = mCall.Id()
 

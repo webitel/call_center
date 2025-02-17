@@ -22,6 +22,11 @@ type CallingQueue struct {
 	bridgeSleep time.Duration
 }
 
+type Caller struct {
+	Number string
+	Name   string
+}
+
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
 	call.SetRecordings(queue.domainId, all, mono)
 }
@@ -103,7 +108,7 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager
 	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
-func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, apps []*model.CallRequestApplication) *model.CallRequest {
+func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {
 	cr := &model.CallRequest{
 		Endpoints:   agent.GetCallEndpoints(),
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
@@ -139,8 +144,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				//
 				//"origination_callee_id_name":   attempt.Name(),
 				//"origination_callee_id_number": attempt.Destination(),
-				"origination_caller_id_name":   attempt.Name(),
-				"origination_caller_id_number": attempt.Destination(),
+				"origination_caller_id_name":   caller.Name,
+				"origination_caller_id_number": caller.Number,
 
 				model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 				model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", at.Id()),

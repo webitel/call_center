@@ -50,7 +50,10 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 		calling = false
 	}
 
-	cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
+	cr := queue.AgentCallRequest(agent, team, attempt, Caller{
+		Number: attempt.Destination(),
+		Name:   attempt.Name(),
+	}, []*model.CallRequestApplication{
 		{
 			AppName: "park",
 			Args:    "",

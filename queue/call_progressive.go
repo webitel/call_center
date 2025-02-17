@@ -205,7 +205,10 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 						mCall.ParkPlaybackFile(queue.domainId, queue.Ringtone(), "aleg")
 					}
 
-					cr := queue.AgentCallRequest(agent, team, attempt, []*model.CallRequestApplication{
+					cr := queue.AgentCallRequest(agent, team, attempt, Caller{
+						Number: attempt.Destination(),
+						Name:   attempt.Name(),
+					}, []*model.CallRequestApplication{
 						{
 							AppName: "set",
 							Args:    fmt.Sprintf("bridge_export_vars=%s,%s", model.QUEUE_AGENT_ID_FIELD, model.QUEUE_TEAM_ID_FIELD),
