@@ -3206,6 +3206,7 @@ from (select t.id,
     from call_center.cc_trigger t
     inner join flow.calendar_timezones tz on tz.id = t.timezone_id
     where t.enabled
+    and t.type = 'cron'
     and (t.schedule_at)::timestamp <= (now() at time zone tz.sys_name)::timestamp
     and not exists(select 1 from call_center.cc_trigger_job tj where tj.trigger_id = t.id and tj.state = 0)
     for update of t skip locked) t
