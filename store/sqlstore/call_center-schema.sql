@@ -3426,6 +3426,10 @@ CREATE FUNCTION call_center.cc_trigger_ins_upd() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
+        if NEW.type <> 'cron' then
+            return NEW;
+        end if;
+
         if call_center.cc_cron_valid(NEW.expression) is not true then
             raise exception 'invalid expression %', NEW.expression using errcode ='20808';
         end if;
