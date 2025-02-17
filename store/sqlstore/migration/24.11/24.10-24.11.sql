@@ -27,7 +27,7 @@ $$;
 -- Name: cc_scheduler_jobs(); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_scheduler_jobs()
+CREATE OR REPLACE PROCEDURE call_center.cc_scheduler_jobs()
     LANGUAGE plpgsql
 AS $$
 begin
