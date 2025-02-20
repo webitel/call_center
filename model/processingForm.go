@@ -8,4 +8,5 @@ type ProcessingForm interface {
 	ActionForm(ctx context.Context, action string, vars map[string]string) ([]byte, error)
 	Close() error
 	Fields() map[string]string
+	Update(f []byte, fields map[string]string) error
 }
