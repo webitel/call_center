@@ -450,7 +450,7 @@ func (api *member) OutboundCall(*cc.OutboundCallReqeust, grpc.MemberService_Outb
 }
 
 func (api *member) ProcessingFormSave(ctx context.Context, in *cc.ProcessingFormSaveRequest) (*cc.ProcessingFormSaveResponse, error) {
-	err := api.app.Queue().Manager().SaveFormFields(ctx, in.DomainId, in.AttemptId, in.Fields)
+	err := api.app.Queue().Manager().SaveFormFields(ctx, in.DomainId, in.AttemptId, in.Fields, in.Form)
 	if err != nil {
 		return nil, err
 	}

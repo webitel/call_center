@@ -163,7 +163,7 @@ func (api *memberApi) ResumeAttempt(ctx context.Context, attemptId int64, domain
 	return err
 }
 
-func (api *memberApi) SaveFormFields(domainId, attemptId int64, fields map[string]string) error {
+func (api *memberApi) SaveFormFields(domainId, attemptId int64, fields map[string]string, form []byte) error {
 	cli, err := api.cli.getRandomClient()
 	if err != nil {
 		return err
@@ -173,6 +173,7 @@ func (api *memberApi) SaveFormFields(domainId, attemptId int64, fields map[strin
 		DomainId:  domainId,
 		AttemptId: attemptId,
 		Fields:    fields,
+		Form:      form,
 	})
 
 	return err

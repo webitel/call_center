@@ -968,7 +968,7 @@ func (qm *Manager) ResumeAttempt(id int64, domainId int64) *model.AppError {
 	return nil
 }
 
-func (qm *Manager) SaveFormFields(ctx context.Context, domainId int64, id int64, fields map[string]string) *model.AppError {
+func (qm *Manager) SaveFormFields(ctx context.Context, domainId int64, id int64, fields map[string]string, form []byte) *model.AppError {
 	att, ok := qm.GetAttempt(id)
 	if !ok || att.domainId != domainId {
 		return model.NewAppError("QM", "qm.save_form_fields.valid", nil, "Not found", http.StatusNotFound)
@@ -976,6 +976,7 @@ func (qm *Manager) SaveFormFields(ctx context.Context, domainId int64, id int64,
 
 	if att.processingFormStarted {
 		att.UpdateProcessingFields(fields)
+		att.processingForm.Update(form, fields)
 	}
 
 	// store db ?
