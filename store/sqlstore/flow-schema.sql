@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.9 (Debian 15.9-1.pgdg120+1)
--- Dumped by pg_dump version 15.9 (Debian 15.9-1.pgdg120+1)
+-- Dumped from database version 15.12 (Debian 15.12-1.pgdg120+1)
+-- Dumped by pg_dump version 15.12 (Debian 15.12-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -897,6 +897,8 @@ CREATE TABLE flow.scheme_version (
     payload jsonb NOT NULL,
     created_at bigint NOT NULL
 );
+
+ALTER TABLE ONLY flow.scheme_version REPLICA IDENTITY FULL;
 
 
 --
