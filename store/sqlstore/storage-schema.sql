@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.9 (Debian 15.9-1.pgdg120+1)
--- Dumped by pg_dump version 15.9 (Debian 15.9-1.pgdg120+1)
+-- Dumped from database version 15.12 (Debian 15.12-1.pgdg120+1)
+-- Dumped by pg_dump version 15.12 (Debian 15.12-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -676,6 +676,7 @@ CREATE VIEW storage.file_policies_view AS
     p.speed_download,
     p.speed_upload,
     p.max_upload_size,
+    p.retention_days,
     row_number() OVER (PARTITION BY p.domain_id ORDER BY p."position" DESC) AS "position"
    FROM ((storage.file_policies p
      LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
@@ -1360,7 +1361,7 @@ CREATE INDEX file_transcript_profile_id_index ON storage.file_transcript USING b
 -- Name: file_transcript_uuid_index; Type: INDEX; Schema: storage; Owner: -
 --
 
-CREATE INDEX file_transcript_uuid_index ON storage.file_transcript USING btree (((uuid)::character varying(50)));
+CREATE INDEX file_transcript_uuid_index ON storage.file_transcript USING btree (uuid);
 
 
 --
@@ -1382,6 +1383,13 @@ CREATE INDEX files_created_at_not_removed_index ON storage.files USING btree (cr
 --
 
 CREATE INDEX files_created_at_removed_index ON storage.files USING btree (created_at) INCLUDE (id) WHERE removed;
+
+
+--
+-- Name: files_domain_id_channel_mime_type_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_domain_id_channel_mime_type_index ON storage.files USING gin (domain_id, channel, mime_type gin_trgm_ops);
 
 
 --
@@ -1487,13 +1495,6 @@ CREATE TRIGGER cognitive_profile_services_set_rbac_acl AFTER INSERT ON storage.c
 --
 
 CREATE TRIGGER file_backend_profiles_set_rbac_acl AFTER INSERT ON storage.file_backend_profiles FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_backend_profiles');
-
-
---
--- Name: file_policies file_policies_set_rbac_acl; Type: TRIGGER; Schema: storage; Owner: -
---
-
-CREATE TRIGGER file_policies_set_rbac_acl AFTER INSERT ON storage.file_policies FOR EACH ROW EXECUTE FUNCTION storage.tg_obj_default_rbac('file_policies');
 
 
 --
