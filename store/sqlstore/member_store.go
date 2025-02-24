@@ -946,7 +946,7 @@ func (s *SqlMemberStore) StoreFormFields(attemptId int64, fields map[string]stri
 	if fields == nil {
 		return nil
 	}
-	_, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
+	exec, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
 set form_fields = coalesce(form_fields, '{}'::jsonb) || :Fields::jsonb
 where id = :Id`, map[string]interface{}{
 		"Id":     attemptId,
@@ -954,8 +954,29 @@ where id = :Id`, map[string]interface{}{
 	})
 
 	if err != nil {
-		return model.NewAppError("SqlMemberStore.StoreFormFields", "store.sql_member.set_form.app_error", nil,
+		return model.NewAppError("SqlMemberStore.StoreFormFields", "store.sql_member.set_fields.app_error", nil,
 			err.Error(), http.StatusInternalServerError)
+	}
+
+	var cnt int64
+	cnt, err = exec.RowsAffected()
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.StoreFormFields", "store.sql_member.set_fields.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	if cnt == 0 {
+		exec, err = s.GetMaster().Exec(`update call_center.cc_member_attempt_history
+set form_fields = coalesce(form_fields, '{}'::jsonb) || :Fields::jsonb
+where id = :Id`, map[string]interface{}{
+			"Id":     attemptId,
+			"Fields": mapToJson(fields),
+		})
+
+		if err != nil {
+			return model.NewAppError("SqlMemberStore.StoreFormFields", "store.sql_member.set_fields.app_error", nil,
+				err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	return nil
