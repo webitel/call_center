@@ -221,6 +221,10 @@ retry_:
 
 	for calling {
 		select {
+		case <-attempt.Cancel():
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.WaitForHangup()
+
 		case state := <-mCall.State():
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT, call_manager.CALL_STATE_DETECT_AMD:
@@ -327,6 +331,9 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	for calling {
 		select {
+		case <-attempt.Cancel():
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.WaitForHangup()
 		case <-timeout.C:
 			calling = false
 			attempt.Log("timeout")
@@ -389,6 +396,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		top:
 			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
+				case <-attempt.Cancel():
+					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+					mCall.WaitForHangup()
+
 				case state := <-agentCall.State():
 					attempt.Log(fmt.Sprintf("agent call state %d", state))
 					switch state {
