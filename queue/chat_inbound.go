@@ -283,7 +283,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	if agent != nil && team != nil {
 		if aSess != nil && aSess.StopAt() == 0 {
 			// TODO: what reason is this?
-			aSess.Close("")
+			aSess.Close("agent_leave")
 		}
 		transferred := conv.Cause() == "transfer"
 		if transferred {
