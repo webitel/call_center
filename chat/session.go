@@ -115,11 +115,16 @@ func (c *ChatSession) Decline() *model.AppError {
 	return nil
 }
 
-func (c *ChatSession) Close(reason model.LeaveCause) *model.AppError {
+func (c *ChatSession) Close(reason model.CloseCause) *model.AppError {
 	if c.ChannelId == "" && c.InviteId != "" {
 		return c.Decline()
 	} else {
-		return c.Leave(reason)
+		err := c.cli.CloseConversation(c.UserId, c.SessionId(), c.ConversationId, enginemodel.CloseCause(reason))
+		if err != nil {
+			return model.NewAppError("ChatSession", "chat_session.close.app_err", nil, err.Error(), http.StatusInternalServerError)
+		}
+		return nil
+
 	}
 }
 

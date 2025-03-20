@@ -55,6 +55,12 @@ const (
 type LeaveCause string
 
 const (
+	ClientLeave CloseCause = "client_leave"
+)
+
+type CloseCause string
+
+const (
 	QueueAutoAnswerVariable = "wbt_auto_answer"
 	QueueManualDistribute   = "cc_manual_distribution"
 )
