@@ -32,12 +32,12 @@ set state = :StateActive,
     node_id = :NodeId,
     started_at = now()
 from (
-    select j.id, t.domain_id, format('%s [%s] in %s', t.name, t.expression, tz.name) as name
+    select j.id, t.domain_id, format('%s [%s]%s', t.name, t.type, coalesce(' in ' || tz.name, '')) as name
     from call_center.cc_trigger_job j
 		inner join call_center.cc_trigger t on t.id = j.trigger_id
-		inner join flow.calendar_timezones tz on tz.id = t.timezone_id
+		left join flow.calendar_timezones tz on tz.id = t.timezone_id
     where j.state = :StateIdle
-    for update skip locked
+    for update of j skip locked
     limit :Limit
 ) tj
 where j.id = tj.id
