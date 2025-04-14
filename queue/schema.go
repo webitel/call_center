@@ -110,7 +110,7 @@ func (qm *Manager) attemptProcessingActionForm(attemptId int64, action string, f
 	return nil
 }
 
-func (qm *Manager) AttemptProcessingActionComponent(ctx context.Context, attemptId int64, formId, component string, action string, vars map[string]string) error {
+func (qm *Manager) AttemptProcessingActionComponent(ctx context.Context, attemptId int64, formId, component string, action string, vars map[string]string, sync bool) error {
 	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("component-%d", attemptId), func() (interface{}, error) {
 
 		qm.log.Debug(fmt.Sprintf("attempt[%d] action component: %v (%v)", attemptId, attemptId, vars),
@@ -124,7 +124,7 @@ func (qm *Manager) AttemptProcessingActionComponent(ctx context.Context, attempt
 			return nil, errors.New("not found")
 		}
 		if attempt.processingForm != nil && attempt.agent != nil {
-			return nil, attempt.processingForm.ActionComponent(ctx, formId, component, action, vars)
+			return nil, attempt.processingForm.ActionComponent(ctx, formId, component, action, vars, sync)
 		}
 
 		return nil, nil
