@@ -427,7 +427,8 @@ func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingForm
 
 func (api *member) ProcessingComponentAction(ctx context.Context, in *cc.ProcessingComponentActionRequest) (*cc.ProcessingComponentActionResponse, error) {
 
-	err := api.app.Queue().Manager().AttemptProcessingActionComponent(ctx, in.AttemptId, in.FormId, in.ComponentId, in.Action, in.Variables)
+	err := api.app.Queue().Manager().AttemptProcessingActionComponent(ctx, in.AttemptId, in.FormId, in.ComponentId, in.Action,
+		in.Variables, in.Sync)
 	if err != nil {
 		return nil, err
 	}
