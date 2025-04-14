@@ -120,6 +120,16 @@ func (api *memberApi) ProcessingActionForm(ctx context.Context, in *proto.Proces
 	return cli.member.ProcessingFormAction(ctx, in)
 }
 
+func (api *memberApi) ProcessingActionComponent(ctx context.Context, in *proto.ProcessingComponentActionRequest) (*proto.ProcessingComponentActionResponse, error) {
+
+	cli, err := api.cli.getClient(in.AppId)
+	if err != nil {
+		return nil, err
+	}
+
+	return cli.member.ProcessingComponentAction(ctx, in)
+}
+
 func (api *memberApi) CancelAttempt(ctx context.Context, attemptId int64, result, appId string) error {
 	cli, err := api.cli.getClient(appId)
 	if err != nil {
