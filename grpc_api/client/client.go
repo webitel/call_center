@@ -39,6 +39,7 @@ type MemberApi interface {
 	DirectAgentToMember(domainId int64, memberId int64, communicationId int, agentId int64) (int64, error)
 	CancelAgentDistribute(ctx context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error)
 	ProcessingActionForm(ctx context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error)
+	ProcessingActionComponent(ctx context.Context, in *cc.ProcessingComponentActionRequest) (*cc.ProcessingComponentActionResponse, error)
 	SaveFormFields(domainId, attemptId int64, fields map[string]string, form []byte) error
 	CancelAttempt(ctx context.Context, attemptId int64, result, appId string) error
 	InterceptAttempt(ctx context.Context, domainId int64, attemptId int64, agentId int32) error
