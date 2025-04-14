@@ -2,6 +2,7 @@ package queue
 
 import (
 	flow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/webitel/call_center/model"
@@ -58,7 +59,7 @@ func (qm *Manager) StartProcessingForm(schemaId int, att *Attempt) {
 }
 
 func (qm *Manager) AttemptProcessingActionForm(attemptId int64, action string, fields map[string]string) error {
-	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("action-%d", attemptId), func() (interface{}, error) {
+	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("form-%d", attemptId), func() (interface{}, error) {
 		return nil, qm.attemptProcessingActionForm(attemptId, action, fields)
 	})
 
@@ -106,6 +107,33 @@ func (qm *Manager) attemptProcessingActionForm(attemptId int64, action string, f
 			return appErr
 		}
 	}
+	return nil
+}
+
+func (qm *Manager) AttemptProcessingActionComponent(ctx context.Context, attemptId int64, formId, component string, action string, vars map[string]string) error {
+	_, err, _ := formActionGroupRequest.Do(fmt.Sprintf("component-%d", attemptId), func() (interface{}, error) {
+
+		qm.log.Debug(fmt.Sprintf("attempt[%d] action component: %v (%v)", attemptId, attemptId, vars),
+			wlog.Int64("attempt_id", attemptId),
+			wlog.String("action", action),
+			wlog.String("component", component),
+		)
+
+		attempt, _ := qm.GetAttempt(attemptId)
+		if attempt == nil {
+			return nil, errors.New("not found")
+		}
+		if attempt.processingForm != nil && attempt.agent != nil {
+			return nil, attempt.processingForm.ActionComponent(ctx, formId, component, action, vars)
+		}
+
+		return nil, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
