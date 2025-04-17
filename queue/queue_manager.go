@@ -751,7 +751,7 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 		HangupAt:            0,
 		BridgedAt:           0,
 		Destination:         res.Destination,
-		ListCommunicationId: nil,
+		ListCommunicationId: res.ListCommunicationId,
 		TeamUpdatedAt:       res.TeamUpdatedAt,
 		Variables:           res.Variables,
 		Name:                res.Name,

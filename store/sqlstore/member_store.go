@@ -286,7 +286,9 @@ as x (
     team_updated_at int8,
 
     conversation_id varchar,
-    conversation_created_at int8
+    conversation_created_at int8,
+    list_communication_id int8
+    
 );`,
 		map[string]interface{}{
 			"AppId":         node,
