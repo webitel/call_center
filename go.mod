@@ -18,7 +18,7 @@ require (
 	github.com/webitel/engine v0.0.0-20250218105549-555f71cb7b0f
 	github.com/webitel/flow_manager v0.0.0-20250414100900-060e49200e72
 	github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41
-	github.com/webitel/wlog v0.0.0-20240909100805-822697e17a45
+	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
 	go.opentelemetry.io/otel v1.29.0
 	go.opentelemetry.io/otel/sdk v1.29.0
 	golang.org/x/sync v0.10.0
