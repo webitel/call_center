@@ -846,6 +846,10 @@ ALTER TABLE ONLY call_center.cc_quick_reply
     ADD CONSTRAINT cc_quick_reply_wbt_domain_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
+ALTER TABLE call_center.cc_trigger ALTER COLUMN timezone_id drop not null ;
+ALTER TABLE call_center.cc_trigger ADD COLUMN object text DEFAULT ''::text;
+ALTER TABLE call_center.cc_trigger ADD COLUMN event text DEFAULT ''::text;
+
 
 DROP VIEW call_center.cc_trigger_list;
 --
