@@ -750,14 +750,45 @@ FROM ((((((((call_center.cc_member_attempt_history t
     LEFT JOIN call_center.cc_calls_history c ON (((c.domain_id = t.domain_id) AND (c.id = (t.member_call_id)::uuid))));
 
 
-ALTER TABLE call_center.cc_quick_reply drop column if exists team;
-ALTER TABLE call_center.cc_quick_reply drop column if exists queue;
 
-ALTER TABLE call_center.cc_quick_reply ADD COLUMN teams bigint[];
-ALTER TABLE call_center.cc_quick_reply ADD COLUMN queues int[];
+--
+-- Name: cc_quick_reply; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_quick_reply (
+                                            id bigint NOT NULL,
+                                            name text NOT NULL,
+                                            text text NOT NULL,
+                                            created_at timestamp without time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+                                            created_by bigint NOT NULL,
+                                            updated_at timestamp without time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+                                            updated_by bigint NOT NULL,
+                                            article bigint,
+                                            domain_id bigint NOT NULL,
+                                            teams bigint[],
+                                            queues integer[]
+);
 
 
-DROP VIEW call_center.cc_quick_reply_list;
+--
+-- Name: cc_quick_reply_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.cc_quick_reply_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cc_quick_reply_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.cc_quick_reply_id_seq OWNED BY call_center.cc_quick_reply.id;
+
+
 --
 -- Name: cc_quick_reply_list; Type: VIEW; Schema: call_center; Owner: -
 --
@@ -783,9 +814,37 @@ FROM ((call_center.cc_quick_reply a
     LEFT JOIN directory.wbt_user uc ON ((uc.id = a.created_by)))
     LEFT JOIN directory.wbt_user uu ON ((uu.id = a.updated_by)));
 
-ALTER TABLE call_center.cc_trigger ALTER COLUMN timezone_id drop not null ;
-ALTER TABLE call_center.cc_trigger ADD COLUMN object text DEFAULT ''::text;
-ALTER TABLE call_center.cc_trigger ADD COLUMN event text DEFAULT ''::text;
+
+
+--
+-- Name: cc_quick_reply id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_quick_reply ALTER COLUMN id SET DEFAULT nextval('call_center.cc_quick_reply_id_seq'::regclass);
+
+--
+-- Name: cc_quick_reply cc_quick_reply_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_quick_reply
+    ADD CONSTRAINT cc_quick_reply_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_quick_reply cc_quick_reply_article_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_quick_reply
+    ADD CONSTRAINT cc_quick_reply_article_fk FOREIGN KEY (article) REFERENCES knowledge_base.article(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_quick_reply cc_quick_reply_wbt_domain_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_quick_reply
+    ADD CONSTRAINT cc_quick_reply_wbt_domain_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON UPDATE CASCADE ON DELETE CASCADE;
+
 
 
 DROP VIEW call_center.cc_trigger_list;
