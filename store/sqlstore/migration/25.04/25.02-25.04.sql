@@ -750,6 +750,8 @@ FROM ((((((((call_center.cc_member_attempt_history t
     LEFT JOIN call_center.cc_calls_history c ON (((c.domain_id = t.domain_id) AND (c.id = (t.member_call_id)::uuid))));
 
 
+DROP VIEW if exists call_center.cc_quick_reply_list;
+DROP TABLE if exists call_center.cc_quick_reply;
 
 --
 -- Name: cc_quick_reply; Type: TABLE; Schema: call_center; Owner: -
