@@ -834,8 +834,9 @@ ALTER TABLE ONLY call_center.cc_quick_reply
 -- Name: cc_quick_reply cc_quick_reply_article_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
-ALTER TABLE ONLY call_center.cc_quick_reply
-    ADD CONSTRAINT cc_quick_reply_article_fk FOREIGN KEY (article) REFERENCES knowledge_base.article(id) ON DELETE SET NULL;
+-- TODO
+-- ALTER TABLE ONLY call_center.cc_quick_reply
+--     ADD CONSTRAINT cc_quick_reply_article_fk FOREIGN KEY (article) REFERENCES knowledge_base.article(id) ON DELETE SET NULL;
 
 
 --
