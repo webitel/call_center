@@ -503,7 +503,7 @@ WITH agents AS MATERIALIZED (
     FROM ((agents
         JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = agents.id)))
         LEFT JOIN call_center.cc_queue q ON ((q.id = h.queue_id)))
-    WHERE ((h.domain_id = agents.domain_id) AND (h.joined_at >= agents."from") AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
+    WHERE ((h.joined_at > now()::date - interval '1d') and (h.domain_id = agents.domain_id) AND (h.joined_at >= agents."from") AND (h.joined_at <= agents."to") AND ((h.channel)::text = 'call'::text))
     GROUP BY h.agent_id
 ), attempts AS MATERIALIZED (
     WITH rng(agent_id, c, s, e, b, ac) AS (
