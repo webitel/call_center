@@ -981,7 +981,7 @@ WITH queues AS MATERIALIZED (
     FROM ((((flow.calendar c
         LEFT JOIN flow.calendar_timezones tz ON ((tz.id = c.timezone_id)))
         JOIN queues ON ((queues.calendar_id = c.id)))
-        JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day, special) ON (true))
+        JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day) ON (true))
         JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
     WHERE ((NOT (a.disabled IS TRUE)) AND (NOT (EXISTS ( SELECT 1
                                                          FROM unnest(c.excepts) x(disabled, date, name, repeat, work_start, work_stop, working)
