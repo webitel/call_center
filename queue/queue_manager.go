@@ -250,6 +250,8 @@ func (qm *Manager) SetResourceError(resource ResourceObject, errorId string) {
 			}
 			qm.resourceManager.RemoveFromCacheById(int64(resource.Id()))
 		}
+	} else {
+		qm.SetResourceSuccessful(resource)
 	}
 }
 
@@ -260,6 +262,7 @@ func (qm *Manager) SetResourceSuccessful(resource ResourceObject) {
 				wlog.Err(err),
 			)
 		}
+		resource.SetSuccessivelyErrors(0)
 	}
 }
 

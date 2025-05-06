@@ -5,6 +5,7 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"math/rand"
+	"sync"
 )
 
 const (
@@ -23,6 +24,7 @@ type ResourceObject interface {
 	Take()
 	Gateway() *model.SipGateway
 	Log() *wlog.Logger
+	SetSuccessivelyErrors(se uint16)
 }
 
 //type Gateway interface {
@@ -47,6 +49,7 @@ type Resource struct {
 	emailProfileId        *int
 	gateway               model.SipGateway
 	log                   *wlog.Logger
+	sync.RWMutex
 }
 
 func NewResource(config *model.OutboundResource, gw model.SipGateway, log *wlog.Logger) (ResourceObject, *model.AppError) {
@@ -108,7 +111,16 @@ func (r *Resource) Id() int {
 }
 
 func (r *Resource) SuccessivelyErrors() uint16 {
-	return r.successivelyErrors
+	r.RLock()
+	se := r.successivelyErrors
+	r.RUnlock()
+	return se
+}
+
+func (r *Resource) SetSuccessivelyErrors(se uint16) {
+	r.Lock()
+	r.successivelyErrors = se
+	r.Unlock()
 }
 
 func (r *Resource) Variables() map[string]string {
