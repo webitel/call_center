@@ -238,6 +238,8 @@ func (queueManager *QueueManager) SetResourceError(resource ResourceObject, erro
 			}
 			queueManager.resourceManager.RemoveFromCacheById(int64(resource.Id()))
 		}
+	} else {
+		queueManager.SetResourceSuccessful(resource)
 	}
 }
 
@@ -246,6 +248,7 @@ func (queueManager *QueueManager) SetResourceSuccessful(resource ResourceObject)
 		if err := queueManager.store.OutboundResource().SetSuccessivelyErrorsById(int64(resource.Id()), 0); err != nil {
 			wlog.Error(err.Error())
 		}
+		resource.SetSuccessivelyErrors(0)
 	}
 }
 
