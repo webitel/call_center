@@ -236,7 +236,7 @@ retry_:
 				if queue.HasRingtone() {
 					mCall.ParkPlaybackFile(queue.domainId, queue.Ringtone(), "aleg")
 				}
-
+				queue.CallCheckResourceError(attempt.resource, mCall)
 				queue.runOfferingAgents(attempt, mCall)
 				return
 			}
