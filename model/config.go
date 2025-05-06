@@ -68,4 +68,5 @@ type Config struct {
 	MessageQueueSettings MessageQueueSettings `json:"message_queue_settings"`
 	CallSettings         CallSettings         `json:"call_settings"`
 	Log                  LogSettings          `json:"log_settings"`
+	Dev                  bool                 `json:"dev" flag:"dev|false|Dev mode" env:"DEV"`
 }

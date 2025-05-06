@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/webitel/wlog"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -30,22 +29,15 @@ func main() {
 
 	grpc_api.Init(a, a.GrpcServer.Server())
 
-	setDebug()
+	if a.Config().Dev {
+		setDev()
+	}
+
 	// wait for kill signal before attempting to gracefully shutdown
 	// the running service
 
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptChan
-}
-
-func setDebug() {
-	//debug.SetGCPercent(-1)
-
-	go func() {
-		wlog.Info(fmt.Sprintf("Start debug server on http://localhost:8090/debug/pprof/"))
-		wlog.Info(fmt.Sprintf("Debug: %s", http.ListenAndServe(":8090", nil)))
-	}()
-
 }
 
 func init() {
