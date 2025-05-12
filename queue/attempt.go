@@ -265,7 +265,9 @@ func (a *Attempt) BridgedAt() int64 {
 }
 
 func (a *Attempt) DistributeAgent(agent agent_manager.AgentObject) {
-	if a.GetState() != model.MemberStateWaitAgent {
+	st := a.GetState()
+	if st != model.MemberStateWaitAgent {
+		a.log.Error(fmt.Sprintf("state %s not equal %s", st, model.MemberStateWaitAgent))
 		return
 	}
 
