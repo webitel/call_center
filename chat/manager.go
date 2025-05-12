@@ -1,10 +1,9 @@
 package chat
 
 import (
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
-	"github.com/webitel/engine/chat_manager"
-	"github.com/webitel/engine/discovery"
-	"github.com/webitel/engine/utils"
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
 	"github.com/webitel/wlog"
 	"sync"
 )
@@ -19,18 +18,18 @@ type ChatManager struct {
 	stopped   chan struct{}
 	startOnce sync.Once
 	mq        mq.MQ
-	chats     utils.ObjectCache
+	chats     model.ObjectCache
 	api       chat_manager.ChatManager
 	log       *wlog.Logger
 }
 
-func NewChatManager(discovery discovery.ServiceDiscovery, mq mq.MQ, log *wlog.Logger) *ChatManager {
+func NewChatManager(consulAddr string, mq mq.MQ, log *wlog.Logger) *ChatManager {
 	return &ChatManager{
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
-		api:     chat_manager.NewChatManager(discovery),
+		api:     chat_manager.NewChatManager(consulAddr),
 		mq:      mq,
-		chats:   utils.NewLruWithParams(maxOpenedChat, "Chats", expireCacheChat, ""),
+		chats:   model.NewLruWithParams(maxOpenedChat, "Chats", expireCacheChat, ""),
 		log: log.With(
 			wlog.Namespace("context"),
 			wlog.String("name", "chat manager"),

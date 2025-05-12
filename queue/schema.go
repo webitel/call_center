@@ -1,11 +1,11 @@
 package queue
 
 import (
-	flow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/webitel/call_center/model"
+	flow "github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
 	"time"

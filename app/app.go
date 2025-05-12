@@ -16,7 +16,7 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/trigger"
-	"github.com/webitel/flow_manager/client"
+	"github.com/webitel/engine/pkg/wbt/flow"
 	"github.com/webitel/wlog"
 	"sync/atomic"
 
@@ -48,7 +48,7 @@ type App struct {
 	GrpcServer     *GrpcServer
 	agentManager   agent_manager.AgentManager
 	callManager    call_manager.CallManager
-	flowManager    client.FlowManager
+	flowManager    flow.FlowManager
 	chatManager    *chat.ChatManager
 	triggerManager *trigger.Manager
 
@@ -147,12 +147,12 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.agentManager.SetHookAutoOfflineAgent(app.hookAutoOfflineAgent)
 	app.agentManager.Start()
 
-	app.flowManager = client.NewFlowManager(app.Cluster().ServiceDiscovery())
+	app.flowManager = flow.NewFlowManager(app.Config().DiscoverySettings.Url)
 	if err := app.flowManager.Start(); err != nil {
 		return nil, err
 	}
 
-	app.chatManager = chat.NewChatManager(app.Cluster().ServiceDiscovery(), app.MQ, app.Log)
+	app.chatManager = chat.NewChatManager(app.Config().DiscoverySettings.Url, app.MQ, app.Log)
 	if err := app.chatManager.Start(); err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (app *App) IsReady() bool {
 	return app.callManager.CountConnection() > 0
 }
 
-func (app *App) FlowManager() client.FlowManager {
+func (app *App) FlowManager() flow.FlowManager {
 	return app.flowManager
 }
 

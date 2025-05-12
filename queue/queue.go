@@ -6,7 +6,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/flow_manager/client"
+	"github.com/webitel/engine/pkg/wbt/flow"
 	"github.com/webitel/wlog"
 	"net/http"
 )
@@ -222,7 +222,7 @@ func (queue *BaseQueue) IsExpire(updatedAt int64) bool {
 	return queue.updatedAt != updatedAt
 }
 
-func (queue *BaseQueue) FlowManager() client.FlowManager {
+func (queue *BaseQueue) FlowManager() flow.FlowManager {
 	return queue.queueManager.app.FlowManager()
 }
 

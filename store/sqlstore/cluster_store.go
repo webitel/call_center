@@ -3,7 +3,7 @@ package sqlstore
 import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
-	"github.com/webitel/engine/discovery"
+	"github.com/webitel/engine/pkg/discovery"
 	"net/http"
 )
 

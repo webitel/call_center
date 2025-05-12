@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq/rabbit"
-	"github.com/webitel/engine/discovery"
+	"github.com/webitel/engine/pkg/discovery"
 	"github.com/webitel/wlog"
 	"sync"
 	"testing"

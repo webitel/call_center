@@ -2,8 +2,7 @@ package chat
 
 import (
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/chat_manager"
-	enginemodel "github.com/webitel/engine/model"
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
 	"net/http"
 	"sync"
 )
@@ -98,7 +97,7 @@ func (c *ChatSession) IdleSec() int64 {
 }
 
 func (c *ChatSession) Leave(cause model.LeaveCause) *model.AppError {
-	err := c.cli.Leave(c.UserId, c.SessionId(), c.ConversationId, enginemodel.LeaveCause(cause))
+	err := c.cli.Leave(c.UserId, c.SessionId(), c.ConversationId, chat_manager.LeaveCause(cause))
 	if err != nil {
 		return model.NewAppError("ChatSession", "chat_session.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 	}
@@ -119,7 +118,7 @@ func (c *ChatSession) Close(reason model.CloseCause) *model.AppError {
 	if c.ChannelId == "" && c.InviteId != "" {
 		return c.Decline()
 	} else {
-		err := c.cli.CloseConversation(c.UserId, c.SessionId(), c.ConversationId, enginemodel.CloseCause(reason))
+		err := c.cli.CloseConversation(c.UserId, c.SessionId(), c.ConversationId, chat_manager.CloseCause(reason))
 		if err != nil {
 			return model.NewAppError("ChatSession", "chat_session.close.app_err", nil, err.Error(), http.StatusInternalServerError)
 		}

@@ -1,13 +1,13 @@
 package queue
 
 import (
-	workflow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
+	"github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
 	"net/http"

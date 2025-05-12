@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/utils"
 	"github.com/webitel/wlog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,7 +23,7 @@ type GrpcServer struct {
 func (grpc *GrpcServer) GetPublicInterface() (string, int) {
 	h, p, _ := net.SplitHostPort(grpc.lis.Addr().String())
 	if h == "::" {
-		h = utils.GetPublicAddr()
+		h = model.GetPublicAddr()
 	}
 	port, _ := strconv.Atoi(p)
 	return h, port

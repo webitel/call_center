@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/discovery"
+	"github.com/webitel/engine/pkg/discovery"
 )
 
 type Store interface {

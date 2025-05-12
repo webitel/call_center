@@ -1,10 +1,10 @@
 package queue
 
 import (
-	workflow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
 )
 
