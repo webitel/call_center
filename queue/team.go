@@ -361,8 +361,18 @@ func (tm *agentTeam) MissedAgentAndWaitingAttempt(attempt *Attempt, agent agent_
 		attempt.Log(err.Error())
 		return
 	}
+	if missed.NoAnswers != nil && *missed.NoAnswers >= tm.MaxNoAnswer() {
+		go tm.SetAgentMaxNoAnswer(agent)
+	}
 
-	tm.MissedAgent(missed, attempt, agent)
+	e := NewMissedEventEvent(attempt, agent.UserId(), missed.Timestamp, missed.Timestamp+(int64(tm.NoAnswerDelayTime())*1000))
+	go func(chanName string, domainId int64, queueId int, userId int64, ev model.Event) {
+		err := tm.teamManager.mq.AgentChannelEvent(chanName, domainId, queueId, userId, ev)
+		if err != nil {
+			attempt.Log(err.Error())
+		}
+	}(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
+
 	attempt.agent = nil
 	attempt.agentChannel = nil
 }
