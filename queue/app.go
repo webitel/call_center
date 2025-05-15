@@ -4,7 +4,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/flow_manager/client"
+	"github.com/webitel/engine/pkg/wbt/flow"
 )
 
 type App interface {
@@ -13,7 +13,7 @@ type App interface {
 	GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError)
 	GetGateway(id int64) (*model.SipGateway, *model.AppError)
 	GetQueueById(id int64) (*model.Queue, *model.AppError)
-	FlowManager() client.FlowManager
+	FlowManager() flow.FlowManager
 	ChatManager() *chat.ChatManager
 	GetCall(id string) (*model.Call, *model.AppError)
 	GetChat(id string) (*chat.Conversation, *model.AppError)

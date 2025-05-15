@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
-	flow "github.com/webitel/flow_manager/model"
+	flow "github.com/webitel/flow_manager/pkg/processing"
 	"github.com/webitel/wlog"
 )
 

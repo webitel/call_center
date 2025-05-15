@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/chat_manager"
-	enginemodel "github.com/webitel/engine/model"
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
 	"github.com/webitel/wlog"
 	"net/http"
 	"strings"
@@ -82,7 +81,6 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		log: log.With(
 			wlog.String("conversation_id", id),
 			wlog.Int64("domain_id", domainId),
-			wlog.String("connection", cli.Name()),
 		),
 	}
 }
@@ -148,7 +146,7 @@ func (c *Conversation) Reporting(noLeave bool) *model.AppError {
 	c.Unlock()
 
 	if !noLeave {
-		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId, enginemodel.AgentLeave)
+		err := c.cli.Leave(sess.UserId, sess.ChannelId, sess.ConversationId, chat_manager.AgentLeave)
 		if err != nil {
 			return model.NewAppError("Chat.Reporting", "chat.leave.app_err", nil, err.Error(), http.StatusInternalServerError)
 		}

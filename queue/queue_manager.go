@@ -1,13 +1,13 @@
 package queue
 
 import (
-	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
+	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"

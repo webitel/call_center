@@ -8,7 +8,7 @@ import (
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/engine/discovery"
+	"github.com/webitel/engine/pkg/discovery"
 	"github.com/webitel/wlog"
 	"net/http"
 	"sync"

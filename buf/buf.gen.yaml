@@ -1,0 +1,25 @@
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/webitel/engine/pkg/wbt/gen/engine
+      module: buf.build/webitel/engine
+
+plugins:
+  # Base types for Go. Generates message and enum types.
+  - remote: buf.build/protocolbuffers/go:v1.30.0
+    out: gen/cc
+    opt: paths=source_relative
+
+  # Generates Go client and server stubs for the gRPC framework.
+  - remote: buf.build/grpc/go:v1.3.0
+    out: gen/cc
+    opt: paths=source_relative
+
+inputs:
+#  - directory: "../protos/cc"
+  - git_repo: "https://github.com/webitel/protos"
+    branch: "main"
+    subdir: fs

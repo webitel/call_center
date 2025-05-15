@@ -1,10 +1,9 @@
 package grpc
 
 import (
-	fsgrpc "buf.build/gen/go/webitel/fs/grpc/go/_gogrpc"
-	fs "buf.build/gen/go/webitel/fs/protocolbuffers/go"
 	"context"
 	"fmt"
+	"github.com/webitel/call_center/gen/fs"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
 	"google.golang.org/grpc"
@@ -101,7 +100,7 @@ type CallConnection struct {
 	host        string
 	rateLimiter *utils.RateLimiter
 	client      *grpc.ClientConn
-	api         fsgrpc.ApiClient
+	api         fs.ApiClient
 	cdrUri      string
 }
 
@@ -118,7 +117,7 @@ func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {
 		return nil, model.NewAppError("NewCallConnection", "grpc.create_connection.app_error", nil, err.Error(), http.StatusInternalServerError)
 	}
 
-	c.api = fsgrpc.NewApiClient(c.client)
+	c.api = fs.NewApiClient(c.client)
 	return c, nil
 }
 

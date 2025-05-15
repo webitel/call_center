@@ -1,19 +1,18 @@
 package grpc_api
 
 import (
-	grpc "buf.build/gen/go/webitel/cc/grpc/go/_gogrpc"
-	cc "buf.build/gen/go/webitel/cc/protocolbuffers/go"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/webitel/call_center/app"
+	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/queue"
 )
 
 type member struct {
 	app *app.App
-	grpc.UnsafeMemberServiceServer
+	cc.UnsafeMemberServiceServer
 }
 
 func NewMemberApi(a *app.App) *member {
@@ -116,7 +115,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 	}, nil
 }
 
-func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out grpc.MemberService_CallJoinToQueueServer) error {
+func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberService_CallJoinToQueueServer) error {
 
 	ctx := out.Context()
 	attempt, err := api.app.Queue().Manager().DistributeCall(ctx, in)
@@ -192,7 +191,7 @@ stop:
 	return nil
 }
 
-func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out grpc.MemberService_ChatJoinToQueueServer) error {
+func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
 	ctx := out.Context()
 	attempt, err := api.app.Queue().Manager().DistributeChatToQueue(ctx, in)
 	if err != nil {
@@ -309,7 +308,7 @@ func (api *member) AttemptRenewalResult(_ context.Context, in *cc.AttemptRenewal
 	return &cc.AttemptRenewalResultResponse{}, nil
 }
 
-func (api *member) CallJoinToAgent(in *cc.CallJoinToAgentRequest, out grpc.MemberService_CallJoinToAgentServer) error {
+func (api *member) CallJoinToAgent(in *cc.CallJoinToAgentRequest, out cc.MemberService_CallJoinToAgentServer) error {
 	ctx := context.Background()
 	attempt, err := api.app.Queue().Manager().DistributeCallToAgent(ctx, in)
 	if err != nil {
@@ -362,7 +361,7 @@ stop:
 	return nil
 }
 
-func (api *member) TaskJoinToAgent(in *cc.TaskJoinToAgentRequest, out grpc.MemberService_TaskJoinToAgentServer) error {
+func (api *member) TaskJoinToAgent(in *cc.TaskJoinToAgentRequest, out cc.MemberService_TaskJoinToAgentServer) error {
 	ctx := context.Background()
 	attempt, err := api.app.Queue().Manager().DistributeTaskToAgent(ctx, in)
 	if err != nil {
@@ -456,7 +455,7 @@ func (api *member) ResumeAttempt(ctx context.Context, in *cc.ResumeAttemptReques
 	}, nil
 }
 
-func (api *member) OutboundCall(*cc.OutboundCallReqeust, grpc.MemberService_OutboundCallServer) error {
+func (api *member) OutboundCall(*cc.OutboundCallReqeust, cc.MemberService_OutboundCallServer) error {
 	return errors.New("TODO")
 }
 

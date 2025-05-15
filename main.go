@@ -14,6 +14,10 @@ import (
 	"syscall"
 )
 
+//go:generate go run github.com/bufbuild/buf/cmd/buf@latest generate --template buf/buf.gen.engine.yaml
+//go:generate go run github.com/bufbuild/buf/cmd/buf@latest generate --template buf/buf.gen.fs.yaml
+//go:generate go run github.com/bufbuild/buf/cmd/buf@latest generate --template buf/buf.gen.yaml
+
 func main() {
 	interruptChan := make(chan os.Signal, 1)
 	a, err := app.New()

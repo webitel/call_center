@@ -1,13 +1,13 @@
 package trigger
 
 import (
-	flow "buf.build/gen/go/webitel/workflow/protocolbuffers/go"
 	"context"
 	"fmt"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/flow_manager/client"
+	"github.com/webitel/engine/pkg/wbt/flow"
+	proto "github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
 	"sync"
 	"time"
@@ -30,11 +30,11 @@ type Manager struct {
 	jobs            chan model.TriggerJob
 	ctx             context.Context
 	cancel          context.CancelFunc
-	flow            client.FlowManager
+	flow            flow.FlowManager
 	log             *wlog.Logger
 }
 
-func NewManager(nodeId string, s store.Store, fw client.FlowManager, log *wlog.Logger) *Manager {
+func NewManager(nodeId string, s store.Store, fw flow.FlowManager, log *wlog.Logger) *Manager {
 	m := &Manager{
 		nodeId:          nodeId,
 		store:           s,
@@ -134,7 +134,7 @@ func (m *Manager) runJob(j Job) {
 	j.log.Debug(fmt.Sprintf("[trigger] %s job_id: %d started...", j.data.Name, j.data.Id))
 	defer j.log.Debug(fmt.Sprintf("[trigger] %s job_id: %d stopped", j.data.Name, j.data.Id))
 
-	res, err := m.flow.Queue().StartSyncFlow(&flow.StartSyncFlowRequest{
+	res, err := m.flow.Queue().StartSyncFlow(&proto.StartSyncFlowRequest{
 		SchemaId:   j.data.Parameters.SchemaId,
 		DomainId:   j.data.DomainId,
 		TimeoutSec: j.data.Parameters.Timeout,
