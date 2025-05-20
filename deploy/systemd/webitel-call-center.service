@@ -1,0 +1,17 @@
+[Unit]
+Description=Webitel CallCenter process
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=0
+ExecStart=/usr/local/bin/call_center \
+	-consul 127.0.0.1:8500 \
+	-grpc_addr 127.0.0.1 \
+	-wait_channel_close 0 \
+	-amqp amqp://webitel:webitel@127.0.0.1:5672?heartbeat=10 \
+	-data_source postgres://opensips:webitel@127.0.0.1:5432/webitel?application_name=call_center&sslmode=disable&connect_timeout=10
+
+[Install]
+WantedBy=default.target

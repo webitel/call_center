@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: webitel-call-center
+snapshot:
+  version_template: '{{ .Branch }}-{{ .Commit }}'
+
+report_sizes: true
+
+builds:
+  - env: [ CGO_ENABLED=0 ]
+    goos: [ linux ]
+    goarch: [ amd64 ]
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags: [ -trimpath ]
+    ldflags:
+      - -s -w
+      - -X github.com/webitel/call_center/model.BuildNumber={{ .Env.BUILD_NUMBER }}
+
+universal_binaries:
+  - replace: false
+
+checksum:
+  name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^test:'
+      - '^chore'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+      - go mod tidy
+  groups:
+    - title: Dependency updates
+      regexp: '^.*?(feat|fix)\(deps\)!?:.+$'
+      order: 300
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: 'Security updates'
+      regexp: '^.*?sec(\([[:word:]]+\))??!?:.+$'
+      order: 150
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: 'Documentation updates'
+      regexp: ^.*?doc(\([[:word:]]+\))??!?:.+$
+      order: 400
+    - title: 'Build process updates'
+      regexp: ^.*?build(\([[:word:]]+\))??!?:.+$
+      order: 400
+    - title: Other work
+      order: 9999
+
+archives:
+  - name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}'
+    formats: [ "zip" ]
+    strip_binary_directory: true
+    files: [ README.md ]
+    builds_info:
+      group: root
+      owner: root
+
+nfpms:
+  - id: webitel-call-center
+    file_name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}'
+    vendor: Webitel Ltd.
+    homepage: https://webitel.com
+    maintainer: Webitel <cloud@webitel.com>
+    description: |-
+      Webitel Call Center package.
+
+    license: Apache 2.0
+    formats: [ deb ]
+    umask: 0o002
+    bindir: /usr/local/bin
+    section: default
+    priority: extra
+    meta: false
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
+    contents:
+      - src: deploy/systemd/{{ .ProjectName }}.service
+        dst: /etc/systemd/system/{{ .ProjectName }}.service
+        type: "config|noreplace"
+
+milestones:
+  - close: true

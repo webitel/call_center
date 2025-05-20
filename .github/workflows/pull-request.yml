@@ -1,0 +1,19 @@
+name: PR
+
+on:
+  pull_request:
+
+jobs:
+  prepare:
+    name: Prepare
+    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    with:
+      only-dependencies: true
+      generated-code-path: ${{ vars.GENERATED_CODE_PATH }}
+
+  checks:
+    name: Checks
+    needs: [ prepare ]
+    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    with:
+      generated-code: ${{ vars.GENERATED_CODE_PATH != '' }}
