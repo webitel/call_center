@@ -11,7 +11,7 @@ permissions:
 jobs:
   prepare:
     name: Prepare
-    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@fbf131e007e2c7b0bfafcd9bf0f306be596c8836
     with:
       development-branch: master
       triggered-branch: ${{ github.ref_name }}
@@ -21,7 +21,7 @@ jobs:
   checks:
     name: Checks
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@fbf131e007e2c7b0bfafcd9bf0f306be596c8836
     permissions:
       security-events: write
       contents: read
@@ -33,7 +33,7 @@ jobs:
   compile:
     name: Build
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/go-build.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    uses: webitel/reusable-workflows/.github/workflows/go-build.yml@fbf131e007e2c7b0bfafcd9bf0f306be596c8836
     with:
       version: ${{ needs.prepare.outputs.version }}
       source: ${{ vars.PACKAGE_PATTERN }}
@@ -42,7 +42,7 @@ jobs:
   deploy:
     name: Deploy
     needs: [ prepare, compile ]
-    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@fbf131e007e2c7b0bfafcd9bf0f306be596c8836
     secrets: inherit
     with:
       component: ${{ needs.prepare.outputs.component }}
