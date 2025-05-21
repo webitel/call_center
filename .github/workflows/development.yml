@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   prepare:
     name: Prepare
@@ -19,6 +22,9 @@ jobs:
     name: Checks
     needs: [ prepare ]
     uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@7a10c22563df4852961b55bb5513c1633450db3e
+    permissions:
+      security-events: write
+
     with:
       generated-code: ${{ vars.GENERATED_CODE_PATH != '' }}
 

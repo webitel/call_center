@@ -5,6 +5,9 @@ on:
     branches:
       - v*.* # Only release branches
 
+permissions:
+  contents: read
+
 jobs:
   prepare:
     name: Prepare
