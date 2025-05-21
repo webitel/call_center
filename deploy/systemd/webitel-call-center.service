@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 Restart=always
 TimeoutStartSec=0
-ExecStart=/usr/local/bin/call_center \
+ExecStart=/usr/local/bin/webitel-call-center \
 	-consul 127.0.0.1:8500 \
 	-grpc_addr 127.0.0.1 \
 	-wait_channel_close 0 \
