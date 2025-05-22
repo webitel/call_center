@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
-project_name: webitel-call-center
+project_name: call_center
 snapshot:
   version_template: '{{ .Branch }}-{{ .Commit }}'
 
@@ -67,8 +67,7 @@ archives:
       owner: root
 
 nfpms:
-  - id: webitel-call-center
-    file_name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}'
+  - file_name_template: 'webitel-call-center-{{ .Version }}-{{ .Arch }}'
     vendor: Webitel Ltd.
     homepage: https://webitel.com
     maintainer: Webitel <cloud@webitel.com>
@@ -87,10 +86,10 @@ nfpms:
         - statically-linked-binary
         - changelog-file-missing-in-native-package
 
-    contents:
-      - src: deploy/systemd/{{ .ProjectName }}.service
-        dst: /etc/systemd/system/{{ .ProjectName }}.service
-        type: "config|noreplace"
+#    contents:
+#      - src: deploy/systemd/{{ .ProjectName }}.service
+#        dst: /etc/systemd/system/{{ .ProjectName }}.service
+#        type: "config|noreplace"
 
 milestones:
   - close: true
