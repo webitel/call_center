@@ -1,14 +1,15 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
-project_name: call_center
+project_name: webitel-call-center
 snapshot:
   version_template: '{{ .Branch }}-{{ .Commit }}'
 
 report_sizes: true
 
 builds:
-  - env: [ CGO_ENABLED=0 ]
+  - binary: call_center
+    env: [ CGO_ENABLED=0 ]
     goos: [ linux ]
     goarch: [ amd64 ]
     mod_timestamp: '{{ .CommitTimestamp }}'
@@ -16,9 +17,6 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/webitel/call_center/model.BuildNumber={{ .Env.BUILD_NUMBER }}
-
-universal_binaries:
-  - replace: false
 
 checksum:
   name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'
@@ -67,8 +65,7 @@ archives:
       owner: root
 
 nfpms:
-  - package_name: webitel-call-center
-    file_name_template: 'webitel-call-center-{{ .Version }}-{{ .Arch }}'
+  - file_name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Arch }}'
     vendor: Webitel Ltd.
     homepage: https://webitel.com
     maintainer: Webitel <cloud@webitel.com>
@@ -87,10 +84,7 @@ nfpms:
         - statically-linked-binary
         - changelog-file-missing-in-native-package
 
-#    contents:
-#      - src: deploy/systemd/{{ .ProjectName }}.service
-#        dst: /etc/systemd/system/{{ .ProjectName }}.service
-#        type: "config|noreplace"
-
-milestones:
-  - close: true
+    contents:
+      - src: deploy/systemd/{{ .ProjectName }}.service
+        dst: /etc/systemd/system/{{ .ProjectName }}.service
+        type: "config|noreplace"
