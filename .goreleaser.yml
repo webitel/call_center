@@ -67,7 +67,8 @@ archives:
       owner: root
 
 nfpms:
-  - file_name_template: 'webitel-call-center-{{ .Version }}-{{ .Arch }}'
+  - package_name: webitel-call-center
+    file_name_template: 'webitel-call-center-{{ .Version }}-{{ .Arch }}'
     vendor: Webitel Ltd.
     homepage: https://webitel.com
     maintainer: Webitel <cloud@webitel.com>
