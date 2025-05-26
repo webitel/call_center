@@ -180,7 +180,7 @@ func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject)
 
 func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) {
 
-	if attempt.queue != nil {
+	if attempt.queue != nil && !attempt.processTransfer {
 		attempt.queue.StartProcessingForm(attempt) //TODO
 	}
 
@@ -241,7 +241,7 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 }
 
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool, transfer bool) {
-	if queue.Manager().waitChannelClose && attempt != nil && attempt.Callback() != nil {
+	if queue.Manager().waitChannelClose && attempt.Callback() != nil {
 		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true); err != nil {
 			attempt.Log(err.Error())
 		}
@@ -266,13 +266,17 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		//timeoutSec = 0
 	}
 
-	if !queue.Processing() || transfer {
+	if !queue.Processing() || transfer || attempt.processTransfer {
 		s := attempt.Result()
-		if s == "" {
-			s = AttemptResultSuccess
-		}
+
 		if transfer {
 			s = AttemptResultTransfer
+		} else if attempt.processTransfer {
+			s = AttemptResultCancel
+		}
+
+		if s == "" {
+			s = AttemptResultSuccess
 		}
 
 		tm.SetWrap(queue, attempt, agent, s)

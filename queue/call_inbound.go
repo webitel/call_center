@@ -197,7 +197,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 								agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 							}
 							printfIfErr(err)
-						} else if mCall.Direction() == model.CallDirectionOutbound && attempt.state != model.MemberStateBridged {
+						} else if !attempt.processTransfer && mCall.Direction() == model.CallDirectionOutbound && attempt.state != model.MemberStateBridged {
 							timeout.Stop()
 							team.Bridged(attempt, agent)
 						}
@@ -248,11 +248,15 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 						team.Bridged(attempt, agent)
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+						var tr CallTransfer
+						mCall, tr = queue.transferResult(attempt, mCall)
 
-						if mCall.TransferToAttemptId() != nil {
-							attempt.Log(fmt.Sprintf("transfer to %d, wait connect to attemt...", *mCall.TransferToAttemptId()))
-							queue.queueManager.TransferTo(attempt, *mCall.TransferToAttemptId())
+						switch tr {
+						case CallTransferForward:
 							return
+						case CallTransferSuccess:
+							continue
+						default:
 						}
 
 						if agentCall.HangupAt() == 0 && !(mCall.Direction() == model.CallDirectionOutbound && mCall.TransferFrom() != nil) {

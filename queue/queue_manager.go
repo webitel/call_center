@@ -432,6 +432,8 @@ func (qm *Manager) DistributeCall(_ context.Context, in *cc.CallJoinToQueueReque
 		BucketId:            bucketId,
 	})
 
+	attempt.processTransfer = in.IsTransfer
+
 	if _, err = qm.DistributeAttempt(attempt); err != nil {
 		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
@@ -542,6 +544,8 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		Name:           res.Name,
 		MemberCallId:   &res.CallId,
 	})
+
+	attempt.processTransfer = in.IsTransfer
 
 	settings := &model.Queue{
 		Id:                   0,

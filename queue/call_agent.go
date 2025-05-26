@@ -92,9 +92,17 @@ top:
 				mCall.SerVariables(map[string]string{
 					"cc_result": result,
 				})
-				//
-				time.Sleep(time.Millisecond * 250)
-				if err = agentCall.Bridge(mCall); err != nil {
+
+				if queue.bridgeSleep > 0 {
+					time.Sleep(queue.bridgeSleep)
+				}
+
+				if mCall.Direction() == model.CALL_DIRECTION_OUTBOUND {
+					err = mCall.Bridge(agentCall)
+				} else {
+					err = agentCall.Bridge(mCall)
+				}
+				if err != nil {
 					if agentCall.HangupAt() == 0 {
 						agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 					}
@@ -139,10 +147,15 @@ top:
 				}
 			case call_manager.CALL_STATE_HANGUP:
 				attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
-				if mCall.TransferToAttemptId() != nil {
-					attempt.Log(fmt.Sprintf("transfer to %d, wait connect to attemt...", *mCall.TransferToAttemptId()))
-					queue.queueManager.TransferTo(attempt, *mCall.TransferToAttemptId())
+				var tr CallTransfer
+				mCall, tr = queue.transferResult(attempt, mCall)
+
+				switch tr {
+				case CallTransferForward:
 					return
+				case CallTransferSuccess:
+					continue
+				default:
 				}
 
 				if agentCall.HangupAt() == 0 {

@@ -30,6 +30,7 @@ const (
 )
 
 const (
+	AttemptResultCancel         = "cancel"
 	AttemptResultAbandoned      = "abandoned"
 	AttemptResultSuccess        = "success"
 	AttemptResultTimeout        = "timeout"
@@ -83,6 +84,7 @@ type Attempt struct {
 	bridgedAt             int64
 	transferredAt         int64 // todo work in chat
 	manualDistribution    bool
+	processTransfer       bool
 
 	log *wlog.Logger
 }
