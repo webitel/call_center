@@ -202,11 +202,14 @@ func (a *AMQP) connect() error {
 	var err error
 	a.queue, err = a.channel.QueueDeclare(
 		fmt.Sprintf("callcenter.%s", a.nodeName),
-		false,
-		false,
 		true,
 		false,
-		nil,
+		false,
+		false,
+		amqp.Table{
+			"x-queue-type": "quorum",
+			"x-expires":    10000, // delete after 10s
+		},
 	)
 
 	if err != nil {
