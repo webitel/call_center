@@ -235,7 +235,7 @@ func (app *App) Shutdown() {
 
 func (a *App) setServiceId(id *string) {
 	a.id = id
-	a.publicId = fmt.Sprintf("%s-%s", model.ServiceName, *a.id)
+	a.publicId = fmt.Sprintf("%s", *a.id)
 }
 
 func (a *App) GetInstanceId() string {
