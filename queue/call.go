@@ -12,6 +12,14 @@ const (
 	amdMachineApplication = "hangup::NORMAL_UNSPECIFIED"
 )
 
+type CallTransfer int
+
+const (
+	CallTransferSkip CallTransfer = iota
+	CallTransferForward
+	CallTransferSuccess
+)
+
 type CallingQueueObject interface {
 }
 
@@ -261,6 +269,34 @@ func (queue *CallingQueue) MissedAgentAttempt(attemptId int64, agentId int, call
 	}
 
 	return queue.queueManager.store.Agent().CreateMissed(missed)
+}
+
+func (queue *CallingQueue) transferResult(attempt *Attempt, mCall call_manager.Call) (call_manager.Call, CallTransfer) {
+	var err *model.AppError
+
+	if mCall.TransferToAttemptId() != nil {
+		attempt.Log(fmt.Sprintf("transfer to %d, wait connect to attemt...", *mCall.TransferToAttemptId()))
+		queue.queueManager.TransferTo(attempt, *mCall.TransferToAttemptId())
+
+		return mCall, CallTransferForward
+
+	} else if attempt.processTransfer && mCall.TransferFrom() != nil {
+		attempt.processTransfer = false
+		var c call_manager.Call
+
+		if queue.Processing() {
+			attempt.queue.StartProcessingForm(attempt)
+		}
+		c, err = queue.GetTransferredCall(*mCall.TransferFrom())
+		if err != nil {
+			attempt.log.Error(err.Error())
+		} else {
+			attempt.memberChannel = c
+			return c, CallTransferSuccess
+		}
+	}
+
+	return mCall, CallTransferSkip
 }
 
 func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {

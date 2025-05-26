@@ -108,7 +108,7 @@ type WaitingChannelEvent struct {
 	ChannelEvent
 }
 
-func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, r bool, mChannel, aChannel Channel) model.Event {
+func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, hasReporting bool, mChannel, aChannel Channel) model.Event {
 	e := DistributeEvent{
 		ChannelEvent: ChannelEvent{
 			Timestamp: model.GetMillis(), // todo from attempt!
@@ -124,7 +124,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			QueueName:     queue.Name(),
 			MemberId:      a.MemberId(),
 			MemberName:    a.MemberName(),
-			HasReporting:  r,
+			HasReporting:  hasReporting && !a.processTransfer,
 			HasForm:       queue.HasForm(),
 		},
 	}
