@@ -14,7 +14,7 @@ jobs:
     name: Prepare
     uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@21902d7a29b8e661522391c7fb95e7a5abb1be76
     with:
-      development-branch: main
+      development-branch: master
       triggered-branch: ${{ github.ref_name }}
       build-number: ${{ github.run_number }}
 
