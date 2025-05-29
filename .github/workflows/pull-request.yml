@@ -11,13 +11,13 @@ concurrency:
 jobs:
   prepare:
     name: Prepare
-    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@21902d7a29b8e661522391c7fb95e7a5abb1be76
+    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
     with: { only-dependencies: true }
 
   checks:
     name: Checks
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@21902d7a29b8e661522391c7fb95e7a5abb1be76
+    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
     permissions:
       contents: read
       actions: read
