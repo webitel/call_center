@@ -274,6 +274,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "task"
 	case model.QueueTypeOutboundTask:
 		return "outbound_task"
+	case model.QueueTypeOutboundCall:
+		return "outbound_call"
 	default:
 		return "NOT_IMPLEMENT"
 	}

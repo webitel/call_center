@@ -480,7 +480,7 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 	}
 
 	if in.CancelDistribute {
-		err = qm.CancelAgentDistribute(in.GetAgentId())
+		err = qm.CancelAgentDistribute(int(in.GetAgentId()))
 		if err != nil {
 			qm.log.Error(err.Error(),
 				wlog.Err(err),
@@ -597,6 +597,146 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 	return attempt, nil
 }
 
+func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest) (*Attempt, *model.AppError) {
+	var agent agent_manager.AgentObject
+	var processingWithoutAnswer bool
+
+	qParams := &model.QueueDumpParams{
+		QueueName: in.QueueName,
+	}
+
+	if in.Processing != nil && in.Processing.Enabled {
+		qParams.HasReporting = model.NewBool(true)
+		qParams.ProcessingSec = in.Processing.Sec
+		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
+		if in.Processing.GetForm().GetId() > 0 {
+			qParams.HasForm = model.NewBool(true)
+		}
+		processingWithoutAnswer = in.Processing.GetWithoutAnswer()
+	}
+
+	res, err := qm.store.Member().DistributeOutboundCall(
+		qm.app.GetInstanceId(),
+		in.GetCallId(),
+		in.GetVariables(),
+		in.GetUserId(),
+		qParams,
+	)
+
+	if err != nil {
+		qm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
+		return nil, err
+	}
+
+	if in.CancelDistribute {
+		err = qm.CancelAgentDistribute(*res.AgentId)
+		if err != nil {
+			qm.log.Error(err.Error(),
+				wlog.Err(err),
+			)
+		}
+	}
+
+	agent, err = qm.agentManager.GetAgent(*res.AgentId, res.AgentUpdatedAt)
+	if err != nil {
+		qm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
+		return nil, err
+	}
+
+	callInfo := &model.Call{
+		Id:          res.CallId,
+		State:       res.CallState,
+		DomainId:    in.DomainId,
+		Direction:   res.CallDirection,
+		Destination: res.CallDestination,
+		Timestamp:   res.CallTimestamp,
+		AppId:       res.CallAppId,
+		AnsweredAt:  res.CallAnsweredAt,
+		BridgedAt:   res.CallBridgedAt,
+		CreatedAt:   res.CallCreatedAt,
+	}
+	if res.CallFromName != nil {
+		callInfo.FromName = *res.CallFromName
+	}
+	if res.CallFromNumber != nil {
+		callInfo.FromNumber = *res.CallFromNumber
+	}
+
+	ringtone := ""
+
+	_, err = qm.callManager.ConnectCall(callInfo, ringtone)
+	if err != nil {
+		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
+		qm.log.Error(fmt.Sprintf("[%s] call %s (%d) distribute error: %s", callInfo.AppId, callInfo.Id, res.AttemptId, err.Error()),
+			wlog.Err(err),
+			wlog.Int64("attempt_id", res.AttemptId),
+		)
+		return nil, err
+	}
+
+	attempt, _ := qm.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
+		Id:             res.AttemptId,
+		CreatedAt:      time.Now(),
+		Result:         nil,
+		Destination:    res.Destination,
+		AgentId:        res.AgentId,
+		AgentUpdatedAt: &res.AgentUpdatedAt,
+		TeamUpdatedAt:  model.NewInt64(res.TeamUpdatedAt),
+		Variables:      res.Variables,
+		Name:           res.Name,
+		MemberCallId:   &res.CallId,
+	})
+
+	settings := &model.Queue{
+		Id:                   0,
+		DomainId:             in.DomainId,
+		DomainName:           "TODO",
+		Type:                 model.QueueTypeOutboundCall,
+		Name:                 qParams.QueueName,
+		Strategy:             "",
+		Payload:              nil,
+		TeamId:               &res.TeamId,
+		Processing:           false,
+		ProcessingSec:        30,
+		ProcessingRenewalSec: 15,
+		Hooks:                nil,
+	}
+	if qParams.HasReporting != nil && *qParams.HasReporting {
+		settings.Processing = true
+		settings.ProcessingSec = qParams.ProcessingSec
+		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
+		if in.Processing.GetForm().GetId() > 0 {
+			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
+		}
+	}
+
+	var queue = NewOutboundCallQueue(NewBaseQueue(qm, qm.resourceManager, settings), processingWithoutAnswer)
+
+	attempt.queue = queue
+	attempt.agent = agent
+	attempt.domainId = queue.domainId
+	attempt.channel = model.QueueChannelOutCall
+
+	if err = queue.DistributeAttempt(attempt); err != nil {
+		attempt.log.Error(err.Error(),
+			wlog.Err(err),
+		)
+		qm.Abandoned(attempt)
+		qm.LeavingMember(attempt)
+
+		return nil, err
+	} else {
+		attempt.log.Info(fmt.Sprintf("[%s] join member %s[%v] AttemptId=%d to queue \"%s\" (size %d, waiting %d, active %d)", queue.TypeName(), attempt.Name(),
+			attempt.MemberId(), attempt.Id(), queue.Name(), attempt.member.QueueCount, attempt.member.QueueWaitingCount, attempt.member.QueueActiveCount))
+	}
+
+	return attempt, nil
+}
+
 func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToAgentRequest) (*Attempt, *model.AppError) {
 	var agent agent_manager.AgentObject
 
@@ -636,7 +776,7 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 	}
 
 	if in.CancelDistribute {
-		err = qm.CancelAgentDistribute(in.GetAgentId())
+		err = qm.CancelAgentDistribute(int(in.GetAgentId()))
 		if err != nil {
 			qm.log.Error(err.Error(),
 				wlog.Err(err),
@@ -1059,7 +1199,7 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 	}
 
 	switch *res.Channel {
-	case model.QueueChannelCall:
+	case model.QueueChannelCall, model.QueueChannelOutCall:
 		if call, ok := qm.callManager.GetCall(*res.AgentCallId); ok {
 			err = call.Hangup("", true, map[string]string{
 				"cc_result": ccCause,
@@ -1327,7 +1467,7 @@ func (qm *Manager) LosePredictAgent(id int) {
 	}
 }
 
-func (qm *Manager) CancelAgentDistribute(agentId int32) *model.AppError {
+func (qm *Manager) CancelAgentDistribute(agentId int) *model.AppError {
 	attempts, err := qm.store.Member().CancelAgentDistribute(agentId)
 	if err != nil {
 		return err
