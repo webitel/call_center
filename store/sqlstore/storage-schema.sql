@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.12 (Debian 15.12-1.pgdg120+1)
--- Dumped by pg_dump version 15.12 (Debian 15.12-1.pgdg120+1)
+-- Dumped from database version 15.13 (Debian 15.13-1.pgdg120+1)
+-- Dumped by pg_dump version 15.13 (Debian 15.13-1.pgdg120+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -613,7 +613,8 @@ CREATE TABLE storage.file_policies (
     channels character varying[],
     retention_days integer DEFAULT 0 NOT NULL,
     max_upload_size bigint DEFAULT 0 NOT NULL,
-    "position" integer NOT NULL
+    "position" integer NOT NULL,
+    encrypt boolean DEFAULT false
 );
 
 
@@ -677,6 +678,7 @@ CREATE VIEW storage.file_policies_view AS
     p.speed_upload,
     p.max_upload_size,
     p.retention_days,
+    p.encrypt,
     row_number() OVER (PARTITION BY p.domain_id ORDER BY p."position" DESC) AS "position"
    FROM ((storage.file_policies p
      LEFT JOIN directory.wbt_user c ON ((c.id = p.created_by)))
@@ -885,6 +887,23 @@ CREATE TABLE storage.jobs (
     status character varying(32),
     progress bigint,
     data character varying
+);
+
+
+--
+-- Name: language_profiles; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.language_profiles (
+    id integer NOT NULL,
+    domain_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    created_by bigint NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    updated_by bigint NOT NULL,
+    name character varying NOT NULL,
+    token character varying,
+    type integer NOT NULL
 );
 
 
@@ -1190,6 +1209,14 @@ ALTER TABLE ONLY storage.import_template
 
 ALTER TABLE ONLY storage.jobs
     ADD CONSTRAINT jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: language_profiles language_models_pk; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.language_profiles
+    ADD CONSTRAINT language_models_pk PRIMARY KEY (id);
 
 
 --
@@ -1911,6 +1938,13 @@ GRANT SELECT ON TABLE storage.import_template_view TO grafana;
 --
 
 GRANT SELECT ON TABLE storage.jobs TO grafana;
+
+
+--
+-- Name: TABLE language_profiles; Type: ACL; Schema: storage; Owner: -
+--
+
+GRANT SELECT ON TABLE storage.language_profiles TO grafana;
 
 
 --
