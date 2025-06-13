@@ -52,6 +52,7 @@ type MemberStore interface {
 	DistributeCallToQueueCancel(id int64) *model.AppError
 	DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 	DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError)
+	DistributeOutboundCall(node string, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 
 	/*
 		Flow control
@@ -90,7 +91,7 @@ type MemberStore interface {
 
 	TransferredTo(id, toId int64) *model.AppError
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError
-	CancelAgentDistribute(agentId int32) ([]int64, *model.AppError)
+	CancelAgentDistribute(agentId int) ([]int64, *model.AppError)
 	SetExpired(limit int) ([]*model.ExpiredMember, *model.AppError)
 
 	StoreForm(attemptId int64, form []byte, fields map[string]string) *model.AppError

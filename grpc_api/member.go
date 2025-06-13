@@ -20,7 +20,7 @@ func NewMemberApi(a *app.App) *member {
 }
 
 func (api *member) CancelAgentDistribute(_ context.Context, in *cc.CancelAgentDistributeRequest) (*cc.CancelAgentDistributeResponse, error) {
-	err := api.app.Queue().Manager().CancelAgentDistribute(in.AgentId)
+	err := api.app.Queue().Manager().CancelAgentDistribute(int(in.AgentId))
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +189,25 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 stop:
 
 	return nil
+}
+
+func (api *member) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest) (*cc.OutboundCallResponse, error) {
+
+	attempt, err := api.app.Queue().Manager().OutboundCall(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	var agentId int32
+
+	if attempt.AgentId() != nil {
+		agentId = int32(*attempt.AgentId())
+	}
+
+	return &cc.OutboundCallResponse{
+		AttemptId: attempt.Id(),
+		AgentId:   agentId,
+	}, nil
 }
 
 func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberService_ChatJoinToQueueServer) error {
@@ -453,10 +472,6 @@ func (api *member) ResumeAttempt(ctx context.Context, in *cc.ResumeAttemptReques
 	return &cc.ResumeAttemptResponse{
 		Ok: true,
 	}, nil
-}
-
-func (api *member) OutboundCall(*cc.OutboundCallReqeust, cc.MemberService_OutboundCallServer) error {
-	return errors.New("TODO")
 }
 
 func (api *member) ProcessingFormSave(ctx context.Context, in *cc.ProcessingFormSaveRequest) (*cc.ProcessingFormSaveResponse, error) {

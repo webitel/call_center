@@ -215,6 +215,48 @@ where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a w
 	return att, nil
 }
 
+func (s *SqlMemberStore) DistributeOutboundCall(node string, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError) {
+	var att *model.InboundCallAgent
+
+	err := s.GetMaster().SelectOne(&att, `select *
+from call_center.cc_distribute_outbound_call(:Node, :MemberCallId, :Variables, :UserId, :Prams::jsonb)
+as x (
+    attempt_id int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_id int,
+    team_updated_at int8,
+    agent_updated_at int8,
+
+    call_id varchar,
+    call_state varchar,
+    call_direction varchar,
+    call_destination varchar,
+    call_timestamp int8,
+    call_app_id varchar,
+    call_from_number varchar,
+    call_from_name varchar,
+    call_answered_at int8,
+    call_bridged_at int8,
+    call_created_at int8,
+    agent_id int
+)`, map[string]interface{}{
+		"Node":         node,
+		"MemberCallId": callId,
+		"Variables":    model.MapToJson(vars),
+		"UserId":       userId,
+		"Prams":        params.ToJson(),
+	})
+
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeOutbound", "store.sql_member.distribute_call_out.app_error", nil,
+			fmt.Sprintf("UserId=%v, CallId=%v %s", userId, callId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return att, nil
+}
+
 func (s *SqlMemberStore) DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError) {
 	var att *model.TaskToAgent
 
@@ -849,7 +891,7 @@ func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentS
 	return nil
 }
 
-func (s *SqlMemberStore) CancelAgentDistribute(agentId int32) ([]int64, *model.AppError) {
+func (s *SqlMemberStore) CancelAgentDistribute(agentId int) ([]int64, *model.AppError) {
 	var res []int64
 	_, err := s.GetMaster().Select(&res, `
 		update call_center.cc_member_attempt att

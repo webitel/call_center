@@ -16,6 +16,7 @@ const (
 	QueueTypeInboundChat
 	QueueTypeAgentTask
 	QueueTypeOutboundTask
+	QueueTypeOutboundCall
 )
 
 const (
@@ -25,9 +26,10 @@ const (
 )
 
 const (
-	QueueChannelCall = "call"
-	QueueChannelChat = "chat"
-	QueueChannelTask = "task"
+	QueueChannelCall    = "call"
+	QueueChannelChat    = "chat"
+	QueueChannelTask    = "task"
+	QueueChannelOutCall = "out_call"
 )
 
 const (
@@ -132,6 +134,8 @@ func (q *Queue) Channel() string {
 		return QueueChannelChat
 	case QueueTypeAgentTask, QueueTypeOutboundTask:
 		return QueueChannelTask
+	case QueueTypeOutboundCall:
+		return QueueChannelOutCall
 	default:
 		return QueueChannelCall
 	}

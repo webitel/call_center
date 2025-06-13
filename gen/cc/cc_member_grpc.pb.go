@@ -47,7 +47,7 @@ type MemberServiceClient interface {
 	CallJoinToQueue(ctx context.Context, in *CallJoinToQueueRequest, opts ...grpc.CallOption) (MemberService_CallJoinToQueueClient, error)
 	ChatJoinToQueue(ctx context.Context, in *ChatJoinToQueueRequest, opts ...grpc.CallOption) (MemberService_ChatJoinToQueueClient, error)
 	CallJoinToAgent(ctx context.Context, in *CallJoinToAgentRequest, opts ...grpc.CallOption) (MemberService_CallJoinToAgentClient, error)
-	OutboundCall(ctx context.Context, in *OutboundCallReqeust, opts ...grpc.CallOption) (MemberService_OutboundCallClient, error)
+	OutboundCall(ctx context.Context, in *OutboundCallRequest, opts ...grpc.CallOption) (*OutboundCallResponse, error)
 	TaskJoinToAgent(ctx context.Context, in *TaskJoinToAgentRequest, opts ...grpc.CallOption) (MemberService_TaskJoinToAgentClient, error)
 	CancelAttempt(ctx context.Context, in *CancelAttemptRequest, opts ...grpc.CallOption) (*CancelAttemptResponse, error)
 	CancelAgentDistribute(ctx context.Context, in *CancelAgentDistributeRequest, opts ...grpc.CallOption) (*CancelAgentDistributeResponse, error)
@@ -183,40 +183,17 @@ func (x *memberServiceCallJoinToAgentClient) Recv() (*QueueEvent, error) {
 	return m, nil
 }
 
-func (c *memberServiceClient) OutboundCall(ctx context.Context, in *OutboundCallReqeust, opts ...grpc.CallOption) (MemberService_OutboundCallClient, error) {
-	stream, err := c.cc.NewStream(ctx, &MemberService_ServiceDesc.Streams[3], MemberService_OutboundCall_FullMethodName, opts...)
+func (c *memberServiceClient) OutboundCall(ctx context.Context, in *OutboundCallRequest, opts ...grpc.CallOption) (*OutboundCallResponse, error) {
+	out := new(OutboundCallResponse)
+	err := c.cc.Invoke(ctx, MemberService_OutboundCall_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &memberServiceOutboundCallClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type MemberService_OutboundCallClient interface {
-	Recv() (*QueueEvent, error)
-	grpc.ClientStream
-}
-
-type memberServiceOutboundCallClient struct {
-	grpc.ClientStream
-}
-
-func (x *memberServiceOutboundCallClient) Recv() (*QueueEvent, error) {
-	m := new(QueueEvent)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *memberServiceClient) TaskJoinToAgent(ctx context.Context, in *TaskJoinToAgentRequest, opts ...grpc.CallOption) (MemberService_TaskJoinToAgentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &MemberService_ServiceDesc.Streams[4], MemberService_TaskJoinToAgent_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &MemberService_ServiceDesc.Streams[3], MemberService_TaskJoinToAgent_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +323,7 @@ type MemberServiceServer interface {
 	CallJoinToQueue(*CallJoinToQueueRequest, MemberService_CallJoinToQueueServer) error
 	ChatJoinToQueue(*ChatJoinToQueueRequest, MemberService_ChatJoinToQueueServer) error
 	CallJoinToAgent(*CallJoinToAgentRequest, MemberService_CallJoinToAgentServer) error
-	OutboundCall(*OutboundCallReqeust, MemberService_OutboundCallServer) error
+	OutboundCall(context.Context, *OutboundCallRequest) (*OutboundCallResponse, error)
 	TaskJoinToAgent(*TaskJoinToAgentRequest, MemberService_TaskJoinToAgentServer) error
 	CancelAttempt(context.Context, *CancelAttemptRequest) (*CancelAttemptResponse, error)
 	CancelAgentDistribute(context.Context, *CancelAgentDistributeRequest) (*CancelAgentDistributeResponse, error)
@@ -380,8 +357,8 @@ func (UnimplementedMemberServiceServer) ChatJoinToQueue(*ChatJoinToQueueRequest,
 func (UnimplementedMemberServiceServer) CallJoinToAgent(*CallJoinToAgentRequest, MemberService_CallJoinToAgentServer) error {
 	return status.Errorf(codes.Unimplemented, "method CallJoinToAgent not implemented")
 }
-func (UnimplementedMemberServiceServer) OutboundCall(*OutboundCallReqeust, MemberService_OutboundCallServer) error {
-	return status.Errorf(codes.Unimplemented, "method OutboundCall not implemented")
+func (UnimplementedMemberServiceServer) OutboundCall(context.Context, *OutboundCallRequest) (*OutboundCallResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OutboundCall not implemented")
 }
 func (UnimplementedMemberServiceServer) TaskJoinToAgent(*TaskJoinToAgentRequest, MemberService_TaskJoinToAgentServer) error {
 	return status.Errorf(codes.Unimplemented, "method TaskJoinToAgent not implemented")
@@ -528,25 +505,22 @@ func (x *memberServiceCallJoinToAgentServer) Send(m *QueueEvent) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _MemberService_OutboundCall_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(OutboundCallReqeust)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _MemberService_OutboundCall_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OutboundCallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(MemberServiceServer).OutboundCall(m, &memberServiceOutboundCallServer{stream})
-}
-
-type MemberService_OutboundCallServer interface {
-	Send(*QueueEvent) error
-	grpc.ServerStream
-}
-
-type memberServiceOutboundCallServer struct {
-	grpc.ServerStream
-}
-
-func (x *memberServiceOutboundCallServer) Send(m *QueueEvent) error {
-	return x.ServerStream.SendMsg(m)
+	if interceptor == nil {
+		return srv.(MemberServiceServer).OutboundCall(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_OutboundCall_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).OutboundCall(ctx, req.(*OutboundCallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _MemberService_TaskJoinToAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -766,6 +740,10 @@ var MemberService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MemberService_AttemptRenewalResult_Handler,
 		},
 		{
+			MethodName: "OutboundCall",
+			Handler:    _MemberService_OutboundCall_Handler,
+		},
+		{
 			MethodName: "CancelAttempt",
 			Handler:    _MemberService_CancelAttempt_Handler,
 		},
@@ -820,11 +798,6 @@ var MemberService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "CallJoinToAgent",
 			Handler:       _MemberService_CallJoinToAgent_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "OutboundCall",
-			Handler:       _MemberService_OutboundCall_Handler,
 			ServerStreams: true,
 		},
 		{
