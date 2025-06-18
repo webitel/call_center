@@ -28,7 +28,7 @@ type CallSettings struct {
 
 type SqlSettings struct {
 	DriverName                  *string       `json:"driver_name" flag:"sql_driver_name|postgres|" env:"SQL_DRIVER_NAME"`
-	DataSource                  *string       `json:"data_source" flag:"data_source|postgres://opensips:webitel@postgres:5432/webitel?fallback_application_name=engine&sslmode=disable&connect_timeout=10&search_path=call_center|Data source" env:"DATA_SOURCE"`
+	DataSource                  *string       `json:"data_source" flag:"data_source|postgres://postgres:postgres@postgres:5432/webitel?fallback_application_name=engine&sslmode=disable&connect_timeout=10&search_path=call_center|Data source" env:"DATA_SOURCE"`
 	DataSourceReplicas          []string      `json:"data_source_replicas" flag:"sql_data_source_replicas" default:"" env:"SQL_DATA_SOURCE_REPLICAS"`
 	MaxIdleConns                *int          `json:"max_idle_conns" flag:"sql_max_idle_conns|5|Maximum idle connections" env:"SQL_MAX_IDLE_CONNS"`
 	MaxOpenConns                *int          `json:"max_open_conns" flag:"sql_max_open_conns|5|Maximum open connections" env:"SQL_MAX_OPEN_CONNS"`
@@ -39,7 +39,7 @@ type SqlSettings struct {
 }
 
 type MessageQueueSettings struct {
-	Url string `flag:"amqp|amqp://webitel:webitel@rabbit:5672?heartbeat=10|AMQP connection" env:"AMQP"`
+	Url string `flag:"amqp|amqp://admin:admin@rabbit:5672?heartbeat=10|AMQP connection" env:"AMQP"`
 }
 
 type ServerSettings struct {
