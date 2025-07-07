@@ -280,13 +280,19 @@ func (queue *CallingQueue) transferResult(attempt *Attempt, mCall call_manager.C
 
 		return mCall, CallTransferForward
 
-	} else if attempt.processTransfer && mCall.TransferFrom() != nil {
-		attempt.processTransfer = false
+	} else if mCall.TransferFrom() != nil &&
+		// DEV-5528
+		(attempt.processTransfer || mCall.HangupCause() == "ATTENDED_TRANSFER") {
+
+		if attempt.processTransfer {
+			attempt.processTransfer = false
+			if queue.Processing() {
+				attempt.queue.StartProcessingForm(attempt)
+			}
+		}
+
 		var c call_manager.Call
 
-		if queue.Processing() {
-			attempt.queue.StartProcessingForm(attempt)
-		}
 		c, err = queue.GetTransferredCall(*mCall.TransferFrom())
 		if err != nil {
 			attempt.log.Error(err.Error())
