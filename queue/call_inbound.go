@@ -255,6 +255,20 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							return
 						}
 
+						// TODO DEV-5528
+						if mCall.HangupCause() == "ATTENDED_TRANSFER" && mCall.TransferFrom() != nil {
+							var c call_manager.Call
+
+							c, err = queue.GetTransferredCall(*mCall.TransferFrom())
+							if err != nil {
+								attempt.log.Error(err.Error())
+							} else {
+								attempt.memberChannel = c
+								mCall = c
+								continue
+							}
+						}
+
 						if agentCall.HangupAt() == 0 && !(mCall.Direction() == model.CallDirectionOutbound && mCall.TransferFrom() != nil) {
 							if mCall.BridgeAt() > 0 {
 								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
