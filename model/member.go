@@ -30,8 +30,9 @@ const (
 )
 
 type Communication struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"` // TODO
+	Id      int     `json:"id"`
+	Name    string  `json:"name"` // TODO
+	Channel *string `json:"channel,omitempty"`
 }
 
 type MemberCommunication struct {
