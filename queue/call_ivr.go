@@ -184,9 +184,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				}
 
 			case call_manager.CALL_STATE_DETECT_AMD, call_manager.CALL_STATE_ACCEPT:
-				// FIXME
-				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) ||
-					(state == call_manager.CALL_STATE_DETECT_AMD && !IsHuman(call, queue.Amd)) {
+				if queue.hasProcessAmd(call, state, queue.Amd) {
 					continue
 				}
 

@@ -42,7 +42,6 @@ type QueueObject interface {
 	AutoAnswer() bool
 	AutoAnswerValue() interface{}
 	RingtoneUri() string
-	AmdPlaybackUri() *string // todo move to amd
 	Log() *wlog.Logger
 }
 
@@ -70,6 +69,7 @@ type BaseQueue struct {
 	endless              bool
 	hooks                HookHub
 	amdPlaybackFileUri   *string
+	amdPlaybackFile      *model.RingtoneFile
 	log                  *wlog.Logger
 }
 
@@ -111,6 +111,7 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 	}
 
 	if settings.AmdPlaybackFile != nil {
+		base.amdPlaybackFile = settings.AmdPlaybackFile
 		base.amdPlaybackFileUri = model.NewString(model.RingtoneUri(base.domainId, settings.AmdPlaybackFile.Id, settings.AmdPlaybackFile.Type))
 	}
 
@@ -444,8 +445,4 @@ func (queue *BaseQueue) RingtoneUri() string {
 	}
 
 	return ""
-}
-
-func (queue *BaseQueue) AmdPlaybackUri() *string {
-	return queue.amdPlaybackFileUri
 }
