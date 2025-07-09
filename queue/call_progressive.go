@@ -186,8 +186,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		case state := <-mCall.State():
 			switch state {
 			case call_manager.CALL_STATE_ACCEPT, call_manager.CALL_STATE_DETECT_AMD:
-				// FIXME
-				if (state == call_manager.CALL_STATE_ACCEPT && queue.Amd != nil && queue.Amd.Enabled) || (state == call_manager.CALL_STATE_DETECT_AMD && !IsHuman(mCall, queue.Amd)) {
+				if queue.hasProcessAmd(mCall, state, queue.Amd) {
 					continue
 				}
 
