@@ -60,16 +60,7 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 		return false
 	}
 
-	pbf := queue.AmdPlaybackUri()
-
 	if amd.Ai {
-		if pbf != nil {
-			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
-				AppName: "set",
-				Args:    "execute_on_answer=playback " + *pbf,
-			})
-		}
-
 		callRequest.Variables["ignore_early_media"] = "false"
 		callRequest.Variables["amd_on_positive"] = onHuman
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
@@ -96,10 +87,11 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 			Args:    amd.ToArgs(),
 		})
 
-		if pbf != nil {
+		if queue.amdPlaybackFileUri != nil {
+			// TODO BroadcastPlaybackFile - blocking call
 			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 				AppName: "playback",
-				Args:    *pbf,
+				Args:    *queue.amdPlaybackFileUri,
 			})
 		}
 
@@ -110,6 +102,22 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 	}
 
 	return true
+}
+
+func (queue *CallingQueue) hasProcessAmd(call call_manager.Call, state call_manager.CallState, amd *model.QueueAmdSettings) bool {
+	if (state == call_manager.CALL_STATE_ACCEPT && !call.HasAmdError() && amd != nil && amd.Enabled) ||
+		(state == call_manager.CALL_STATE_DETECT_AMD && !IsHuman(call, amd)) {
+
+		// TODO
+		if amd.Ai {
+			if queue.amdPlaybackFile != nil {
+				_ = call.BroadcastPlaybackFile(queue.DomainId(), queue.amdPlaybackFile, "aleg")
+			}
+		}
+		return true
+	}
+
+	return false
 }
 
 func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager.Call, *model.AppError) {
