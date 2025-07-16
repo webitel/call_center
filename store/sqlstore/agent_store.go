@@ -359,7 +359,7 @@ from call_center.cc_agent a
          left join lateral (
     select exists(select 1 from call_center.socket_session ss
     where ss.user_id = a.user_id
-      and ss.client = 'agent'
+      and ss.application_name = 'desc_track'
       and now() - ss.updated_at < (:Sec + 10 || ' sec')::interval) has
     ) sca on t.screen_control or a.screen_control
 where a.status in ('online', 'break_out')
