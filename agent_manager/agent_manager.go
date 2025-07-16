@@ -201,9 +201,11 @@ func (am *agentManager) changeDeadlineState() {
 		for _, v := range items {
 			if a, _ := am.GetAgent(v.Id, v.UpdatedAt); a != nil {
 				var s *string
-				if v.Ws || v.Sip {
+				if v.Ws || v.Sip || v.ReasonSca {
 					s = model.NewString("system")
-					if v.Ws {
+					if v.ReasonSca {
+						*s = *s + "/screen_control"
+					} else if v.Ws {
 						*s = *s + "/ws"
 					}
 					if v.Sip {
