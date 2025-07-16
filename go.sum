@@ -261,8 +261,6 @@ github.com/webitel/engine/pkg/discovery v0.0.0-20250512130121-81caadba224c h1:rr
 github.com/webitel/engine/pkg/discovery v0.0.0-20250512130121-81caadba224c/go.mod h1:SYOLV0TUj7A8ZfCLdNgI08twGMXAlPzqkQ68XL5ePzo=
 github.com/webitel/engine/pkg/wbt v0.0.0-20250512130121-81caadba224c h1:bSypH0QwRwdgoEPmaVYXFeINrg3BNdK1RpEhq0Y0l0E=
 github.com/webitel/engine/pkg/wbt v0.0.0-20250512130121-81caadba224c/go.mod h1:X0IamnomNaWvRaJihNIZSTiz3rcFuRm19qZq6uO8Tig=
-github.com/webitel/flow_manager/pkg/processing v0.0.0-20250704130339-349f57449cfa h1:6l4sg3IIMQt1+jVYsm9ds141fDCb9yUQtPv5AmEYTww=
-github.com/webitel/flow_manager/pkg/processing v0.0.0-20250704130339-349f57449cfa/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20250708053909-5b2baa0cbc23 h1:hcdWYtrBkUKKxucoaj4W8CyxC7vGYMW/uGytZCPBXaE=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20250708053909-5b2baa0cbc23/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41 h1:vj6qE8RtTyz8B4syfUDCkZqULLJ/4I+LS0Rw5W7mao0=
@@ -354,8 +352,8 @@ golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sync v0.14.0 h1:woo0S4Yywslg6hp4eUFjTVOyKt0RookbpAHG4c1HmhQ=
-golang.org/x/sync v0.14.0/go.mod h1:1dzgHSNfp02xaA81J2MS99Qcpr2w7fw1gpm99rleRqA=
+golang.org/x/sync v0.16.0 h1:ycBJEhp9p4vXvUZNszeOq0kGTPghopOL8q0fq3vstxw=
+golang.org/x/sync v0.16.0/go.mod h1:1dzgHSNfp02xaA81J2MS99Qcpr2w7fw1gpm99rleRqA=
 golang.org/x/sys v0.0.0-20180823144017-11551d06cbcc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
