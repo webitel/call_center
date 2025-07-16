@@ -151,7 +151,7 @@ func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlin
 
 	if err != nil {
 		return nil, model.NewAppError("SqlAgentStore.SetOnline", "store.sql_agent.set_online.app_error", nil,
-			fmt.Sprintf("AgenetId=%v, Status=%v, %s", agentId, model.AgentStatusOnline, err.Error()), http.StatusInternalServerError)
+			err.Error(), extractCodeFromErr(err))
 	}
 
 	return data, nil
@@ -339,43 +339,50 @@ func (s *SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 // todo need index
 func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	var res []model.AgentHashKey
-	_, err := s.GetMaster().Select(&res, `select a.id, a.updated_at,
-       not exists(
-        select 1
-        from directory.wbt_user_presence p
-            where p.user_id = a.user_id
-                and p.status = 'sip'
-                and p.open > 0
-                ) sip,
-       not exists(
-        select 1
-        from directory.wbt_user_presence p
-            where p.user_id = a.user_id
-                and p.status = 'web'
-                and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
-                ) ws,
-       t.updated_at as team_updated_at
-from call_center.cc_agent a
-	left join call_center.cc_team t on t.id = a.team_id
-where a.status in ('online', 'break_out')
-    and not exists(SELECT 1
-        FROM directory.wbt_session s
-        WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
-            and s.user_id = a.user_id::int8
-            and s.access notnull
-            AND s.expires > now() at time zone 'UTC')
+	_, err := s.GetMaster().Select(&res, `select a.id,
+       a.updated_at,
+       not exists(select 1
+                  from directory.wbt_user_presence p
 
-    and not exists(
-        select 1
-        from directory.wbt_user_presence p
-            where p.user_id = a.user_id
-                and p.status in ('sip', 'web')
-                and (
-                    p.open > 0
-                    or (p.status = 'web' and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval)
-                )
+                  where p.user_id = a.user_id
+                    and p.status = 'sip'
+                    and p.open > 0)                                                            sip,
+       (t.screen_control or a.screen_control) and not coalesce(sca.has, false)                 reason_sca,
+       not exists(select 1
+                  from directory.wbt_user_presence p
+                  where p.user_id = a.user_id
+                    and p.status = 'web'
+                    and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval) ws,
+       t.updated_at as                                                                         team_updated_at
+from call_center.cc_agent a
+         left join call_center.cc_team t on t.id = a.team_id
+         left join lateral (
+    select exists(select 1 from call_center.socket_session ss
+    where ss.user_id = a.user_id
+      and ss.client = 'agent'
+      and now() - ss.updated_at < (:Sec + 10 || ' sec')::interval) has
+    ) sca on t.screen_control or a.screen_control
+where a.status in ('online', 'break_out')
+  and (
+    ((t.screen_control or a.screen_control) and not sca.has) or (
+        not exists(SELECT 1
+                   FROM directory.wbt_session s
+                   WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
+                     and s.user_id = a.user_id::int8
+                     and s.access notnull
+                     AND s.expires > now() at time zone 'UTC')
+            and not exists(select 1
+                           from directory.wbt_user_presence p
+                           where p.user_id = a.user_id
+                             and p.status in ('sip', 'web')
+                             and (
+                               p.open > 0
+                                   or (p.status = 'web' and
+                                       p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval)
+                               ))
+        )
     )
-for update of a skip locked`, map[string]interface{}{
+    for update of a skip locked`, map[string]interface{}{
 		"Sec": sec,
 	})
 

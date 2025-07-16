@@ -65,6 +65,7 @@ type AgentHashKey struct {
 	UpdatedAt     int64 `json:"updated_at" db:"updated_at"`
 	Sip           bool  `json:"sip" db:"sip"`
 	Ws            bool  `json:"ws" db:"ws"`
+	ReasonSca     bool  `json:"reason_sca" db:"reason_sca"`
 	TeamUpdatedAt int64 `json:"team_updated_at" db:"team_updated_at"`
 }
 
