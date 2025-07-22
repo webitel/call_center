@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/streadway/amqp v1.1.0
 	github.com/webitel/engine/pkg/discovery v0.0.0-20250512130121-81caadba224c
-	github.com/webitel/engine/pkg/wbt v0.0.0-20250722062747-908c4c4c3aae
+	github.com/webitel/engine/pkg/wbt v0.0.0-20250722070748-6033ec4e9e17
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20250515111207-b1465e8b89c1
 	github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41
 	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
