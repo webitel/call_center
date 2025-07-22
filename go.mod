@@ -3,7 +3,7 @@ module github.com/webitel/call_center
 go 1.24.3
 
 require (
-	github.com/BoRuDar/configuration/v4 v4.5.0
+	github.com/BoRuDar/configuration/v4 v4.5.1
 	github.com/go-gorp/gorp v2.2.0+incompatible
 	github.com/lib/pq v1.10.9
 	github.com/olebedev/emitter v0.0.0-20190110104742-e8d1457e6aee
