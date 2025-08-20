@@ -3,11 +3,12 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"time"
 )
 
 const (
@@ -195,7 +196,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						//wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec(), conv.SilentSec()))
 
 						if queue.settings.LastMessageTimeout {
-							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleAgent && mSess.IdleSec() > aSess.IdleSec()
+							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleAgent && aSess.IdleSec() > mSess.IdleSec()
 						} else {
 							timeoutStrategy = aSess != nil && aSess.IdleSec() >= queue.settings.MaxIdleAgent
 						}
@@ -208,7 +209,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 						}
 
 						if queue.settings.LastMessageTimeout {
-							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleClient && aSess.IdleSec() > mSess.IdleSec()
+							timeoutStrategy = aSess != nil && conv.SilentSec() >= queue.settings.MaxIdleClient && mSess.IdleSec() > aSess.IdleSec()
 						} else {
 							timeoutStrategy = aSess != nil && mSess.IdleSec() >= queue.settings.MaxIdleClient
 						}
