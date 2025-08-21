@@ -360,7 +360,7 @@ WITH agents AS MATERIALIZED (
                    END AS ac
         FROM (agents a_1
             JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = a_1.id)))
-        WHERE ((h.leaving_at > ((now())::date - '2 days'::interval)) AND ((h.leaving_at >= a_1."from") AND (h.leaving_at <= a_1."to")) AND ((h.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])) AND (h.agent_id IS NOT NULL) AND (1 = 1))
+        WHERE h.bridged_at IS NOT NULL and ((h.leaving_at > ((now())::date - '2 days'::interval)) AND ((h.leaving_at >= a_1."from") AND (h.leaving_at <= a_1."to")) AND ((h.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])) AND (h.agent_id IS NOT NULL) AND (1 = 1))
     )
     SELECT t.agent_id,
            t.c AS channel,
