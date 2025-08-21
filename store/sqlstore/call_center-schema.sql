@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.13 (Debian 15.13-1.pgdg120+1)
--- Dumped by pg_dump version 15.13 (Debian 15.13-1.pgdg120+1)
+\restrict QhqtLyw2KO5Nc7kUO4ltxqUKmJbta5jx0KHp2gaPEekw2gJhTWwDfOVtdmqaF4N
+
+-- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
+-- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -882,6 +884,40 @@ $$;
 
 
 --
+-- Name: cc_agent_screen_control_tg(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_agent_screen_control_tg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+    declare team_sc bool = false;
+BEGIN
+
+    if TG_OP = 'INSERT' OR new.screen_control IS DISTINCT FROM old.screen_control then
+        select screen_control
+        into team_sc
+        from call_center.cc_team t
+        where t.id = new.team_id;
+
+        if TG_OP = 'INSERT' then
+            new.screen_control = team_sc;
+        end if;
+
+        if team_sc and not new.screen_control then
+            RAISE EXCEPTION 'The screen_control option is enabled at the team level for this agent. This setting has priority and cannot be overridden at the agent level.'               --'Changing agent''s screen_control is not allowed.'
+            USING
+                DETAIL = 'The screen_control option is enabled at the team level for this agent. This setting has priority and cannot be overridden at the agent level.',
+                HINT = 'To change this setting, disable the screen_control option in the team settings or move the agent to another team.',
+                ERRCODE = '09000';
+        end if;
+    end if;
+
+    RETURN new;
+END;
+$$;
+
+
+--
 -- Name: cc_agent_set_channel_waiting(integer, character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -923,6 +959,7 @@ CREATE FUNCTION call_center.cc_agent_set_login(agent_id_ integer, on_demand_ boo
     LANGUAGE plpgsql
     AS $$
 declare
+    screen_control_ bool;
     res_ jsonb;
     user_id_
          int8;
@@ -934,7 +971,15 @@ begin
 --         updated_at = case when on_demand != on_demand_ then cc_view_timestamp(now()) else updated_at end,
         last_state_change = now()     -- todo rename to status
     where call_center.cc_agent.id = agent_id_
-    returning user_id into user_id_;
+    returning user_id, screen_control into user_id_, screen_control_;
+
+    if screen_control_ and not exists(select 1 from call_center.socket_session ss
+                                              where ss.user_id = user_id_ and application_name = 'desc_track' and now() - ss.updated_at < '65 sec'::interval) then
+        RAISE EXCEPTION 'The agent must connect via the "desc_track" client application.'
+        USING
+            DETAIL = 'The agent must connect via the "desc_track" client application.',
+            ERRCODE = '09000';
+    end if;
 
     if
         NOT (exists(select 1
@@ -1875,7 +1920,9 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     heartbeat timestamp with time zone,
     hangup_phrase character varying,
     blind_transfers jsonb,
-    did text
+    did text,
+    destination_name text,
+    attempt_ids bigint[]
 )
 WITH (fillfactor='20', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -2306,7 +2353,7 @@ CREATE PROCEDURE call_center.cc_distribute(IN disable_omnichannel boolean)
                    dis.resource_id,
                    dis.agent_id,
                    dis.bucket_id,
-                   x,
+                   jsonb_set(x, '{type,channel}'::text[], to_jsonb(c.channel::text)),
                    dis.comm_idx,
                    uuid_generate_v4(),
                    dis.team_id,
@@ -2320,6 +2367,7 @@ CREATE PROCEDURE call_center.cc_distribute(IN disable_omnichannel boolean)
                      inner join call_center.cc_queue q on q.id = dis.queue_id
                      inner join call_center.cc_member m on m.id = dis.id
                      inner join lateral jsonb_extract_path(m.communications, (dis.comm_idx)::text) x on true
+                     left join call_center.cc_communication c on c.id = (x->'type'->'id')::int
             where dis.ins
     )
     update call_center.cc_member_attempt a
@@ -4180,6 +4228,23 @@ $$;
 
 
 --
+-- Name: cc_team_changed_tg(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_team_changed_tg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    update call_center.cc_agent
+        set screen_control = new.screen_control
+    where team_id = new.id;
+
+    RETURN new;
+END;
+$$;
+
+
+--
 -- Name: cc_team_event_changed_tg(); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -4500,6 +4565,7 @@ CREATE TABLE call_center.cc_agent (
     supervisor_ids integer[],
     auditor_ids bigint[],
     task_count smallint DEFAULT 1 NOT NULL,
+    screen_control boolean DEFAULT false NOT NULL,
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_progress_count_c CHECK ((progressive_count > '-1'::integer))
 )
@@ -4708,7 +4774,8 @@ CREATE TABLE call_center.cc_team (
     admin_ids integer[],
     invite_chat_timeout smallint DEFAULT 30 NOT NULL,
     task_accept_timeout smallint DEFAULT 30 NOT NULL,
-    forecast_calculation_id bigint
+    forecast_calculation_id bigint,
+    screen_control boolean DEFAULT false NOT NULL
 );
 
 
@@ -4749,7 +4816,9 @@ CREATE VIEW call_center.cc_agent_list AS
     a.auditor_ids,
     a.user_id,
     ct.extension,
-    a.task_count
+    a.task_count,
+    a.screen_control,
+    (t.screen_control IS FALSE) AS allow_set_screen_control
    FROM (((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
      LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
@@ -4903,7 +4972,9 @@ CREATE TABLE call_center.cc_calls_history (
     redial_id uuid,
     schema_ids integer[],
     hangup_phrase character varying,
-    blind_transfers jsonb
+    blind_transfers jsonb,
+    destination_name text,
+    attempt_ids bigint[]
 );
 
 
@@ -5053,6 +5124,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
                     h.bridged_at AS v,
                         CASE
                             WHEN (h.bridged_at IS NOT NULL) THEN 1
+                            WHEN (((h.channel)::text = 'task'::text) AND (h.reporting_at IS NOT NULL)) THEN 1
                             ELSE 0
                         END AS ac
                    FROM (agents a_1
@@ -5180,7 +5252,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
      LEFT JOIN eff ON ((eff.agent_id = a.id)))
      LEFT JOIN calls c ON ((c.user_id = a.user_id)))
      LEFT JOIN attempts chc ON (((chc.agent_id = a.id) AND ((chc.channel)::text = 'chat'::text))))
-     LEFT JOIN attempts cht ON (((cht.agent_id = a.id) AND ((chc.channel)::text = 'task'::text))))
+     LEFT JOIN attempts cht ON (((cht.agent_id = a.id) AND ((cht.channel)::text = 'task'::text))))
      LEFT JOIN rate ON ((rate.user_id = a.user_id)))
   WITH NO DATA;
 
@@ -5245,7 +5317,7 @@ CREATE TABLE call_center.cc_audit_form (
     enabled boolean DEFAULT false NOT NULL,
     created_by bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by bigint NOT NULL,
+    updated_by bigint,
     updated_at timestamp with time zone DEFAULT now(),
     questions jsonb,
     team_ids integer[],
@@ -5807,20 +5879,25 @@ CREATE VIEW call_center.cc_calls_history_list AS
             ELSE (0)::bigint
         END AS bill_sec,
     c.sip_code,
-    ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint)) AS files
+    ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at', ((c.params -> 'record_start'::text))::bigint, 'stop_at', ((c.params -> 'record_stop'::text))::bigint, 'start_record', f_1.sr)) AS files
            FROM ( SELECT f1.id,
                     f1.size,
                     f1.mime_type,
-                    f1.name
+                    f1.name,
+                        CASE
+                            WHEN (((c.direction)::text = 'outbound'::text) AND (c.user_id IS NOT NULL) AND ((c.queue_id IS NULL) OR (cq.type = 2))) THEN 'operator'::text
+                            ELSE 'client'::text
+                        END AS sr
                    FROM storage.files f1
                   WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
                 UNION ALL
                  SELECT f1.id,
                     f1.size,
                     f1.mime_type,
-                    f1.name
+                    f1.name,
+                    NULL::text AS sr
                    FROM storage.files f1
-                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) AS files,
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND (c.parent_id IS NOT NULL) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) AS files,
     call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup(c.member_id, cm.name) AS member,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
@@ -5935,15 +6012,23 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.search_number,
     c.hide_missed,
     c.redial_id,
-    (EXISTS ( SELECT 1
+    ((c.parent_id IS NOT NULL) AND (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history lega
-          WHERE ((lega.id = c.parent_id) AND (lega.bridged_id IS NOT NULL)))) AS parent_bridged,
+          WHERE ((lega.id = c.parent_id) AND (lega.domain_id = c.domain_id) AND (lega.bridged_at IS NOT NULL))))) AS parent_bridged,
     ( SELECT jsonb_agg(call_center.cc_get_lookup(ash.id, ash.name)) AS jsonb_agg
            FROM flow.acr_routing_scheme ash
           WHERE (ash.id = ANY (c.schema_ids))) AS schemas,
     c.schema_ids,
     c.hangup_phrase,
-    c.blind_transfers
+    c.blind_transfers,
+    c.destination_name,
+    c.attempt_ids,
+    ( SELECT jsonb_agg(json_build_object('id', p.id, 'agent', u_1."user", 'form_fields', p.form_fields, 'reporting_at', call_center.cc_view_timestamp(p.reporting_at))) AS jsonb_agg
+           FROM (call_center.cc_member_attempt_history p
+             LEFT JOIN call_center.cc_agent_with_user u_1 ON ((u_1.id = p.agent_id)))
+          WHERE ((p.id IN ( SELECT DISTINCT x.x
+                   FROM unnest((c.attempt_ids || c.attempt_id)) x(x))) AND (p.reporting_at IS NOT NULL))
+         LIMIT 20) AS forms
    FROM (((((((((((((call_center.cc_calls_history c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
@@ -7498,9 +7583,9 @@ CREATE TABLE call_center.cc_quick_reply (
     id bigint NOT NULL,
     name text NOT NULL,
     text text NOT NULL,
-    created_at timestamp without time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     created_by bigint NOT NULL,
-    updated_at timestamp without time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_by bigint NOT NULL,
     article bigint,
     domain_id bigint NOT NULL,
@@ -7546,9 +7631,9 @@ CREATE VIEW call_center.cc_quick_reply_list AS
           WHERE (t.id = ANY (a.teams))) AS teams,
     a.name,
     a.created_at,
-    call_center.cc_get_lookup(uc.id, (uc.name)::character varying) AS created_by,
+    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS created_by,
     a.updated_at,
-    call_center.cc_get_lookup(uu.id, (uu.name)::character varying) AS updated_by
+    call_center.cc_get_lookup(uu.id, (COALESCE(uu.name, (uu.username)::text))::character varying) AS updated_by
    FROM ((call_center.cc_quick_reply a
      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.created_by)))
      LEFT JOIN directory.wbt_user uu ON ((uu.id = a.updated_by)));
@@ -7815,7 +7900,8 @@ CREATE VIEW call_center.cc_team_list AS
     t.admin_ids,
     t.invite_chat_timeout,
     t.task_accept_timeout,
-    call_center.cc_get_lookup((fc.id)::bigint, (fc.name)::character varying) AS forecast_calculation
+    call_center.cc_get_lookup((fc.id)::bigint, (fc.name)::character varying) AS forecast_calculation,
+    t.screen_control
    FROM (call_center.cc_team t
      LEFT JOIN wfm.forecast_calculation fc ON ((fc.id = t.forecast_calculation_id)));
 
@@ -8128,6 +8214,45 @@ CREATE VIEW call_center.cc_user_status_view AS
                    FROM directory.wbt_user_presence stt
                   WHERE ((stt.user_id = u.id) AND (stt.status IS NOT NULL) AND (stt.open > 0))
                   ORDER BY stt.prior, stt.status)) status(open)) pr(status) ON (true));
+
+
+--
+-- Name: socket_session; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.socket_session (
+    id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    user_agent text,
+    user_id bigint,
+    ip text,
+    app_id text NOT NULL,
+    domain_id bigint NOT NULL,
+    ver text DEFAULT ''::text NOT NULL,
+    application_name text DEFAULT ''::text NOT NULL
+);
+
+
+--
+-- Name: socket_session_view; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.socket_session_view AS
+ SELECT s.id,
+    s.created_at,
+    s.updated_at,
+    (EXTRACT(epoch FROM (now() - s.created_at)))::bigint AS duration,
+    (EXTRACT(epoch FROM (now() - s.updated_at)))::bigint AS pong,
+    call_center.cc_get_lookup(wu.id, (COALESCE(wu.name, (wu.username)::text))::character varying) AS "user",
+    s.user_agent,
+    s.ip,
+    s.application_name,
+    s.ver,
+    s.user_id,
+    s.domain_id
+   FROM (call_center.socket_session s
+     LEFT JOIN directory.wbt_user wu ON ((s.user_id = wu.id)));
 
 
 --
@@ -8764,6 +8889,14 @@ ALTER TABLE ONLY call_center.cc_outbound_resource_in_group
 
 ALTER TABLE ONLY call_center.cc_preset_query
     ADD CONSTRAINT cc_preset_query_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_preset_query cc_preset_query_user_id_section_name_uindex; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_preset_query
+    ADD CONSTRAINT cc_preset_query_user_id_section_name_uindex UNIQUE (user_id, section, name);
 
 
 --
@@ -9995,13 +10128,6 @@ CREATE UNIQUE INDEX cc_pause_cause_domain_id_udx ON call_center.cc_pause_cause U
 
 
 --
--- Name: cc_preset_query_user_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE UNIQUE INDEX cc_preset_query_user_id_name_uindex ON call_center.cc_preset_query USING btree (user_id, name);
-
-
---
 -- Name: cc_queue_acl_grantor_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -10324,6 +10450,20 @@ CREATE INDEX cc_trigger_job_log_trigger_id_started_at_index ON call_center.cc_tr
 
 
 --
+-- Name: socket_session_app_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX socket_session_app_id_index ON call_center.socket_session USING btree (app_id);
+
+
+--
+-- Name: socket_session_user_id_index; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX socket_session_user_id_index ON call_center.socket_session USING btree (user_id);
+
+
+--
 -- Name: system_settings_domain_id_name_uindex; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -10349,39 +10489,6 @@ CREATE STATISTICS call_center.cc_calls_history_user_id_st ON domain_id, user_id,
 --
 
 CREATE STATISTICS call_center.cc_calls_history_user_ids_st ON domain_id, user_ids FROM call_center.cc_calls_history;
-
-
---
--- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
- WITH res AS (
-         SELECT cqr.queue_id,
-            corg.communication_id,
-            cor.id,
-            cor."limit",
-            call_center.cc_outbound_resource_timing(corg."time") AS t,
-            cor.patterns
-           FROM (((call_center.cc_queue_resource cqr
-             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
-             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
-             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
-          WHERE (cor.enabled AND (NOT cor.reserve))
-          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
-        )
- SELECT res.queue_id,
-    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
-    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
-    array_agg(DISTINCT f.f) AS ran
-   FROM res,
-    (LATERAL ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.resource_id = res.id)) ac
-     JOIN LATERAL ( SELECT f_1.f
-           FROM unnest(res.t) f_1(f)) f ON (true))
-  WHERE ((res."limit" - ac.count) > 0)
-  GROUP BY res.queue_id;
 
 
 --
@@ -10454,36 +10561,6 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
              JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
           WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
           GROUP BY ROLLUP(q.queue_id)) a ON (true));
-
-
---
--- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
---
-
-CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
- SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-    call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    ( SELECT sum(s.member_waiting) AS sum
-           FROM call_center.cc_queue_statistics s
-          WHERE (s.queue_id = q.id)) AS waiting,
-    ( SELECT count(*) AS count
-           FROM call_center.cc_member_attempt a
-          WHERE (a.queue_id = q.id)) AS processed,
-    count(*) AS cnt,
-    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
-    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
-    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
-    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
-    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
-    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
-    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
-    q.id AS queue_id,
-    q.team_id
-   FROM ((call_center.cc_member_attempt_history t
-     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
-     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
-  GROUP BY q.id, ct.id;
 
 
 --
@@ -10689,6 +10766,76 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
 
 
 --
+-- Name: cc_queue_report_general _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_queue_report_general AS
+ SELECT call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    ( SELECT sum(s.member_waiting) AS sum
+           FROM call_center.cc_queue_statistics s
+          WHERE (s.queue_id = q.id)) AS waiting,
+    ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.queue_id = q.id)) AS processed,
+    count(*) AS cnt,
+    count(*) FILTER (WHERE (t.offering_at IS NOT NULL)) AS calls,
+    count(*) FILTER (WHERE ((t.result)::text = 'abandoned'::text)) AS abandoned,
+    date_part('epoch'::text, sum((t.leaving_at - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS bill_sec,
+    date_part('epoch'::text, avg((t.leaving_at - t.reporting_at)) FILTER (WHERE (t.reporting_at IS NOT NULL))) AS avg_wrap_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_awt_sec,
+    date_part('epoch'::text, max((t.bridged_at - t.offering_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS max_awt_sec,
+    date_part('epoch'::text, avg((t.bridged_at - t.joined_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_asa_sec,
+    date_part('epoch'::text, avg((GREATEST(t.leaving_at, t.reporting_at) - t.bridged_at)) FILTER (WHERE (t.bridged_at IS NOT NULL))) AS avg_aht_sec,
+    q.id AS queue_id,
+    q.team_id
+   FROM ((call_center.cc_member_attempt_history t
+     JOIN call_center.cc_queue q ON ((q.id = t.queue_id)))
+     LEFT JOIN call_center.cc_team ct ON ((q.team_id = ct.id)))
+  GROUP BY q.id, ct.id;
+
+
+--
+-- Name: cc_sys_queue_distribute_resources _RETURN; Type: RULE; Schema: call_center; Owner: -
+--
+
+CREATE OR REPLACE VIEW call_center.cc_sys_queue_distribute_resources AS
+ WITH res AS (
+         SELECT cqr.queue_id,
+            corg.communication_id,
+            cor.id,
+            cor."limit",
+            call_center.cc_outbound_resource_timing(corg."time") AS t,
+            cor.patterns
+           FROM (((call_center.cc_queue_resource cqr
+             JOIN call_center.cc_outbound_resource_group corg ON ((cqr.resource_group_id = corg.id)))
+             JOIN call_center.cc_outbound_resource_in_group corig ON ((corg.id = corig.group_id)))
+             JOIN call_center.cc_outbound_resource cor ON ((corig.resource_id = cor.id)))
+          WHERE (cor.enabled AND (NOT cor.reserve))
+          GROUP BY cqr.queue_id, corg.communication_id, corg."time", cor.id, cor."limit"
+        )
+ SELECT res.queue_id,
+    array_agg(DISTINCT ROW(res.communication_id, (res.id)::bigint, res.t, 0)::call_center.cc_sys_distribute_type) AS types,
+    array_agg(DISTINCT ROW((res.id)::bigint, ((res."limit" - ac.count))::integer, res.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+    array_agg(DISTINCT f.f) AS ran
+   FROM res,
+    (LATERAL ( SELECT count(*) AS count
+           FROM call_center.cc_member_attempt a
+          WHERE (a.resource_id = res.id)) ac
+     JOIN LATERAL ( SELECT f_1.f
+           FROM unnest(res.t) f_1(f)) f ON (true))
+  WHERE ((res."limit" - ac.count) > 0)
+  GROUP BY res.queue_id;
+
+
+--
+-- Name: cc_agent cc_agent_changed_sc_tg_ui; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_agent_changed_sc_tg_ui BEFORE INSERT OR UPDATE ON call_center.cc_agent FOR EACH ROW EXECUTE FUNCTION call_center.cc_agent_screen_control_tg();
+
+
+--
 -- Name: cc_agent cc_agent_init_channel_ins; Type: TRIGGER; Schema: call_center; Owner: -
 --
 
@@ -10840,6 +10987,13 @@ CREATE TRIGGER cc_queue_resource_set_rbac_acl AFTER INSERT ON call_center.cc_que
 --
 
 CREATE TRIGGER cc_skill_set_rbac_acl AFTER INSERT ON call_center.cc_skill FOR EACH ROW EXECUTE FUNCTION call_center.tg_obj_default_rbac('cc_skill');
+
+
+--
+-- Name: cc_team cc_team_changed_tg_u; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER cc_team_changed_tg_u AFTER UPDATE ON call_center.cc_team FOR EACH ROW WHEN ((new.screen_control IS DISTINCT FROM old.screen_control)) EXECUTE FUNCTION call_center.cc_team_changed_tg();
 
 
 --
@@ -12274,6 +12428,14 @@ ALTER TABLE ONLY call_center.cc_trigger
 
 
 --
+-- Name: socket_session socket_session_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.socket_session
+    ADD CONSTRAINT socket_session_wbt_user_id_fk FOREIGN KEY (user_id) REFERENCES directory.wbt_user(id);
+
+
+--
 -- Name: system_settings systemc_settings_wbt_domain_dc_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -13283,6 +13445,20 @@ GRANT SELECT ON TABLE call_center.cc_user_status_view TO grafana;
 
 
 --
+-- Name: TABLE socket_session; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.socket_session TO grafana;
+
+
+--
+-- Name: TABLE socket_session_view; Type: ACL; Schema: call_center; Owner: -
+--
+
+GRANT SELECT ON TABLE call_center.socket_session_view TO grafana;
+
+
+--
 -- Name: SEQUENCE systemc_settings_id_seq; Type: ACL; Schema: call_center; Owner: -
 --
 
@@ -13299,4 +13475,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA call_center GRANT SELECT ON
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict QhqtLyw2KO5Nc7kUO4ltxqUKmJbta5jx0KHp2gaPEekw2gJhTWwDfOVtdmqaF4N
 
