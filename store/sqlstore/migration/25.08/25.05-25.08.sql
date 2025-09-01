@@ -981,3 +981,20 @@ ALTER TABLE ONLY webrtc_rec.file_jobs ALTER COLUMN id SET DEFAULT nextval('webrt
 
 ALTER TABLE ONLY webrtc_rec.file_jobs
     ADD CONSTRAINT file_jobs_pkey PRIMARY KEY (id);
+
+
+create table call_center.feedback
+(
+    id          bigserial
+        constraint feedback_pk
+            primary key,
+    domain_id   bigint                                 not null,
+    created_at  timestamp with time zone default now() not null,
+    source      text                                   not null,
+    source_id   text                                   not null,
+    rating      numeric                  default 0     not null,
+    description text,
+    payload     jsonb,
+    constraint feedback_pk_2
+        unique (domain_id, source, source_id)
+);
