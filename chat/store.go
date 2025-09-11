@@ -20,6 +20,7 @@ func (m *ChatManager) GetConversation(conversationId string) (*Conversation, *mo
 func (m *ChatManager) StoreConversation(chat *Conversation) {
 	if _, ok := m.chats.Get(chat.id); ok {
 		m.log.Error(fmt.Sprintf("chat [%s] exists", chat.id))
+		m.chats.AddWithDefaultExpires(chat.id, chat)
 		return
 	}
 
@@ -28,11 +29,16 @@ func (m *ChatManager) StoreConversation(chat *Conversation) {
 }
 
 func (m *ChatManager) RemoveConversation(chat *Conversation) {
-	if _, ok := m.chats.Get(chat.id); !ok {
+	v, ok := m.chats.Get(chat.id)
+	if !ok {
 		m.log.Error(fmt.Sprintf("chat [%s] not exists", chat.id))
 		return
 	}
 
-	m.chats.Remove(chat.id)
-	chat.log.Debug(fmt.Sprintf("chat [%s] remove from store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
+	if v == chat {
+		m.chats.Remove(chat.id)
+		chat.log.Debug(fmt.Sprintf("chat [%s] remove from store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
+	} else {
+		chat.log.Debug(fmt.Sprintf("chat [%s] cache miss store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
+	}
 }
