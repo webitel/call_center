@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
@@ -14,9 +18,6 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
-	"net/http"
-	"sync"
-	"time"
 )
 
 const (
@@ -965,12 +966,16 @@ func (qm *Manager) InterceptAttempt(ctx context.Context, domainId int64, attempt
 func (qm *Manager) TimeoutLeavingMember(attempt *Attempt) {
 	queue := attempt.queue
 	if queue != nil {
-		var waitBetween uint64 = 0
-		var maxAttempts uint = 0
-		var perNumbers = false
+		var waitBetween uint64
+		var maxAttempts uint
+		var perNumbers bool
 
 		result := model.AttemptCallback{
 			Status: "timeout",
+		}
+
+		if !queue.IsProlongationTimeoutRetry() {
+			result.Status = AttemptResultCancelledByTimeout
 		}
 
 		if callback, ok := attempt.AfterDistributeSchema(); ok {
@@ -1224,7 +1229,6 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 }
 
 func (qm *Manager) setChannelReporting(attempt *Attempt, ccCause string, leave bool) (err *model.AppError) {
-
 	if attempt.agentChannel == nil {
 		return errNotFoundConnection
 	}
@@ -1271,7 +1275,12 @@ func (qm *Manager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (er
 		return err
 	}
 
-	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, data.RenewalSec)
+	var prolongation *ProcessingProlongation
+	if data.IsProlongationEnabled {
+		prolongation = NewProcessingProlongation(data.RemainingProlongations, data.ProlongationSec)
+	}
+
+	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, data.RenewalSec, prolongation)
 	return qm.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 

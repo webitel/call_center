@@ -2,6 +2,7 @@ package queue
 
 import (
 	"encoding/json"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/flow_manager/pkg/processing"
@@ -49,9 +50,22 @@ type Missed struct {
 }
 
 type Processing struct {
-	Timeout    int64  `json:"timeout"`
-	Sec        uint32 `json:"sec"`
-	RenewalSec uint32 `json:"renewal_sec"`
+	Timeout                int64                   `json:"timeout"`
+	Sec                    uint32                  `json:"sec"`
+	RenewalSec             uint32                  `json:"renewal_sec"`
+	ProcessingProlongation *ProcessingProlongation `json:"processing_prolongation"`
+}
+
+type ProcessingProlongation struct {
+	RemainingProlongations uint32 `json:"remaining_prolongations"`
+	ProlongationSec        uint32 `json:"prolongation_sec"`
+}
+
+func NewProcessingProlongation(remainingProlongations, prolongationSec uint32) *ProcessingProlongation {
+	return &ProcessingProlongation{
+		RemainingProlongations: remainingProlongations,
+		ProlongationSec:        prolongationSec,
+	}
 }
 
 type DistributeEvent struct {
@@ -283,12 +297,13 @@ func NewNextFormEvent(a *Attempt, userId int64) model.Event {
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint32, renewal uint32) model.Event {
+func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint32, renewal uint32, prolongation *ProcessingProlongation) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
-			Timeout:    timestamp + (int64(deadlineSec) * 1000),
-			Sec:        deadlineSec,
-			RenewalSec: renewal,
+			Timeout:                timestamp + (int64(deadlineSec) * 1000),
+			Sec:                    deadlineSec,
+			RenewalSec:             renewal,
+			ProcessingProlongation: prolongation,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
@@ -301,12 +316,13 @@ func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadline
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64, renewal uint32) model.Event {
+func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64, renewal uint32, prolongation *ProcessingProlongation) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
-			Timeout:    timeout,
-			RenewalSec: renewal,
-			Sec:        uint32((timeout - timestamp) / 1000),
+			Timeout:                timeout,
+			RenewalSec:             renewal,
+			Sec:                    uint32((timeout - timestamp) / 1000),
+			ProcessingProlongation: prolongation,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,

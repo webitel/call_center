@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/olebedev/emitter"
-	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/olebedev/emitter"
+	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type AttemptInfo interface {
@@ -42,7 +43,8 @@ const (
 	AttemptResultClientTimeout  = "client_timeout"
 	AttemptResultDialogTimeout  = "dialog_timeout"
 
-	AttemptResultBlockList = "block" // FIXME
+	AttemptResultBlockList          = "block" // FIXME
+	AttemptResultCancelledByTimeout = "canceled_by_timeout"
 )
 
 type Attempt struct {
