@@ -462,6 +462,13 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
 		}
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
+		}
 	}
 
 	res, err := qm.store.Member().DistributeCallToAgent(
@@ -562,12 +569,20 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		ProcessingRenewalSec: 15,
 		Hooks:                nil,
 	}
+
 	if qParams.HasReporting != nil && *qParams.HasReporting {
 		settings.Processing = true
 		settings.ProcessingSec = qParams.ProcessingSec
 		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
 		if in.Processing.GetForm().GetId() > 0 {
 			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
+		}
+
+		if qParams.HasProlongation != nil && *qParams.HasProlongation {
+			settings.IsProlongationEnabled = true
+			settings.ProlongationSec = qParams.ProlongationSec
+			settings.ProlongationRepeats = qParams.RemainingProlongations
+			settings.IsProlongationTimeoutRetry = qParams.IsTimeoutRetry
 		}
 	}
 
@@ -614,6 +629,13 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 			qParams.HasForm = model.NewBool(true)
 		}
 		processingWithoutAnswer = in.Processing.GetWithoutAnswer()
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
+		}
 	}
 
 	res, err := qm.store.Member().DistributeOutboundCall(
@@ -754,6 +776,13 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
 		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
+		}
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
 		}
 	}
 
