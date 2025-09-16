@@ -138,6 +138,7 @@ func (e AgentEventOnlineStatus) ToJSON() string {
 type AgentStatus struct {
 	Status        string  `json:"status" db:"status"`
 	StatusPayload *string `json:"status_payload,omitempty" db:"status_payload"`
+	StatusComment *string `json:"status_comment,omitempty" db:"status_comment"`
 }
 
 type MissedAgentAttempt struct {

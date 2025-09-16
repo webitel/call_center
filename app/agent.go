@@ -2,12 +2,13 @@ package app
 
 import (
 	"context"
+	"net/http"
+	"strconv"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
-	"net/http"
-	"strconv"
 )
 
 func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
@@ -72,7 +73,7 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 	}
 }
 
-func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model.AppError {
+func (app *App) SetAgentPause(agentId int, payload, statusComment *string, timeout *int) *model.AppError {
 	var agent *model.Agent
 	var err *model.AppError
 	var allow bool
@@ -102,7 +103,7 @@ func (app *App) SetAgentPause(agentId int, payload *string, timeout *int) *model
 	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
 		return err
 	} else {
-		err = app.agentManager.SetPause(agentObj, payload, timeout)
+		err = app.agentManager.SetPause(agentObj, payload, statusComment, timeout)
 		if err != nil {
 			return err
 		}
