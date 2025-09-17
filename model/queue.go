@@ -181,7 +181,7 @@ type QueueInboundSettings struct {
 	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
 	MaxCallPerAgent    int     `json:"max_call_per_agent"`
 	AllowGreetingAgent bool    `json:"allow_greeting_agent"`
-	MaxWaitTime        uint16  `json:"max_wait_time"`
+	MaxWaitTime        int     `json:"max_wait_time"`
 	StickyAgent        bool    `json:"sticky_agent"`
 	StickyAgentSec     uint16  `json:"sticky_agent_sec"` // def 30 sec
 	AutoAnswerTone     *string `json:"auto_answer_tone"`
