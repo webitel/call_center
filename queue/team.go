@@ -2,6 +2,9 @@ package queue
 
 import (
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
@@ -10,8 +13,6 @@ import (
 	"github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
-	"net/http"
-	"sync"
 )
 
 const (
@@ -298,7 +299,12 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 
 	attempt.SetState(model.MemberStateProcessing)
 
-	e := NewProcessingEventEvent(attempt, agent.UserId(), timestamp, timeoutSec, queue.ProcessingRenewalSec())
+	var prolongation *ProcessingProlongation
+	if queue.IsProlongationEnabled() {
+		prolongation = NewProcessingProlongation(queue.ProlongationSteps(), queue.ProlongationSec())
+	}
+
+	e := NewProcessingEventEvent(attempt, agent.UserId(), timestamp, timeoutSec, queue.ProcessingRenewalSec(), prolongation)
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		attempt.Log(err.Error())

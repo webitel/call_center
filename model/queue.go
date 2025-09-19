@@ -126,6 +126,11 @@ type Queue struct {
 	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
 	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
 	AmdPlaybackFile      *RingtoneFile     `json:"amd_playback_file" db:"amd_playback_file"`
+
+	IsProlongationEnabled      bool   `json:"prolongation_enabled" db:"prolongation_enabled"`
+	ProlongationRepeats        uint32 `json:"prolongation_repeats_number" db:"prolongation_repeats_number"`
+	ProlongationSec            uint32 `json:"prolongation_time_sec" db:"prolongation_time_sec"`
+	IsProlongationTimeoutRetry bool   `json:"prolongation_is_timeout_retry" db:"prolongation_is_timeout_retry"`
 }
 
 func (q *Queue) Channel() string {

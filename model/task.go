@@ -1,6 +1,8 @@
 package model
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type TaskToAgent struct {
 	AttemptId      int64             `json:"attempt_id" db:"attempt_id"`
@@ -18,6 +20,11 @@ type QueueDumpParams struct {
 	ProcessingSec        uint32 `json:"processing_sec,omitempty"`
 	ProcessingRenewalSec uint32 `json:"processing_renewal_sec,omitempty"`
 	QueueName            string `json:"queue_name,omitempty"`
+
+	HasProlongation        *bool  `json:"has_prolongation,omitempty"`
+	RemainingProlongations uint32 `json:"remaining_prolongations,omitempty"`
+	ProlongationSec        uint32 `json:"prolongation_sec,omitempty"`
+	IsTimeoutRetry         bool   `json:"is_timeout_retry,omitempty"`
 }
 
 func (q *QueueDumpParams) ToJson() []byte {

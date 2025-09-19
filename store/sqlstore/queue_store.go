@@ -3,9 +3,10 @@ package sqlstore
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
-	"net/http"
 )
 
 type SqlQueueStore struct {
@@ -22,48 +23,79 @@ func (s *SqlQueueStore) CreateIndexesIfNotExists() {
 }
 
 func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
+	query := `
+		select
+			q.id,
+			q.type,
+			q.domain_id,
+			q.name as domain_name,
+			q.name,
+			q.strategy,
+			q.payload,
+			q.updated_at,
+			q.variables,
+			q.team_id,
+			q.schema_id,
+			q.ringtone_id,
+			q.do_schema_id,
+			q.after_schema_id,
+			q.processing,
+			q.processing_sec,
+			q.processing_renewal_sec,
+			q.grantee_id,
+			q.form_schema_id,
+			q.prolongation_enabled,
+			q.prolongation_repeats_number,
+			q.prolongation_time_sec,
+			q.prolongation_is_timeout_retry,	
+			f.mime_type as ringtone_type,
+			(
+				select
+					jsonb_agg(row_to_json(qe))
+				from
+					call_center.cc_queue_events qe
+				inner join
+					flow.acr_routing_scheme s on s.id = qe.schema_id and q.domain_id = s.domain_id
+				where
+					qe.queue_id = q.id and qe.enabled
+			) as hooks,
+			coalesce(
+				(q.payload->'endless')::bool, 
+				false
+			) as endless,
+			case
+				when fh.id notnull then jsonb_build_object(
+					'id', fh.id, 
+					'type', fh.mime_type
+				)
+			end as hold_music,
+			case
+				when (payload->'amd'->'playback'->>'id') notnull
+				then jsonb_build_object(
+					'id', amdpf.id,
+					'type', amdpf.mime_type
+				)
+			end as amd_playback_file
+		from
+			call_center.cc_queue q
+		inner join
+			directory.wbt_domain d on q.domain_id = d.dc
+		left join
+			storage.media_files f on f.id = q.ringtone_id
+		left join
+			storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
+		left join
+			storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
+		where
+			q.id = :Id
+	`
+
+	args := map[string]any{
+		"Id": id,
+	}
+
 	var queue *model.Queue
-	if err := s.GetReplica().SelectOne(&queue, `
-select q.id,
-       q.type,
-       q.domain_id,
-       d.name as domain_name,
-       q.name,
-       q.strategy,
-       q.payload,
-       q.updated_at,
-       q.variables,
-       q.team_id,
-       q.schema_id,
-       q.ringtone_id,
-       q.do_schema_id,
-       q.after_schema_id,
-       f.mime_type ringtone_type,
-	   q.processing,
-	   q.processing_sec,
-	   q.processing_renewal_sec,
-	   (
-        select jsonb_agg(row_to_json(qe))
-        from call_center.cc_queue_events qe
-            inner join flow.acr_routing_scheme s on s.id = qe.schema_id and q.domain_id = s.domain_id
-        where qe.queue_id = q.id and qe.enabled
-       ) hooks,
-	   q.grantee_id,
-	   coalesce((q.payload->'endless')::bool, false) as endless,
-       case when fh.id notnull then
-           jsonb_build_object('id', fh.id, 'type', fh.mime_type)
-       end as hold_music,
-       case when (payload->'amd'->'playback'->>'id') notnull then
-           jsonb_build_object('id', amdpf.id, 'type', amdpf.mime_type)
-       end as amd_playback_file,
-	   q.form_schema_id
-from call_center.cc_queue q
-    inner join directory.wbt_domain d on q.domain_id = d.dc
-    left join storage.media_files f on f.id = q.ringtone_id
-    left join storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
-    left join storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
-where q.id = :Id;
-		`, map[string]interface{}{"Id": id}); err != nil {
+	if err := s.GetReplica().SelectOne(&queue, query, args); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
@@ -71,9 +103,8 @@ where q.id = :Id;
 			return nil, model.NewAppError("SqlQueueStore.Get", "store.sql_queue.get.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
 		}
-	} else {
-		return queue, nil
 	}
+	return queue, nil
 }
 
 func (s SqlQueueStore) UserIds(queueId int, skipAgentId int) (model.Int64Array, *model.AppError) {
