@@ -534,36 +534,74 @@ returning call_center.cc_view_timestamp(c.joined_at) as timestamp`, map[string]i
 
 // RenewalProcessing fixme queue_id
 func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
-	var res *model.RenewalProcessing
-	err := s.GetMaster().SelectOne(&res, `update call_center.cc_member_attempt a
- set timeout = now() + (:Renewal::int || ' sec')::interval
-from call_center.cc_member_attempt a2
-    inner join call_center.cc_agent ca on ca.id = a2.agent_id
-    left join call_center.cc_queue cq on cq.id = a2.queue_id
-where a2.id = :Id::int8
-	and a2.id = a.id
-	and (cq.id isnull or cq.processing_renewal_sec > 0)
-    and ca.domain_id = :DomainId::int8
-	and a2.state = 'processing'
-returning
-    a.id attempt_id,
-	coalesce(a.queue_id,0) as queue_id,
-    call_center.cc_view_timestamp(a.timeout) timeout,
-    call_center.cc_view_timestamp(now()) "timestamp",
-	coalesce(cq.processing_renewal_sec, (:Renewal::int / 2)::int) as renewal_sec,
-    a.channel,
-    ca.user_id,
-    ca.domain_id`, map[string]interface{}{
+	query := `
+		update
+			call_center.cc_member_attempt a
+		set
+			available_prolongation_quant = case
+				when cq.prolongation_enabled
+				then least(a.available_prolongation_quant + 1, cq.prolongation_repeats_number)
+				else a.available_prolongation_quant
+			end,
+			timeout = case
+				when (cq.prolongation_enabled
+					and a.available_prolongation_quant + 1 <= cq.prolongation_repeats_number
+				) or not cq.prolongation_enabled
+				then now() + (:Renewal::int || ' sec')::interval
+				else a.timeout
+			end
+		from
+			call_center.cc_member_attempt a2
+		inner join
+			call_center.cc_agent ca on ca.id = a2.agent_id
+		left join
+			call_center.cc_queue cq on cq.id = a2.queue_id
+		where
+			a2.id = :Id::int8
+			and a2.id = a.id
+			and (
+				cq.id isnull
+				or cq.processing_renewal_sec > 0
+			)
+			and ca.domain_id = :DomainId::int8
+			and a2.state = 'processing'
+		returning
+			a.id attempt_id,
+			coalesce(a.queue_id, 0) as queue_id,
+			call_center.cc_view_timestamp(a.timeout) timeout,
+			call_center.cc_view_timestamp(now()) "timestamp",
+			coalesce(
+				cq.processing_renewal_sec,
+				(:Renewal::int / 2)::int
+			) as renewal_sec,
+			a.channel,
+			ca.user_id,
+			ca.domain_id,
+			cq.prolongation_enabled,
+			cq.prolongation_time_sec,
+			case
+				when cq.prolongation_enabled
+				then cq.prolongation_repeats_number - a.available_prolongation_quant
+				else 0
+			end as remaining_prolongations
+	`
+
+	args := map[string]any{
 		"DomainId": domainId,
 		"Id":       attId,
 		"Renewal":  renewalSec,
-	})
-
-	if err != nil {
-		return nil, model.NewAppError("SqlMemberStore.RenewalProcessing", "store.sql_member.set_attempt_renewal.app_error", nil,
-			fmt.Sprintf("AttemptId=%v %s", attId, err.Error()), extractCodeFromErr(err))
 	}
 
+	var res *model.RenewalProcessing
+	if err := s.GetMaster().SelectOne(&res, query, args); err != nil {
+		return nil, model.NewAppError(
+			"SqlMemberStore.RenewalProcessing",
+			"store.sql_member.set_attempt_renewal.app_error",
+			nil,
+			fmt.Sprintf("AttemptId=%v %s", attId, err.Error()),
+			extractCodeFromErr(err),
+		)
+	}
 	return res, nil
 }
 

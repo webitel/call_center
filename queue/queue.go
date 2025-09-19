@@ -2,13 +2,14 @@ package queue
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/pkg/wbt/flow"
 	"github.com/webitel/wlog"
-	"net/http"
 )
 
 type QueueObject interface {
@@ -43,34 +44,43 @@ type QueueObject interface {
 	AutoAnswerValue() interface{}
 	RingtoneUri() string
 	Log() *wlog.Logger
+
+	ProlongationSteps() uint32
+	IsProlongationEnabled() bool
+	ProlongationSec() uint32
+	IsProlongationTimeoutRetry() bool
 }
 
 type BaseQueue struct {
-	channel              string
-	id                   int
-	updatedAt            int64
-	domainId             int64
-	domainName           string
-	typeId               int8
-	name                 string
-	resourceManager      *ResourceManager
-	queueManager         *Manager
-	variables            map[string]string
-	teamId               *int
-	schemaId             *int
-	ringtone             *model.RingtoneFile
-	ringtoneUri          *string
-	doSchema             *int32
-	afterSchemaId        *int32
-	formSchemaId         *int
-	processing           bool
-	processingSec        uint32
-	processingRenewalSec uint32
-	endless              bool
-	hooks                HookHub
-	amdPlaybackFileUri   *string
-	amdPlaybackFile      *model.RingtoneFile
-	log                  *wlog.Logger
+	channel                    string
+	id                         int
+	updatedAt                  int64
+	domainId                   int64
+	domainName                 string
+	typeId                     int8
+	name                       string
+	resourceManager            *ResourceManager
+	queueManager               *Manager
+	variables                  map[string]string
+	teamId                     *int
+	schemaId                   *int
+	ringtone                   *model.RingtoneFile
+	ringtoneUri                *string
+	doSchema                   *int32
+	afterSchemaId              *int32
+	formSchemaId               *int
+	processing                 bool
+	processingSec              uint32
+	processingRenewalSec       uint32
+	endless                    bool
+	hooks                      HookHub
+	amdPlaybackFileUri         *string
+	amdPlaybackFile            *model.RingtoneFile
+	log                        *wlog.Logger
+	prolongationSteps          uint32
+	isProlongationEnabled      bool
+	prolongationSec            uint32
+	isProlongationTimeoutRetry bool
 }
 
 func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
@@ -100,6 +110,10 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 			wlog.Int64("domain_id", settings.DomainId),
 			wlog.String("channel", settings.Channel()),
 		),
+		prolongationSteps:          settings.ProlongationRepeats,
+		isProlongationEnabled:      settings.IsProlongationEnabled,
+		prolongationSec:            settings.ProlongationSec,
+		isProlongationTimeoutRetry: settings.IsProlongationTimeoutRetry,
 	}
 
 	if settings.RingtoneId != nil && settings.RingtoneType != nil {
@@ -245,6 +259,22 @@ func (queue *BaseQueue) GetTeam(attempt *Attempt) (*agentTeam, *model.AppError) 
 
 func (queue *BaseQueue) Processing() bool {
 	return queue.processing
+}
+
+func (queue *BaseQueue) ProlongationSteps() uint32 {
+	return queue.prolongationSteps
+}
+
+func (queue *BaseQueue) IsProlongationEnabled() bool {
+	return queue.isProlongationEnabled
+}
+
+func (queue *BaseQueue) ProlongationSec() uint32 {
+	return queue.prolongationSec
+}
+
+func (queue *BaseQueue) IsProlongationTimeoutRetry() bool {
+	return queue.isProlongationTimeoutRetry
 }
 
 func (queue *BaseQueue) ProcessingSec() uint32 {

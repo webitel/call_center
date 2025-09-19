@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
@@ -14,9 +18,6 @@ import (
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
-	"net/http"
-	"sync"
-	"time"
 )
 
 const (
@@ -461,6 +462,13 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
 		}
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
+		}
 	}
 
 	res, err := qm.store.Member().DistributeCallToAgent(
@@ -561,12 +569,20 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		ProcessingRenewalSec: 15,
 		Hooks:                nil,
 	}
+
 	if qParams.HasReporting != nil && *qParams.HasReporting {
 		settings.Processing = true
 		settings.ProcessingSec = qParams.ProcessingSec
 		settings.ProcessingRenewalSec = qParams.ProcessingRenewalSec
 		if in.Processing.GetForm().GetId() > 0 {
 			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
+		}
+
+		if qParams.HasProlongation != nil && *qParams.HasProlongation {
+			settings.IsProlongationEnabled = true
+			settings.ProlongationSec = qParams.ProlongationSec
+			settings.ProlongationRepeats = qParams.RemainingProlongations
+			settings.IsProlongationTimeoutRetry = qParams.IsTimeoutRetry
 		}
 	}
 
@@ -613,6 +629,13 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 			qParams.HasForm = model.NewBool(true)
 		}
 		processingWithoutAnswer = in.Processing.GetWithoutAnswer()
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
+		}
 	}
 
 	res, err := qm.store.Member().DistributeOutboundCall(
@@ -753,6 +776,13 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
 		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
+		}
+
+		if in.Processing.ProcessingProlongation != nil && in.Processing.ProcessingProlongation.Enabled {
+			qParams.HasProlongation = model.NewBool(true)
+			qParams.RemainingProlongations = in.Processing.ProcessingProlongation.RepeatsNumber
+			qParams.ProlongationSec = in.Processing.ProcessingProlongation.ProlongationTimeSec
+			qParams.IsTimeoutRetry = in.Processing.ProcessingProlongation.IsTimeoutRetry
 		}
 	}
 
@@ -965,12 +995,16 @@ func (qm *Manager) InterceptAttempt(ctx context.Context, domainId int64, attempt
 func (qm *Manager) TimeoutLeavingMember(attempt *Attempt) {
 	queue := attempt.queue
 	if queue != nil {
-		var waitBetween uint64 = 0
-		var maxAttempts uint = 0
-		var perNumbers = false
+		var waitBetween uint64
+		var maxAttempts uint
+		var perNumbers bool
 
 		result := model.AttemptCallback{
 			Status: "timeout",
+		}
+
+		if !queue.IsProlongationTimeoutRetry() {
+			result.Status = AttemptResultCancelledByTimeout
 		}
 
 		if callback, ok := attempt.AfterDistributeSchema(); ok {
@@ -1224,7 +1258,6 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 }
 
 func (qm *Manager) setChannelReporting(attempt *Attempt, ccCause string, leave bool) (err *model.AppError) {
-
 	if attempt.agentChannel == nil {
 		return errNotFoundConnection
 	}
@@ -1271,7 +1304,12 @@ func (qm *Manager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (er
 		return err
 	}
 
-	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, data.RenewalSec)
+	var prolongation *ProcessingProlongation
+	if data.IsProlongationEnabled {
+		prolongation = NewProcessingProlongation(data.RemainingProlongations, data.ProlongationSec)
+	}
+
+	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, data.RenewalSec, prolongation)
 	return qm.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 

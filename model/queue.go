@@ -126,6 +126,11 @@ type Queue struct {
 	HoldMusic            *RingtoneFile     `json:"hold_music" db:"hold_music"`
 	FormSchemaId         *int              `json:"form_schema_id" db:"form_schema_id"`
 	AmdPlaybackFile      *RingtoneFile     `json:"amd_playback_file" db:"amd_playback_file"`
+
+	IsProlongationEnabled      bool   `json:"prolongation_enabled" db:"prolongation_enabled"`
+	ProlongationRepeats        uint32 `json:"prolongation_repeats_number" db:"prolongation_repeats_number"`
+	ProlongationSec            uint32 `json:"prolongation_time_sec" db:"prolongation_time_sec"`
+	IsProlongationTimeoutRetry bool   `json:"prolongation_is_timeout_retry" db:"prolongation_is_timeout_retry"`
 }
 
 func (q *Queue) Channel() string {
@@ -185,7 +190,7 @@ type QueueInboundSettings struct {
 	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
 	MaxCallPerAgent    int     `json:"max_call_per_agent"`
 	AllowGreetingAgent bool    `json:"allow_greeting_agent"`
-	MaxWaitTime        uint16  `json:"max_wait_time"`
+	MaxWaitTime        int     `json:"max_wait_time"`
 	StickyAgent        bool    `json:"sticky_agent"`
 	StickyAgentSec     uint16  `json:"sticky_agent_sec"` // def 30 sec
 	AutoAnswerTone     *string `json:"auto_answer_tone"`
