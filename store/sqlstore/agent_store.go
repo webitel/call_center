@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
-	"net/http"
 )
 
 type SqlAgentStore struct {
@@ -157,26 +158,49 @@ func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlin
 	return data, nil
 }
 
-func (s *SqlAgentStore) SetStatus(agentId int, status string, payload *string) *model.AppError {
-	if _, err := s.GetMaster().Exec(`with ag as (
-	update call_center.cc_agent
-			set status = :Status,
-  			status_payload = :Payload,
-			last_state_change = now()
-    where id = :AgentId
-		and not exists(select 1 from call_center.cc_member_attempt att where att.agent_id = call_center.cc_agent.id and att.state = 'wait_agent' for update )
-    returning id
-)
-update call_center.cc_agent_channel c
- set online = false
-from ag 
-where c.agent_id = ag.id`, map[string]interface{}{
-		"AgentId": agentId,
-		"Status":  status,
-		"Payload": payload,
-	}); err != nil {
+func (s *SqlAgentStore) SetStatus(agentId int, status string, payload, statusComment *string) *model.AppError {
+	const query = `
+		with ag as (
+			update 
+				call_center.cc_agent
+			set
+				status = :Status,
+				status_payload = :Payload,
+				status_comment = :StatusComment,
+				last_state_change = now()
+			where
+				id = :AgentId
+				and not exists (
+					select
+						1
+					from
+						call_center.cc_member_attempt att
+					where
+						att.agent_id = call_center.cc_agent.id
+						and att.state = 'wait_agent' for update
+				)
+			returning id
+		)
+		update
+			call_center.cc_agent_channel c
+		set
+			online = false
+		from
+			ag
+		where
+			c.agent_id = ag.id
+	`
+
+	args := map[string]any{
+		"AgentId":       agentId,
+		"Status":        status,
+		"Payload":       payload,
+		"StatusComment": statusComment,
+	}
+
+	if _, err := s.GetMaster().Exec(query, args); err != nil {
 		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
-			fmt.Sprintf("AgenetId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+			fmt.Sprintf("AgentId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
 	}
 	return nil
 }

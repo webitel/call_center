@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/pkg/discovery"
 )
@@ -113,7 +114,7 @@ type AgentStore interface {
 
 	SetOnBreak(agentId int) *model.AppError
 
-	SetStatus(agentId int, status string, payload *string) *model.AppError
+	SetStatus(agentId int, status string, payload, statusComment *string) *model.AppError
 
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 

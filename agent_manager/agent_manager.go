@@ -2,12 +2,13 @@ package agent_manager
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"sync"
 )
 
 const (
@@ -108,7 +109,7 @@ func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.Agen
 }
 
 func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
-	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload); err != nil {
+	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload, status.StatusComment); err != nil {
 		agent.Log().Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
 		return err
 	}
@@ -143,7 +144,7 @@ func (am *agentManager) SetOffline(agent AgentObject, sys *string) *model.AppErr
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
 }
 
-func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *int) *model.AppError {
+func (am *agentManager) SetPause(agent AgentObject, payload, statusComment *string, timeout *int) *model.AppError {
 	event := model.AgentEventStatus{
 		AgentEvent: model.AgentEvent{
 			AgentId:   agent.Id(),
@@ -154,6 +155,7 @@ func (am *agentManager) SetPause(agent AgentObject, payload *string, timeout *in
 		AgentStatus: model.AgentStatus{
 			Status:        model.AgentStatusPause,
 			StatusPayload: payload,
+			StatusComment: statusComment,
 		},
 	}
 

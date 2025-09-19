@@ -1,3 +1,6 @@
+
+alter table if exists call_center.cc_agent 
+	add column status_comment text;
 --
 -- Name: cc_queue; Type: TABLE; Schema: call_center; Owner: -
 --

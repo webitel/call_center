@@ -2,6 +2,7 @@ package grpc_api
 
 import (
 	"context"
+
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
@@ -47,17 +48,21 @@ func (api *agent) Offline(ctx context.Context, in *cc.OfflineRequest) (*cc.Offli
 }
 
 func (api *agent) Pause(ctx context.Context, in *cc.PauseRequest) (*cc.PauseResponse, error) {
-	var payload *string
+	var payload, statusComment *string
 	var timeout *int
 	if in.Payload != "" {
 		payload = &in.Payload
+	}
+
+	if in.StatusComment != "" {
+		statusComment = &in.StatusComment
 	}
 
 	if in.Timeout != 0 {
 		timeout = model.NewInt(int(in.Timeout))
 	}
 
-	err := api.app.SetAgentPause(int(in.AgentId), payload, timeout)
+	err := api.app.SetAgentPause(int(in.AgentId), payload, statusComment, timeout)
 	if err != nil {
 		return nil, err
 	}
