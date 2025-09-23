@@ -93,3 +93,50 @@ begin
 end;
 $function$
 ;
+
+-- call_center.cc_agent_list source
+
+CREATE OR REPLACE VIEW call_center.cc_agent_list
+AS SELECT a.domain_id,
+    a.id,
+    COALESCE(ct.name, ct.username COLLATE "default")::character varying AS name,
+    a.status,
+    a.description,
+    (date_part('epoch'::text, a.last_state_change) * 1000::double precision)::bigint AS last_status_change,
+    date_part('epoch'::text, now() - a.last_state_change)::bigint AS status_duration,
+    a.progressive_count,
+    ch.x AS channel,
+    json_build_object('id', ct.id, 'name', COALESCE(ct.name, ct.username))::jsonb AS "user",
+    call_center.cc_get_lookup(a.greeting_media_id::bigint, g.name) AS greeting_media,
+    a.allow_channels,
+    a.chat_count,
+    ( SELECT jsonb_agg(sag."user") AS jsonb_agg
+           FROM call_center.cc_agent_with_user sag
+          WHERE sag.id = ANY (a.supervisor_ids)) AS supervisor,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(aud.id, COALESCE(aud.name, aud.username::text)::character varying)) AS jsonb_agg
+           FROM directory.wbt_user aud
+          WHERE aud.id = ANY (a.auditor_ids)) AS auditor,
+    call_center.cc_get_lookup(t.id, t.name) AS team,
+    call_center.cc_get_lookup(r.id::bigint, r.name) AS region,
+    a.supervisor AS is_supervisor,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(sa.skill_id::bigint, cs.name)) AS jsonb_agg
+           FROM call_center.cc_skill_in_agent sa
+             JOIN call_center.cc_skill cs ON sa.skill_id = cs.id
+          WHERE sa.agent_id = a.id) AS skills,
+    a.team_id,
+    a.region_id,
+    a.supervisor_ids,
+    a.auditor_ids,
+    a.user_id,
+    ct.extension,
+    a.task_count,
+    a.screen_control,
+    t.screen_control IS FALSE AS allow_set_screen_control
+   FROM call_center.cc_agent a
+     LEFT JOIN directory.wbt_user ct ON ct.id = a.user_id
+     LEFT JOIN storage.media_files g ON g.id = a.greeting_media_id
+     LEFT JOIN call_center.cc_team t ON t.id = a.team_id
+     LEFT JOIN flow.region r ON r.id = a.region_id
+     LEFT JOIN LATERAL ( SELECT jsonb_agg(json_build_object('channel', c.channel, 'online', true, 'state', c.state, 'joined_at', (date_part('epoch'::text, c.joined_at) * 1000::double precision)::bigint)) AS x
+           FROM call_center.cc_agent_channel c
+          WHERE c.agent_id = a.id) ch ON true;
