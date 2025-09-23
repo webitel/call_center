@@ -214,6 +214,7 @@ func (call *CallImpl) Log() *wlog.Logger {
 func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
 
 	call.callRequest.Variables["RECORD_MIN_SEC"] = "2"
+	call.callRequest.Variables["RECORD_PRE_BUFFER_FRAMES"] = "1" //WTEL-7648
 	call.callRequest.Variables["recording_follow_transfer"] = "true"
 
 	if all {
