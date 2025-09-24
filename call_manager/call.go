@@ -167,6 +167,7 @@ func (s CallState) String() string {
 var (
 	errBadBridgeNode   = model.NewAppError("Call", "call.bridge.bad_request.node_difference", nil, "", http.StatusBadRequest)
 	errInviteDirection = model.NewAppError("Call", "call.invite.validate.direction", nil, "", http.StatusBadRequest)
+	errBadBridgeState  = model.NewAppError("Call", "call.bridge.validate.state", nil, "call is hangup", http.StatusBadRequest)
 )
 
 func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallManagerImpl, api model.CallCommands) Call {
@@ -677,6 +678,10 @@ func (call *CallImpl) Hold() *model.AppError {
 func (call *CallImpl) Bridge(other Call) *model.AppError {
 	if call.NodeName() != other.NodeName() {
 		return errBadBridgeNode
+	}
+
+	if other.HangupCause() != "" || call.HangupCause() != "" {
+		return errBadBridgeState
 	}
 
 	_, err := call.api.BridgeCall(other.Id(), call.Id(), "")
