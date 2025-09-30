@@ -3,14 +3,15 @@ package queue
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"sync"
-	"time"
 )
 
 var DEFAULT_WATCHER_POLLING_INTERVAL = 400
@@ -128,7 +129,8 @@ func (d *DialingImpl) routeIdleAgents() {
 			if a, ok := d.queueManager.GetAttempt(v.AttemptId); ok {
 				a.SetResult(AttemptResultTimeout)
 
-				if v.AfterSchemaId == nil {
+				isProlongationTimeout := (a.queue != nil && !a.queue.IsProlongationTimeoutRetry())
+				if v.AfterSchemaId == nil && !isProlongationTimeout {
 					d.queueManager.LeavingMember(a)
 				} else {
 					d.queueManager.TimeoutLeavingMember(a)
