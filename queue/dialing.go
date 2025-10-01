@@ -129,7 +129,7 @@ func (d *DialingImpl) routeIdleAgents() {
 			if a, ok := d.queueManager.GetAttempt(v.AttemptId); ok {
 				a.SetResult(AttemptResultTimeout)
 
-				isProlongationTimeout := (a.queue != nil && !a.queue.IsProlongationTimeoutRetry())
+				isProlongationTimeout := (a.queue != nil && a.queue.IsProlongationEnabled() && !a.queue.IsProlongationTimeoutRetry())
 				if v.AfterSchemaId == nil && !isProlongationTimeout {
 					d.queueManager.LeavingMember(a)
 				} else {
