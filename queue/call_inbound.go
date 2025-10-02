@@ -2,12 +2,13 @@ package queue
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"strconv"
-	"time"
 )
 
 /*
@@ -244,8 +245,10 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				case s := <-mCall.State():
 					switch s {
 					case call_manager.CALL_STATE_BRIDGE:
-						timeout.Stop()
-						team.Bridged(attempt, agent)
+						if attempt.state != model.MemberStateBridged {
+							timeout.Stop()
+							team.Bridged(attempt, agent)
+						}
 					case call_manager.CALL_STATE_HANGUP:
 						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
 						var tr CallTransfer
