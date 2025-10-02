@@ -534,56 +534,57 @@ returning call_center.cc_view_timestamp(c.joined_at) as timestamp`, map[string]i
 
 // RenewalProcessing fixme queue_id
 func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uint32) (*model.RenewalProcessing, *model.AppError) {
-	query := `
-		update
-			call_center.cc_member_attempt a
+	const query = `
+		with attempt_data as (
+			select
+				a.id as attempt_id,
+				a.available_prolongation_quant,
+				a.timeout,
+				a.queue_params,
+				ca.user_id,
+				ca.domain_id,
+				coalesce(cq.prolongation_enabled, (a.queue_params->>'has_prolongation')::bool, false) as prolongation_enabled,
+				coalesce(cq.prolongation_repeats_number, (a.queue_params->>'remaining_prolongations')::int, 0) as prolongation_repeats_number, 
+				coalesce(cq.processing_renewal_sec, (a.queue_params->>'processing_renewal_sec')::int, 0) as processing_renewal_sec,
+				coalesce(cq.prolongation_time_sec, (a.queue_params->>'prolongation_sec')::int, 0) as prolongation_time_sec
+			from call_center.cc_member_attempt a
+			inner join call_center.cc_agent ca on ca.id = a.agent_id
+			left join call_center.cc_queue cq on cq.id = a.queue_id
+			where a.id = :Id::int8
+				and ca.domain_id = :DomainId::int8
+				and a.state = 'processing' 
+		)
+		update call_center.cc_member_attempt a
 		set
 			available_prolongation_quant = case
-				when cq.prolongation_enabled
-				then least(a.available_prolongation_quant + 1, cq.prolongation_repeats_number)
-				else a.available_prolongation_quant
-			end,
-			timeout = case
-				when (cq.prolongation_enabled
-					and a.available_prolongation_quant + 1 <= cq.prolongation_repeats_number
-				) or not cq.prolongation_enabled
-				then now() + (:Renewal::int || ' sec')::interval
-				else a.timeout
-			end
-		from
-			call_center.cc_member_attempt a2
-		inner join
-			call_center.cc_agent ca on ca.id = a2.agent_id
-		left join
-			call_center.cc_queue cq on cq.id = a2.queue_id
-		where
-			a2.id = :Id::int8
-			and a2.id = a.id
-			and (
-				cq.id isnull
-				or cq.processing_renewal_sec > 0
-			)
-			and ca.domain_id = :DomainId::int8
-			and a2.state = 'processing'
+    	    when ad.prolongation_enabled
+    	    then least(a.available_prolongation_quant + 1, ad.prolongation_repeats_number)
+    	    else a.available_prolongation_quant
+    	end,
+    	timeout = case
+    	    when (ad.prolongation_enabled and a.available_prolongation_quant + 1 <= ad.prolongation_repeats_number)
+    	         or not ad.prolongation_enabled
+    	    then now() + (:Renewal::int || ' sec')::interval
+    	    else a.timeout
+    	end
+		from attempt_data ad
+		where a.id = ad.attempt_id
 		returning
 			a.id attempt_id,
-			coalesce(a.queue_id, 0) as queue_id,
-			call_center.cc_view_timestamp(a.timeout) timeout,
-			call_center.cc_view_timestamp(now()) "timestamp",
-			coalesce(
-				cq.processing_renewal_sec,
-				(:Renewal::int / 2)::int
-			) as renewal_sec,
-			a.channel,
-			ca.user_id,
-			ca.domain_id,
-			cq.prolongation_enabled,
-			cq.prolongation_time_sec,
-			case
-				when cq.prolongation_enabled
-				then cq.prolongation_repeats_number - a.available_prolongation_quant
-				else 0
-			end as remaining_prolongations
+    		coalesce(a.queue_id, 0) as queue_id,
+    		call_center.cc_view_timestamp(a.timeout) timeout,
+    		call_center.cc_view_timestamp(now()) "timestamp",
+    		coalesce(ad.processing_renewal_sec, (:Renewal::int / 2)::int) as renewal_sec,
+    		a.channel,
+    		ad.user_id,
+    		ad.domain_id,
+    		ad.prolongation_enabled,
+    		ad.prolongation_time_sec,
+    		case
+    		    when ad.prolongation_enabled
+    		    then ad.prolongation_repeats_number - a.available_prolongation_quant
+    		    else 0
+    		end as remaining_prolongations;
 	`
 
 	args := map[string]any{
