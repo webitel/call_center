@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="ProjectCodeStyleConfiguration">
+    <code_scheme name="Project" version="173">
+        <GoCodeStyleSettings>
+            <option name="IMPORT_WRAPPING" value="0" />
+            <option name="MOVE_ALL_IMPORTS_IN_ONE_DECLARATION" value="false" />
+        </GoCodeStyleSettings>
+    </code_scheme>
+</component>
