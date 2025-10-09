@@ -131,7 +131,18 @@ AS SELECT a.domain_id,
     ct.extension,
     a.task_count,
     a.screen_control,
-    t.screen_control IS FALSE AS allow_set_screen_control
+    t.screen_control IS FALSE AS allow_set_screen_control,
+    row_number() OVER (
+      PARTITION BY a.domain_id 
+      ORDER BY 
+            CASE 
+                WHEN a.status = 'online' THEN 0
+                WHEN a.status = 'pause' THEN 1
+                WHEN a.status = 'offline' THEN 2
+                ELSE 3
+            END,
+            COALESCE(ct.name, ct.username)
+    ) AS position
    FROM call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ct.id = a.user_id
      LEFT JOIN storage.media_files g ON g.id = a.greeting_media_id
