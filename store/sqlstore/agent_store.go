@@ -25,19 +25,32 @@ func (s *SqlAgentStore) CreateTableIfNotExists() {
 
 func (s *SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
-	if _, err := s.GetMaster().Select(&agentsInAttempt, `update call_center.cc_member_attempt a
+	if _, err := s.GetMaster().Select(&agentsInAttempt, `
+	update call_center.cc_member_attempt a
 set state = :Active
 from (
-	select a.id as attempt_id, a.agent_id, (ca.updated_at - extract(epoch from u.updated_at))::int8 as agent_updated_at, a.team_id, team.updated_at as team_updated_at
-	from call_center.cc_member_attempt a
-		inner join call_center.cc_agent ca on a.agent_id = ca.id
-		inner join call_center.cc_team team on team.id = a.team_id
-		inner join directory.wbt_user u on u.id = ca.user_id
-	where a.state = :WaitAgent and a.agent_id notnull and a.node_id = :Node
-	for update skip locked
-) t
+        select a.id as attempt_id,
+            a.agent_id,
+            (
+                ca.updated_at - extract(
+                    epoch
+                    from u.updated_at
+                )
+            )::int8 as agent_updated_at,
+            a.team_id,
+            team.updated_at as team_updated_at
+        from call_center.cc_member_attempt a
+            inner join call_center.cc_agent ca on a.agent_id = ca.id
+            inner join call_center.cc_team team on team.id = a.team_id
+            inner join directory.wbt_user u on u.id = ca.user_id
+        where a.state = :WaitAgent
+            and a.agent_id notnull
+            and a.node_id = :Node for
+        update skip locked
+    ) t
 where a.id = t.attempt_id
-returning t.*`, map[string]interface{}{
+returning t.*
+`, map[string]interface{}{
 		"Node":      nodeId,
 		"Active":    model.MemberStateActive,
 		"WaitAgent": model.MemberStateWaitAgent,
@@ -52,42 +65,58 @@ returning t.*`, map[string]interface{}{
 
 func (s *SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
-	if err := s.GetReplica().SelectOne(&agent, `select a.id,
-       a.user_id,
-       a.domain_id,
-       (a.updated_at - extract(epoch from u.updated_at))::int8 as  updated_at,
-       coalesce((u.name)::varchar, u.username)                                                   as name,
-       'sofia/sip/' || u.extension || '@' || d.name                                              as destination,
-       u.extension,
-       a.status,
-       a.status_payload,
-       a.on_demand,
-       case when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb end as greeting_media,
-       a.team_id,
-       team.updated_at                                                                           as team_updated_at,
-       coalesce(push.config, '{}') variables,
-       push.config notnull has_push
+	if err := s.GetReplica().SelectOne(&agent, `
+	select a.id,
+    a.user_id,
+    a.domain_id,
+    (
+        a.updated_at - extract(
+            epoch
+            from u.updated_at
+        )
+    )::int8 as updated_at,
+    coalesce((u.name)::varchar, u.username) as name,
+    'sofia/sip/' || u.extension || '@' || d.name as destination,
+    u.extension,
+    a.status,
+    a.status_payload,
+    a.on_demand,
+    case
+        when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb
+    end as greeting_media,
+    a.team_id,
+    team.updated_at as team_updated_at,
+    coalesce(push.config, '{}') variables,
+    push.config notnull has_push
 from call_center.cc_agent a
-         inner join directory.wbt_user u on u.id = a.user_id
-         inner join directory.wbt_domain d on d.dc = a.domain_id
-         inner join call_center.cc_team team on team.id = a.team_id
-         left join storage.media_files g on g.id = a.greeting_media_id
-left join lateral ( select jsonb_object(array_agg(key), array_agg(val)) as push
-			from (SELECT case
-							 when s.props ->> 'pn-type'::text = 'fcm' then 'wbt_push_fcm'
-							 else 'wbt_push_apn' end                                            as key,
-						 array_to_string(array_agg(DISTINCT s.props ->> 'pn-rpid'::text), '::') as val
-				  FROM directory.wbt_session s
-				  WHERE s.user_id IS NOT NULL
-					AND s.access notnull
-					AND NULLIF(s.props ->> 'pn-rpid'::text, ''::text) IS NOT NULL
-					AND s.user_id = a.user_id
-					and s.props ->> 'pn-type'::text in ('fcm', 'apns')
-					AND now() at time zone 'UTC' < s.expires
-				  group by s.props ->> 'pn-type'::text = 'fcm') t
-			where key notnull
-			  and val notnull) push(config) ON true
-where a.id = :Id	
+    inner join directory.wbt_user u on u.id = a.user_id
+    inner join directory.wbt_domain d on d.dc = a.domain_id
+    inner join call_center.cc_team team on team.id = a.team_id
+    left join storage.media_files g on g.id = a.greeting_media_id
+    left join lateral (
+        select jsonb_object(array_agg(key), array_agg(val)) as push
+        from (
+                SELECT case
+                        when s.props->>'pn-type'::text = 'fcm' then 'wbt_push_fcm'
+                        else 'wbt_push_apn'
+                    end as key,
+                    array_to_string(
+                        array_agg(DISTINCT s.props->>'pn-rpid'::text),
+                        '::'
+                    ) as val
+                FROM directory.wbt_session s
+                WHERE s.user_id IS NOT NULL
+                    AND s.access notnull
+                    AND NULLIF(s.props->>'pn-rpid'::text, ''::text) IS NOT NULL
+                    AND s.user_id = a.user_id
+                    and s.props->>'pn-type'::text in ('fcm', 'apns')
+                    AND now() at time zone 'UTC' < s.expires
+                group by s.props->>'pn-type'::text = 'fcm'
+            ) t
+        where key notnull
+            and val notnull
+    ) push(config) ON true
+where a.id = :Id
 		`, map[string]interface{}{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
@@ -362,57 +391,106 @@ func (s *SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 
 // todo need index
 func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
-	var res []model.AgentHashKey
-	_, err := s.GetMaster().Select(&res, `select a.id,
-       a.updated_at,
-       not exists(select 1
-                  from directory.wbt_user_presence p
-
-                  where p.user_id = a.user_id
-                    and p.status = 'sip'
-                    and p.open > 0)                                                            sip,
-       (t.screen_control or a.screen_control) and not coalesce(sca.has, false)                 reason_sca,
-       not exists(select 1
-                  from directory.wbt_user_presence p
-                  where p.user_id = a.user_id
-                    and p.status = 'web'
-                    and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval) ws,
-       t.updated_at as                                                                         team_updated_at
-from call_center.cc_agent a
-         left join call_center.cc_team t on t.id = a.team_id
-         left join lateral (
-    select exists(select 1 from call_center.socket_session ss
-    where ss.user_id = a.user_id
-      and ss.application_name = 'desc_track'
-      and now() - ss.updated_at < (:Sec + 10 || ' sec')::interval) has
-    ) sca on t.screen_control or a.screen_control
-where a.status in ('online', 'break_out')
-  and (
-    ((t.screen_control or a.screen_control) and not sca.has) or (
-        not exists(SELECT 1
-                   FROM directory.wbt_session s
-                   WHERE ((user_id IS NOT NULL) AND (NULLIF((props ->> 'pn-rpid'::text), ''::text) IS NOT NULL))
-                     and s.user_id = a.user_id::int8
-                     and s.access notnull
-                     AND s.expires > now() at time zone 'UTC')
-            and not exists(select 1
-                           from directory.wbt_user_presence p
-                           where p.user_id = a.user_id
-                             and p.status in ('sip', 'web')
-                             and (
-                               p.open > 0
-                                   or (p.status = 'web' and
-                                       p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval)
-                               ))
-        )
-    )
-    for update of a skip locked`, map[string]interface{}{
+	const query = `
+	select 
+		a.id,
+	    a.updated_at,
+	    not exists(
+	        select 1
+	        from directory.wbt_user_presence p
+	        where p.user_id = a.user_id
+	            and p.status = 'sip'
+	            and p.open > 0
+	    ) sip,
+	    (
+	        t.screen_control
+	        or a.screen_control
+	    )
+	    and not coalesce(sca.has, false) reason_sca,
+	    not exists(
+	        select 1
+	        from directory.wbt_user_presence p
+	        where p.user_id = a.user_id
+	            and p.status = 'web'
+	            and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
+	    ) ws,
+	    t.updated_at as team_updated_at,
+		(lic.has_license is null) as reason_no_cc_license 
+	from call_center.cc_agent a
+	left join call_center.cc_team t on t.id = a.team_id
+	left join lateral (
+	    select exists(
+	            select 1
+	            from call_center.socket_session ss
+	            where ss.user_id = a.user_id
+	                and ss.application_name = 'desc_track'
+	                and now() - ss.updated_at < (:Sec + 10 || ' sec')::interval
+	        ) has
+	) sca on t.screen_control
+	or a.screen_control
+	left join lateral (
+		select 1 as has_license
+		from directory.license l
+		join directory.product p on p.pid = l.serial
+		where l.user_id = a.user_id
+		  and p.name = 'CALL_CENTER'
+		  and (l.expires_at IS NULL OR l.expires_at >= now())
+		limit 1
+	) lic on true
+	where a.status in ('online', 'break_out')
+	    and (
+	    	lic.has_license is null or
+	        (
+	            (
+	                t.screen_control
+	                or a.screen_control
+	            )
+	            and not sca.has
+	        )
+	        or (
+	            not exists(
+	                SELECT 1
+	                FROM directory.wbt_session s
+	                WHERE (
+	                        (user_id IS NOT NULL)
+	                        AND (
+	                            NULLIF((props->>'pn-rpid'::text), ''::text) IS NOT NULL
+	                        )
+	                    )
+	                    and s.user_id = a.user_id::int8
+	                    and s.access notnull
+	                    AND s.expires > now() at time zone 'UTC'
+	            )
+	            and not exists(
+	                select 1
+	                from directory.wbt_user_presence p
+	                where p.user_id = a.user_id
+	                    and p.status in ('sip', 'web')
+	                    and (
+	                        p.open > 0
+	                        or (
+	                            p.status = 'web'
+	                            and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
+	                        )
+	                    )
+	            )
+	        )
+	    ) for
+	update of a skip locked
+	`
+	args := map[string]any{
 		"Sec": sec,
-	})
+	}
 
-	if err != nil {
-		return nil, model.NewAppError("SqlAgentStore.OnlineWithOutActiveSock", "store.sql_agent.find_active.app_error", nil,
-			err.Error(), http.StatusInternalServerError)
+	var res []model.AgentHashKey
+	if _, err := s.GetMaster().Select(&res, query, args); err != nil {
+		return nil, model.NewAppError(
+			"SqlAgentStore.OnlineWithOutActiveSock",
+			"store.sql_agent.find_active.app_error",
+			nil,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
 	}
 
 	return res, nil
