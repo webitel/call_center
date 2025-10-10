@@ -45,18 +45,18 @@ from (
             inner join directory.wbt_user u on u.id = ca.user_id
         where a.state = :WaitAgent
             and a.agent_id notnull
-            and a.node_id = :Node for
-        update skip locked
+            and a.node_id = :Node 
+        for update skip locked
     ) t
 where a.id = t.attempt_id
 returning t.*
-`, map[string]interface{}{
+`, map[string]any{
 		"Node":      nodeId,
 		"Active":    model.MemberStateActive,
 		"WaitAgent": model.MemberStateWaitAgent,
 	}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
-			map[string]interface{}{"Error": err.Error()},
+			map[string]any{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
 	} else {
 		return agentsInAttempt, nil
@@ -117,7 +117,7 @@ from call_center.cc_agent a
             and val notnull
     ) push(config) ON true
 where a.id = :Id
-		`, map[string]interface{}{"Id": id}); err != nil {
+		`, map[string]any{"Id": id}); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
 				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
@@ -434,7 +434,7 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 		join directory.product p on p.pid = l.serial
 		where l.user_id = a.user_id
 		  and p.name = 'CALL_CENTER'
-		  and (l.expires_at IS NULL OR l.expires_at >= now())
+		  and (now() at time zone 'UTC' between p.not_before and p.not_after)
 		limit 1
 	) lic on true
 	where a.status in ('online', 'break_out')
@@ -475,8 +475,8 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 	                    )
 	            )
 	        )
-	    ) for
-	update of a skip locked
+	    ) 
+	for update of a skip locked
 	`
 	args := map[string]any{
 		"Sec": sec,
