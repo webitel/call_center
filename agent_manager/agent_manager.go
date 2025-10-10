@@ -203,7 +203,7 @@ func (am *agentManager) changeDeadlineState() {
 		for _, v := range items {
 			if a, _ := am.GetAgent(v.Id, v.UpdatedAt); a != nil {
 				var s *string
-				if v.Ws || v.Sip || v.ReasonSca {
+				if v.Ws || v.Sip || v.ReasonSca || v.ReasonNoCCLicense {
 					s = model.NewString("system")
 					if v.ReasonSca {
 						*s = *s + "/screen_control"
@@ -212,6 +212,10 @@ func (am *agentManager) changeDeadlineState() {
 					}
 					if v.Sip {
 						*s = *s + "/sip"
+					}
+
+					if v.ReasonNoCCLicense {
+						*s += "/no_cc_license"
 					}
 				}
 				if a.TeamUpdatedAt() != v.TeamUpdatedAt {
@@ -226,8 +230,6 @@ func (am *agentManager) changeDeadlineState() {
 			}
 		}
 	}
-
-	return
 }
 
 func (am *agentManager) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
