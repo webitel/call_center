@@ -1,0 +1,41 @@
+name: PR deliver (webitel-call-center)
+run-name: "webitel-call-center@${{ github.event.workflow_run.head_branch }} - upload package for #${{ github.event.workflow_run.run_number }}"
+
+on:
+  workflow_run:
+    workflows: [ "PR (webitel-call-center)" ]
+    types: [ completed ]
+
+permissions: { contents: read }
+
+jobs:
+  publish:
+    name: Publish .deb package
+    uses: webitel/reusable-workflows/.github/workflows/_publish-deb.yml@v1.0.5
+    permissions:
+      id-token: write
+      actions: read
+      contents: read
+
+    # Only run this job if the triggering workflow was not skipped (and on webitel repositories)
+    if: |
+      github.event.workflow_run.head_repository.fork == false &&
+      github.event.workflow_run.conclusion == 'success'
+
+    secrets:
+      DEB_AWS_ACCESS_KEY_ID: ${{ secrets.DEB_AWS_ACCESS_KEY_ID }}
+      DEB_AWS_SECRET_ACCESS_KEY: ${{ secrets.DEB_AWS_SECRET_ACCESS_KEY }}
+      REPO_SIGNING_KEY: ${{ secrets.REPO_SIGNING_KEY }}
+      REPO_SIGNING_KEY_PASSPHRASE: ${{ secrets.REPO_SIGNING_KEY_PASSPHRASE }}
+      DELIVERY_BOT_APP_PEM: ${{ secrets.DELIVERY_BOT_APP_PEM }}
+
+    with:
+      deb-package-pattern: "webitel-call-center*.deb"
+      deb-component: dev
+      deb-codename: ${{ vars.DEB_CODENAME }}
+      deb-aws-bucket-name: ${{ vars.DEB_AWS_BUCKET_NAME }}
+      deb-aws-bucket-region: ${{ vars.DEB_AWS_DEFAULT_REGION }}
+      github-app-id: ${{ vars.DELIVERY_BOT_APP_ID }}
+      artifact-repository-owner: ${{ github.repository_owner }}
+      artifact-repository: ${{ github.event.repository.name }}
+      artifact-actions-run-id: ${{ github.event.workflow_run.id }}
