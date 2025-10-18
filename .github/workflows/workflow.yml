@@ -1,4 +1,5 @@
-name: Workflow
+name: Workflow (webitel-call-center)
+run-name: "webitel-call-center@${{ github.ref_name }}#${{ github.run_number }} - ${{ github.event.head_commit.message }}"
 
 on:
   push:
@@ -12,16 +13,15 @@ concurrency:
 jobs:
   prepare:
     name: Prepare
-    uses: webitel/reusable-workflows/.github/workflows/go-prepare.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
+    uses: webitel/reusable-workflows/.github/workflows/golang-prepare.yml@v1.0.5
     with:
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.ref_name }}
-      build-number: ${{ github.run_number }}
 
   checks:
     name: Checks
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/go-checks.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
+    uses: webitel/reusable-workflows/.github/workflows/golang-checks.yml@v1.0.5
     permissions:
       contents: read
       actions: read
@@ -30,33 +30,40 @@ jobs:
   compile:
     name: Build
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/go-build.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
+    uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v1.0.5
     with:
       binary-name: call_center
       ldflags: >
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
+        
 
       version: ${{ needs.prepare.outputs.version }}
       version-build: ${{ github.run_number }}
-      prerelease: ${{ github.event.repository.default_branch == github.ref_name && 'dev' }}
-      package-name: ${{ vars.SERVICE_NAME }}
+      prerelease: ${{ github.event.repository.default_branch == github.ref_name && 'dev' || '' }}
+      package-name: webitel-call-center
       package-description: ${{ github.event.repository.description }}
       package-contents: |
         src=deploy/systemd/${{ vars.SERVICE_NAME }}.service dst=/etc/systemd/system/${{ vars.SERVICE_NAME }}.service type=config
+        src=.env.example dst=/etc/default/${{ vars.SERVICE_NAME }} type=config
+        
+
+      package-depends: 
+      scripts: |
+        
 
   deploy:
     name: Deploy
     needs: [ prepare, compile ]
-    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@65e9f94c517bd5efac4a631ae23bbbfa962be812
+    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@v1.0.5
     permissions: { contents: write }
     secrets: inherit
     with:
       tag: ${{ github.event.repository.default_branch != github.ref_name && format('{0}-{1}', needs.prepare.outputs.version, github.run_number) || '' }}
       tag-target-commitish: ${{ github.sha }}
-      repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || needs.prepare.outputs.component }}
-      deb-package-pattern: ${{ vars.SERVICE_NAME }}*.deb
-      deb-component: ${{ needs.prepare.outputs.component }}
+      repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || format('{0}-releases', needs.prepare.outputs.version) }}
+      deb-package-pattern: "webitel-call-center*.deb"
+      deb-component: ${{ github.event.repository.default_branch == github.ref_name && 'dev' || format('{0}-releases', needs.prepare.outputs.version) }}
       deb-codename: ${{ vars.DEB_CODENAME }}
       deb-aws-bucket-name: ${{ vars.DEB_AWS_BUCKET_NAME }}
       deb-aws-bucket-region: ${{ vars.DEB_AWS_DEFAULT_REGION }}
