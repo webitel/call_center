@@ -1,0 +1,22 @@
+# We need secrets to backport, but they're not available for actions ran by forks.
+# So this workflow is used as a 'trigger', which the backport-workflow.yml will with
+# via workflow_run
+name: Backport (trigger)
+run-name: "backport@pr${{ github.event.pull_request.number }}#${{ github.run_number }} - trigger backport workflow"
+
+on:
+  pull_request:
+    types: [ closed, labeled ]
+
+permissions: {}
+
+jobs:
+  backport:
+    name: Backport
+    uses: webitel/reusable-workflows/.github/workflows/_backport-trigger.yml@v1.0.5
+
+    # Only run this job if the PR has been merged and has a label containing "backport v"
+    if: |
+      github.event.pull_request.head.repo.fork == false &&
+      github.event.pull_request.merged == true &&
+      contains(join(github.event.pull_request.labels.*.name, ','), 'backport v')

@@ -1,0 +1,11 @@
+<component name="InspectionProjectProfileManager">
+    <profile version="1.0">
+        <option name="myName" value="Project Default" />
+        <inspection_tool class="GoUnresolvedReference" enabled="true" level="ERROR" enabled_by_default="true" />
+        <inspection_tool class="GoLinter" enabled="true" level="WARNING" enabled_by_default="true" />
+
+        <!-- Disable built-in Go formatting inspections since we're using golangci-lint -->
+        <inspection_tool class="GoFmt" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
+        <inspection_tool class="GoImports" enabled="false" level="WARNING" enabled_by_default="false" />
+    </profile>
+</component>
