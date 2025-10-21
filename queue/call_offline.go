@@ -3,6 +3,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
@@ -67,6 +68,10 @@ func (queue *OfflineCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 }
 
 func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject) {
+	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
+		queue.queueManager.LeavingMember(attempt)
+		return
+	}
 
 	callRequest := &model.CallRequest{
 		Endpoints:    agent.GetCallEndpoints(),
