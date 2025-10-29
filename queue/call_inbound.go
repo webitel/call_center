@@ -290,7 +290,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				team = nil
 			}
 
-			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
+			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0 && agent == nil
 		}
 	}
 

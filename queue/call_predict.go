@@ -502,8 +502,8 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				agentCall = nil
 				team = nil
 			}
-
-			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
+			// DEV-5906 agent blind transfer to inbound queue and ResetBridge
+			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0 && agent == nil
 		}
 	}
 
