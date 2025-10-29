@@ -503,7 +503,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 				team = nil
 			}
 
-			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0
+			calling = mCall.HangupAt() == 0 && mCall.BridgeAt() == 0 && agent == nil
 		}
 	}
 
