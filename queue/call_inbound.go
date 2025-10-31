@@ -89,7 +89,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				if agentCall != nil && agentCall.BridgeAt() == 0 {
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
 					attempt.SetState(model.MemberStateWaitAgent)
-					if agentCall != nil && agentCall.HangupAt() == 0 {
+					if agentCall.HangupAt() == 0 {
 						//TODO WaitForHangup
 						//panic(agentCall.Id())
 					}
@@ -133,10 +133,12 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			})
 
 			var caller Caller
-			if mCall.Direction() == model.CallDirectionOutbound {
+			if mCall.Direction() == model.CallDirectionOutbound { 
+				mFromName := mCall.FromName()
 				caller = Caller{
 					Name:   agent.Name(),
 					Number: agent.CallNumber(),
+					ToName: &mFromName,
 				}
 			} else {
 				caller = Caller{

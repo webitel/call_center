@@ -151,3 +151,5 @@ AS SELECT a.domain_id,
      LEFT JOIN LATERAL ( SELECT jsonb_agg(json_build_object('channel', c.channel, 'online', true, 'state', c.state, 'joined_at', (date_part('epoch'::text, c.joined_at) * 1000::double precision)::bigint)) AS x
            FROM call_center.cc_agent_channel c
           WHERE c.agent_id = a.id) ch ON true;
+
+

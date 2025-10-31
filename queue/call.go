@@ -2,10 +2,11 @@ package queue
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"time"
 )
 
 const (
@@ -33,6 +34,7 @@ type CallingQueue struct {
 type Caller struct {
 	Number string
 	Name   string
+	ToName *string
 }
 
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
@@ -125,6 +127,11 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager
 }
 
 func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {
+	wbtFromName := attempt.Name()
+	if caller.ToName != nil && *caller.ToName != ""{
+		wbtFromName = *caller.ToName
+	}
+	
 	cr := &model.CallRequest{
 		Endpoints:   agent.GetCallEndpoints(),
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
@@ -151,7 +158,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"wbt_to_name":               agent.Name(),
 				"wbt_to_type":               "user", //todo agent ?
 
-				"wbt_from_name":   attempt.Name(),
+				"wbt_from_name":   wbtFromName,
 				"wbt_from_type":   "member",
 				"wbt_from_number": attempt.Destination(),
 
