@@ -130,8 +130,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
 		Destination: attempt.Destination(),
 		Variables: model.UnionStringMaps(
-			queue.Variables(),
 			attempt.ExportVariables(),
+			queue.Variables(),
 			agent.Variables(),
 			map[string]string{
 				//"ignore_early_media": "true",
