@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict rFdYsll35vpWS1AfOOmE5RgcCCpf5kZzFlx8ovFfSseQnDGa291t3litqMhNKrp
+\restrict qSUdGUYzJi89zqc9o5EWpJ1VCbgdUwgXbu6bVvL4igoVhaFZt9qPiK445HS9zmQ
 
 -- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
 -- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
@@ -3273,6 +3273,30 @@ begin
     return to_timestamp($1/1000);
 end;
 $_$;
+
+
+--
+-- Name: cc_get_agent_queues(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_get_agent_queues(_domain_id integer, _user_id integer) RETURNS integer[]
+    LANGUAGE sql STABLE
+    AS $$
+   	select array_agg(distinct cq.id)
+   	from call_center.cc_agent ca
+   	inner join call_center.cc_skill_in_agent csia 
+   		on csia.agent_id = ca.id 
+   		and csia.enabled
+   	inner join call_center.cc_queue_skill cqs on
+   		cqs.skill_id = csia.skill_id
+   		and cqs.enabled
+   		and csia.capacity between cqs.min_capacity and cqs.max_capacity
+   	inner join call_center.cc_queue cq
+   		on cq.id = cqs.queue_id
+   	where ca.user_id = _user_id
+   	and ca.domain_id = _domain_id
+   	and (cq.team_id is null or cq.team_id = ca.team_id);
+   $$;
 
 
 --
@@ -10653,6 +10677,20 @@ CREATE INDEX cc_trigger_job_log_trigger_id_started_at_index ON call_center.cc_tr
 
 
 --
+-- Name: idx_cc_agent_domain_user; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_cc_agent_domain_user ON call_center.cc_agent USING btree (domain_id, user_id) INCLUDE (team_id, id);
+
+
+--
+-- Name: idx_cc_skill_in_agent_enabled; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX idx_cc_skill_in_agent_enabled ON call_center.cc_skill_in_agent USING btree (agent_id, enabled);
+
+
+--
 -- Name: socket_session_app_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -13686,5 +13724,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA call_center GRANT SELECT ON
 -- PostgreSQL database dump complete
 --
 
-\unrestrict rFdYsll35vpWS1AfOOmE5RgcCCpf5kZzFlx8ovFfSseQnDGa291t3litqMhNKrp
+\unrestrict qSUdGUYzJi89zqc9o5EWpJ1VCbgdUwgXbu6bVvL4igoVhaFZt9qPiK445HS9zmQ
 

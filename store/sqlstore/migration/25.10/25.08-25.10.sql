@@ -757,3 +757,43 @@ SELECT a.domain_id,
 FROM ((call_center.cc_quick_reply a
   LEFT JOIN directory.wbt_user uc ON ((uc.id = a.created_by)))
   LEFT JOIN directory.wbt_user uu ON ((uu.id = a.updated_by)));
+
+
+
+--
+-- Name: cc_get_agent_queues(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_get_agent_queues(_domain_id integer, _user_id integer) RETURNS integer[]
+  LANGUAGE sql STABLE
+AS $$
+select array_agg(distinct cq.id)
+from call_center.cc_agent ca
+       inner join call_center.cc_skill_in_agent csia
+                  on csia.agent_id = ca.id
+                    and csia.enabled
+       inner join call_center.cc_queue_skill cqs on
+  cqs.skill_id = csia.skill_id
+    and cqs.enabled
+    and csia.capacity between cqs.min_capacity and cqs.max_capacity
+       inner join call_center.cc_queue cq
+                  on cq.id = cqs.queue_id
+where ca.user_id = _user_id
+  and ca.domain_id = _domain_id
+  and (cq.team_id is null or cq.team_id = ca.team_id);
+$$;
+
+
+--
+-- Name: idx_cc_agent_domain_user; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_cc_agent_domain_user ON call_center.cc_agent USING btree (domain_id, user_id) INCLUDE (team_id, id);
+
+
+--
+-- Name: idx_cc_skill_in_agent_enabled; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX idx_cc_skill_in_agent_enabled ON call_center.cc_skill_in_agent USING btree (agent_id, enabled);
+
