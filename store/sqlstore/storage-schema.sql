@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 15.13 (Debian 15.13-1.pgdg120+1)
--- Dumped by pg_dump version 15.13 (Debian 15.13-1.pgdg120+1)
+\restrict djqGFxHUQowcMx6fLXhoomU2xpfMepQCG0rKEcnAjwA3ZpSkH5UjBhyATT5he3d
+
+-- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
+-- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -352,7 +354,10 @@ CREATE TABLE storage.files (
     thumbnail jsonb,
     retention_until timestamp with time zone,
     uploaded_at timestamp with time zone GENERATED ALWAYS AS (to_timestamp((((created_at)::numeric / (1000)::numeric))::double precision)) STORED,
-    uploaded_by bigint
+    uploaded_by bigint,
+    malware jsonb,
+    updated_by bigint,
+    custom_properties jsonb
 );
 
 
@@ -746,7 +751,9 @@ CREATE VIEW storage.files_list AS
     f.profile_id,
     f.created_at,
     f.properties,
-    f.instance
+    f.instance,
+    f.uploaded_by AS uploaded_by_id,
+    f.removed
    FROM ((storage.files f
      LEFT JOIN storage.file_backend_profiles p ON ((f.id = f.profile_id)))
      LEFT JOIN directory.wbt_user u ON ((u.id = f.uploaded_by)));
@@ -1434,6 +1441,13 @@ CREATE INDEX files_domain_id_uuid_index ON storage.files USING btree (domain_id,
 
 
 --
+-- Name: files_malware_found_index; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX files_malware_found_index ON storage.files USING btree (domain_id) WHERE ((malware -> 'found'::text))::boolean;
+
+
+--
 -- Name: files_profile_id_created_at_index; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -1999,4 +2013,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA storage GRANT SELECT ON TAB
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict djqGFxHUQowcMx6fLXhoomU2xpfMepQCG0rKEcnAjwA3ZpSkH5UjBhyATT5he3d
 
