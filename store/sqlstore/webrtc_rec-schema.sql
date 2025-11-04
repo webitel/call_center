@@ -2,6 +2,8 @@
 -- PostgreSQL database dump
 --
 
+\restrict HjN9RZOUoOOqH8VMnsXH3dWUSC12rQOhKFWM4N82PXH3aWzqKyLGBHTumHZ9Bfa
+
 -- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
 -- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
 
@@ -82,4 +84,6 @@ ALTER TABLE ONLY webrtc_rec.file_jobs
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict HjN9RZOUoOOqH8VMnsXH3dWUSC12rQOhKFWM4N82PXH3aWzqKyLGBHTumHZ9Bfa
 
