@@ -759,7 +759,7 @@ FROM ((call_center.cc_quick_reply a
   LEFT JOIN directory.wbt_user uu ON ((uu.id = a.updated_by)));
 
 
-
+drop function if exists call_center.cc_get_agent_queues;
 --
 -- Name: cc_get_agent_queues(integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
