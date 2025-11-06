@@ -2024,8 +2024,6 @@ end;
 $$;
 
 
-DROP PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ uuid);
-
 --
 -- Name: cc_call_set_bridged(uuid, character varying, timestamp with time zone, character varying, bigint, uuid, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
 --
@@ -3287,8 +3285,8 @@ CREATE FUNCTION call_center.cc_get_agent_queues(_domain_id integer, _user_id int
     AS $$
    	select array_agg(distinct cq.id)
    	from call_center.cc_agent ca
-   	inner join call_center.cc_skill_in_agent csia
-   		on csia.agent_id = ca.id
+   	inner join call_center.cc_skill_in_agent csia 
+   		on csia.agent_id = ca.id 
    		and csia.enabled
    	inner join call_center.cc_queue_skill cqs on
    		cqs.skill_id = csia.skill_id

@@ -797,6 +797,9 @@ CREATE UNIQUE INDEX idx_cc_agent_domain_user ON call_center.cc_agent USING btree
 
 CREATE INDEX idx_cc_skill_in_agent_enabled ON call_center.cc_skill_in_agent USING btree (agent_id, enabled);
 
+
+DROP PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ uuid);
+
 --
 -- Name: cc_call_set_bridged(uuid, character varying, timestamp with time zone, character varying, bigint, uuid, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
 --
