@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict qSUdGUYzJi89zqc9o5EWpJ1VCbgdUwgXbu6bVvL4igoVhaFZt9qPiK445HS9zmQ
+\restrict q6h8DcBfpiDOUnrgXxDdhCqxYusVLhILKJnGRYqpyqX2eeu4aqTcepMCZCgRhhx
 
 -- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
 -- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
@@ -2025,10 +2025,10 @@ $$;
 
 
 --
--- Name: cc_call_set_bridged(uuid, character varying, timestamp with time zone, character varying, bigint, uuid); Type: PROCEDURE; Schema: call_center; Owner: -
+-- Name: cc_call_set_bridged(uuid, character varying, timestamp with time zone, character varying, bigint, uuid, character varying); Type: PROCEDURE; Schema: call_center; Owner: -
 --
 
-CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ uuid)
+CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ character varying, IN timestamp_ timestamp with time zone, IN app_id_ character varying, IN domain_id_ bigint, IN call_bridged_id_ uuid, IN _to_name character varying)
     LANGUAGE plpgsql
     AS $$
 declare
@@ -2056,7 +2056,8 @@ begin
         to_id      = case
                          when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound'  and cc.gateway_id isnull )
                              then c.id_
-                         else to_id end
+                         else to_id end,
+        from_name = case when cc.gateway_id notnull then coalesce(_to_name, from_name) else from_name end
     from (
              select b.id,
                     b.bridged_id as transfer_to,
@@ -13724,5 +13725,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA call_center GRANT SELECT ON
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qSUdGUYzJi89zqc9o5EWpJ1VCbgdUwgXbu6bVvL4igoVhaFZt9qPiK445HS9zmQ
+\unrestrict q6h8DcBfpiDOUnrgXxDdhCqxYusVLhILKJnGRYqpyqX2eeu4aqTcepMCZCgRhhx
 
