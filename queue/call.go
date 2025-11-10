@@ -2,10 +2,11 @@ package queue
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"time"
 )
 
 const (
@@ -33,6 +34,13 @@ type CallingQueue struct {
 type Caller struct {
 	Number string
 	Name   string
+}
+
+func CreateCaller(number, name string) Caller {
+	return Caller{
+		Number: number,
+		Name: name,
+	}
 }
 
 func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool) {
@@ -124,7 +132,7 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager
 	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
-func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {
+func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {	
 	cr := &model.CallRequest{
 		Endpoints:   agent.GetCallEndpoints(),
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
@@ -337,4 +345,16 @@ func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
 	}
 
 	return call.IsHuman()
+}
+
+func FlipCaller(memberCall call_manager.Call, agent agent_manager.AgentObject, attempt *Attempt) Caller {
+	var caller Caller
+
+	if memberCall.Direction() == model.CALL_DIRECTION_OUTBOUND {
+		caller = CreateCaller(agent.CallNumber(), agent.Name())
+	} else {
+		caller = CreateCaller(attempt.Destination(), attempt.Name())
+	}
+
+	return caller
 }
