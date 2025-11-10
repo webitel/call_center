@@ -3,10 +3,11 @@ package call_manager
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 	"net/http"
 	"sync"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type Call interface {

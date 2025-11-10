@@ -132,19 +132,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				Args:    "",
 			})
 
-			var caller Caller
-			if mCall.Direction() == model.CallDirectionOutbound {
-				caller = Caller{
-					Name:   agent.Name(),
-					Number: agent.CallNumber(),
-				}
-			} else {
-				caller = Caller{
-					Name:   attempt.Name(),
-					Number: attempt.Destination(),
-				}
-			}
-
+			var caller Caller = FlipCaller(mCall, agent, attempt)
 			cr := queue.AgentCallRequest(agent, team, attempt, caller, apps)
 
 			if queue.props.ManualDistribution {

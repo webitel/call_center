@@ -2,10 +2,11 @@ package queue
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
-	"time"
 )
 
 type JoinAgentCallQueue struct {
@@ -50,10 +51,8 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 		calling = false
 	}
 
-	cr := queue.AgentCallRequest(agent, team, attempt, Caller{
-		Number: attempt.Destination(),
-		Name:   attempt.Name(),
-	}, []*model.CallRequestApplication{
+	var caller Caller = FlipCaller(mCall, agent, attempt)
+	cr := queue.AgentCallRequest(agent, team, attempt, caller, []*model.CallRequestApplication{
 		{
 			AppName: "park",
 			Args:    "",
@@ -97,19 +96,16 @@ top:
 					time.Sleep(queue.bridgeSleep)
 				}
 
-				if mCall.Direction() == model.CALL_DIRECTION_OUTBOUND {
-					err = mCall.Bridge(agentCall)
-				} else {
-					err = agentCall.Bridge(mCall)
-				}
-				if err != nil {
+				if err = agentCall.Bridge(mCall); err != nil {
 					if agentCall.HangupAt() == 0 {
 						agentCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
 					}
+				} else if !attempt.processTransfer && mCall.Direction() == model.CallDirectionOutbound && attempt.state != model.MemberStateBridged {
+					team.Bridged(attempt, agent)
 				}
 
 			case call_manager.CALL_STATE_BRIDGE:
-				if attempt.state != model.MemberStateBridged {
+				if attempt.state != model.MemberStateBridged  {
 					team.Bridged(attempt, agent)
 				}
 
