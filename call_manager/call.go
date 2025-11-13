@@ -12,6 +12,7 @@ import (
 
 type Call interface {
 	Id() string
+	ParentOrId() string
 	NodeName() string
 
 	FromNumber() string
@@ -439,6 +440,13 @@ func (call *CallImpl) GetState() CallState {
 }
 
 func (call *CallImpl) Id() string {
+	return call.id
+}
+func (call *CallImpl) ParentOrId() string {
+	if call.info.ParentId != nil {
+		return *call.info.ParentId
+	}
+
 	return call.id
 }
 

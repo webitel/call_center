@@ -95,6 +95,7 @@ type inboundCallData struct {
 	CallAnsweredAt  int64   `json:"call_answered_at" db:"call_answered_at"`
 	CallBridgedAt   int64   `json:"call_bridged_at" db:"call_bridged_at"`
 	CallCreatedAt   int64   `json:"call_created_at" db:"call_created_at"`
+	ParentCallId    *string `json:"parent_call_id" db:"parent_call_id"`
 }
 
 type InboundCallQueue struct {

@@ -373,6 +373,7 @@ func (qm *Manager) DistributeCall(_ context.Context, in *cc.CallJoinToQueueReque
 		AnsweredAt:  res.CallAnsweredAt,
 		BridgedAt:   res.CallBridgedAt,
 		CreatedAt:   res.CallCreatedAt,
+		ParentId:    res.ParentCallId,
 	}
 	if res.CallFromName != nil {
 		callInfo.FromName = *res.CallFromName
@@ -515,6 +516,7 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		AnsweredAt:  res.CallAnsweredAt,
 		BridgedAt:   res.CallBridgedAt,
 		CreatedAt:   res.CallCreatedAt,
+		ParentId:    res.ParentCallId,
 	}
 	if res.CallFromName != nil {
 		callInfo.FromName = *res.CallFromName
