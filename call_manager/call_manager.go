@@ -292,7 +292,7 @@ func (cm *CallManagerImpl) ConnectCall(call *model.Call, ringtone string) (Call,
 			Name:   call.FromName,
 		},
 		To:       nil,
-		ParentId: nil,
+		ParentId: call.ParentId,
 		Payload:  nil,
 	}
 

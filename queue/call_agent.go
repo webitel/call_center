@@ -59,7 +59,7 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 		},
 	})
 
-	cr.Variables["wbt_parent_id"] = mCall.Id()
+	cr.Variables["wbt_parent_id"] = mCall.ParentOrId()
 
 	agentCall := mCall.NewCall(cr)
 	attempt.agentChannel = agentCall
@@ -105,7 +105,7 @@ top:
 				}
 
 			case call_manager.CALL_STATE_BRIDGE:
-				if attempt.state != model.MemberStateBridged  {
+				if attempt.state != model.MemberStateBridged {
 					team.Bridged(attempt, agent)
 				}
 
