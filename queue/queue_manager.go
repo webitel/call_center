@@ -588,7 +588,8 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 
 	var queue = JoinAgentCallQueue{
 		CallingQueue: CallingQueue{
-			BaseQueue: NewBaseQueue(qm, qm.resourceManager, settings),
+			BaseQueue:   NewBaseQueue(qm, qm.resourceManager, settings),
+			bridgeSleep: qm.bridgeSleep,
 		},
 	}
 
