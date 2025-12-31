@@ -46,4 +46,5 @@ func main() {
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
+	time.Local = time.UTC // todo
 }

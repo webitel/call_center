@@ -761,7 +761,7 @@ where x.channel notnull`, map[string]interface{}{
 		"Status":         callback.Status,
 		"Description":    callback.Description,
 		"ExpireAt":       callback.ExpireAt,
-		"NextCallAt":     callback.NextCallAt, // TODO UtcTime
+		"NextCallAt":     model.UtcTime(callback.NextCallAt),
 		"WaitBetweenReq": callback.WaitBetweenRetries,
 		"StickyAgentId":  callback.StickyAgentId,
 		"MaxAttempts":    maxAttempts,
@@ -806,7 +806,7 @@ where x.last_state_change notnull`, map[string]interface{}{
 		"Status":        callback.Status,
 		"Description":   callback.Description,
 		"ExpireAt":      callback.ExpireAt,
-		"NextCallAt":    callback.NextCallAt, // TODO UtcTime
+		"NextCallAt":    model.UtcTime(callback.NextCallAt),
 		"StickyAgentId": callback.StickyAgentId,
 		"MaxAttempts":   maxAttempts,
 		"WaitBetween":   waitBetween,
