@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict q6h8DcBfpiDOUnrgXxDdhCqxYusVLhILKJnGRYqpyqX2eeu4aqTcepMCZCgRhhx
+\restrict KXjnAb5jBXGL4teqtpfInDTCPEN31i6TspuZ65rDJQIZqVIrYj6IbLmOYJdSawo
 
--- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
--- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
+-- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
+-- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1351,8 +1351,8 @@ begin
                                        )
                                   then m.stop_cause else  attempt.result end,
 
-            ready_at = case when next_offering_at_ notnull then next_offering_at_ at time zone tz.names[1]
-                            else now() + (wait_between_retries_ || ' sec')::interval end,
+            ready_at = (case when next_offering_at_ notnull then (next_offering_at_)::timestamp at time zone tz.names[1]
+                            else (now() + (wait_between_retries_ || ' sec')::interval)::timestamptz end)::timestamptz,
 
             last_agent      = coalesce(attempt.agent_id, m.last_agent),
             communications =  jsonb_set(
@@ -2032,102 +2032,102 @@ CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ cha
     LANGUAGE plpgsql
     AS $$
 declare
-        transfer_to_ uuid;
-        transfer_from_ uuid;
-        transfer_from_name_ varchar;
-        transfer_from_number_ varchar;
+  transfer_to_ uuid;
+  transfer_from_ uuid;
+  transfer_from_name_ varchar;
+  transfer_from_number_ varchar;
 begin
-    update call_center.cc_calls cc
-    set bridged_id = c.bridged_id,
-        state      = state_,
-        timestamp  = timestamp_,
-        to_number  = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                             then c.number_
-                         else to_number end,
-        to_name    = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                             then c.name_
-                         else to_name end,
-        to_type    = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                             then c.type_
-                         else to_type end,
-        to_id      = case
-                         when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound'  and cc.gateway_id isnull )
-                             then c.id_
-                         else to_id end,
-        from_name = case when cc.gateway_id notnull then coalesce(_to_name, from_name) else from_name end
-    from (
-             select b.id,
-                    b.bridged_id as transfer_to,
-                    b2.id parent_id,
-                    b2.id bridged_id,
-                    b2o.*
-             from call_center.cc_calls b
-                      left join call_center.cc_calls b2 on b2.id = call_id_::uuid
-                      left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
-             where b.id = call_bridged_id_
-         ) c
-    where c.id = cc.id
-    returning c.transfer_to, cc.from_name, cc.from_number
-        into transfer_to_, transfer_from_name_, transfer_from_number_;
+  update call_center.cc_calls cc
+  set bridged_id = c.bridged_id,
+      state      = state_,
+      timestamp  = timestamp_,
+      to_number  = case
+                     when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
+                       then c.number_
+                     else to_number end,
+      to_name    = case
+                     when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
+                       then c.name_
+                     else to_name end,
+      to_type    = case
+                     when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
+                       then c.type_
+                     else to_type end,
+      to_id      = case
+                     when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound'  and cc.gateway_id isnull )
+                       then c.id_
+                     else to_id end,
+      from_name = case when cc.gateway_id notnull then coalesce(_to_name, from_name) else from_name end
+  from (
+         select b.id,
+                b.bridged_id as transfer_to,
+                b2.id parent_id,
+                b2.id bridged_id,
+                b2o.*
+         from call_center.cc_calls b
+                left join call_center.cc_calls b2 on b2.id = call_id_::uuid
+                left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
+         where b.id = call_bridged_id_
+       ) c
+  where c.id = cc.id
+  returning c.transfer_to, cc.from_name, cc.from_number
+    into transfer_to_, transfer_from_name_, transfer_from_number_;
 
 
-    update call_center.cc_calls cc
-    set bridged_id    = c.bridged_id,
-        state         = state_,
-        timestamp     = timestamp_,
-        parent_id     = case
-                            when c.is_leg_a is true and cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
-                            else cc.parent_id end,
-        transfer_from = case
-                            when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id
-                            else cc.transfer_from end,
-        transfer_to = transfer_to_,
+  update call_center.cc_calls cc
+  set bridged_id    = c.bridged_id,
+      state         = state_,
+      timestamp     = timestamp_,
+      parent_id     = case
+                        when c.is_leg_a is true and cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
+                        else cc.parent_id end,
+      transfer_from = case
+                        when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id
+                        else cc.transfer_from end,
+      transfer_to = transfer_to_,
 
-        from_number = case
-                            when transfer_from_number_ notnull and direction = 'inbound' and transfer_to_ notnull and cc.parent_id notnull and cc.parent_id != c.bridged_id
-                            then transfer_from_number_
-                            else from_number end,
-        from_name = case
-                            when transfer_from_name_ notnull and direction = 'inbound' and transfer_to_ notnull and cc.parent_id notnull and cc.parent_id != c.bridged_id
-                            then transfer_from_name_
-                            else from_name end,
-        to_number     = case
-                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                                then c.number_
-                            else to_number end,
-        to_name       = case
-                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                                then c.name_
-                            else to_name end,
-        to_type       = case
-                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                                then c.type_
-                            else to_type end,
-        to_id         = case
-                            when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
-                                then c.id_
-                            else to_id end
-    from (
-             select b.id,
-                    b2.id parent_id,
-                    b2.id bridged_id,
-                    b.parent_id isnull as is_leg_a,
-                    b2o.*
-             from call_center.cc_calls b
-                      left join call_center.cc_calls b2 on b2.id = call_bridged_id_
-                      left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
-             where b.id = call_id_::uuid
-         ) c
-    where c.id = cc.id
-    returning cc.transfer_from into transfer_from_;
+      from_number = case
+                      when transfer_from_number_ notnull and direction = 'inbound' and transfer_to_ notnull and cc.parent_id notnull and cc.parent_id != c.bridged_id
+                        then transfer_from_number_
+                      else from_number end,
+      from_name = case
+                    when transfer_from_name_ notnull and direction = 'inbound' and transfer_to_ notnull and cc.parent_id notnull and cc.parent_id != c.bridged_id
+                      then transfer_from_name_
+                    else from_name end,
+      to_number     = case
+                        when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                          then c.number_
+                        else to_number end,
+      to_name       = case
+                        when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                          then c.name_
+                        else to_name end,
+      to_type       = case
+                        when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                          then c.type_
+                        else to_type end,
+      to_id         = case
+                        when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound')
+                          then c.id_
+                        else to_id end
+  from (
+         select b.id,
+                b2.id parent_id,
+                b2.id bridged_id,
+                b.parent_id isnull as is_leg_a,
+                b2o.*
+         from call_center.cc_calls b
+                left join call_center.cc_calls b2 on b2.id = call_bridged_id_
+                left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
+         where b.id = call_id_::uuid
+       ) c
+  where c.id = cc.id
+  returning cc.transfer_from into transfer_from_;
 
-    update call_center.cc_calls set
-     transfer_from =  case when id = transfer_from_ then transfer_to_ end,
-     transfer_to =  case when id = transfer_to_ then transfer_from_ end
-    where id in (transfer_from_, transfer_to_);
+  update call_center.cc_calls set
+                                transfer_from =  case when id = transfer_from_ then transfer_to_ end,
+                                transfer_to =  case when id = transfer_to_ then transfer_from_ end
+  where id in (transfer_from_, transfer_to_);
 
 end;
 $$;
@@ -2415,9 +2415,10 @@ CREATE PROCEDURE call_center.cc_distribute(IN disable_omnichannel boolean)
         select x.*, a.team_id
         from call_center.cc_sys_distribute(disable_omnichannel) x (agent_id int, queue_id int, bucket_id int, ins bool, id int8, resource_id int,
                                                                    resource_group_id int, comm_idx int)
-                 left join call_center.cc_agent a on a.id= x.agent_id
-    )
-       , ins as (
+                left join call_center.cc_agent a on a.id= x.agent_id
+               -- left join lateral (select pg_sleep(4)) xc on true
+    ),
+	ins as (
         insert into call_center.cc_member_attempt (channel, member_id, queue_id, resource_id, agent_id, bucket_id, destination,
                                                    communication_idx, member_call_id, team_id, resource_group_id, domain_id, import_id, sticky_agent_id, queue_params, queue_type)
             select case when q.type = 7 then 'task' else 'call' end, --todo
@@ -2452,10 +2453,13 @@ CREATE PROCEDURE call_center.cc_distribute(IN disable_omnichannel boolean)
                 inner join call_center.cc_agent a on a.id = dis.agent_id
                 left join call_center.cc_queue q on q.id = dis.queue_id
              where not dis.ins is true
-                and (q.type is null or q.type in (6, 7) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at isnull ))
+                  and (q.type is null or q.type in (6, 7) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at isnull for update))
          ) t
     where t.id = a.id
       and a.agent_id isnull;
+
+
+    --raise warning '%s', (select string_agg(user_id::text, ', '::text),  string_agg(attempt_id::text, ', '::text) from call_center.cc_calls where user_id notnull );
 
 end;
 $$;
@@ -2659,7 +2663,8 @@ BEGIN
         else _call.to_name::varchar end,
       call_center.cc_view_timestamp(_call.answered_at)::int8,
       call_center.cc_view_timestamp(_call.bridged_at)::int8,
-      call_center.cc_view_timestamp(_call.created_at)::int8
+      call_center.cc_view_timestamp(_call.created_at)::int8,
+      _call.parent_id::varchar
   );
 END;
 $$;
@@ -2878,7 +2883,8 @@ return row (
             else _call.to_name::varchar end,
         call_center.cc_view_timestamp(_call.answered_at)::int8,
         call_center.cc_view_timestamp(_call.bridged_at)::int8,
-        call_center.cc_view_timestamp(_call.created_at)::int8
+        call_center.cc_view_timestamp(_call.created_at)::int8,
+        _call.parent_id::varchar
     );
 
 END;
@@ -3285,8 +3291,8 @@ CREATE FUNCTION call_center.cc_get_agent_queues(_domain_id integer, _user_id int
     AS $$
    	select array_agg(distinct cq.id)
    	from call_center.cc_agent ca
-   	inner join call_center.cc_skill_in_agent csia 
-   		on csia.agent_id = ca.id 
+   	inner join call_center.cc_skill_in_agent csia
+   		on csia.agent_id = ca.id
    		and csia.enabled
    	inner join call_center.cc_queue_skill cqs on
    		cqs.skill_id = csia.skill_id
@@ -5017,7 +5023,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
      LEFT JOIN flow.region r ON ((r.id = a.region_id)))
      LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
      LEFT JOIN LATERAL ( SELECT cc_agent_state_history.payload,
-            sum(cc_agent_state_history.duration) AS d
+            sum(cc_agent_state_history.duration) FILTER (WHERE (cc_agent_state_history.duration > '00:00:00'::interval)) AS d
            FROM call_center.cc_agent_state_history
           WHERE ((cc_agent_state_history.joined_at > ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone))) AND (cc_agent_state_history.agent_id = a.id) AND ((cc_agent_state_history.state)::text = 'pause'::text) AND (cc_agent_state_history.channel IS NULL))
           GROUP BY cc_agent_state_history.payload) p ON (true))
@@ -5271,7 +5277,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
                         END AS ac
                    FROM (agents a_1
                      JOIN call_center.cc_member_attempt_history h ON ((h.agent_id = a_1.id)))
-                  WHERE ((h.leaving_at > ((now())::date - '2 days'::interval)) AND ((h.leaving_at >= a_1."from") AND (h.leaving_at <= a_1."to")) AND ((h.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])) AND (h.agent_id IS NOT NULL) AND (1 = 1))
+                    WHERE ((h.leaving_at > ((now())::date - '2 days'::interval)) AND (h.leaving_at >= a_1."from") AND (h.leaving_at <= a_1."to") AND ((h.channel)::text = ANY (ARRAY['chat'::text, 'task'::text])) AND (h.agent_id IS NOT NULL) AND (1 = 1))
                 )
          SELECT t.agent_id,
             t.c AS channel,
@@ -5290,7 +5296,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
         ), calls AS (
          SELECT h.user_id,
             count(*) FILTER (WHERE ((h.direction)::text = 'inbound'::text)) AS all_inb,
-            count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS handled,
+            count(*) FILTER (WHERE (h.answered_at IS NOT NULL)) AS handled,
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NOT NULL))) AS inbound_bridged,
             count(*) FILTER (WHERE ((cq.type = 1) AND (h.bridged_at IS NOT NULL) AND (h.parent_id IS NOT NULL))) AS "inbound queue",
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
@@ -6024,11 +6030,11 @@ CREATE VIEW call_center.cc_calls_history_list AS
     c.sip_code,
     ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at',
                 CASE
-                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_start'::text))::bigint
-                    ELSE ((f_1.custom_properties ->> 'start_time'::text))::bigint
+                    WHEN (((f_1.channel)::text = 'call'::text) AND (NOT ((f_1.mime_type)::text ~~ 'image%'::text))) THEN COALESCE(((f_1.custom_properties ->> 'start_time'::text))::bigint, ((c.params -> 'record_start'::text))::bigint, call_center.cc_view_timestamp(c.answered_at))
+                    ELSE COALESCE(((f_1.custom_properties ->> 'start_time'::text))::bigint, f_1.created_at)
                 END, 'stop_at',
                 CASE
-                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_stop'::text))::bigint
+                    WHEN (((f_1.channel)::text = 'call'::text) AND (NOT ((f_1.mime_type)::text ~~ 'image%'::text))) THEN COALESCE(((f_1.custom_properties ->> 'end_time'::text))::bigint, ((c.params -> 'record_stop'::text))::bigint, call_center.cc_view_timestamp(c.hangup_at))
                     ELSE ((f_1.custom_properties ->> 'end_time'::text))::bigint
                 END, 'start_record', f_1.sr, 'channel', f_1.channel)) AS files
            FROM ( SELECT f1.id,
@@ -6037,6 +6043,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     COALESCE(f1.view_name, f1.name) AS name,
                     f1.channel,
                     f1.custom_properties,
+                    f1.created_at,
                         CASE
                             WHEN (((c.direction)::text = 'outbound'::text) AND (c.user_id IS NOT NULL) AND ((c.queue_id IS NULL) OR (cq.type = 2))) THEN 'operator'::text
                             ELSE 'client'::text
@@ -6050,13 +6057,14 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     COALESCE(f1.view_name, f1.name) AS name,
                     f1.channel,
                     f1.custom_properties,
+                    f1.created_at,
                     NULL::text AS sr
                    FROM storage.files f1
                   WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND (c.parent_id IS NOT NULL) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) AS files,
     call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
     call_center.cc_get_lookup(c.member_id, cm.name) AS member,
     call_center.cc_get_lookup(ct.id, ct.name) AS team,
-    call_center.cc_get_lookup((aa.id)::bigint, (COALESCE(cag.username, (cag.name)::name))::character varying) AS agent,
+    call_center.cc_get_lookup((aa.id)::bigint, (COALESCE(cag.name, (cag.username)::text))::character varying) AS agent,
     cma.joined_at,
     cma.leaving_at,
     cma.reporting_at,
@@ -6085,7 +6093,7 @@ CREATE VIEW call_center.cc_calls_history_list AS
     cma.display,
     (EXISTS ( SELECT 1
            FROM call_center.cc_calls_history hp
-          WHERE ((c.parent_id IS NULL) AND (hp.parent_id = c.id) AND (hp.created_at > (c.created_at)::date)))) AS has_children,
+          WHERE (((c.parent_id IS NULL) OR (c.blind_transfer IS NOT NULL)) AND (hp.parent_id = c.id) AND (hp.created_at > (c.created_at)::date)))) AS has_children,
     (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
     c.grantee_id,
     ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
@@ -6183,7 +6191,12 @@ CREATE VIEW call_center.cc_calls_history_list AS
              LEFT JOIN call_center.cc_agent_with_user u_1 ON ((u_1.id = p.agent_id)))
           WHERE ((p.id IN ( SELECT DISTINCT x.x
                    FROM unnest((c.attempt_ids || c.attempt_id)) x(x))) AND (p.reporting_at IS NOT NULL))
-         LIMIT 20) AS forms
+         LIMIT 20) AS forms,
+    ( SELECT co.id
+           FROM chat.conversation co
+          WHERE ((co.props ->> 'wbt_meeting_id'::text) = (c.params ->> 'meeting_id'::text))
+         LIMIT 1) AS conversation_id,
+    (c.params ->> 'meeting_id'::text) AS meeting_id
    FROM (((((((((((((call_center.cc_calls_history c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
@@ -6198,6 +6211,231 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
      LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)));
+
+
+--
+-- Name: cc_calls_history_list2; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_calls_history_list2 AS
+ SELECT c.id,
+    c.app_id,
+    'call'::character varying AS type,
+    c.parent_id,
+    c.transfer_from,
+        CASE
+            WHEN ((c.parent_id IS NOT NULL) AND (c.transfer_to IS NULL) AND (c.id <> call_center.cc_bridged_id(c.parent_id))) THEN call_center.cc_bridged_id(c.parent_id)
+            ELSE c.transfer_to
+        END AS transfer_to,
+    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
+        CASE
+            WHEN (cq.type = ANY (ARRAY[4, 5])) THEN cag.extension
+            ELSE u.extension
+        END AS extension,
+    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
+    c.direction,
+    c.destination,
+    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
+    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
+    c.payload AS variables,
+    c.created_at,
+    c.answered_at,
+    c.bridged_at,
+    c.hangup_at,
+    c.stored_at,
+    COALESCE(c.hangup_by, ''::character varying) AS hangup_by,
+    c.cause,
+    (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint AS duration,
+    COALESCE(c.hold_sec, 0) AS hold_sec,
+    COALESCE(
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
+            ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
+        END, (0)::bigint) AS wait_sec,
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.answered_at)))::bigint
+            ELSE (0)::bigint
+        END AS bill_sec,
+    c.sip_code,
+    ff.files,
+    call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
+    call_center.cc_get_lookup(c.member_id, cm.name) AS member,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    call_center.cc_get_lookup((aa.id)::bigint, (COALESCE(cag.username, (cag.name)::name))::character varying) AS agent,
+    cma.joined_at,
+    cma.leaving_at,
+    cma.reporting_at,
+    cma.bridged_at AS queue_bridged_at,
+        CASE
+            WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
+            ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
+        END AS queue_wait_sec,
+    (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
+    cma.result,
+        CASE
+            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - cma.leaving_at)))::integer
+            ELSE 0
+        END AS reporting_sec,
+    c.agent_id,
+    c.team_id,
+    c.user_id,
+    c.queue_id,
+    c.member_id,
+    c.attempt_id,
+    c.domain_id,
+    c.gateway_id,
+    c.from_number,
+    c.to_number,
+    c.tags,
+    cma.display,
+    (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history hp
+          WHERE (((c.parent_id IS NULL) OR (c.blind_transfer IS NOT NULL)) AND (hp.parent_id = c.id) AND (hp.created_at > (c.created_at)::date)))) AS has_children,
+    (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
+    c.grantee_id,
+    ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
+           FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
+                   FROM call_center.cc_calls_history chh
+                  WHERE ((chh.parent_id = c.id) AND (chh.created_at > (c.created_at)::date) AND (chh.hold IS NOT NULL))
+                UNION
+                 SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
+          WHERE (x.hi IS NOT NULL)) AS hold,
+    c.gateway_ids,
+    c.user_ids,
+    c.agent_ids,
+    c.queue_ids,
+    c.team_ids,
+    ( SELECT json_agg(row_to_json(annotations.*)) AS json_agg
+           FROM ( SELECT a.id,
+                    a.call_id,
+                    a.created_at,
+                    call_center.cc_get_lookup(cc_1.id, (COALESCE(cc_1.name, (cc_1.username)::text))::character varying) AS created_by,
+                    a.updated_at,
+                    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS updated_by,
+                    a.note,
+                    a.start_sec,
+                    a.end_sec
+                   FROM ((call_center.cc_calls_annotation a
+                     LEFT JOIN directory.wbt_user cc_1 ON ((cc_1.id = a.created_by)))
+                     LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
+                  WHERE ((a.call_id)::text = (c.id)::text)
+                  ORDER BY a.created_at DESC) annotations) AS annotations,
+    COALESCE(c.amd_result, c.amd_ai_result) AS amd_result,
+    c.amd_duration,
+    c.amd_ai_result,
+    c.amd_ai_logs,
+    c.amd_ai_positive,
+    cq.type AS queue_type,
+        CASE
+            WHEN (c.parent_id IS NOT NULL) THEN ''::text
+            WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
+            WHEN (((c.cause)::text = 'ORIGINATOR_CANCEL'::text) OR (((c.cause)::text = 'NORMAL_UNSPECIFIED'::text) AND (c.amd_ai_result IS NOT NULL)) OR (((c.cause)::text = 'LOSE_RACE'::text) AND (cq.type = 4))) THEN 'cancelled'::text
+            WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
+            WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
+            CASE
+                WHEN ((((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5, 1])) AND (c.bridged_at IS NOT NULL))) THEN 'agent_dropped'::text
+                ELSE 'client_dropped'::text
+            END
+            ELSE 'error'::text
+        END AS hangup_disposition,
+    c.blind_transfer,
+    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
+           FROM storage.file_jobs j
+          WHERE (j.file_id IN ( SELECT f_1.id
+                   FROM ( SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                        UNION
+                         SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1))) AS files_job,
+    ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff_1.id, ff_1.name))) AS data
+           FROM (storage.file_transcript tr
+             LEFT JOIN storage.files ff_1 ON ((ff_1.id = tr.file_id)))
+          WHERE ((tr.uuid)::text = (c.id)::text)
+          GROUP BY (tr.uuid)::text) AS transcripts,
+    c.talk_sec,
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
+    ar.id AS rate_id,
+    call_center.cc_get_lookup(aru.id, COALESCE((aru.name)::character varying, (aru.username)::character varying)) AS rated_user,
+    call_center.cc_get_lookup(arub.id, COALESCE((arub.name)::character varying, (arub.username)::character varying)) AS rated_by,
+    ar.score_optional,
+    ar.score_required,
+    ((EXISTS ( SELECT 1
+          WHERE ((c.answered_at IS NOT NULL) AND (cq.type = 2)))) OR (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history cr
+          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND (c.blind_transfer IS NULL) AND (cr.blind_transfer IS NULL) AND (c.transfer_to IS NULL) AND (cr.transfer_to IS NULL) AND (c.transfer_from IS NULL) AND (cr.transfer_from IS NULL) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL))))) AS allow_evaluation,
+    cma.form_fields,
+    c.bridged_id,
+    call_center.cc_get_lookup(cc.id, (cc.common_name)::character varying) AS contact,
+    c.contact_id,
+    c.search_number,
+    c.hide_missed,
+    c.redial_id,
+    ((c.parent_id IS NOT NULL) AND (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history lega
+          WHERE ((lega.id = c.parent_id) AND (lega.domain_id = c.domain_id) AND (lega.bridged_at IS NOT NULL))))) AS parent_bridged,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(ash.id, ash.name)) AS jsonb_agg
+           FROM flow.acr_routing_scheme ash
+          WHERE (ash.id = ANY (c.schema_ids))) AS schemas,
+    c.schema_ids,
+    c.hangup_phrase,
+    c.blind_transfers,
+    c.destination_name,
+    c.attempt_ids,
+    ( SELECT jsonb_agg(json_build_object('id', p.id, 'agent', u_1."user", 'form_fields', p.form_fields, 'reporting_at', call_center.cc_view_timestamp(p.reporting_at))) AS jsonb_agg
+           FROM (call_center.cc_member_attempt_history p
+             LEFT JOIN call_center.cc_agent_with_user u_1 ON ((u_1.id = p.agent_id)))
+          WHERE ((p.id IN ( SELECT DISTINCT x.x
+                   FROM unnest((c.attempt_ids || c.attempt_id)) x(x))) AND (p.reporting_at IS NOT NULL))
+         LIMIT 20) AS forms
+   FROM ((((((((((((((call_center.cc_calls_history c
+     LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
+     LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
+     LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
+     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
+     LEFT JOIN call_center.cc_agent aa ON ((cma.agent_id = aa.id)))
+     LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
+     LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
+     LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
+     LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
+     LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
+     LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)))
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at',
+                CASE
+                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_start'::text))::bigint
+                    ELSE ((f_1.custom_properties ->> 'start_time'::text))::bigint
+                END, 'stop_at',
+                CASE
+                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_stop'::text))::bigint
+                    ELSE ((f_1.custom_properties ->> 'end_time'::text))::bigint
+                END, 'start_record', f_1.sr, 'channel', f_1.channel)) FILTER (WHERE ((f_1.channel)::text = 'call'::text)) AS files
+           FROM ( SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    COALESCE(f1.view_name, f1.name) AS name,
+                    f1.channel,
+                    f1.custom_properties,
+                        CASE
+                            WHEN (((c.direction)::text = 'outbound'::text) AND (c.user_id IS NOT NULL) AND ((c.queue_id IS NULL) OR (cq.type = 2))) THEN 'operator'::text
+                            ELSE 'client'::text
+                        END AS sr
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                UNION ALL
+                 SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    COALESCE(f1.view_name, f1.name) AS name,
+                    f1.channel,
+                    f1.custom_properties,
+                    NULL::text AS sr
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND (c.parent_id IS NOT NULL) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) ff ON (true))
+  WHERE (c.domain_id = 1)
+  ORDER BY c.created_at DESC;
 
 
 --
@@ -7575,8 +7813,8 @@ CREATE VIEW call_center.cc_queue_list AS
     call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
     q.team_id,
     q.tags,
-    COALESCE(rg.resource_groups, '{}'::character varying[]) AS resource_groups,
-    COALESCE(rg.resources, '{}'::character varying[]) AS resources
+    COALESCE(rg.resource_groups, '[]'::jsonb) AS resource_groups,
+    COALESCE(rg.resources, '[]'::jsonb) AS resources
    FROM ((((((((((((((call_center.cc_queue q
      LEFT JOIN flow.calendar c ON ((q.calendar_id = c.id)))
      LEFT JOIN directory.wbt_auth au ON ((au.id = q.grantee_id)))
@@ -7597,8 +7835,8 @@ CREATE VIEW call_center.cc_queue_list AS
             count(*) FILTER (WHERE (a.agent_id IS NULL)) AS cnt_w
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND (a.leaving_at IS NULL) AND ((a.state)::text <> 'leaving'::text))) act ON (true))
-     LEFT JOIN LATERAL ( SELECT array_agg(DISTINCT corg.name) FILTER (WHERE (corg.name IS NOT NULL)) AS resource_groups,
-            array_agg(DISTINCT cor.name) FILTER (WHERE (cor.name IS NOT NULL)) AS resources
+     LEFT JOIN LATERAL ( SELECT jsonb_agg(DISTINCT call_center.cc_get_lookup(corg.id, corg.name)) FILTER (WHERE (corg.id IS NOT NULL)) AS resource_groups,
+            jsonb_agg(DISTINCT call_center.cc_get_lookup((cor.id)::bigint, cor.name)) FILTER (WHERE (cor.id IS NOT NULL)) AS resources
            FROM (((call_center.cc_queue_resource cqr
              JOIN call_center.cc_outbound_resource_group corg ON ((corg.id = cqr.resource_group_id)))
              LEFT JOIN call_center.cc_outbound_resource_in_group corg_res ON ((corg_res.group_id = corg.id)))
@@ -9663,6 +9901,13 @@ CREATE INDEX cc_calls_history_mat_view_agent ON call_center.cc_calls_history USI
 
 
 --
+-- Name: cc_calls_history_meeting_id; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_meeting_id ON call_center.cc_calls_history USING btree (((params ->> 'meeting_id'::text))) WHERE (((params ->> 'meeting_id'::text) IS NOT NULL) AND (parent_id IS NULL));
+
+
+--
 -- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -9708,7 +9953,7 @@ CREATE INDEX cc_calls_history_queue_ids_index ON call_center.cc_calls_history US
 -- Name: cc_calls_history_sn_ops_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_calls_history_sn_ops_idx ON call_center.cc_calls_history USING gin (COALESCE(search_number, call_center.cc_array_to_string((ARRAY[destination, from_number, to_number])::text[], '|'::text)) gin_trgm_ops);
+CREATE INDEX cc_calls_history_sn_ops_idx ON call_center.cc_calls_history USING gin (COALESCE(search_number, call_center.cc_array_to_string(ARRAY[(destination)::text, (from_number)::text, (to_number)::text], '|'::text)) gin_trgm_ops);
 
 
 --
@@ -12686,1044 +12931,8 @@ ALTER TABLE ONLY call_center.system_settings
 
 
 --
--- Name: SCHEMA call_center; Type: ACL; Schema: -; Owner: -
---
-
-GRANT USAGE ON SCHEMA call_center TO grafana;
-
-
---
--- Name: TABLE cc_calls; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_calls TO grafana;
-
-
---
--- Name: TABLE cc_queue; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue TO grafana;
-
-
---
--- Name: TABLE cc_agent; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent TO grafana;
-
-
---
--- Name: TABLE cc_agent_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_agent_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_agent_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_agent_channel; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_channel TO grafana;
-
-
---
--- Name: TABLE cc_agent_state_history; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_state_history TO grafana;
-
-
---
--- Name: SEQUENCE cc_agent_history_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_agent_history_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_agent_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_agent_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_agent_in_queue_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_in_queue_view TO grafana;
-
-
---
--- Name: TABLE cc_agent_with_user; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_with_user TO grafana;
-
-
---
--- Name: TABLE cc_skill; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_skill TO grafana;
-
-
---
--- Name: TABLE cc_skill_in_agent; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_skill_in_agent TO grafana;
-
-
---
--- Name: TABLE cc_team; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team TO grafana;
-
-
---
--- Name: TABLE cc_agent_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_list TO grafana;
-
-
---
--- Name: TABLE cc_agent_status_log; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_status_log TO grafana;
-
-
---
--- Name: TABLE cc_audit_rate; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_audit_rate TO grafana;
-
-
---
--- Name: TABLE cc_calls_history; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_calls_history TO grafana;
-
-
---
--- Name: TABLE cc_member_attempt_history; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_attempt_history TO grafana;
-
-
---
--- Name: TABLE cc_agent_today_stats; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_today_stats TO grafana;
-
-
---
--- Name: TABLE cc_agent_waiting; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_agent_waiting TO grafana;
-
-
---
--- Name: TABLE cc_member_attempt_transferred; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_attempt_transferred TO grafana;
-
-
---
--- Name: SEQUENCE cc_attempt_transferred_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_attempt_transferred_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_audit_form; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_audit_form TO grafana;
-
-
---
--- Name: TABLE cc_audit_form_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_audit_form_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_audit_form_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_audit_form_acl_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_audit_form_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_audit_form_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_audit_form_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_audit_form_view TO grafana;
-
-
---
--- Name: SEQUENCE cc_audit_rate_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_audit_rate_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_audit_rate_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_audit_rate_view TO grafana;
-
-
---
--- Name: TABLE cc_bucket; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_bucket TO grafana;
-
-
---
--- Name: TABLE cc_bucket_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_bucket_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_bucket_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_bucket_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_bucket_in_queue; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_bucket_in_queue TO grafana;
-
-
---
--- Name: SEQUENCE cc_bucket_in_queue_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_bucket_in_queue_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_bucket_in_queue_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_bucket_in_queue_view TO grafana;
-
-
---
--- Name: TABLE cc_bucket_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_bucket_view TO grafana;
-
-
---
--- Name: TABLE cc_member; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member TO grafana;
-
-
---
--- Name: TABLE cc_member_attempt; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_attempt TO grafana;
-
-
---
--- Name: TABLE cc_call_active_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_call_active_list TO grafana;
-
-
---
--- Name: TABLE cc_calls_annotation; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_calls_annotation TO grafana;
-
-
---
--- Name: SEQUENCE cc_call_annotation_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_call_annotation_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list TO grafana;
-
-
---
--- Name: SEQUENCE cc_call_list_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_call_list_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_calls_history_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_calls_history_list TO grafana;
-
-
---
--- Name: TABLE cc_calls_transcribe; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_calls_transcribe TO grafana;
-
-
---
--- Name: SEQUENCE cc_calls_transcribe_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_calls_transcribe_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_cluster; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_cluster TO grafana;
-
-
---
--- Name: SEQUENCE cc_cluster_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_cluster_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_communication; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_communication TO grafana;
-
-
---
--- Name: SEQUENCE cc_communication_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_communication_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_communication_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_communication_list TO grafana;
-
-
---
--- Name: TABLE cc_distribute_stage_1; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_distribute_stage_1 TO grafana;
-
-
---
--- Name: TABLE system_settings; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.system_settings TO grafana;
-
-
---
--- Name: TABLE cc_distribute_stats; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_distribute_stats TO grafana;
-
-
---
--- Name: TABLE cc_email; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_email TO grafana;
-
-
---
--- Name: SEQUENCE cc_email_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_email_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_email_profile; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_email_profile TO grafana;
-
-
---
--- Name: TABLE cc_email_profile_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_email_profile_list TO grafana;
-
-
---
--- Name: SEQUENCE cc_email_profiles_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_email_profiles_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_list_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_list_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_list_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_list_communications; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list_communications TO grafana;
-
-
---
--- Name: SEQUENCE cc_list_communications_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_list_communications_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_list_communications_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list_communications_view TO grafana;
-
-
---
--- Name: TABLE cc_list_statistics; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list_statistics TO grafana;
-
-
---
--- Name: TABLE cc_list_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_list_view TO grafana;
-
-
---
--- Name: TABLE cc_queue_skill; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_skill TO grafana;
-
-
---
--- Name: TABLE cc_manual_queue_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_manual_queue_list TO grafana;
-
-
---
--- Name: SEQUENCE cc_member_attempt_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_member_attempt_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_member_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_member_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_member_messages; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_messages TO grafana;
-
-
---
--- Name: SEQUENCE cc_member_messages_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_member_messages_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource TO grafana;
-
-
---
--- Name: TABLE cc_member_view_attempt; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_view_attempt TO grafana;
-
-
---
--- Name: TABLE cc_member_view_attempt_history; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_member_view_attempt_history TO grafana;
-
-
---
--- Name: TABLE cc_notification; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_notification TO grafana;
-
-
---
--- Name: SEQUENCE cc_notification_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_notification_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_outbound_resource_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_display; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_display TO grafana;
-
-
---
--- Name: SEQUENCE cc_outbound_resource_display_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_display_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_display_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_display_view TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_group; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_group TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_group_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_group_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_outbound_resource_group_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_group_acl_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_outbound_resource_group_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_group_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_group_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_group_view TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_in_group; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_in_group TO grafana;
-
-
---
--- Name: SEQUENCE cc_outbound_resource_in_group_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_outbound_resource_in_group_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_in_group_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_in_group_view TO grafana;
-
-
---
--- Name: TABLE cc_outbound_resource_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_outbound_resource_view TO grafana;
-
-
---
--- Name: TABLE cc_pause_cause; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_pause_cause TO grafana;
-
-
---
--- Name: SEQUENCE cc_pause_cause_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_pause_cause_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_pause_cause_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_pause_cause_list TO grafana;
-
-
---
--- Name: TABLE cc_preset_query; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_preset_query TO grafana;
-
-
---
--- Name: SEQUENCE cc_preset_query_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_preset_query_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_preset_query_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_preset_query_list TO grafana;
-
-
---
--- Name: TABLE cc_queue_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_queue_events; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_events TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_events_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_events_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_queue_events_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_events_list TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_queue_resource; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_resource TO grafana;
-
-
---
--- Name: TABLE cc_queue_statistics; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_statistics TO grafana;
-
-
---
--- Name: TABLE cc_queue_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_list TO grafana;
-
-
---
--- Name: TABLE cc_queue_report_general; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_report_general TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_resource_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_resource_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_resource_id_seq1; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_resource_id_seq1 TO grafana;
-
-
---
--- Name: TABLE cc_queue_resource_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_resource_view TO grafana;
-
-
---
--- Name: SEQUENCE cc_queue_skill_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_queue_skill_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_queue_skill_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_skill_list TO grafana;
-
-
---
--- Name: TABLE cc_queue_skill_statistics; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_queue_skill_statistics TO grafana;
-
-
---
--- Name: TABLE cc_quick_reply; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_quick_reply TO grafana;
-
-
---
--- Name: TABLE cc_quick_reply_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_quick_reply_list TO grafana;
-
-
---
--- Name: TABLE cc_skill_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_skill_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_skill_in_agent_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_skill_in_agent_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_skill_in_agent_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_skill_in_agent_view TO grafana;
-
-
---
--- Name: TABLE cc_skill_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_skill_view TO grafana;
-
-
---
--- Name: SEQUENCE cc_skils_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_skils_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_sys_queue_distribute_resources; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_sys_queue_distribute_resources TO grafana;
-
-
---
--- Name: TABLE cc_team_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_team_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_team_acl_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_team_events; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_events TO grafana;
-
-
---
--- Name: SEQUENCE cc_team_events_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_team_events_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_team_events_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_events_list TO grafana;
-
-
---
--- Name: SEQUENCE cc_team_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_team_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_team_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_list TO grafana;
-
-
---
--- Name: TABLE cc_team_trigger; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_trigger TO grafana;
-
-
---
--- Name: TABLE cc_team_trigger_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_team_trigger_list TO grafana;
-
-
---
--- Name: TABLE cc_trigger; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger TO grafana;
-
-
---
--- Name: TABLE cc_trigger_acl; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_acl TO grafana;
-
-
---
--- Name: SEQUENCE cc_trigger_acl_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_trigger_acl_id_seq TO grafana;
-
-
---
--- Name: SEQUENCE cc_trigger_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_trigger_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_trigger_job; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_job TO grafana;
-
-
---
--- Name: SEQUENCE cc_trigger_job_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.cc_trigger_job_id_seq TO grafana;
-
-
---
--- Name: TABLE cc_trigger_job_log; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_job_log TO grafana;
-
-
---
--- Name: TABLE cc_trigger_job_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_job_list TO grafana;
-
-
---
--- Name: TABLE cc_trigger_job_log_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_job_log_list TO grafana;
-
-
---
--- Name: TABLE cc_trigger_list; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_trigger_list TO grafana;
-
-
---
--- Name: TABLE cc_user_status_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.cc_user_status_view TO grafana;
-
-
---
--- Name: TABLE feedback; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.feedback TO grafana;
-
-
---
--- Name: TABLE socket_session; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.socket_session TO grafana;
-
-
---
--- Name: TABLE socket_session_view; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON TABLE call_center.socket_session_view TO grafana;
-
-
---
--- Name: SEQUENCE systemc_settings_id_seq; Type: ACL; Schema: call_center; Owner: -
---
-
-GRANT SELECT ON SEQUENCE call_center.systemc_settings_id_seq TO grafana;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: call_center; Owner: -
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE opensips IN SCHEMA call_center GRANT SELECT ON TABLES  TO grafana;
-
-
---
 -- PostgreSQL database dump complete
 --
 
-\unrestrict q6h8DcBfpiDOUnrgXxDdhCqxYusVLhILKJnGRYqpyqX2eeu4aqTcepMCZCgRhhx
+\unrestrict KXjnAb5jBXGL4teqtpfInDTCPEN31i6TspuZ65rDJQIZqVIrYj6IbLmOYJdSawo
 
