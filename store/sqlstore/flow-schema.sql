@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict yy4caIRs9WnSXCJcHp5gRadVS77hm0sZOoPCaKSUJ32I9CFm5KqP4UI1XU60EaJ
+\restrict aqtYsfePDbgsHm31jnWvnsEs4wikJ1IJiHBwqHQ27p1bQNN6vKdmbwTNiUfTDij
 
--- Dumped from database version 15.14 (Debian 15.14-1.pgdg12+1)
--- Dumped by pg_dump version 15.14 (Debian 15.14-1.pgdg12+1)
+-- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
+-- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -115,7 +115,7 @@ begin
                )                 accept,
            case
                when c.start_at > 0 and c.end_at > 0 then
-                   not current_date AT TIME ZONE ct.sys_name between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date
+                   not current_date AT TIME ZONE ct.sys_name between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date + interval '1d'
                else false end as expire
     into res
     from flow.calendar c
@@ -1557,5 +1557,5 @@ ALTER TABLE ONLY flow.web_hook
 -- PostgreSQL database dump complete
 --
 
-\unrestrict yy4caIRs9WnSXCJcHp5gRadVS77hm0sZOoPCaKSUJ32I9CFm5KqP4UI1XU60EaJ
+\unrestrict aqtYsfePDbgsHm31jnWvnsEs4wikJ1IJiHBwqHQ27p1bQNN6vKdmbwTNiUfTDij
 
