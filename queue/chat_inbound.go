@@ -140,6 +140,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			vars := model.UnionStringMaps(
+				attempt.ExportVariables(),
 				queue.variables,
 				map[string]string{
 					model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
