@@ -140,9 +140,9 @@ func (g *SipGateway) Bridge(params BridgeRequest) string {
 	}
 
 	if params.Recordings {
-		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=record_session http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s_%s&.%s",
+		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=record_session http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s&.%s",
 			params.RecordAll, params.RecordAll, !params.RecordMono,
-			g.DomainId, params.ParentId, params.ParentId, CallRecordFileTemplate, "mp3"))
+			g.DomainId, params.ParentId, CallRecordFileTemplate, "mp3"))
 	}
 
 	vars := g.Variables()
