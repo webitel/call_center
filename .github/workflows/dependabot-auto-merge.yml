@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Create Github APP token
-        uses: webitel/reusable-workflows/actions/create-github-app-token@create-github-app-token-v1.0.0
+        uses: webitel/reusable-workflows/actions/create-github-app-token@create-github-app-token-v1.0.1
         id: app-token
         with:
           app-id: ${{ vars.DELIVERY_BOT_APP_ID }}
