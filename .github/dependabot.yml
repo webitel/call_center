@@ -6,9 +6,17 @@ updates:
     schedule:
       interval: "weekly"
 
+    ignore:
+      - dependency-name: "webitel/reusable-workflows"
+
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
 
     allow: [ dependency-type: "direct" ]
+    open-pull-requests-limit: 5
+    labels: [ "dependencies", "go" ]
+    commit-message:
+      include: scope
+      prefix: "chore"
