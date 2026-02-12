@@ -1,10 +1,12 @@
 package chat
 
 import (
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/pkg/wbt/chat_manager"
 	"net/http"
 	"sync"
+
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
+
+	"github.com/webitel/call_center/model"
 )
 
 type ChatDirection string
@@ -114,17 +116,16 @@ func (c *ChatSession) Decline() *model.AppError {
 	return nil
 }
 
-func (c *ChatSession) Close(reason model.CloseCause) *model.AppError {
-	if c.ChannelId == "" && c.InviteId != "" {
-		return c.Decline()
-	} else {
-		err := c.cli.CloseConversation(c.UserId, c.SessionId(), c.ConversationId, chat_manager.CloseCause(reason))
-		if err != nil {
-			return model.NewAppError("ChatSession", "chat_session.close.app_err", nil, err.Error(), http.StatusInternalServerError)
+func (c *ChatSession) Close() *model.AppError {
+	if c.ChannelId == "" {
+		if c.InviteId != "" {
+			return c.Decline()
 		}
-		return nil
 
+		return nil
 	}
+
+	return c.Leave(model.AgentLeave)
 }
 
 func (c *ChatSession) Stats() map[string]string {
