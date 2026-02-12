@@ -52,6 +52,7 @@ const (
 	AgentTimeout   LeaveCause = "agent_timeout"
 	ClientTimeout             = "client_timeout"
 	SilenceTimeout            = "silence_timeout"
+	AgentLeave                = "agent_leave"
 )
 
 type LeaveCause string

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 const (
@@ -283,9 +284,13 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 	}
 
 	if agent != nil && team != nil {
-		if aSess != nil && aSess.StopAt() == 0 {
-			_ = aSess.Close(model.ClientLeave)
+		// Close agent session only for cc-initiated exits (timeout, cancel).
+		// When conv.Cause() is set (client_leave, transfer) — messages-srv already
+		// handles closing all channels in DB with the correct cause.
+		if aSess != nil && aSess.StopAt() == 0 && conv.Cause() == "" {
+			_ = aSess.Close()
 		}
+
 		transferred := conv.Cause() == "transfer"
 		if transferred {
 			attempt.MarkTransferred()
