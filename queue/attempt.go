@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/olebedev/emitter"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type AttemptInfo interface {
@@ -56,7 +58,7 @@ type Attempt struct {
 	agent           agent_manager.AgentObject
 	domainId        int64
 	channel         string
-	channelData     interface{} // for task queue
+	channelData     any // for task queue
 
 	emitter.Emitter
 	queue         QueueObject
@@ -350,7 +352,7 @@ func (a *Attempt) FlipResource(res *model.AttemptFlipResource) {
 }
 
 func (a *Attempt) Display() string {
-	if a.communication.Display != nil && *a.communication.Display != "" { //TODO
+	if a.communication.Display != nil && *a.communication.Display != "" { // TODO
 		return *a.communication.Display
 	}
 	if a.resource != nil {
@@ -371,7 +373,7 @@ func (a *Attempt) Destination() string {
 func (a *Attempt) ExportVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
-		//todo is bug!
+		// todo is bug!
 		if a.channel == model.QueueChannelCall && !strings.HasPrefix(k, "sip_h_") && !strings.HasPrefix(k, "wbt_") {
 			res[fmt.Sprintf("usr_%s", k)] = fmt.Sprintf("%v", v)
 		} else {
@@ -390,6 +392,13 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 	res := make(map[string]string)
 	for k, v := range a.member.Variables {
 		res[k] = fmt.Sprintf("%v", v)
+	}
+
+	cb := a.Callback()
+	if cb != nil {
+		for k, v := range cb.Variables {
+			res[k] = fmt.Sprintf("%v", v)
+		}
 	}
 
 	for k, v := range a.ProcessingFields() {
@@ -491,7 +500,7 @@ func (a *Attempt) GetVariable(name string) (res string, ok bool) {
 	}
 	a.RUnlock()
 
-	return
+	return res, ok
 }
 
 func (a *Attempt) AddVariables(vars map[string]string) {
