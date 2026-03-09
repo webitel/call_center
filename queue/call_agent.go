@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type JoinAgentCallQueue struct {
@@ -25,8 +26,7 @@ func (queue *JoinAgentCallQueue) DistributeAttempt(attempt *Attempt) *model.AppE
 }
 
 func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) {
-
-	var calling = true
+	calling := true
 	var team *agentTeam
 	var err *model.AppError
 
@@ -42,7 +42,7 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 		attempt.log.Error(err.Error(),
 			wlog.Err(err),
 		)
-		//todo
+		// todo
 		return
 	}
 
@@ -60,6 +60,8 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 	})
 
 	cr.Variables["wbt_parent_id"] = mCall.ParentOrId()
+	// todo WTEL-8928 drop bridge_export_vars ?
+	delete(cr.Variables, "bridge_export_vars")
 
 	agentCall := mCall.NewCall(cr)
 	attempt.agentChannel = agentCall
