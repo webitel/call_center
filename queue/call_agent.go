@@ -60,8 +60,6 @@ func (queue *JoinAgentCallQueue) run(attempt *Attempt, mCall call_manager.Call) 
 	})
 
 	cr.Variables["wbt_parent_id"] = mCall.ParentOrId()
-	// todo WTEL-8928 drop bridge_export_vars ?
-	delete(cr.Variables, "bridge_export_vars")
 
 	agentCall := mCall.NewCall(cr)
 	attempt.agentChannel = agentCall

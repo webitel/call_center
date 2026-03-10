@@ -8,6 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
@@ -16,14 +20,12 @@ import (
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/wlog"
-	"golang.org/x/sync/singleflight"
 )
 
 const (
 	maxQueueCache  = 10000
 	maxMemberCache = 50000
-	maxExpireCache = 0 //60 * 60 * 24 //day
+	maxExpireCache = 0 // 60 * 60 * 24 //day
 
 	timeoutWaitBeforeStop = time.Second * 10
 )
@@ -49,16 +51,13 @@ type Manager struct {
 	sync.Mutex
 }
 
-var (
-	errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
-)
+var errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
 
-var (
-	queueGroup singleflight.Group
-)
+var queueGroup singleflight.Group
 
 func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager,
-	agentManager agent_manager.AgentManager, bridgeSleep time.Duration) *Manager {
+	agentManager agent_manager.AgentManager, bridgeSleep time.Duration,
+) *Manager {
 	return &Manager{
 		store:            s,
 		app:              app,
@@ -99,7 +98,7 @@ func (qm *Manager) Start() {
 			return
 		case attempt := <-qm.input:
 			qm.DistributeAttempt(attempt)
-			//case call := <-queueManager.callManager.InboundCall():
+			// case call := <-queueManager.callManager.InboundCall():
 			//	go queueManager.DistributeCall(call)
 		}
 	}
@@ -178,7 +177,7 @@ func (qm *Manager) createAttempt(ctx context.Context, conf *model.MemberAttempt)
 }
 
 func (qm *Manager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppError) {
-	var v interface{}
+	var v any
 	var ok bool
 	var doErr error
 	var err *model.AppError
@@ -193,7 +192,7 @@ func (qm *Manager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppErr
 		}
 	}
 
-	v, doErr, _ = queueGroup.Do(fmt.Sprintf("queue-%d-%d", id, updatedAt), func() (interface{}, error) {
+	v, doErr, _ = queueGroup.Do(fmt.Sprintf("queue-%d-%d", id, updatedAt), func() (any, error) {
 		res, appErr := qm.app.GetQueueById(int64(id))
 		if appErr != nil {
 			return nil, appErr
@@ -237,7 +236,6 @@ func (qm *Manager) SetResourceError(resource ResourceObject, errorId string) {
 
 		if responseError, err := qm.store.OutboundResource().
 			SetError(int64(resource.Id()), int64(1), errorId, model.OUTBOUND_RESOURCE_STRATEGY_RANDOM); err != nil {
-
 			resource.Log().Error(err.Error(),
 				wlog.Err(err),
 			)
@@ -278,14 +276,13 @@ func (qm *Manager) SetAgentWaitingChannel(agent agent_manager.AgentObject, chann
 }
 
 func (qm *Manager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppError) {
-
 	queue, err := qm.GetQueue(attempt.QueueId(), attempt.QueueUpdatedAt())
 	if err != nil {
 		attempt.log.Error(err.Error(),
 			wlog.Err(err),
 		)
-		//TODO added to model "dialing.queue.new_queue.app_error"
-		//panic(err.Error())
+		// TODO added to model "dialing.queue.new_queue.app_error"
+		// panic(err.Error())
 		return nil, err
 	}
 
@@ -310,7 +307,7 @@ func (qm *Manager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppE
 	//	return nil, nil
 	//}
 
-	//todo new event instance
+	// todo new event instance
 
 	attempt.resource = qm.GetAttemptResource(attempt)
 
@@ -331,7 +328,7 @@ func (qm *Manager) DistributeAttempt(attempt *Attempt) (QueueObject, *model.AppE
 }
 
 func (qm *Manager) DistributeCall(_ context.Context, in *cc.CallJoinToQueueRequest) (*Attempt, *model.AppError) {
-	//var member *model.MemberAttempt
+	// var member *model.MemberAttempt
 	var bucketId *int32
 	var stickyAgentId *int
 	var q QueueObject
@@ -354,7 +351,6 @@ func (qm *Manager) DistributeCall(_ context.Context, in *cc.CallJoinToQueueReque
 		int(in.GetPriority()),
 		stickyAgentId,
 	)
-
 	if err != nil {
 		qm.log.Error(fmt.Sprintf("[inbound] join member call_id %s queue %d, %s", in.GetMemberCallId(), in.GetQueue().GetId(), err.Error()),
 			wlog.Err(err),
@@ -480,7 +476,6 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		in.CancelDistribute,
 		qParams,
 	)
-
 	if err != nil {
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
@@ -588,9 +583,10 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		}
 	}
 
-	var queue = JoinAgentCallQueue{
+	queue := JoinAgentCallQueue{
 		CallingQueue: CallingQueue{
-			BaseQueue: NewBaseQueue(qm, qm.resourceManager, settings),
+			BaseQueue:   NewBaseQueue(qm, qm.resourceManager, settings),
+			bridgeSleep: qm.bridgeSleep,
 		},
 	}
 
@@ -647,7 +643,6 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 		in.GetUserId(),
 		qParams,
 	)
-
 	if err != nil {
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
@@ -739,7 +734,7 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 		}
 	}
 
-	var queue = NewOutboundCallQueue(NewBaseQueue(qm, qm.resourceManager, settings), processingWithoutAnswer)
+	queue := NewOutboundCallQueue(NewBaseQueue(qm, qm.resourceManager, settings), processingWithoutAnswer)
 
 	attempt.queue = queue
 	attempt.agent = agent
@@ -799,7 +794,6 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 		in.CancelDistribute,
 		qParams,
 	)
-
 	if err != nil {
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
@@ -863,7 +857,7 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 		}
 	}
 
-	var queue = TaskAgent{
+	queue := TaskAgent{
 		BaseQueue: NewBaseQueue(qm, qm.resourceManager, settings),
 	}
 
@@ -889,7 +883,7 @@ func (qm *Manager) DistributeTaskToAgent(ctx context.Context, in *cc.TaskJoinToA
 }
 
 func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQueueRequest) (*Attempt, *model.AppError) {
-	//var member *model.MemberAttempt
+	// var member *model.MemberAttempt
 	var bucketId *int32
 	var stickyAgentId *int
 
@@ -911,7 +905,6 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 		int(in.GetPriority()),
 		stickyAgentId,
 	)
-
 	if err != nil {
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
@@ -948,7 +941,6 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
 	// FIXME -1
 	member, err := qm.store.Member().DistributeDirect(qm.app.GetInstanceId(), memberId, communicationId-1, agentId)
-
 	if err != nil {
 		qm.log.Error(fmt.Sprintf("member %v to agent %v distribute error: %s", memberId, agentId, err.Error()),
 			wlog.Err(err),
@@ -972,7 +964,7 @@ func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agent
 	return attempt, nil
 }
 
-func (qm *Manager) InterceptAttempt(ctx context.Context, domainId int64, attemptId int64, agentId int32) *model.AppError {
+func (qm *Manager) InterceptAttempt(ctx context.Context, domainId, attemptId int64, agentId int32) *model.AppError {
 	queueId, err := qm.store.Member().Intercept(ctx, domainId, attemptId, agentId)
 	if err != nil {
 		qm.log.Error(fmt.Sprintf("intercept %v to agent %v error: %s", attemptId, agentId, err.Error()),
@@ -1084,7 +1076,7 @@ func (qm *Manager) GetAttemptResource(attempt *Attempt) ResourceObject {
 			attempt.log.Error(fmt.Sprintf("attempt resource error: %s", err.Error()),
 				wlog.Err(err),
 			)
-			//FIXME
+			// FIXME
 		} else {
 			return resource
 		}
@@ -1093,14 +1085,13 @@ func (qm *Manager) GetAttemptResource(attempt *Attempt) ResourceObject {
 }
 
 func (qm *Manager) GetAttemptAgent(attempt *Attempt) (agent_manager.AgentObject, bool) {
-
 	if attempt.AgentId() != nil && attempt.AgentUpdatedAt() != nil {
 		agent, err := qm.agentManager.GetAgent(*attempt.AgentId(), *attempt.AgentUpdatedAt())
 		if err != nil {
 			attempt.log.Error(fmt.Sprintf("attempt agent error: %s", err.Error()),
 				wlog.Err(err),
 			)
-			//FIXME
+			// FIXME
 		} else {
 			return agent, true
 		}
@@ -1129,10 +1120,9 @@ func (qm *Manager) SetAttemptCancel(id int64, result string) bool {
 	att.SetCancel()
 
 	return true
-
 }
 
-func (qm *Manager) ResumeAttempt(id int64, domainId int64) *model.AppError {
+func (qm *Manager) ResumeAttempt(id, domainId int64) *model.AppError {
 	att, ok := qm.GetAttempt(id)
 	if !ok || att.domainId != domainId {
 		return model.NewAppError("QM", "qm.resume_attempt.valid", nil, "Not found", http.StatusNotFound)
@@ -1151,7 +1141,7 @@ func (qm *Manager) ResumeAttempt(id int64, domainId int64) *model.AppError {
 	return nil
 }
 
-func (qm *Manager) SaveFormFields(ctx context.Context, domainId int64, id int64, fields map[string]string, form []byte) *model.AppError {
+func (qm *Manager) SaveFormFields(ctx context.Context, domainId, id int64, fields map[string]string, form []byte) *model.AppError {
 	att, ok := qm.GetAttempt(id)
 	if !ok || att.domainId != domainId {
 		return model.NewAppError("QM", "qm.save_form_fields.valid", nil, "Not found", http.StatusNotFound)
@@ -1185,7 +1175,7 @@ func (qm *Manager) Abandoned(attempt *Attempt) {
 }
 
 func (qm *Manager) Barred(attempt *Attempt) *model.AppError {
-	//todo hook
+	// todo hook
 	return qm.teamManager.store.Member().SetBarred(attempt.Id())
 }
 
@@ -1229,9 +1219,8 @@ func (qm *Manager) GetChat(id string) (*chat.Conversation, *model.AppError) {
 }
 
 func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptReportingResult, ccCause string, a *Attempt) (err *model.AppError) {
-
 	if res.Channel == nil || res.AgentCallId == nil {
-		return
+		return err
 	}
 
 	switch *res.Channel {
@@ -1256,7 +1245,7 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 		}
 	}
 
-	return
+	return err
 }
 
 func (qm *Manager) setChannelReporting(attempt *Attempt, ccCause string, leave bool) (err *model.AppError) {
@@ -1295,7 +1284,7 @@ func (qm *Manager) setChannelReporting(attempt *Attempt, ccCause string, leave b
 		}
 	}
 
-	return
+	return err
 }
 
 func (qm *Manager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (err *model.AppError) {
@@ -1329,7 +1318,7 @@ func (qm *Manager) ReportingAttempt(attemptId int64, result model.AttemptCallbac
 
 	var waitBetween uint64 = 0
 	var maxAttempts uint = 0
-	var perNumbers = false
+	perNumbers := false
 
 	if attempt != nil {
 		// TODO [biz]
@@ -1383,7 +1372,7 @@ func (qm *Manager) doLeavingReporting(attemptId int64, attempt *Attempt, res *mo
 		if res.AgentTimeout != nil && *res.AgentTimeout > 0 {
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, *res.AgentTimeout)
 		} else {
-			//ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
+			// ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, 0)
 		}
 		q := 0
@@ -1471,7 +1460,8 @@ func (qm *Manager) TransferTo(attempt *Attempt, toAttemptId int64) {
 }
 
 func (qm *Manager) TransferFrom(team *agentTeam, attempt *Attempt, toAttemptId int64, toAgentId int,
-	toAgentSession string, ch Channel) (agent_manager.AgentObject, *model.AppError) {
+	toAgentSession string, ch Channel,
+) (agent_manager.AgentObject, *model.AppError) {
 	a, err := qm.agentManager.GetAgent(toAgentId, 0)
 	if err != nil {
 		attempt.log.Error(err.Error(),
@@ -1481,7 +1471,7 @@ func (qm *Manager) TransferFrom(team *agentTeam, attempt *Attempt, toAttemptId i
 	}
 
 	if err = qm.store.Member().TransferredFrom(attempt.Id(), toAttemptId, a.Id(), toAgentSession); err != nil {
-		//todo
+		// todo
 		attempt.log.Error(err.Error(),
 			wlog.Err(err),
 		)
