@@ -21,8 +21,7 @@ const (
 	CallTransferSuccess
 )
 
-type CallingQueueObject interface {
-}
+type CallingQueueObject any
 
 type CallingQueue struct {
 	BaseQueue
@@ -39,7 +38,7 @@ type Caller struct {
 func CreateCaller(number, name string) Caller {
 	return Caller{
 		Number: number,
-		Name: name,
+		Name:   name,
 	}
 }
 
@@ -132,7 +131,7 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager
 	return queue.queueManager.callManager.NewCall(callRequest)
 }
 
-func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {	
+func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {
 	cr := &model.CallRequest{
 		Endpoints:   agent.GetCallEndpoints(),
 		Strategy:    model.CALL_STRATEGY_DEFAULT,
@@ -157,7 +156,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"wbt_to_id":                 fmt.Sprintf("%v", agent.Id()),
 				"wbt_to_number":             agent.CallNumber(),
 				"wbt_to_name":               agent.Name(),
-				"wbt_to_type":               "user", //todo agent ?
+				"wbt_to_type":               "user", // todo agent ?
 
 				"wbt_from_name":   attempt.Name(),
 				"wbt_from_type":   "member",
@@ -179,8 +178,8 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 			},
 		),
 		Timeout: at.CallTimeout(),
-		//CallerName:   agent.Name(),
-		//CallerNumber: agent.CallNumber(),
+		// CallerName:   agent.Name(),
+		// CallerNumber: agent.CallNumber(),
 	}
 
 	if agent.HasPush() {
@@ -214,7 +213,6 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 
 func (queue *CallingQueue) HangupManyCall(skipId, cause string, ids ...string) {
 	if len(ids) == 1 {
-
 		return
 	}
 
@@ -230,8 +228,11 @@ func (queue *CallingQueue) HangupManyCall(skipId, cause string, ids ...string) {
 	}
 }
 
-func (queue *CallingQueue) NewCallUseResource(callRequest *model.CallRequest, resource ResourceObject) (call_manager.Call, *model.AppError) {
-	resource.Take() // rps
+func (queue *CallingQueue) NewCallUseResource(cancel <-chan struct{}, callRequest *model.CallRequest, resource ResourceObject) (call_manager.Call, *model.AppError) {
+	err := resource.Take(cancel) // rps
+	if err != nil {
+		return nil, err
+	}
 
 	callRequest.Variables = model.UnionStringMaps(
 		callRequest.Variables,

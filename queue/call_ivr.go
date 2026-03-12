@@ -3,9 +3,11 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type QueueIVRSettings struct {
@@ -55,14 +57,13 @@ func (queue *IVRQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
 }
 
 func (queue *IVRQueue) run(attempt *Attempt) {
-
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	var callerIdNumber = attempt.Display()
+	callerIdNumber := attempt.Display()
 
 	callRequest := &model.CallRequest{
 		Id:           attempt.MemberCallId(),
@@ -88,8 +89,8 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
 				"wbt_destination":                   attempt.Destination(),
-				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), //FIXME gateway id ?
-				"wbt_from_number":                   callerIdNumber,                                   //display number
+				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), // FIXME gateway id ?
+				"wbt_from_number":                   callerIdNumber,                                   // display number
 				//"wbt_from_name":                     attempt.resource.Gateway().Name,
 				"wbt_from_type": "gateway",
 
@@ -128,7 +129,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
 	}
 
-	call, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	call, err := queue.NewCallUseResource(attempt.Cancel(), callRequest, attempt.resource)
 	if err != nil {
 		attempt.Log(err.Error())
 		// TODO
@@ -162,7 +163,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		wlog.String("call_id", call.Id()),
 	)
 
-	var calling = true
+	calling := true
 
 	for calling {
 		select {
