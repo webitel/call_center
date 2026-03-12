@@ -3,11 +3,13 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
-	"time"
 )
 
 type ProgressiveCallQueue struct {
@@ -38,7 +40,6 @@ func ProgressiveSettingsFromBytes(data []byte) ProgressiveCallQueueSettings {
 }
 
 func NewProgressiveCallQueue(callQueue CallingQueue, settings ProgressiveCallQueueSettings) QueueObject {
-
 	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
 	if settings.transferAfter != "" {
 		callQueue.DelVariable(model.CallVarTransferAfter)
@@ -75,14 +76,13 @@ func (queue *ProgressiveCallQueue) DistributeAttempt(attempt *Attempt) *model.Ap
 
 // bug agent number
 func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent agent_manager.AgentObject) {
-
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt)
 		return
 	}
 
 	dst := attempt.resource.Gateway().Endpoint(attempt.Destination())
-	var callerIdNumber = attempt.Display()
+	callerIdNumber := attempt.Display()
 
 	callRequest := &model.CallRequest{
 		Id:           attempt.MemberCallId(),
@@ -107,7 +107,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
 				"wbt_destination":                   attempt.Destination(),
-				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), //FIXME gateway id ?
+				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), // FIXME gateway id ?
 				"wbt_from_number":                   callerIdNumber,
 				//"wbt_from_name":                     attempt.resource.Gateway().Name,
 				"wbt_from_type": "gateway",
@@ -141,7 +141,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		Applications: make([]*model.CallRequestApplication, 0, 2),
 	}
 
-	mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	mCall, err := queue.NewCallUseResource(attempt.Cancel(), callRequest, attempt.resource)
 	if err != nil {
 		attempt.Log(err.Error())
 		// TODO
@@ -172,12 +172,12 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		return
 	}
 
-	//FIXME update member call id
+	// FIXME update member call id
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, mCall))
 	attempt.memberChannel = mCall
 	mCall.Invite()
 
-	var calling = true
+	calling := true
 
 	for calling {
 		select {
@@ -222,7 +222,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 					agentCall = mCall.NewCall(cr)
 					attempt.agentChannel = agentCall
 
-					//todo
+					// todo
 					if mCall.HangupCause() != "" {
 						calling = false
 						continue
@@ -257,7 +257,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 									continue
 								}
 
-								//fixme refactor
+								// fixme refactor
 								if queue.AllowGreetingAgent && agent.GreetingMedia() != nil {
 									mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 								} else if queue.AutoAnswer() {
@@ -271,7 +271,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 									})
 								}
 
-								//team.Answered(attempt, agent)
+								// team.Answered(attempt, agent)
 							case call_manager.CALL_STATE_HANGUP:
 
 								if agentCall.TransferTo() != nil && agentCall.TransferToAgentId() != nil && agentCall.TransferFromAttemptId() != nil {
@@ -285,7 +285,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 											if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
 												agent = newA
 												attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
-												//transferred = true
+												// transferred = true
 											} else {
 												attempt.log.Error(err.Error(),
 													wlog.Err(err),
@@ -302,7 +302,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 								// check transfer to internal number
 								if mCall.HangupAt() == 0 && agentCall.BillSeconds() == 0 && agentCall.TransferTo() == nil {
 									mCall.Hangup(model.CALL_HANGUP_LOSE_RACE, false, nil)
-									//mCall.WaitForHangup()
+									// mCall.WaitForHangup()
 								}
 								// if internal transfer
 								calling = false
@@ -346,7 +346,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 		team.Cancel(attempt, agent)
 		queue.queueManager.LeavingMember(attempt)
 	} else {
-		if agentCall.BridgeAt() > 0 { //FIXME Accept or Bridge ?
+		if agentCall.BridgeAt() > 0 { // FIXME Accept or Bridge ?
 			attempt.log.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 			team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 		} else {
@@ -354,10 +354,9 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				time.Sleep(time.Millisecond * 200) // todo WTEL-4057
 				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 			}
-			//FIXME cancel if progressive cnt > 1
+			// FIXME cancel if progressive cnt > 1
 			team.Missed(attempt, agent)
 			queue.queueManager.LeavingMember(attempt)
 		}
 	}
-
 }

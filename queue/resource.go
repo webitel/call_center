@@ -1,11 +1,15 @@
 package queue
 
 import (
+	"context"
+	"math/rand"
+	"net/http"
+	"sync"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/wlog"
-	"math/rand"
-	"sync"
 )
 
 const (
@@ -21,7 +25,7 @@ type ResourceObject interface {
 	Id() int
 	SuccessivelyErrors() uint16
 	Variables() map[string]string
-	Take()
+	Take(cancel <-chan struct{}) *model.AppError
 	Gateway() *model.SipGateway
 	Log() *wlog.Logger
 	SetSuccessivelyErrors(se uint16)
@@ -94,7 +98,7 @@ func (r *Resource) Log() *wlog.Logger {
 }
 
 func (r *Resource) GetDisplay() string {
-	var l = len(r.displayNumbers)
+	l := len(r.displayNumbers)
 	if l == 0 {
 		return ""
 	} else {
@@ -134,10 +138,26 @@ func (r *Resource) Gateway() *model.SipGateway {
 	return &r.gateway
 }
 
-func (r *Resource) Take() {
-	if r.rateLimiter != nil {
-		r.rateLimiter.Take()
+func (r *Resource) Take(cancel <-chan struct{}) *model.AppError {
+	if r.rateLimiter == nil {
+		return nil
 	}
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+
+	go func() {
+		select {
+		case <-cancel:
+			stop()
+		case <-ctx.Done():
+		}
+	}()
+
+	if err := r.rateLimiter.Wait(ctx); err != nil {
+		return model.NewAppError("queue", "queue.take.cancelled", nil, err.Error(), http.StatusServiceUnavailable)
+	}
+
+	return nil
 }
 
 func (r *Resource) CheckCodeError(errorCode string) bool {
