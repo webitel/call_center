@@ -81,7 +81,7 @@ const (
 	CallActionAmdName     = "amd"
 )
 
-var CallRecordFileTemplate = "${url_encode ${wbt_from_number}}_${url_encode ${wbt_destination}}_${strepoch()}.mp3"
+var CallRecordFileTemplate = "${strepoch()}_${url_encode ${wbt_from_number}}_${url_encode ${wbt_destination}}.mp3"
 
 type inboundCallData struct {
 	CallId          string  `json:"call_id" db:"call_id"`
