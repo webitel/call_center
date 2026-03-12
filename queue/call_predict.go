@@ -3,10 +3,11 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"time"
 )
 
 const (
@@ -49,7 +50,6 @@ type PredictCallQueue struct {
 }
 
 func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettings) QueueObject {
-
 	if settings.MaxWaitTime == 0 {
 		settings.MaxWaitTime = 30
 	}
@@ -80,7 +80,6 @@ func (queue *PredictCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 }
 
 func (queue *PredictCallQueue) runPark(attempt *Attempt) {
-
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt)
 		return
@@ -91,7 +90,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 	resourceIds := make([]int, 0, 0)
 	var allowCall bool = true
 	var flip *model.AttemptFlipResource
-	var lastExec = false
+	lastExec := false
 
 retry_:
 
@@ -99,7 +98,7 @@ retry_:
 		dst = attempt.resource.Gateway().Endpoint(attempt.Destination())
 		callerIdNumber = attempt.Display()
 	} else {
-		//error/REQUESTED_CHAN_UNAVAIL
+		// error/REQUESTED_CHAN_UNAVAIL
 		dst = "null"
 		callerIdNumber = ""
 	}
@@ -129,7 +128,7 @@ retry_:
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
 				"wbt_destination":                   attempt.Destination(),
-				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), //FIXME gateway id ?
+				"wbt_from_id":                       fmt.Sprintf("%v", attempt.resource.Gateway().Id), // FIXME gateway id ?
 				"wbt_from_number":                   callerIdNumber,
 				//"wbt_from_name":                     attempt.resource.Gateway().Name,
 				"wbt_from_type": "gateway",
@@ -168,7 +167,17 @@ retry_:
 		callRequest.Variables["wbt_to_id"] = callRequest.Variables[model.QUEUE_MEMBER_ID_FIELD]
 	}
 
-	attempt.resource.Take() // rps
+	cleanup := func(err error) {
+		attempt.Log(err.Error())
+		// TODO
+		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
+		queue.queueManager.LeavingMember(attempt)
+	}
+
+	if err := attempt.resource.Take(attempt.Cancel()); err != nil { // rps
+		cleanup(err)
+		return
+	}
 
 	callRequest.Variables = model.UnionStringMaps(
 		callRequest.Variables,
@@ -179,12 +188,9 @@ retry_:
 	attempt.Log("make member call")
 
 	mCall, err := queue.queueManager.callManager.NewCall(callRequest)
-	//mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
+	// mCall, err := queue.NewCallUseResource(callRequest, attempt.resource)
 	if err != nil {
-		attempt.Log(err.Error())
-		// TODO
-		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
-		queue.queueManager.LeavingMember(attempt)
+		cleanup(err)
 		return
 	}
 
@@ -217,12 +223,12 @@ retry_:
 	attempt.memberChannel = mCall
 	mCall.Invite()
 
-	var calling = true
+	calling := true
 
 	for calling {
 		select {
 		case <-attempt.Cancel():
-			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) // TODO
 			mCall.WaitForHangup()
 
 		case state := <-mCall.State():
@@ -297,7 +303,6 @@ last_:
 		queue.queueManager.SetAttemptAbandonedWithParams(attempt, queue.MaxAttempts, queue.WaitBetweenRetries, nil)
 		queue.queueManager.LeavingMember(attempt)
 	}
-
 }
 
 func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_manager.Call) {
@@ -307,7 +312,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	var err *model.AppError
 
-	var predictAgentId = 0
+	predictAgentId := 0
 	if attempt.agent != nil {
 		predictAgentId = attempt.agent.Id()
 	}
@@ -322,27 +327,27 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 	attempts := 0
 
-	var calling = mCall.HangupAt() == 0
+	calling := mCall.HangupAt() == 0
 
 	ags := attempt.On(AttemptHookDistributeAgent)
 
-	//TODO
+	// TODO
 	timeout := time.NewTimer(time.Second * time.Duration(queue.MaxWaitTime))
 
 	for calling {
 		select {
 		case <-attempt.Cancel():
-			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) // TODO
 			mCall.WaitForHangup()
 		case <-timeout.C:
 			calling = false
 			attempt.Log("timeout")
-			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) // TODO
 			mCall.WaitForHangup()
 		case <-attempt.Context.Done():
 			calling = false
 			attempt.Log("context done")
-			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+			mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) // TODO
 			mCall.WaitForHangup()
 		case c := <-mCall.State():
 			attempt.Log(fmt.Sprintf("change call state to %s", c.String()))
@@ -397,7 +402,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			for agentCall.HangupCause() == "" && (mCall.HangupCause() == "") {
 				select {
 				case <-attempt.Cancel():
-					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) //TODO
+					mCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil) // TODO
 					mCall.WaitForHangup()
 
 				case state := <-agentCall.State():
@@ -443,7 +448,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 									if newA, err := queue.queueManager.TransferFrom(team, attempt, *agentCall.TransferFromAttemptId(), *agentCall.TransferToAgentId(), *agentCall.TransferTo(), nc); err == nil {
 										agent = newA
 										attempt.Log(fmt.Sprintf("transfer call from [%s] to [%s] AGENT_ID = %s {%d, %d}", agentCall.Id(), nc.Id(), newA.Name(), attempt.Id(), *agentCall.TransferFromAttemptId()))
-										//transferred = true
+										// transferred = true
 									} else {
 										attempt.LogIfError(err)
 									}
@@ -495,8 +500,8 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 
 				attempt.SetState(model.MemberStateWaitAgent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
-					//TODO WaitForHangup
-					//panic(agentCall.Id())
+					// TODO WaitForHangup
+					// panic(agentCall.Id())
 				}
 				agent = nil
 				agentCall = nil
@@ -512,7 +517,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 	}
 
 	if mCall.HangupCause() == "" && (agentCall == nil || !agentCall.Transferred()) {
-		//TODO
+		// TODO
 		select {
 		case <-mCall.HangupChan():
 			break
