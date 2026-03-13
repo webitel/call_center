@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict aqtYsfePDbgsHm31jnWvnsEs4wikJ1IJiHBwqHQ27p1bQNN6vKdmbwTNiUfTDij
+\restrict VWFYmlu4gE8WB90HdipxF5fm5iSvWh2EmBzY7yOohOEiEp1W3vaeYckbkGQszP5
 
 -- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
@@ -904,6 +904,19 @@ ALTER TABLE ONLY flow.scheme_version REPLICA IDENTITY FULL;
 
 
 --
+-- Name: session; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE UNLOGGED TABLE flow.session (
+    id text NOT NULL,
+    app_id text,
+    seq integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: web_hook; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -1139,6 +1152,14 @@ ALTER TABLE ONLY flow.scheme_log
 
 ALTER TABLE ONLY flow.scheme_variable
     ADD CONSTRAINT scheme_variables_pk PRIMARY KEY (id);
+
+
+--
+-- Name: session session_pkey; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.session
+    ADD CONSTRAINT session_pkey PRIMARY KEY (id);
 
 
 --
@@ -1557,5 +1578,5 @@ ALTER TABLE ONLY flow.web_hook
 -- PostgreSQL database dump complete
 --
 
-\unrestrict aqtYsfePDbgsHm31jnWvnsEs4wikJ1IJiHBwqHQ27p1bQNN6vKdmbwTNiUfTDij
+\unrestrict VWFYmlu4gE8WB90HdipxF5fm5iSvWh2EmBzY7yOohOEiEp1W3vaeYckbkGQszP5
 
