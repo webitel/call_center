@@ -549,7 +549,7 @@ func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uin
     	timeout = case
     	    when (ad.prolongation_enabled and a.available_prolongation_quant + 1 <= ad.prolongation_repeats_number)
     	         or not ad.prolongation_enabled
-    	    then now() + (:Renewal::int || ' sec')::interval
+    	    then coalesce(a.timeout, now()) + (:Renewal::int || ' sec')::interval
     	    else a.timeout
     	end
 		from attempt_data ad
