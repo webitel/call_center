@@ -13,25 +13,39 @@ concurrency:
 jobs:
   prepare:
     name: Prepare
-    uses: webitel/reusable-workflows/.github/workflows/golang-prepare.yml@v1.0.6
+    uses: webitel/reusable-workflows/.github/workflows/golang-prepare.yml@v2
+    permissions:
+      contents: read
+      pull-requests: read
+
     with:
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.ref_name }}
+      arch: ${{ vars.BUILD_ARCH }}
+      codename: ${{ vars.DEB_CODENAME }}
 
   checks:
     name: Checks
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/golang-checks.yml@v1.0.6
+    uses: webitel/reusable-workflows/.github/workflows/golang-checks.yml@v2
     permissions:
       contents: read
       actions: read
       security-events: write
 
+    with:
+      changes: ${{ needs.prepare.outputs.changes }}
+
   compile:
     name: Build
     needs: [ prepare ]
-    uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v1.0.6
+    strategy:
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.arch-matrix) }}
+
+    uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v2
     with:
+      arch: ${{ matrix.arch }}
       binary-name: call_center
       ldflags: >
         -s -w
@@ -55,15 +69,40 @@ jobs:
     name: Deploy
     if: github.event.repository.private == false
     needs: [ prepare, compile ]
-    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@v1.0.6
-    permissions: { contents: write }
+    uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@v2
     secrets: inherit
     with:
-      tag: ${{ github.event.repository.default_branch != github.ref_name && format('{0}-{1}', needs.prepare.outputs.version, github.run_number) || '' }}
-      tag-target-commitish: ${{ github.sha }}
+      repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || format('{0}-releases', needs.prepare.outputs.version) }}
+      deb-package-pattern: "webitel-call-center*.deb"
+
+  publish:
+    name: Publish
+    needs: [ prepare, compile, deploy ]
+    if: always() && !cancelled() && github.event.repository.private == false && needs.compile.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
+    strategy:
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.arch-matrix) }}
+        codename: ${{ fromJSON(needs.prepare.outputs.codename-matrix) }}
+
+    uses: webitel/reusable-workflows/.github/workflows/_publish-deb.yml@v2
+    secrets: inherit
+    with:
+      arch: ${{ matrix.arch }}
       repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || format('{0}-releases', needs.prepare.outputs.version) }}
       deb-package-pattern: "webitel-call-center*.deb"
       deb-component: ${{ github.event.repository.default_branch == github.ref_name && 'dev' || format('{0}-releases', needs.prepare.outputs.version) }}
-      deb-codename: ${{ vars.DEB_CODENAME }}
-      deb-aws-bucket-name: ${{ vars.DEB_AWS_BUCKET_NAME }}
-      deb-aws-bucket-region: ${{ vars.DEB_AWS_DEFAULT_REGION }}
+      deb-codename: ${{ matrix.codename }}
+      deb-s3-bucket-name: ${{ vars.DEB_S3_BUCKET_NAME }}
+      deb-s3-bucket-region: ${{ vars.DEB_S3_DEFAULT_REGION }}
+      deb-s3-endpoint: ${{ vars.DEB_S3_ENDPOINT }}
+      deb-s3-force-path-style: ${{ vars.DEB_S3_FORCE_PATH_STYLE == 'true' }}
+
+  release:
+    name: Release
+    needs: [ prepare, publish ]
+    if: github.event.repository.default_branch != github.ref_name && needs.publish.result == 'success'
+    uses: webitel/reusable-workflows/.github/workflows/_release.yml@v2
+    permissions: { contents: write }
+    with:
+      tag: ${{ format('{0}-{1}', needs.prepare.outputs.version, github.run_number) }}
+      tag-target-commitish: ${{ github.sha }}
