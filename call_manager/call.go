@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
+
+	"github.com/webitel/call_center/model"
 )
 
 type Call interface {
@@ -62,7 +64,7 @@ type Call interface {
 	HangupChan() <-chan struct{}
 
 	NewCall(callRequest *model.CallRequest) Call
-	//ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
+	// ExecuteApplications(apps []*model.CallRequestApplication) *model.AppError
 	Hangup(cause string, reporting bool, vars map[string]string) *model.AppError
 	Hold() *model.AppError
 	DTMF(val rune) *model.AppError
@@ -122,22 +124,24 @@ type CallImpl struct {
 	transferFromAttemptId *int64
 	transferToAttemptId   *int64
 
-	queueId *int //FIXME
+	queueId *int // FIXME
 
 	amdResult string
 	amdCause  string
 
 	amdAiResult model.AmdAiResult
 
-	variables map[string]interface{}
+	variables map[string]any
 
 	log *wlog.Logger
 
 	sync.RWMutex
 }
 
-type CallDirection string
-type CallState uint8
+type (
+	CallDirection string
+	CallState     uint8
+)
 
 const (
 	CALL_STATE_NEW CallState = iota
@@ -188,7 +192,14 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	//DUMP(callRequest)
+	if callRequest.Timeout > 0 {
+		t := strconv.Itoa(int(callRequest.Timeout))
+		if _, ok := callRequest.Variables["leg_timeout"]; !ok {
+			callRequest.Variables["leg_timeout"] = t
+		}
+	}
+
+	// DUMP(callRequest)
 
 	call := &CallImpl{
 		callRequest: callRequest,
@@ -215,7 +226,6 @@ func (call *CallImpl) Log() *wlog.Logger {
 }
 
 func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
-
 	call.callRequest.Variables["RECORD_MIN_SEC"] = "2"
 	call.callRequest.Variables["recording_follow_transfer"] = "true"
 
@@ -261,7 +271,7 @@ func (call *CallImpl) setActive(e *model.CallActionActive) {
 
 		call.setState(CALL_STATE_ACCEPT)
 	} else {
-		//FIXME Unhold
+		// FIXME Unhold
 	}
 }
 
@@ -344,7 +354,6 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 	} else {
 		call.Unlock()
 	}
-
 }
 
 func (call *CallImpl) QueueId() *int {
@@ -352,7 +361,7 @@ func (call *CallImpl) QueueId() *int {
 }
 
 func (call *CallImpl) QueueCallPriority() int {
-	//fixme
+	// fixme
 	return 0
 }
 
@@ -370,7 +379,7 @@ func (cm *CallManagerImpl) Proxy() string {
 
 func (call *CallImpl) Invite() *model.AppError {
 	call.cm.saveToCacheCall(call)
-	//DUMP(call.callRequest)
+	// DUMP(call.callRequest)
 
 	if call.direction != CALL_DIRECTION_OUTBOUND {
 		return errInviteDirection
@@ -399,7 +408,7 @@ func (call *CallImpl) Invite() *model.AppError {
 }
 
 func (c *CallImpl) NewCall(callRequest *model.CallRequest) Call {
-	//TODO added parent
+	// TODO added parent
 	return NewCall(CALL_DIRECTION_OUTBOUND, callRequest, c.cm, c.api)
 }
 
@@ -442,6 +451,7 @@ func (call *CallImpl) GetState() CallState {
 func (call *CallImpl) Id() string {
 	return call.id
 }
+
 func (call *CallImpl) ParentOrId() string {
 	if call.info.ParentId != nil {
 		return *call.info.ParentId
@@ -466,11 +476,11 @@ func (call *CallImpl) HangupCauseCode() int {
 	if call.hangup != nil && call.hangup.SipCode != nil {
 		return *call.hangup.SipCode
 	}
-	//FIXME
+	// FIXME
 	return 0
 }
 
-func (call *CallImpl) Variables() map[string]interface{} {
+func (call *CallImpl) Variables() map[string]any {
 	call.RLock()
 	defer call.RUnlock()
 
@@ -719,7 +729,6 @@ func (call *CallImpl) SetOtherChannelVar(vars map[string]string) *model.AppError
 
 func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError {
 	if file == nil {
-
 		return nil
 	}
 	return call.api.BroadcastPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
@@ -727,7 +736,6 @@ func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.Ringtone
 
 func (call *CallImpl) ParkPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError {
 	if file == nil {
-
 		return nil
 	}
 	return call.api.ParkPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
@@ -751,7 +759,6 @@ func (call *CallImpl) BroadcastTone(tone *string, leg string) *model.AppError {
 
 func (call *CallImpl) BroadcastPlaybackSilenceBeforeFile(domainId int64, silence uint, file *model.RingtoneFile, leg string) *model.AppError {
 	if file == nil {
-
 		return nil
 	}
 
@@ -763,7 +770,7 @@ func (call *CallImpl) BroadcastPlaybackSilenceBeforeFile(domainId int64, silence
 }
 
 // FIXME
-func (call *CallImpl) JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *model.AppError {
+func (call *CallImpl) JoinQueue(ctx context.Context, id, filePath string, vars map[string]string) *model.AppError {
 	return call.api.JoinQueue(ctx, id, filePath, vars)
 }
 

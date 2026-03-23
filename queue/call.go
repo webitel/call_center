@@ -70,6 +70,7 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 	if amd.Ai {
 		callRequest.Variables["ignore_early_media"] = "false"
 		callRequest.Variables["amd_on_positive"] = onHuman
+
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: "wbt_amd",    // todo if error skip and call
 			Args:    amd.AiTags(), // positive labels
@@ -88,6 +89,10 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 		}
 		callRequest.Variables[model.CALL_AMD_MACHINE_VARIABLE] = amdMachineApplication
 		callRequest.Variables[model.CALL_AMD_HUMAN_VARIABLE] = onHuman
+
+		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
+			AppName: "wait_for_answer",
+		})
 
 		callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 			AppName: model.CALL_AMD_APPLICATION_NAME,
