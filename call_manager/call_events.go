@@ -22,6 +22,12 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		}
 		call.setRinging(callRinging)
 
+	case *model.CallActionProgress:
+		if call == nil {
+			return
+		}
+		call.setProgress(action.(*model.CallActionProgress))
+
 	case *model.CallActionActive:
 		if call == nil {
 			return
