@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+
 	"github.com/webitel/call_center/gen/fs"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
 
 const (
@@ -93,8 +94,10 @@ var switchCodeToSip = map[int32]int{
 	609: 487,
 }
 
-var patternSps = regexp.MustCompile(`\D+`)
-var patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
+var (
+	patternSps     = regexp.MustCompile(`\D+`)
+	patternVersion = regexp.MustCompile(`^.*?\s(\d+[\.\S]+[^\s]).*`)
+)
 
 type CallConnection struct {
 	name        string
@@ -113,7 +116,6 @@ func NewCallConnection(name, url string) (*CallConnection, *model.AppError) {
 	}
 
 	c.client, err = grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(CONNECTION_TIMEOUT))
-
 	if err != nil {
 		return nil, model.NewAppError("NewCallConnection", "grpc.create_connection.app_error", nil, err.Error(), http.StatusInternalServerError)
 	}
@@ -151,7 +153,6 @@ func (c *CallConnection) GetServerVersion() (string, *model.AppError) {
 	res, err := c.api.Execute(context.Background(), &fs.ExecuteRequest{
 		Command: "version",
 	})
-
 	if err != nil {
 		return "", model.NewAppError("ServerVersion", "external.get_server_version.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -172,7 +173,6 @@ func (c *CallConnection) GetSocketUri() (string, *model.AppError) {
 		Command: "global_getvar",
 		Args:    SocketVariable,
 	})
-
 	if err != nil {
 		return "", model.NewAppError("GetSocketUri", "external.get_flow_socket.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -198,7 +198,6 @@ func (c *CallConnection) GetCdrUri() (string, *model.AppError) {
 		Command: "global_getvar",
 		Args:    CdrVariable,
 	})
-
 	if err != nil {
 		return "", model.NewAppError("GetCdrUri", "external.get_flow_cdr.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -222,7 +221,6 @@ func (c *CallConnection) GetRemoteSps() (int, *model.AppError) {
 		Command: "fsctl",
 		Args:    "sps",
 	})
-
 	if err != nil {
 		return 0, model.NewAppError("GetRemoteSps", "external.get_sps.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -236,7 +234,6 @@ func (c *CallConnection) GetParameter(name string) (string, *model.AppError) {
 		Command: "global_getvar",
 		Args:    name,
 	})
-
 	if err != nil {
 		return "", model.NewAppError("GetParameter", "external.get_param.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -256,7 +253,7 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 		Destination:  settings.Destination,
 		CallerNumber: settings.CallerNumber,
 		CallerName:   settings.CallerName,
-		Timeout:      int32(settings.Timeout),
+		Timeout:      60,
 		Context:      settings.Context,
 		Dialplan:     settings.Dialplan,
 		Variables:    settings.Variables,
@@ -288,10 +285,9 @@ func (c *CallConnection) NewCallContext(ctx context.Context, settings *model.Cal
 	}
 
 	response, err := c.api.Originate(ctx, request)
-
 	if err != nil {
 		return "", "", 500, model.NewAppError("NewCall", "external.new_call.app_error", nil, err.Error(),
-			-1) //FIXME transport error
+			-1) // FIXME transport error
 	}
 
 	if response.Error != nil {
@@ -314,7 +310,6 @@ func (c *CallConnection) HangupCall(id, cause string, reporting bool, vars map[s
 		Reporting: reporting,
 		Variables: vars,
 	})
-
 	if err != nil {
 		return model.NewAppError("HangupCall", "external.hangup_call.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -331,7 +326,6 @@ func (c *CallConnection) StopPlayback(id string) *model.AppError {
 	_, err := c.api.StopPlayback(context.Background(), &fs.StopPlaybackRequest{
 		Id: id,
 	})
-
 	if err != nil {
 		return model.NewAppError("StopPlayback", "external.break_playback.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -341,12 +335,10 @@ func (c *CallConnection) StopPlayback(id string) *model.AppError {
 }
 
 func (c *CallConnection) SetCallVariables(id string, variables map[string]string) *model.AppError {
-
 	res, err := c.api.SetVariables(context.Background(), &fs.SetVariablesRequest{
 		Uuid:      id,
 		Variables: variables,
 	})
-
 	if err != nil {
 		return model.NewAppError("SetCallVariables", "external.set_call_variables.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -402,7 +394,6 @@ func (c *CallConnection) DTMF(id string, ch rune) *model.AppError {
 		Command: "uuid_recv_dtmf",
 		Args:    fmt.Sprintf("%s %c", id, ch),
 	})
-
 	if err != nil {
 		return model.NewAppError("DTMF", "external.dtmf.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -410,13 +401,12 @@ func (c *CallConnection) DTMF(id string, ch rune) *model.AppError {
 	return nil
 }
 
-func (c *CallConnection) JoinQueue(ctx context.Context, id string, filePath string, vars map[string]string) *model.AppError {
+func (c *CallConnection) JoinQueue(ctx context.Context, id, filePath string, vars map[string]string) *model.AppError {
 	_, err := c.api.Queue(ctx, &fs.QueueRequest{
 		Id:           id,
 		Variables:    vars,
 		PlaybackFile: filePath,
 	})
-
 	if err != nil {
 		return model.NewAppError("JoinQueue", "external.join_queue.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -429,7 +419,6 @@ func (c *CallConnection) BroadcastPlaybackFile(id, path, leg string) *model.AppE
 		Command: "uuid_broadcast",
 		Args:    fmt.Sprintf("%s playback::%s %s", id, path, leg),
 	})
-
 	if err != nil {
 		return model.NewAppError("BroadcastPlaybackFile", "external.broadcast_playback.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -444,7 +433,6 @@ func (c *CallConnection) ParkPlaybackFile(id, path, leg string) *model.AppError 
 		Leg:           leg,
 		Args:          fmt.Sprintf("playback::%s", path),
 	})
-
 	if err != nil {
 		return model.NewAppError("BroadcastPlaybackFile", "external.park_playback.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -460,7 +448,6 @@ func (c *CallConnection) UpdateCid(id, number, name string) *model.AppError {
 			"callee_id_name":   name,
 		},
 	})
-
 	if err != nil {
 		return model.NewAppError("UpdateCid", "external.set_profile_var.app_error", nil, err.Error(),
 			http.StatusInternalServerError)
@@ -473,7 +460,6 @@ func (c *CallConnection) BreakPark(id string, vars map[string]string) *model.App
 		Id:        id,
 		Variables: vars,
 	})
-
 	if err != nil {
 		return model.NewAppError("BreakPark", "external.break_park.app_error", nil, err.Error(),
 			http.StatusInternalServerError)

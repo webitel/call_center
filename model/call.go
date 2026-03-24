@@ -72,13 +72,14 @@ const (
 )
 
 const (
-	CallActionRingingName = "ringing"
-	CallActionActiveName  = "active"
-	CallActionBridgeName  = "bridge"
-	CallActionHoldName    = "hold"
-	CallActionDtmfName    = "dtmf"
-	CallActionHangupName  = "hangup"
-	CallActionAmdName     = "amd"
+	CallActionRingingName  = "ringing"
+	CallActionProgressName = "progress"
+	CallActionActiveName   = "active"
+	CallActionBridgeName   = "bridge"
+	CallActionHoldName     = "hold"
+	CallActionDtmfName     = "dtmf"
+	CallActionHangupName   = "hangup"
+	CallActionAmdName      = "amd"
 )
 
 var CallRecordFileTemplate = "${strepoch()}_${url_encode ${wbt_from_number}}_${url_encode ${wbt_destination}}.mp3"
@@ -210,6 +211,10 @@ type CallActionRinging struct {
 	CallActionInfo
 }
 
+type CallActionProgress struct {
+	CallAction
+}
+
 func (c *CallActionRinging) GetFrom() *CallEndpoint {
 	if c != nil {
 		return c.From
@@ -279,6 +284,10 @@ func (c *CallActionData) GetEvent() any {
 	switch c.Event {
 	case CallActionRingingName:
 		c.parsed = &CallActionRinging{
+			CallAction: c.CallAction,
+		}
+	case CallActionProgressName:
+		c.parsed = &CallActionProgress{
 			CallAction: c.CallAction,
 		}
 	case CallActionActiveName:

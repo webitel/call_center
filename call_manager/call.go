@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"sync"
+	"time"
 
 	"github.com/webitel/wlog"
 
@@ -117,6 +117,7 @@ type CallImpl struct {
 	bridgeAt    int64
 	hangupAt    int64
 	reportingAt int64
+	progressAt  int64
 
 	transferTo            *string
 	transferFrom          *string
@@ -135,6 +136,8 @@ type CallImpl struct {
 
 	log *wlog.Logger
 
+	ringTimeout *time.Timer
+
 	sync.RWMutex
 }
 
@@ -147,6 +150,7 @@ const (
 	CALL_STATE_NEW CallState = iota
 	CALL_STATE_INVITE
 	CALL_STATE_RINGING
+	CALL_STATE_PROGRESS
 	CALL_STATE_ACCEPT
 	CALL_STATE_JOIN
 	CALL_STATE_LEAVING
@@ -167,7 +171,7 @@ const (
 )
 
 func (s CallState) String() string {
-	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "hold", "amd", "hangup"}[s]
+	return [...]string{"new", "invite", "ringing", "progress", "accept", "join", "leaving", "bridge", "hold", "amd", "hangup"}[s]
 }
 
 var (
@@ -192,12 +196,12 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	callRequest.Variables[model.CALL_PROXY_URI_VARIABLE] = cm.Proxy()
 	callRequest.Variables["sip_copy_custom_headers"] = "false"
 
-	if callRequest.Timeout > 0 {
-		t := strconv.Itoa(int(callRequest.Timeout))
-		if _, ok := callRequest.Variables["leg_timeout"]; !ok {
-			callRequest.Variables["leg_timeout"] = t
-		}
-	}
+	//if callRequest.Timeout > 0 {
+	//	t := strconv.Itoa(int(callRequest.Timeout))
+	//	if _, ok := callRequest.Variables["leg_timeout"]; !ok {
+	//		callRequest.Variables["leg_timeout"] = t
+	//	}
+	//}
 
 	// DUMP(callRequest)
 
@@ -258,15 +262,42 @@ func (call *CallImpl) setRinging(e *model.CallActionRinging) {
 	call.Lock()
 	call.info = e.CallActionInfo
 	call.ringingAt = e.Timestamp
+
+	if call.ringTimeout == nil && call.callRequest.Timeout > 0 {
+		call.ringTimeout = time.AfterFunc(time.Duration(call.callRequest.Timeout)*time.Second, func() {
+			if call.GetState() < CALL_STATE_ACCEPT {
+				call.Hangup(model.CALL_HANGUP_NO_ANSWER, false, nil)
+			}
+		})
+	}
+
 	call.Unlock()
 
 	call.setState(CALL_STATE_RINGING)
+}
+
+func (call *CallImpl) setProgress(e *model.CallActionProgress) {
+	call.Lock()
+
+	if call.progressAt == 0 && call.ringTimeout != nil && call.callRequest.Timeout > 0 {
+		call.ringTimeout.Reset(time.Duration(call.callRequest.Timeout) * time.Second)
+	}
+
+	if call.progressAt == 0 {
+		call.progressAt = e.Timestamp
+	}
+	call.Unlock()
 }
 
 func (call *CallImpl) setActive(e *model.CallActionActive) {
 	if call.acceptAt == 0 {
 		call.Lock()
 		call.acceptAt = e.Timestamp
+
+		if call.ringTimeout != nil {
+			call.ringTimeout.Stop()
+		}
+
 		call.Unlock()
 
 		call.setState(CALL_STATE_ACCEPT)
@@ -279,6 +310,11 @@ func (call *CallImpl) setBridge(e *model.CallActionBridge) {
 	call.Lock()
 	call.bridgeAt = e.Timestamp
 	call.bridgedId = model.NewString(e.BridgedId)
+
+	if call.ringTimeout != nil {
+		call.ringTimeout.Stop()
+	}
+
 	call.Unlock()
 
 	call.setState(CALL_STATE_BRIDGE)
@@ -329,6 +365,11 @@ func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 	if call.hangupAt == 0 {
 		call.hangup = e
 		call.cm.removeFromCacheCall(call)
+
+		if call.ringTimeout != nil {
+			call.ringTimeout.Stop()
+		}
+
 		call.hangupAt = e.Timestamp
 		if call.hangupAt == 0 {
 			call.log.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
