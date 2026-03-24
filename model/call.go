@@ -3,9 +3,10 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/webitel/wlog"
 	"strings"
 	"unicode"
+
+	"github.com/webitel/wlog"
 )
 
 const (
@@ -69,19 +70,19 @@ const (
 	CallDirectionInbound  CallDirection = "inbound"
 	CallDirectionOutbound               = "outbound"
 )
+
 const (
-	CallActionRingingName = "ringing"
-	CallActionActiveName  = "active"
-	CallActionBridgeName  = "bridge"
-	CallActionHoldName    = "hold"
-	CallActionDtmfName    = "dtmf"
-	CallActionHangupName  = "hangup"
-	CallActionAmdName     = "amd"
+	CallActionRingingName  = "ringing"
+	CallActionProgressName = "progress"
+	CallActionActiveName   = "active"
+	CallActionBridgeName   = "bridge"
+	CallActionHoldName     = "hold"
+	CallActionDtmfName     = "dtmf"
+	CallActionHangupName   = "hangup"
+	CallActionAmdName      = "amd"
 )
 
-var (
-	CallRecordFileTemplate = "${url_encode ${wbt_from_number}}_${url_encode ${wbt_destination}}.mp3"
-)
+var CallRecordFileTemplate = "${url_encode ${wbt_from_number}}_${url_encode ${wbt_destination}}.mp3"
 
 type inboundCallData struct {
 	CallId          string  `json:"call_id" db:"call_id"`
@@ -106,7 +107,7 @@ type InboundCallQueue struct {
 	Variables      map[string]string `json:"variables" db:"variables"`
 	Name           string            `json:"name" db:"name"`
 	TeamUpdatedAt  *int64            `json:"team_updated_at" db:"team_updated_at"`
-	//ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
+	// ListCommunicationId *int64 `json:"list_communication_id" db:"list_communication_id"`
 
 	inboundCallData
 }
@@ -151,8 +152,8 @@ type CallAction struct {
 
 type CallActionData struct {
 	CallAction
-	Data   *string     `json:"data,omitempty"`
-	parsed interface{} `json:"-"`
+	Data   *string `json:"data,omitempty"`
+	parsed any     `json:"-"`
 }
 
 type CallEndpoint struct {
@@ -210,6 +211,10 @@ type CallActionRinging struct {
 	CallActionInfo
 }
 
+type CallActionProgress struct {
+	CallAction
+}
+
 func (c *CallActionRinging) GetFrom() *CallEndpoint {
 	if c != nil {
 		return c.From
@@ -239,16 +244,16 @@ type CallActionBridge struct {
 
 type CallActionHangup struct {
 	CallAction
-	Cause               string                 `json:"cause"`
-	SipCode             *int                   `json:"sip"`
-	OriginSuccess       *bool                  `json:"originate_success"`
-	ReportingAt         *int64                 `json:"reporting_at,string"`
-	TransferTo          *string                `json:"transfer_to"`
-	TransferFrom        *string                `json:"transfer_from"`
-	TransferToAgent     *int                   `json:"transfer_to_agent,string"`
-	TransferFromAttempt *int64                 `json:"transfer_from_attempt,string"`
-	TransferToAttempt   *int64                 `json:"transfer_to_attempt,string"`
-	Variables           map[string]interface{} `json:"payload"`
+	Cause               string         `json:"cause"`
+	SipCode             *int           `json:"sip"`
+	OriginSuccess       *bool          `json:"originate_success"`
+	ReportingAt         *int64         `json:"reporting_at,string"`
+	TransferTo          *string        `json:"transfer_to"`
+	TransferFrom        *string        `json:"transfer_from"`
+	TransferToAgent     *int           `json:"transfer_to_agent,string"`
+	TransferFromAttempt *int64         `json:"transfer_from_attempt,string"`
+	TransferToAttempt   *int64         `json:"transfer_to_attempt,string"`
+	Variables           map[string]any `json:"payload"`
 }
 
 type CallNoAnswer struct {
@@ -269,9 +274,9 @@ type CallActionAMD struct {
 	Cause  string `json:"cause"`  // deprecated
 }
 
-type CallVariables map[string]interface{}
+type CallVariables map[string]any
 
-func (c *CallActionData) GetEvent() interface{} {
+func (c *CallActionData) GetEvent() any {
 	if c.parsed != nil {
 		return c.parsed
 	}
@@ -279,6 +284,10 @@ func (c *CallActionData) GetEvent() interface{} {
 	switch c.Event {
 	case CallActionRingingName:
 		c.parsed = &CallActionRinging{
+			CallAction: c.CallAction,
+		}
+	case CallActionProgressName:
+		c.parsed = &CallActionProgress{
 			CallAction: c.CallAction,
 		}
 	case CallActionActiveName:

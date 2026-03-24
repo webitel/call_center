@@ -2,6 +2,7 @@ package call_manager
 
 import (
 	"fmt"
+
 	"github.com/webitel/call_center/model"
 )
 
@@ -12,7 +13,7 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 		call = v.(*CallImpl)
 	}
 
-	//wlog.Debug(fmt.Sprintf("call %s receive event %s", data.Id, data.Event))
+	// wlog.Debug(fmt.Sprintf("call %s receive event %s", data.Id, data.Event))
 
 	switch action.(type) {
 	case *model.CallActionRinging:
@@ -21,6 +22,12 @@ func (cm *CallManagerImpl) handleCallAction(data model.CallActionData) {
 			return
 		}
 		call.setRinging(callRinging)
+
+	case *model.CallActionProgress:
+		if call == nil {
+			return
+		}
+		call.setProgress(action.(*model.CallActionProgress))
 
 	case *model.CallActionActive:
 		if call == nil {
