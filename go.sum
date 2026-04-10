@@ -1,3 +1,5 @@
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1 h1:PMmTMyvHScV9Mn8wc6ASge9uRcHy0jtqPd+fM35LmsQ=
+buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
@@ -259,8 +261,8 @@ github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqri
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa h1:5sLvYZmi0X/Bsi6gK+OkG4N4VW4Nxcro1ak16CiMG+Y=
 github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa/go.mod h1:SYOLV0TUj7A8ZfCLdNgI08twGMXAlPzqkQ68XL5ePzo=
-github.com/webitel/engine/pkg/wbt v0.0.0-20250722070748-6033ec4e9e17 h1:cLOzbcRr6MT6yk5eFPiYps/4Uxl7xzQGDMcFvBrfAUA=
-github.com/webitel/engine/pkg/wbt v0.0.0-20250722070748-6033ec4e9e17/go.mod h1:15PVfPhimD18i+1ARcWq5ZZ8P5ugjpriGIT1+5/bDEw=
+github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3 h1:GFFql4qrxFDvz7XjP3aSdFbgIb7FHDGwWs9qtU9+ydw=
+github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3/go.mod h1:15PVfPhimD18i+1ARcWq5ZZ8P5ugjpriGIT1+5/bDEw=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f h1:zU3aBt6aVFURLB1DrSZo7PZdQutOpVOcL43C/4ayXC8=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41 h1:vj6qE8RtTyz8B4syfUDCkZqULLJ/4I+LS0Rw5W7mao0=
@@ -410,8 +412,8 @@ google.golang.org/grpc v1.19.0/go.mod h1:mqu4LbDTu4XGKhr4mRzUsmM4RtVoemTSY81AxZi
 google.golang.org/grpc v1.21.0/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
 google.golang.org/grpc v1.72.1 h1:HR03wO6eyZ7lknl75XlxABNVLLFc2PAb6mHlYh756mA=
 google.golang.org/grpc v1.72.1/go.mod h1:wH5Aktxcg25y1I3w7H69nHfXdOG3UiadoBtjh3izSDM=
-google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=
-google.golang.org/protobuf v1.36.10/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
+google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

@@ -1,10 +1,12 @@
 package queue
 
 import (
+	"github.com/webitel/engine/pkg/wbt/flow"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/chat"
+	"github.com/webitel/call_center/im"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/pkg/wbt/flow"
 )
 
 type App interface {
@@ -22,4 +24,6 @@ type App interface {
 	NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError
 	NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppError
 	SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppError
+	NotificationLeaveQueue(payload map[string]any) *model.AppError
+	IMClient() *im.Client
 }

@@ -26,6 +26,7 @@ const (
 	MemberService_CallJoinToAgent_FullMethodName           = "/cc.MemberService/CallJoinToAgent"
 	MemberService_OutboundCall_FullMethodName              = "/cc.MemberService/OutboundCall"
 	MemberService_TaskJoinToAgent_FullMethodName           = "/cc.MemberService/TaskJoinToAgent"
+	MemberService_IMJoinToQueue_FullMethodName             = "/cc.MemberService/IMJoinToQueue"
 	MemberService_CancelAttempt_FullMethodName             = "/cc.MemberService/CancelAttempt"
 	MemberService_CancelAgentDistribute_FullMethodName     = "/cc.MemberService/CancelAgentDistribute"
 	MemberService_EmailJoinToQueue_FullMethodName          = "/cc.MemberService/EmailJoinToQueue"
@@ -49,6 +50,7 @@ type MemberServiceClient interface {
 	CallJoinToAgent(ctx context.Context, in *CallJoinToAgentRequest, opts ...grpc.CallOption) (MemberService_CallJoinToAgentClient, error)
 	OutboundCall(ctx context.Context, in *OutboundCallRequest, opts ...grpc.CallOption) (*OutboundCallResponse, error)
 	TaskJoinToAgent(ctx context.Context, in *TaskJoinToAgentRequest, opts ...grpc.CallOption) (MemberService_TaskJoinToAgentClient, error)
+	IMJoinToQueue(ctx context.Context, in *IMJoinToQueueRequest, opts ...grpc.CallOption) (*IMJoinToQueueResponse, error)
 	CancelAttempt(ctx context.Context, in *CancelAttemptRequest, opts ...grpc.CallOption) (*CancelAttemptResponse, error)
 	CancelAgentDistribute(ctx context.Context, in *CancelAgentDistributeRequest, opts ...grpc.CallOption) (*CancelAgentDistributeResponse, error)
 	EmailJoinToQueue(ctx context.Context, in *EmailJoinToQueueRequest, opts ...grpc.CallOption) (*EmailJoinToQueueResponse, error)
@@ -224,6 +226,15 @@ func (x *memberServiceTaskJoinToAgentClient) Recv() (*QueueEvent, error) {
 	return m, nil
 }
 
+func (c *memberServiceClient) IMJoinToQueue(ctx context.Context, in *IMJoinToQueueRequest, opts ...grpc.CallOption) (*IMJoinToQueueResponse, error) {
+	out := new(IMJoinToQueueResponse)
+	err := c.cc.Invoke(ctx, MemberService_IMJoinToQueue_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *memberServiceClient) CancelAttempt(ctx context.Context, in *CancelAttemptRequest, opts ...grpc.CallOption) (*CancelAttemptResponse, error) {
 	out := new(CancelAttemptResponse)
 	err := c.cc.Invoke(ctx, MemberService_CancelAttempt_FullMethodName, in, out, opts...)
@@ -325,6 +336,7 @@ type MemberServiceServer interface {
 	CallJoinToAgent(*CallJoinToAgentRequest, MemberService_CallJoinToAgentServer) error
 	OutboundCall(context.Context, *OutboundCallRequest) (*OutboundCallResponse, error)
 	TaskJoinToAgent(*TaskJoinToAgentRequest, MemberService_TaskJoinToAgentServer) error
+	IMJoinToQueue(context.Context, *IMJoinToQueueRequest) (*IMJoinToQueueResponse, error)
 	CancelAttempt(context.Context, *CancelAttemptRequest) (*CancelAttemptResponse, error)
 	CancelAgentDistribute(context.Context, *CancelAgentDistributeRequest) (*CancelAgentDistributeResponse, error)
 	EmailJoinToQueue(context.Context, *EmailJoinToQueueRequest) (*EmailJoinToQueueResponse, error)
@@ -362,6 +374,9 @@ func (UnimplementedMemberServiceServer) OutboundCall(context.Context, *OutboundC
 }
 func (UnimplementedMemberServiceServer) TaskJoinToAgent(*TaskJoinToAgentRequest, MemberService_TaskJoinToAgentServer) error {
 	return status.Errorf(codes.Unimplemented, "method TaskJoinToAgent not implemented")
+}
+func (UnimplementedMemberServiceServer) IMJoinToQueue(context.Context, *IMJoinToQueueRequest) (*IMJoinToQueueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IMJoinToQueue not implemented")
 }
 func (UnimplementedMemberServiceServer) CancelAttempt(context.Context, *CancelAttemptRequest) (*CancelAttemptResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelAttempt not implemented")
@@ -542,6 +557,24 @@ type memberServiceTaskJoinToAgentServer struct {
 
 func (x *memberServiceTaskJoinToAgentServer) Send(m *QueueEvent) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _MemberService_IMJoinToQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IMJoinToQueueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).IMJoinToQueue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_IMJoinToQueue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).IMJoinToQueue(ctx, req.(*IMJoinToQueueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _MemberService_CancelAttempt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -742,6 +775,10 @@ var MemberService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OutboundCall",
 			Handler:    _MemberService_OutboundCall_Handler,
+		},
+		{
+			MethodName: "IMJoinToQueue",
+			Handler:    _MemberService_IMJoinToQueue_Handler,
 		},
 		{
 			MethodName: "CancelAttempt",

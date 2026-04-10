@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/webitel/engine/pkg/wbt/flow"
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/pkg/wbt/flow"
-	"github.com/webitel/wlog"
 )
 
 type QueueObject interface {
@@ -41,7 +42,7 @@ type QueueObject interface {
 	HasForm() bool
 	StartProcessingForm(attempt *Attempt)
 	AutoAnswer() bool
-	AutoAnswerValue() interface{}
+	AutoAnswerValue() any
 	RingtoneUri() string
 	Log() *wlog.Logger
 
@@ -197,6 +198,8 @@ func NewQueue(queueManager *Manager, resourceManager *ResourceManager, settings 
 
 	case model.QueueTypeOutboundTask:
 		return NewTaskOutboundQueue(base, TaskOutboundQueueSettingsFromBytes(settings.Payload)), nil
+	case model.QueueTypeInboundIM:
+		return NewInboundIMQueue(base, InboundIMQueueFromBytes(settings.Payload)), nil
 
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
@@ -305,6 +308,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "task"
 	case model.QueueTypeOutboundTask:
 		return "outbound_task"
+	case model.QueueTypeInboundIM:
+		return "im"
 	case model.QueueTypeOutboundCall:
 		return "outbound_call"
 	default:
@@ -316,7 +321,7 @@ func (queue *BaseQueue) Variables() map[string]string {
 	return queue.variables
 }
 
-func (queue *BaseQueue) SetVariable(name string, val string) {
+func (queue *BaseQueue) SetVariable(name, val string) {
 	if queue.variables == nil {
 		queue.variables = make(map[string]string)
 	}
@@ -349,7 +354,7 @@ func (q *BaseQueue) AutoAnswer() bool {
 	return false
 }
 
-func (q *BaseQueue) AutoAnswerValue() interface{} {
+func (q *BaseQueue) AutoAnswerValue() any {
 	if v, ok := q.variables[model.QueueAutoAnswerVariable]; ok {
 		return v
 	}
@@ -442,9 +447,8 @@ func (tm *agentTeam) Offering(attempt *Attempt, agent agent_manager.AgentObject,
 
 // TODO!!!!! ADD FAILED
 func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
-
 	if _, ok := attempt.AfterDistributeSchema(); ok {
-		//TODO
+		// TODO
 	}
 
 	res, err := tm.teamManager.store.Member().SetAttemptAbandonedWithParams(attempt.Id(),

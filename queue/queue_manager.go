@@ -16,6 +16,7 @@ import (
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/gen/cc"
+	"github.com/webitel/call_center/im"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
@@ -938,6 +939,74 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 	return attempt, nil
 }
 
+func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRequest) (*Attempt, *model.AppError) {
+	// var member *model.MemberAttempt
+	var bucketId *int32
+	var stickyAgentId *int
+
+	if in.BucketId != 0 {
+		bucketId = &in.BucketId
+	}
+
+	if in.StickyAgentId != 0 {
+		stickyAgentId = model.NewInt(int(in.StickyAgentId))
+	}
+
+	// FIXME add domain
+	res, err := qm.store.Member().DistributeIMToQueue(
+		qm.app.GetInstanceId(),
+		int64(in.GetQueue().GetId()),
+		in.GetThreadId(),
+		map[string]string{
+			"msg":         in.GetMember().GetLastMsg(),
+			"chat":        in.GetMember().GetSub(),
+			"name":        in.GetMember().GetName(),
+			"member":      `{"type": "bot"}`,
+			"destination": in.GetMember().GetSub(),
+		},
+		in.GetVariables(),
+		bucketId,
+		int(in.GetPriority()),
+		stickyAgentId,
+	)
+	if err != nil {
+		qm.log.Error(err.Error(),
+			wlog.Err(err),
+		)
+		return nil, err
+	}
+
+	attempt, _ := qm.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
+		Id:                  res.AttemptId,
+		QueueId:             res.QueueId,
+		QueueUpdatedAt:      res.QueueUpdatedAt,
+		QueueCount:          0,
+		QueueActiveCount:    0,
+		QueueWaitingCount:   0,
+		CreatedAt:           time.Now(),
+		HangupAt:            0,
+		BridgedAt:           0,
+		Destination:         res.Destination,
+		ListCommunicationId: res.ListCommunicationId,
+		TeamUpdatedAt:       res.TeamUpdatedAt,
+		Variables:           res.Variables,
+		Name:                res.Name,
+		MemberCallId:        &res.ThreadId,
+		BucketId:            bucketId,
+	})
+
+	if _, err = qm.DistributeAttempt(attempt); err != nil {
+		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
+		return nil, err
+	}
+
+	return attempt, nil
+}
+
+func (qm *Manager) NewIMSession(att *Attempt, from string) *im.Session {
+	return qm.app.IMClient().NewSession(att.domainId, *att.MemberCallId(), from)
+}
+
 func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
 	// FIXME -1
 	member, err := qm.store.Member().DistributeDirect(qm.app.GetInstanceId(), memberId, communicationId-1, agentId)
@@ -1230,7 +1299,7 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 				"cc_result": ccCause,
 			})
 		}
-		break
+
 	case model.QueueChannelChat:
 		var conv *chat.Conversation
 		if a != nil && a.TransferredAt() == 0 {
@@ -1238,6 +1307,13 @@ func (qm *Manager) closeBeforeReporting(attemptId int64, res *model.AttemptRepor
 				err = conv.Reporting(false)
 			}
 		}
+
+	case model.QueueChannelIM:
+		var task *TaskChannel
+		if task, err = qm.getAgentTaskFromAttemptId(attemptId); err == nil {
+			err = task.Reporting()
+		}
+
 	case model.QueueChannelTask:
 		var task *TaskChannel
 		if task, err = qm.getAgentTaskFromAttemptId(attemptId); err == nil {
@@ -1533,6 +1609,15 @@ func (qm *Manager) FlipAttemptResource(attempt *Attempt, skipp []int) (*model.At
 
 func (qm *Manager) AgentTeamHook(event string, agent agent_manager.AgentObject, teamUpdatedAt int64) {
 	qm.teamManager.HookAgent(event, agent, teamUpdatedAt)
+}
+
+func (qm *Manager) NotificationLeavingFromQueue(attempt *Attempt) {
+	err := qm.app.NotificationLeaveQueue(map[string]any{
+		"attempt_id": attempt.Id(),
+	})
+	if err != nil {
+		attempt.log.Error(err.Error())
+	}
 }
 
 // waitTimeout waits for the wait group for the specified max timeout.

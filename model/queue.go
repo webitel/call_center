@@ -16,6 +16,7 @@ const (
 	QueueTypeInboundChat
 	QueueTypeAgentTask
 	QueueTypeOutboundTask
+	QueueTypeInboundIM
 	QueueTypeOutboundCall
 )
 
@@ -30,6 +31,7 @@ const (
 	QueueChannelChat    = "chat"
 	QueueChannelTask    = "task"
 	QueueChannelOutCall = "out_call"
+	QueueChannelIM      = "im"
 )
 
 const (
@@ -142,6 +144,8 @@ func (q *Queue) Channel() string {
 		return QueueChannelTask
 	case QueueTypeOutboundCall:
 		return QueueChannelOutCall
+	case QueueTypeInboundIM:
+		return QueueChannelTask
 	default:
 		return QueueChannelCall
 	}
@@ -188,7 +192,7 @@ type QueueInboundSettings struct {
 	DiscardAbandonedAfter int    `json:"discard_abandoned_after"`
 	TimeBaseScore         string `json:"time_base_score"` // ENUM queue, system
 	MaxWaitWithNoAgent    int    `json:"timeout_with_no_agents"`
-	//HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
+	// HangupOnRingingAgent bool   `json:"hangup_on_ringing_agent"`
 	MaxCallPerAgent    int     `json:"max_call_per_agent"`
 	AllowGreetingAgent bool    `json:"allow_greeting_agent"`
 	MaxWaitTime        int     `json:"max_wait_time"`

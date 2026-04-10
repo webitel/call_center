@@ -2,9 +2,10 @@ package queue
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/model"
 	"net/http"
 	"sync"
+
+	"github.com/webitel/call_center/model"
 )
 
 type TaskState uint8
@@ -25,7 +26,7 @@ func NewTaskChannel(id string) *TaskChannel {
 		id:        id,
 		createdAt: model.GetMillis(),
 		state:     TaskStateIdle,
-		stateC:    make(chan TaskState),
+		stateC:    make(chan TaskState, 1),
 	}
 }
 
