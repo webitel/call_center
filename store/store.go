@@ -3,8 +3,9 @@ package store
 import (
 	"context"
 
-	"github.com/webitel/call_center/model"
 	"github.com/webitel/engine/pkg/discovery"
+
+	"github.com/webitel/call_center/model"
 )
 
 type Store interface {
@@ -26,19 +27,19 @@ type CallStore interface {
 
 type ClusterStore interface {
 	CreateOrUpdate(nodeId string) (*discovery.ClusterData, error)
-	//UpdateUpdatedTime(nodeId string) (*discovery.ClusterData, error)
+	// UpdateUpdatedTime(nodeId string) (*discovery.ClusterData, error)
 	UpdateClusterInfo(nodeId string, started bool) (*discovery.ClusterData, error)
 }
 
 type OutboundResourceStore interface {
 	GetById(id int64) (*model.OutboundResource, *model.AppError)
-	SetError(id int64, queueId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError)
+	SetError(id, queueId int64, errorId string, strategy model.OutboundResourceUnReserveStrategy) (*model.OutboundResourceErrorResult, *model.AppError)
 	SetSuccessivelyErrorsById(id int64, successivelyErrors uint16) *model.AppError
 }
 
 type QueueStore interface {
 	GetById(id int64) (*model.Queue, *model.AppError)
-	UserIds(queueId int, skipAgentId int) (model.Int64Array, *model.AppError)
+	UserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError)
 }
 
 type MemberStore interface {
@@ -48,12 +49,13 @@ type MemberStore interface {
 	GetActiveMembersAttempt(nodeId string) ([]*model.MemberAttempt, *model.AppError)
 
 	DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundChatQueue, *model.AppError)
+	DistributeIMToQueue(node string, queueId int64, convId string, dest, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
-	DistributeCallToAgent(node string, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
+	DistributeCallToAgent(node, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 	DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError)
-	DistributeOutboundCall(node string, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
+	DistributeOutboundCall(node, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 
 	/*
 		Flow control
@@ -65,18 +67,18 @@ type MemberStore interface {
 	SetAttemptFindAgent(id int64) *model.AppError
 	AnswerPredictAndFindAgent(id int64) *model.AppError
 
-	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError)
+	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
 	SetAttemptReporting(attemptId int64, deadlineSec uint32) (int64, *model.AppError)
 	SchemaResult(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, perNum bool) (*model.AttemptLeaving, *model.AppError)
-	//SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError)
+	// SetAttemptAbandoned(attemptId int64) (*model.AttemptLeaving, *model.AppError)
 	SetAttemptAbandonedWithParams(attemptId int64, maxAttempts uint, sleep uint64, vars map[string]string, perNum bool,
-		excludeNum bool, redial bool, desc *string, stickyAgentId *int32) (*model.AttemptLeaving, *model.AppError)
+		excludeNum, redial bool, desc *string, stickyAgentId *int32) (*model.AttemptLeaving, *model.AppError)
 
 	SetAttemptWaitingAgent(attemptId int64, agentHoldSec int) *model.AppError
 	SetAttemptMissedAgent(attemptId int64, agentHoldSec int) (*model.MissedAgent, *model.AppError)
 	SetAttemptMissed(id int64, agentHoldTime int, maxAttempts uint, waitBetween uint64, perNum bool) (*model.MissedAgent, *model.AppError)
-	SetAttemptResult(id int64, result string, channelState string, agentHoldTime int, vars map[string]string,
+	SetAttemptResult(id int64, result, channelState string, agentHoldTime int, vars map[string]string,
 		maxAttempts uint, waitBetween uint64, perNum bool, desc *string, stickyAgentId *int32) (*model.MissedAgent, *model.AppError)
 	CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, byNum bool) (*model.AttemptReportingResult, *model.AppError)
 
@@ -101,7 +103,7 @@ type MemberStore interface {
 	CleanAttempts(nodeId string) *model.AppError
 	FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError)
 
-	Intercept(ctx context.Context, domainId int64, attemptId int64, agentId int32) (int, *model.AppError)
+	Intercept(ctx context.Context, domainId, attemptId int64, agentId int32) (int, *model.AppError)
 	WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError)
 }
 
@@ -131,7 +133,7 @@ type AgentStore interface {
 	OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError)
 	LosePredictAttempt(id int) *model.AppError
 	CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError)
-	AgentTriggerJob(ctx context.Context, domainId int64, userId int64, triggerId int32) (*model.AgentTriggerJob, *model.AppError)
+	AgentTriggerJob(ctx context.Context, domainId, userId int64, triggerId int32) (*model.AgentTriggerJob, *model.AppError)
 }
 
 type TeamStore interface {

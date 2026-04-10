@@ -3,12 +3,22 @@ package app
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
+
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+
+	"github.com/webitel/engine/pkg/wbt/flow"
+	otelsdk "github.com/webitel/webitel-go-kit/otel/sdk"
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/chat"
 	"github.com/webitel/call_center/cluster"
 	"github.com/webitel/call_center/engine"
+	"github.com/webitel/call_center/im"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/mq/rabbit"
@@ -16,13 +26,6 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/trigger"
-	"github.com/webitel/engine/pkg/wbt/flow"
-	"github.com/webitel/wlog"
-	"sync/atomic"
-
-	otelsdk "github.com/webitel/webitel-go-kit/otel/sdk"
-	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	// -------------------- plugin(s) -------------------- //
 	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/otlp"
@@ -54,6 +57,7 @@ type App struct {
 
 	ctx              context.Context
 	otelShutdownFunc otelsdk.ShutdownFunc
+	IM               *im.Client
 }
 
 func New(options ...string) (outApp *App, outErr error) {
@@ -126,6 +130,13 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.cluster = cl
 	}
 
+	t, err := LoadTlsCreds(config.Tls)
+	if err != nil {
+		return nil, err
+	}
+	app.IM = im.NewClient(config.DiscoverySettings.Url, app.Log, t)
+	app.IM.Start()
+
 	app.GrpcServer = NewGrpcServer(app.Config().ServerSettings, app.Log)
 
 	if err := app.cluster.Setup(); err != nil {
@@ -169,7 +180,7 @@ func New(options ...string) (outApp *App, outErr error) {
 }
 
 func (app *App) IsReady() bool {
-	//TODO check connect to db, rabbit, grpc
+	// TODO check connect to db, rabbit, grpc
 	return app.callManager.CountConnection() > 0
 }
 
@@ -228,6 +239,10 @@ func (app *App) Shutdown() {
 		app.MQ.Close()
 	}
 
+	if app.IM != nil {
+		app.IM.Close()
+	}
+
 	if app.otelShutdownFunc != nil {
 		app.otelShutdownFunc(app.ctx)
 	}
@@ -240,4 +255,8 @@ func (a *App) setServiceId(id *string) {
 
 func (a *App) GetInstanceId() string {
 	return a.publicId
+}
+
+func (a *App) IMClient() *im.Client {
+	return a.IM
 }

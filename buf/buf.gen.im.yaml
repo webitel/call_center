@@ -1,0 +1,30 @@
+version: v2
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
+  override:
+    # Forces all generated files into a single Go package,
+    # merging 'internal' and 'shared' protos into one directory.
+    - file_option: go_package
+      value: github.com/webitel/protos/gen/go/im/thread/v1;thread
+
+plugins:
+  - remote: buf.build/protocolbuffers/go:v1.30.0
+    out: gen/im
+
+    opt: paths=source_relative
+
+  # Generates Go client and server stubs for the gRPC framework.
+  - remote: buf.build/grpc/go:v1.3.0
+    out: gen/im
+    opt: paths=source_relative
+
+inputs:
+  # The relative path to the source proto files
+  - directory: "../protos/im"
+    types:
+      - webitel.im.api.gateway.v1.ThreadManagement

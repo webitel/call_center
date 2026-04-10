@@ -350,6 +350,62 @@ as x (
 	return attempt, nil
 }
 
+func (s *SqlMemberStore) DistributeIMToQueue(node string, queueId int64, threadId string, dest, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError) {
+	var attempt *model.InboundIMQueue
+
+	var v *string
+	if vars != nil {
+		v = new(string)
+		*v = model.MapToJson(vars)
+	}
+	var d *string
+	if dest != nil {
+		d = new(string)
+		*d = model.MapToJson(dest)
+	}
+
+	if err := s.GetMaster().SelectOne(&attempt, `
+select *
+		from call_center.cc_distribute_inbound_im_to_queue(:AppId::varchar, :QueueId::int8, :ThreadId::varchar,
+		:Destination::jsonb, :Variables::jsonb, :BucketId::int, :Priority::int, :StickyAgentId::int)
+as x (
+    attempt_id int8,
+    queue_id int,
+    queue_updated_at int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_updated_at int8,
+
+    thread_id varchar,
+    thread_created_at int8,
+    list_communication_id int8
+);`,
+		map[string]any{
+			"AppId":         node,
+			"QueueId":       queueId,
+			"ThreadId":      threadId,
+			"Destination":   d,
+			"Variables":     v,
+			"BucketId":      bucketId,
+			"Priority":      priority,
+			"StickyAgentId": stickyAgentId,
+		}); err != nil {
+
+		switch e := err.(type) {
+		case *pq.Error:
+			if e.Code == "MAXWS" {
+				return nil, model.ErrQueueMaxWaitSize
+			}
+		}
+
+		return nil, model.NewAppError("SqlMemberStore.DistributeIMToQueue", "store.sql_member.distribute_im.app_error", nil,
+			fmt.Sprintf("QueueId=%v, Id=%v %s", queueId, threadId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return attempt, nil
+}
+
 func (s *SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
 	err := s.GetMaster().SelectOne(&res, `select * from call_center.cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,

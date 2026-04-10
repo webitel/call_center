@@ -1,22 +1,23 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/webitel/call_center/model"
-	"golang.org/x/sync/singleflight"
 	"net/http"
+
+	"golang.org/x/sync/singleflight"
+
+	"github.com/webitel/call_center/model"
 )
 
-var (
-	queueGroup singleflight.Group
-)
+var queueGroup singleflight.Group
 
 func (a *App) GetQueueById(id int64) (*model.Queue, *model.AppError) {
 	return a.Store.Queue().GetById(id)
 }
 
-func (a *App) queueUserIds(queueId int, skipAgentId int) (model.Int64Array, *model.AppError) {
-	ids, err, _ := queueGroup.Do(fmt.Sprintf("queue-%d", queueId), func() (interface{}, error) {
+func (a *App) queueUserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError) {
+	ids, err, _ := queueGroup.Do(fmt.Sprintf("queue-%d", queueId), func() (any, error) {
 		ids, err := a.Store.Queue().UserIds(queueId, skipAgentId)
 		if err != nil {
 			return nil, err
@@ -48,7 +49,6 @@ func (a *App) NotificationHideMember(domainId int64, queueId int, memberId *int6
 	}
 
 	ids, err := a.queueUserIds(queueId, skipAgentId)
-
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (a *App) NotificationHideMember(domainId int64, queueId int, memberId *int6
 		Action:    model.NotificationHideMember,
 		CreatedAt: model.GetMillis(),
 		ForUsers:  ids,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"member_id": *memberId,
 		},
 	})
@@ -75,7 +75,6 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, channel 
 	}
 
 	ids, err := a.queueUserIds(queueId, int(0))
-
 	if err != nil {
 		return err
 	}
@@ -90,7 +89,7 @@ func (a *App) NotificationInterceptAttempt(domainId int64, queueId int, channel 
 		Action:    model.NotificationHideAttempt,
 		CreatedAt: model.GetMillis(),
 		ForUsers:  ids,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"attempt_id": attemptId,
 			"channel":    channel,
 		},
@@ -104,9 +103,14 @@ func (a *App) NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppE
 		Action:    model.NotificationWaitingList,
 		CreatedAt: model.GetMillis(),
 		ForUsers:  e.Users,
-		Body: map[string]interface{}{
+		Body: map[string]any{
 			"calls": e.Calls,
 			"chats": e.Chats,
 		},
 	})
+}
+
+func (a *App) NotificationLeaveQueue(payload map[string]any) *model.AppError {
+	data, _ := json.Marshal(payload)
+	return a.MQ.SendJSON("queue.leaving", data)
 }

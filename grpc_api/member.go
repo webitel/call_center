@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
@@ -111,12 +112,11 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		return nil, err
 	}
 	return &cc.AttemptResultResponse{
-		Status: "success", //TODO
+		Status: "success", // TODO
 	}, nil
 }
 
 func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberService_CallJoinToQueueServer) error {
-
 	ctx := out.Context()
 	attempt, err := api.app.Queue().Manager().DistributeCall(ctx, in)
 	if err != nil {
@@ -178,7 +178,7 @@ func (api *member) CallJoinToQueue(in *cc.CallJoinToQueueRequest, out cc.MemberS
 				out.Send(&cc.QueueEvent{
 					Data: &cc.QueueEvent_Bridged{
 						Bridged: &cc.QueueEvent_BridgedData{
-							AgentId: 0, //TODO
+							AgentId: 0, // TODO
 						},
 					},
 				})
@@ -192,7 +192,6 @@ stop:
 }
 
 func (api *member) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest) (*cc.OutboundCallResponse, error) {
-
 	attempt, err := api.app.Queue().Manager().OutboundCall(ctx, in)
 	if err != nil {
 		return nil, err
@@ -250,7 +249,7 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 			attempt.Log("cancel context")
 			attempt.SetCancel()
 			goto stop
-			//attempt.memberChannel.Id()
+			// attempt.memberChannel.Id()
 		case <-leaving:
 			out.Send(&cc.QueueEvent{
 				Data: &cc.QueueEvent_Leaving{
@@ -290,7 +289,7 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 				out.Send(&cc.QueueEvent{
 					Data: &cc.QueueEvent_Bridged{
 						Bridged: &cc.QueueEvent_BridgedData{
-							AgentId: 0, //TODO
+							AgentId: 0, // TODO
 						},
 					},
 				})
@@ -301,6 +300,17 @@ func (api *member) ChatJoinToQueue(in *cc.ChatJoinToQueueRequest, out cc.MemberS
 stop:
 
 	return nil
+}
+
+func (api *member) IMJoinToQueue(ctx context.Context, in *cc.IMJoinToQueueRequest) (*cc.IMJoinToQueueResponse, error) {
+	attempt, err := api.app.Queue().Manager().DistributeIMToQueue(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.IMJoinToQueueResponse{
+		AttemptId: attempt.Id(),
+	}, nil
 }
 
 func (api *member) DirectAgentToMember(_ context.Context, in *cc.DirectAgentToMemberRequest) (*cc.DirectAgentToMemberResponse, error) {
@@ -434,7 +444,6 @@ stop:
 }
 
 func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingFormActionRequest) (*cc.ProcessingFormActionResponse, error) {
-
 	err := api.app.Queue().Manager().AttemptProcessingActionForm(in.AttemptId, in.Action, in.Fields)
 	if err != nil {
 		return nil, err
@@ -444,7 +453,6 @@ func (api *member) ProcessingFormAction(_ context.Context, in *cc.ProcessingForm
 }
 
 func (api *member) ProcessingComponentAction(ctx context.Context, in *cc.ProcessingComponentActionRequest) (*cc.ProcessingComponentActionResponse, error) {
-
 	err := api.app.Queue().Manager().AttemptProcessingActionComponent(ctx, in.AttemptId, in.FormId, in.ComponentId, in.Action,
 		in.Variables, in.Sync)
 	if err != nil {

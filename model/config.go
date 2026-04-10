@@ -8,8 +8,8 @@ const (
 
 type ServiceSettings struct {
 	NodeId *string `flag:"id|1|Service id" json:"id" env:"ID"`
-	//ListenAddress         *string
-	//ListenInternalAddress *string
+	// ListenAddress         *string
+	// ListenInternalAddress *string
 }
 
 type LogSettings struct {
@@ -69,4 +69,11 @@ type Config struct {
 	CallSettings         CallSettings         `json:"call_settings"`
 	Log                  LogSettings          `json:"log_settings"`
 	Dev                  bool                 `json:"dev" flag:"dev|false|Dev mode" env:"DEV"`
+	Tls                  TLSConfig            `json:"tls"`
+}
+
+type TLSConfig struct {
+	CAPath   string `json:"ca" flag:"service.conn.client.ca||Client CA certificate path" env:"SERVICE_CONN_CLIENT_CA"`
+	KeyPath  string `json:"key" flag:"service.conn.client.key||Client certificate key path" env:"SERVICE_CONN_CLIENT_KEY"`
+	CertPath string `json:"cert" flag:"service.conn.client.cert||Client certificate path" env:"SERVICE_CONN_CLIENT_CERT"`
 }
