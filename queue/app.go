@@ -24,6 +24,6 @@ type App interface {
 	NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError
 	NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppError
 	SetAgentBreakOut(agent agent_manager.AgentObject) *model.AppError
-	NotificationLeaveQueue(payload map[string]any) *model.AppError
+	NotificationQueue(payload map[string]any) *model.AppError
 	IMClient() *im.Client
 }

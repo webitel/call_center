@@ -110,7 +110,7 @@ func (a *App) NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppE
 	})
 }
 
-func (a *App) NotificationLeaveQueue(payload map[string]any) *model.AppError {
+func (a *App) NotificationQueue(payload map[string]any) *model.AppError {
 	data, _ := json.Marshal(payload)
-	return a.MQ.SendJSON("queue.leaving", data)
+	return a.MQ.SendJSON("queue", data)
 }
