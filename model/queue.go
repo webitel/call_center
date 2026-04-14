@@ -145,7 +145,7 @@ func (q *Queue) Channel() string {
 	case QueueTypeOutboundCall:
 		return QueueChannelOutCall
 	case QueueTypeInboundIM:
-		return QueueChannelTask
+		return QueueChannelIM
 	default:
 		return QueueChannelCall
 	}
