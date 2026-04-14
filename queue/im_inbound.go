@@ -124,8 +124,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 			inviteTimeout := time.NewTimer(time.Second * time.Duration(team.InviteChatTimeout()))
 			process := true
 
-			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))
-			team.Offering(attempt, agent, task, nil)
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task))
+			team.Offering(attempt, agent, task, sess)
 
 			for process {
 				select {
@@ -157,14 +157,11 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 
 						process = false
 					}
-				case <-timeout.C:
-					attempt.Log("timeout")
-					if task != nil && task.bridgedAt == 0 {
-						task.SetClosed()
-					} else {
-						process = false
-					}
 
+				case <-inviteTimeout.C:
+					handleTimeout(attempt, task, &process)
+				case <-timeout.C:
+					handleTimeout(attempt, task, &process)
 				}
 			}
 
@@ -201,4 +198,13 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 		}
 		queue.queueManager.NotificationLeavingFromQueue(attempt)
 	}()
+}
+
+func handleTimeout(attempt *Attempt, task *TaskChannel, process *bool) {
+	attempt.Log("timeout")
+	if task != nil && task.bridgedAt == 0 {
+		task.SetClosed()
+	} else {
+		*process = false
+	}
 }
