@@ -138,7 +138,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 							// TODO clean invite
 							attempt.Log(err2.Error())
 						}
-
+						// TODO
+						queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
 						team.Bridged(attempt, agent)
 					case TaskStateClosed:
 						inviteTimeout.Stop()
@@ -196,7 +197,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 				attempt.Log(fmt.Sprintf("remove agent [%d], err = %s", agent.Id(), err2.Error()))
 			}
 		}
-		queue.queueManager.NotificationLeavingFromQueue(attempt)
+		// TODO
+		queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
 	}()
 }
 

@@ -1611,8 +1611,9 @@ func (qm *Manager) AgentTeamHook(event string, agent agent_manager.AgentObject, 
 	qm.teamManager.HookAgent(event, agent, teamUpdatedAt)
 }
 
-func (qm *Manager) NotificationLeavingFromQueue(attempt *Attempt) {
-	err := qm.app.NotificationLeaveQueue(map[string]any{
+func (qm *Manager) NotificationQueue(name string, attempt *Attempt) {
+	err := qm.app.NotificationQueue(map[string]any{
+		"event":      name,
 		"attempt_id": attempt.Id(),
 	})
 	if err != nil {
