@@ -13,7 +13,7 @@ require (
 	github.com/streadway/amqp v1.1.0
 	github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa
 	github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3
-	github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f
+	github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156
 	github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41
 	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
 	go.opentelemetry.io/otel v1.35.0
