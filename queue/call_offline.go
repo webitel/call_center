@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 type OfflineQueueSettings struct {
@@ -117,10 +118,11 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"origination_callee_id_name":   agent.Name(),
 				"origination_callee_id_number": agent.CallNumber(),
 
-				model.QUEUE_ID_FIELD:        fmt.Sprintf("%d", queue.Id()),
-				model.QUEUE_NAME_FIELD:      queue.Name(),
-				model.QUEUE_TYPE_NAME_FIELD: queue.TypeName(),
-
+				model.QUEUE_AGENT_ID_FIELD:    fmt.Sprintf("%d", agent.Id()),
+				model.QUEUE_TEAM_ID_FIELD:     fmt.Sprintf("%d", team.Id()),
+				model.QUEUE_ID_FIELD:          fmt.Sprintf("%d", queue.Id()),
+				model.QUEUE_NAME_FIELD:        queue.Name(),
+				model.QUEUE_TYPE_NAME_FIELD:   queue.TypeName(),
 				model.QUEUE_MEMBER_ID_FIELD:   fmt.Sprintf("%d", *attempt.MemberId()),
 				model.QUEUE_ATTEMPT_ID_FIELD:  fmt.Sprintf("%d", attempt.Id()),
 				model.QUEUE_RESOURCE_ID_FIELD: fmt.Sprintf("%d", attempt.resource.Id()),
