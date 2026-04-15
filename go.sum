@@ -263,8 +263,8 @@ github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa h1:5s
 github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa/go.mod h1:SYOLV0TUj7A8ZfCLdNgI08twGMXAlPzqkQ68XL5ePzo=
 github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3 h1:GFFql4qrxFDvz7XjP3aSdFbgIb7FHDGwWs9qtU9+ydw=
 github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3/go.mod h1:15PVfPhimD18i+1ARcWq5ZZ8P5ugjpriGIT1+5/bDEw=
-github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f h1:zU3aBt6aVFURLB1DrSZo7PZdQutOpVOcL43C/4ayXC8=
-github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
+github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156 h1:5NBITWBnAudSbngT6k2XKHSyj3j4TtuHIgqHd0S4zGk=
+github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41 h1:vj6qE8RtTyz8B4syfUDCkZqULLJ/4I+LS0Rw5W7mao0=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41/go.mod h1:MT93dkScj2kDwVudSdXr0MJdGZ+JvvHbYEsSSb2n+Aw=
 github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7 h1:Qi/ustGBfh13I6aZ/ljul679SPJmHbZzFn9h43eloLg=
