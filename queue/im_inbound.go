@@ -23,6 +23,11 @@ type InboundIMQueueSettings struct {
 	LastMessageTimeout bool   `json:"last_message_timeout"`
 }
 
+type IMMemberInfo struct {
+	Name string `json:"name"`
+	Sub  string `json:"chat"` // todo
+}
+
 type InboundIMQueue struct {
 	BaseQueue
 	settings InboundIMQueueSettings
@@ -46,12 +51,19 @@ func NewInboundIMQueue(base BaseQueue, settings InboundIMQueueSettings) QueueObj
 }
 
 func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
-	sess := queue.queueManager.NewIMSession(attempt, "2522")
-	go queue.run(attempt, sess)
+	var imInfo IMMemberInfo
+
+	if attempt.member == nil {
+		return NewErrorVariableRequired(queue, attempt, "member")
+	}
+	_ = json.Unmarshal(attempt.member.Destination, &imInfo)
+
+	sess := queue.queueManager.NewIMSession(attempt, imInfo.Sub)
+	go queue.run(attempt, sess, imInfo)
 	return nil
 }
 
-func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
+func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMemberInfo) {
 	var err *model.AppError
 	var team *agentTeam
 	var task *TaskChannel
@@ -130,9 +142,11 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 			for process {
 				select {
 				case s := <-task.stateC:
+					inviteTimeout.Stop()
+
 					switch s {
 					case TaskStateBridged:
-						inviteTimeout.Stop()
+
 						err2 := sess.AddMemberUser(attempt.Context, agent.UserId())
 						if err2 != nil {
 							// TODO clean invite
@@ -142,7 +156,6 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 						queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
 						team.Bridged(attempt, agent)
 					case TaskStateClosed:
-						inviteTimeout.Stop()
 
 						if task.IsDeclined() {
 							attempt.Log(fmt.Sprintf("conversation decline %s", "TODO"))
@@ -171,7 +184,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session) {
 				timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 			} else {
 				attempt.Log("timeout")
-				// conv.SetStop()
+				loop = false
+
 				break
 			}
 		}
