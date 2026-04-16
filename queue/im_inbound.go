@@ -24,8 +24,9 @@ type InboundIMQueueSettings struct {
 }
 
 type IMMemberInfo struct {
-	Name string `json:"name"`
-	Sub  string `json:"chat"` // todo
+	Name  string `json:"name"`
+	Sub   string `json:"chat"` // todo
+	ToSub string `json:"to_sub"`
 }
 
 type InboundIMQueue struct {
@@ -58,7 +59,7 @@ func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 	}
 	_ = json.Unmarshal(attempt.member.Destination, &imInfo)
 
-	sess := queue.queueManager.NewIMSession(attempt, imInfo.Sub)
+	sess := queue.queueManager.NewIMSession(attempt, imInfo.ToSub)
 	go queue.run(attempt, sess, imInfo)
 	return nil
 }
