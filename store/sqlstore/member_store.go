@@ -796,19 +796,18 @@ from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :D
     :MaxAttempts::int, :WaitBetween::int, :ExcludeDest::bool, :PerNum::bool, :OnyCurr::bool) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar, member_id int8)
 where x.channel notnull`, map[string]any{
-		"AttemptId":      attemptId,
-		"Status":         callback.Status,
-		"Description":    callback.Description,
-		"ExpireAt":       callback.ExpireAt,
-		"NextCallAt":     model.UtcTime(callback.NextCallAt),
-		"WaitBetweenReq": callback.WaitBetweenRetries,
-		"StickyAgentId":  callback.StickyAgentId,
-		"MaxAttempts":    maxAttempts,
-		"WaitBetween":    waitBetween,
-		"ExcludeDest":    callback.ExcludeCurrentCommunication,
-		"PerNum":         perNum,
-		"Vars":           callback.JsonVariables(),
-		"OnyCurr":        callback.OnlyCurrentCommunication,
+		"AttemptId":     attemptId,
+		"Status":        callback.Status,
+		"Description":   callback.Description,
+		"ExpireAt":      callback.ExpireAt,
+		"NextCallAt":    model.UtcTime(callback.NextCallAt),
+		"StickyAgentId": callback.StickyAgentId,
+		"MaxAttempts":   maxAttempts,
+		"WaitBetween":   waitBetween,
+		"ExcludeDest":   callback.ExcludeCurrentCommunication,
+		"PerNum":        perNum,
+		"Vars":          callback.JsonVariables(),
+		"OnyCurr":       callback.OnlyCurrentCommunication,
 	})
 	if err != nil {
 		code := extractCodeFromErr(err)
