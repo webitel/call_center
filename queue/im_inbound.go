@@ -61,6 +61,7 @@ func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 
 	sess := queue.queueManager.NewIMSession(attempt, imInfo.ToSub)
 	go queue.run(attempt, sess, imInfo)
+
 	return nil
 }
 
@@ -69,6 +70,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 	var team *agentTeam
 	var task *TaskChannel
 	var agent agent_manager.AgentObject
+	var inviteTimeout *time.Timer
+	var timeoutStrategy bool
 
 	defer attempt.Log("stopped queue")
 
@@ -96,8 +99,10 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 			// conv.SetStop()
 			loop = false
 			break
+
 		case <-attempt.Context.Done():
 			// conv.SetStop()
+			loop = false
 
 		case <-ags:
 			agent = attempt.Agent()
@@ -112,29 +117,10 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
-			vars := model.UnionStringMaps(
-				attempt.ExportVariables(),
-				queue.variables,
-				map[string]string{
-					model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
-					model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", team.Id()),
-					model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
-					model.QUEUE_NAME_FIELD:       queue.Name(),
-					model.QUEUE_TYPE_NAME_FIELD:  queue.TypeName(),
-					model.QUEUE_ATTEMPT_ID_FIELD: fmt.Sprintf("%d", attempt.Id()),
-					"cc_reporting":               fmt.Sprintf("%v", queue.Processing()),
-				},
-			)
-
-			if queue.settings.ManualDistribution {
-				vars[model.QueueAutoAnswerVariable] = "true"
-				vars[model.QueueManualDistribute] = "true"
-			}
-
 			task = NewTaskChannel(strconv.Itoa(int(attempt.Id())))
 			attempt.channelData = task
 
-			inviteTimeout := time.NewTimer(time.Second * time.Duration(team.InviteChatTimeout()))
+			inviteTimeout = time.NewTimer(time.Second * time.Duration(team.InviteChatTimeout()))
 			process := true
 
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task))
@@ -155,7 +141,11 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 						}
 						// TODO
 						queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
+						attempt.Log("bridged")
+						timeout.Reset(time.Second * time.Duration(timerCheckIdle))
+						sess.SetActivity()
 						team.Bridged(attempt, agent)
+
 					case TaskStateClosed:
 
 						if task.IsDeclined() {
@@ -181,7 +171,46 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 			}
 
 		case <-timeout.C:
-			if 0 > 0 {
+			if attempt.bridgedAt > 0 {
+				// wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d", attempt.Id(), aSess.IdleSec(), mSess.IdleSec(), conv.SilentSec()))
+
+				if queue.settings.LastMessageTimeout {
+					timeoutStrategy = task != nil && sess.SilentSec() >= queue.settings.MaxIdleAgent && sess.OperatorIdleMessage() > sess.MemberIdleMessage()
+				} else {
+					timeoutStrategy = task != nil && sess.OperatorIdleMessage() >= queue.settings.MaxIdleAgent
+				}
+
+				if queue.settings.MaxIdleAgent > 0 && timeoutStrategy {
+					attempt.Log("max idle agent")
+					attempt.SetResult(AttemptResultAgentTimeout)
+					loop = false
+					// aSess.Leave(model.AgentTimeout)
+					break
+				}
+
+				if queue.settings.LastMessageTimeout {
+					timeoutStrategy = task != nil && sess.SilentSec() >= queue.settings.MaxIdleClient &&
+						sess.MemberIdleMessage() > sess.OperatorIdleMessage()
+				} else {
+					timeoutStrategy = task != nil && sess.MemberIdleMessage() >= queue.settings.MaxIdleClient
+				}
+
+				if queue.settings.MaxIdleClient > 0 && timeoutStrategy {
+					attempt.Log("max idle client")
+					attempt.SetResult(AttemptResultClientTimeout)
+					loop = false
+					// aSess.Leave(model.ClientTimeout)
+					break
+				}
+
+				if queue.settings.MaxIdleDialog > 0 && task != nil && sess.SilentSec() >= queue.settings.MaxIdleDialog {
+					attempt.Log("max idle dialog")
+					attempt.SetResult(AttemptResultDialogTimeout)
+					loop = false
+					// aSess.Leave(model.SilenceTimeout)
+					break
+				}
+
 				timeout.Reset(time.Second * time.Duration(timerCheckIdle))
 			} else {
 				attempt.Log("timeout")
@@ -191,6 +220,12 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 			}
 		}
 	}
+
+	if inviteTimeout != nil {
+		inviteTimeout.Stop()
+	}
+
+	timeout.Stop()
 
 	if agent != nil && team != nil {
 		if task.IsDeclined() && task.ReportingAt() == 0 {
@@ -214,11 +249,13 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMe
 		}
 		// TODO
 		queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
+		sess.Close()
 	}()
 }
 
 func handleTimeout(attempt *Attempt, task *TaskChannel, process *bool) {
 	attempt.Log("timeout")
+
 	if task != nil && task.bridgedAt == 0 {
 		task.SetClosed()
 	} else {

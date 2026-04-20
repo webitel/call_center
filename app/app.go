@@ -134,7 +134,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	if err != nil {
 		return nil, err
 	}
-	app.IM = im.NewClient(config.DiscoverySettings.Url, app.Log, t)
+	app.IM = im.NewClient(config.DiscoverySettings.Url, app.MQ.ConsumeIMEvent(), app.Log, t)
 	app.IM.Start()
 
 	app.GrpcServer = NewGrpcServer(app.Config().ServerSettings, app.Log)

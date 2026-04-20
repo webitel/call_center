@@ -3,15 +3,18 @@ package rabbit
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/call_center/mq"
-	"github.com/webitel/wlog"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/streadway/amqp"
+
+	"github.com/webitel/wlog"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
 )
 
 const (
@@ -36,6 +39,7 @@ type AMQP struct {
 	connectionAttempts int
 	callEvent          chan model.CallActionData
 	chatEvent          chan model.ChatEvent
+	imEvent            chan model.IMMessage
 	queueEvent         mq.QueueEvent
 	log                *wlog.Logger
 }
@@ -47,7 +51,8 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog
 		stop:      make(chan struct{}),
 		stopped:   make(chan struct{}),
 		callEvent: make(chan model.CallActionData, 100),
-		chatEvent: make(chan model.ChatEvent),
+		chatEvent: make(chan model.ChatEvent, 100),
+		imEvent:   make(chan model.IMMessage, 100),
 		nodeName:  nodeName,
 		log: log.With(
 			wlog.Namespace("context"),
@@ -93,7 +98,7 @@ func (a *AMQP) listen() {
 }
 
 func (a *AMQP) readMessage(msg *amqp.Delivery) {
-	//fmt.Println(string(msg.Body))
+	// fmt.Println(string(msg.Body))
 	log := a.log.With(
 		wlog.String("exchange", msg.Exchange),
 		wlog.String("routing", msg.RoutingKey),
@@ -145,7 +150,7 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 		return
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 
 	if err = json.Unmarshal(data, &body); err != nil {
 		log.Error(fmt.Sprintf("event %s: error json unmarshal %s", rk, err.Error()),
@@ -154,7 +159,7 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 		return
 	}
 
-	//fmt.Println(string(data))
+	// fmt.Println(string(data))
 
 	a.chatEvent <- model.ChatEvent{
 		Name:     rks[1],
@@ -194,6 +199,7 @@ func (a *AMQP) initConnection() {
 			}
 			a.errorChan = make(chan *amqp.Error, 1)
 			a.channel.NotifyClose(a.errorChan)
+			a.subscribeIM()
 		}
 	}
 }
@@ -211,7 +217,6 @@ func (a *AMQP) connect() error {
 			"x-expires":    10000, // delete after 10s
 		},
 	)
-
 	if err != nil {
 		return err
 	}
@@ -225,7 +230,6 @@ func (a *AMQP) connect() error {
 		false,
 		nil,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -257,6 +261,71 @@ func (a *AMQP) initExchange() {
 	}
 }
 
+func (a *AMQP) subscribeIM() {
+	imQueueName := fmt.Sprintf("%s.%s.any", model.IMQueueNamePrefix, model.NewId()[0:8])
+
+	imQueue, err := a.channel.QueueDeclare(
+		imQueueName,
+		true,
+		false,
+		false,
+		true,
+		amqp.Table{
+			"x-queue-type": "quorum",
+			"x-expires":    10000, // delete after 10s
+		},
+	)
+	if err != nil {
+		wlog.Critical(fmt.Sprintf("Failed to declare AMQP queue %v to err:%v", imQueueName, err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(1)
+	} else {
+		wlog.Debug(fmt.Sprintf("Success declare queue %v connected consumers %v", imQueue.Name, imQueue.Consumers))
+	}
+
+	if err = a.channel.QueueBind(imQueue.Name, "#", model.IMExchange, true, nil); err != nil {
+		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", imQueue.Name, model.IMExchange, err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(1)
+	}
+
+	msgs, err := a.channel.Consume(
+		imQueue.Name,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		wlog.Critical(fmt.Sprintf("Error create consume for queue %s: %s", imQueue.Name, err.Error()))
+		time.Sleep(time.Second)
+		os.Exit(1)
+	}
+
+	go func() {
+		for m := range msgs {
+			switch m.Exchange {
+			case model.IMExchange:
+				var data model.IMMessageWrapper
+				json.Unmarshal(m.Body, &data)
+				println(string(m.Body))
+				if data.Echo {
+					println("skip echo")
+					continue
+				}
+				a.imEvent <- data.Message
+
+			default:
+				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange %s", m.Exchange))
+			}
+
+			m.Ack(false)
+		}
+	}()
+}
+
 func (a *AMQP) Close() {
 	a.log.Debug("AMQP receive stop client")
 	close(a.stop)
@@ -274,7 +343,7 @@ func (a *AMQP) Close() {
 }
 
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
-	//todo, check connection
+	// todo, check connection
 	a.log.Debug(fmt.Sprintf("publish %s [%s]", key, string(data)),
 		wlog.String("routing", key),
 		wlog.String("exchange", model.CallCenterExchange),
@@ -302,4 +371,8 @@ func (a *AMQP) ConsumeCallEvent() <-chan model.CallActionData {
 
 func (a *AMQP) ConsumeChatEvent() <-chan model.ChatEvent {
 	return a.chatEvent
+}
+
+func (a *AMQP) ConsumeIMEvent() <-chan model.IMMessage {
+	return a.imEvent
 }
