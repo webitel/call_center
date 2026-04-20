@@ -729,25 +729,29 @@ where id = :Id;`, map[string]any{
 
 func (s *SqlMemberStore) CallbackReporting(attemptId int64, callback *model.AttemptCallback, maxAttempts uint, waitBetween uint64, perNum bool) (*model.AttemptReportingResult, *model.AppError) {
 	var result *model.AttemptReportingResult
+
+	if callback.WaitBetweenRetries != nil {
+		waitBetween = uint64(*callback.WaitBetweenRetries) // todo
+	}
+
 	err := s.GetMaster().SelectOne(&result, `select *
 from call_center.cc_attempt_end_reporting(:AttemptId::int8, :Status::varchar, :Description::varchar, :ExpireAt::timestamptz,
-	coalesce(:NextCallAt::timestamp, (:WaitBetweenReq::int || ' sec')::interval + now()::timestamp)::timestamp, :StickyAgentId::int, :Vars::jsonb,
+	:NextCallAt::timestamp, :StickyAgentId::int, :Vars::jsonb,
     :MaxAttempts::int, :WaitBetween::int, :ExcludeDest::bool, :PerNum::bool, :OnyCurr::bool) as
 x (timestamp int8, channel varchar, queue_id int, agent_call_id varchar, agent_id int, user_id int8, domain_id int8, agent_timeout int8, member_stop_cause varchar, member_id int8)
 where x.channel notnull`, map[string]any{
-		"AttemptId":      attemptId,
-		"Status":         callback.Status,
-		"Description":    callback.Description,
-		"ExpireAt":       callback.ExpireAt,
-		"NextCallAt":     model.UtcTime(callback.NextCallAt),
-		"WaitBetweenReq": callback.WaitBetweenRetries,
-		"StickyAgentId":  callback.StickyAgentId,
-		"MaxAttempts":    maxAttempts,
-		"WaitBetween":    waitBetween,
-		"ExcludeDest":    callback.ExcludeCurrentCommunication,
-		"PerNum":         perNum,
-		"Vars":           callback.JsonVariables(),
-		"OnyCurr":        callback.OnlyCurrentCommunication,
+		"AttemptId":     attemptId,
+		"Status":        callback.Status,
+		"Description":   callback.Description,
+		"ExpireAt":      callback.ExpireAt,
+		"NextCallAt":    model.UtcTime(callback.NextCallAt),
+		"StickyAgentId": callback.StickyAgentId,
+		"MaxAttempts":   maxAttempts,
+		"WaitBetween":   waitBetween,
+		"ExcludeDest":   callback.ExcludeCurrentCommunication,
+		"PerNum":        perNum,
+		"Vars":          callback.JsonVariables(),
+		"OnyCurr":       callback.OnlyCurrentCommunication,
 	})
 	if err != nil {
 		code := extractCodeFromErr(err)
