@@ -30,6 +30,7 @@ jobs:
       DELIVERY_BOT_APP_PEM: ${{ secrets.DELIVERY_BOT_APP_PEM }}
 
     with:
+      arch: amd64
       deb-package-pattern: "webitel-call-center*.deb"
       deb-component: dev
       deb-codename: ${{ vars.DEB_CODENAME }}
@@ -37,6 +38,7 @@ jobs:
       deb-s3-bucket-region: ${{ vars.DEB_S3_DEFAULT_REGION }}
       deb-s3-endpoint: ${{ vars.DEB_S3_ENDPOINT }}
       deb-s3-force-path-style: ${{ vars.DEB_S3_FORCE_PATH_STYLE == 'true' }}
+      github-app-client-id: ${{ vars.DELIVERY_BOT_CLIENT_ID }}
       github-app-id: ${{ vars.DELIVERY_BOT_APP_ID }}
       artifact-repository-owner: ${{ github.repository_owner }}
       artifact-repository: ${{ github.event.repository.name }}
