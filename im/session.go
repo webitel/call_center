@@ -17,6 +17,7 @@ type Message struct {
 
 type Session struct {
 	threadId      string
+	memberId      string
 	from          string
 	cli           *Client
 	hdrs          metadata.MD
@@ -78,30 +79,37 @@ func (s *Session) OperatorIdleMessage() int64 {
 }
 
 func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
-	_, err := s.cli.Api.AddMember(
+	res, err := s.cli.Api.AddMember(
 		metadata.NewOutgoingContext(ctx, s.hdrs),
 		&thread.AddMemberRequest{
 			ThreadId: s.threadId,
-			Member: &thread.PeerIdentity{
+			Contact: &thread.PeerIdentity{
 				Sub: strconv.Itoa(int(userId)),
 				Iss: "webitel",
 			},
 			Role: thread.ThreadRole_ROLE_MEMBER,
 		})
+	if err != nil {
+		return err
+	}
+
+	if res.GetMember().GetId() != "" {
+		s.memberId = res.GetMember().GetId()
+	}
 
 	return err
 }
 
-func (s *Session) RemoveMemberUser(ctx context.Context, userId int64, reason string) error {
+func (s *Session) RemoveMemberUser(ctx context.Context) error {
+	if s.memberId == "" {
+		return nil
+	}
+
 	_, err := s.cli.Api.RemoveMember(
 		metadata.NewOutgoingContext(ctx, s.hdrs),
 		&thread.RemoveMemberRequest{
 			ThreadId: s.threadId,
-			Member: &thread.PeerIdentity{
-				Sub: strconv.Itoa(int(userId)),
-				Iss: "webitel",
-			},
-			Reason: &reason,
+			MemberId: s.memberId,
 		})
 
 	return err
