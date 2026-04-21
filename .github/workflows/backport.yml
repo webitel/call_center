@@ -24,6 +24,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
 
     with:
+      client-id: ${{ vars.DELIVERY_BOT_CLIENT_ID }}
       app-id: ${{ vars.DELIVERY_BOT_APP_ID }}
 
     secrets:
