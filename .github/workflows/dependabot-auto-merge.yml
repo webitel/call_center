@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Create Github APP token
-        uses: webitel/reusable-workflows/actions/create-github-app-token@create-github-app-token-v1.0.0
+        uses: webitel/reusable-workflows/actions/create-github-app-token@create-github-app-token-v1
         id: app-token
         with:
           client-id: ${{ vars.DELIVERY_BOT_CLIENT_ID }}
@@ -25,7 +25,7 @@ jobs:
 
       - name: Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         with:
           github-token: ${{ steps.app-token.outputs.token }}
 
