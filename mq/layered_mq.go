@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+
 	"github.com/webitel/call_center/model"
 )
 
@@ -41,7 +42,11 @@ func (l *LayeredMQ) QueueEvent() QueueEvent {
 	return l.MQLayer.QueueEvent()
 }
 
-func (l *LayeredMQ) AgentChangeStatus(domainId int64, userId int64, e E) *model.AppError {
+func (l *LayeredMQ) ConsumeIMEvent() <-chan model.IMMessage {
+	return l.MQLayer.ConsumeIMEvent()
+}
+
+func (l *LayeredMQ) AgentChangeStatus(domainId, userId int64, e E) *model.AppError {
 	return l.MQLayer.AgentChangeStatus(domainId, userId, e)
 }
 

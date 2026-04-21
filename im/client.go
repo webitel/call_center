@@ -14,6 +14,7 @@ import (
 	"github.com/webitel/wlog"
 
 	p "github.com/webitel/call_center/gen/im/api/gateway/v1"
+	"github.com/webitel/call_center/model"
 )
 
 const ServiceName = "im-gateway-service"
@@ -22,17 +23,25 @@ type Client struct {
 	consulAddr string
 	startOnce  sync.Once
 	*wbt.Client[p.ThreadManagementClient]
-	log *wlog.Logger
-	ctx context.Context
-	tls *tls.Config
+	log     *wlog.Logger
+	ctx     context.Context
+	cancel  context.CancelFunc
+	tls     *tls.Config
+	events  <-chan model.IMMessage
+	threads map[string]*Session
+	sync.RWMutex
 }
 
-func NewClient(consulAddr string, log *wlog.Logger, t *tls.Config) *Client {
+func NewClient(consulAddr string, events <-chan model.IMMessage, log *wlog.Logger, t *tls.Config) *Client {
 	cli := &Client{
 		consulAddr: consulAddr,
 		log:        log,
 		tls:        t,
+		events:     events,
+		threads:    make(map[string]*Session),
 	}
+
+	cli.ctx, cli.cancel = context.WithCancel(context.Background()) // todo
 
 	return cli
 }
@@ -53,6 +62,7 @@ func (cm *Client) Start() error {
 		if err != nil {
 			return
 		}
+		go cm.listenEvents()
 	})
 	return err
 }
@@ -60,16 +70,57 @@ func (cm *Client) Start() error {
 func (cm *Client) Stop() {
 	cm.log.Debug("stopping " + ServiceName + " client")
 	_ = cm.Client.Close()
+	cm.cancel()
 }
 
-func (cm *Client) NewSession(domainID int64, threadId, from string) *Session {
-	return &Session{
-		cli:      cm,
-		threadId: threadId,
-		from:     from,
+func (cm *Client) listenEvents() {
+	for {
+		select {
+		case <-cm.ctx.Done():
+			return
+		case msg := <-cm.events:
+			if sess, ok := cm.GetSession(msg.ThreadID); ok {
+				sess.onMessage(Message{
+					Bot: false, // todo
+				})
+			}
+		}
+	}
+}
+
+func (cm *Client) NewSession(domainID int64, threadID, from string) *Session {
+	sess := &Session{
+		cli:           cm,
+		threadId:      threadID,
+		from:          from,
+		lastMessageAt: model.GetMillis(),
 		hdrs: metadata.New(map[string]string{
 			"x-webitel-type":   "schema",
 			"x-webitel-schema": fmt.Sprintf("%d.%s", domainID, from),
 		}),
 	}
+
+	cm.addSession(sess)
+
+	return sess
+}
+
+func (cm *Client) GetSession(threadID string) (*Session, bool) {
+	cm.RLock()
+	sess, ok := cm.threads[threadID]
+	cm.RUnlock()
+
+	return sess, ok
+}
+
+func (cm *Client) closeSession(threadID string) {
+	cm.Lock()
+	delete(cm.threads, threadID)
+	cm.Unlock()
+}
+
+func (cm *Client) addSession(sess *Session) {
+	cm.Lock()
+	cm.threads[sess.threadId] = sess
+	cm.Unlock()
 }
