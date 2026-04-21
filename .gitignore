@@ -1,4 +1,179 @@
-.idea/
-data/.idea
+# Ignore OSX indexing
+.DS_Store
+Thumbs.db
+
+# Config with secrets / environment
+# .env and all its variants (.env.local, .env.production, etc.)
+.env
+.env.*
+*.env
+!.env.example
+!.env.otel.example
+!.env.sample
+!example.env
+env
+config.yaml
+config.yml
+config/config.yml
+deploy/docker/config/config.yaml
+test_creds.txt
+secrets/
+secrets.yaml
+secrets.yml
+secrets.json
+
+# Editor junk
+.idea/*
+!.idea/runConfigurations/
+*.iml
+.vscode/*
+!.vscode/launch.json
+.vs/
+.fleet/
+.zed
+*.sublime-workspace
+*.swp
+.*.swp
+*.tmp
+*~
+
+# Build artifacts & language-specific
+#
+# Go: binaries & compiled artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+bin/
+
+# Go: test & coverage output
+*.test
+*.out
+coverage.txt
+coverage.*
+*.coverprofile
+profile.cov
+
+# Go: workspace & deps
+go.work
+go.work.sum
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Build output
 build
+dist/
+/pkg/
+artifacts/
+work/
+out/
+
+# Core / memory dumps (may contain secrets from process memory)
+core
+core.*
+*.core
+*.dmp
+*.stackdump
+hs_err_pid*.log
+
+# Go profiling output (may contain memory contents)
+*.prof
+*.pprof
+cpu.prof
+mem.prof
+block.prof
+mutex.prof
+*.trace
+
+# Private keys & certificates (TLS, SSH, signing)
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+known_hosts
+**/certs/
+**/ssl/
+**/tls/
+
+# Cloud / SaaS credentials
+.aws/credentials
+.aws/config
+aws-credentials*
+gcp-key*.json
+gcp-*.json
+service-account*.json
+*-sa.json
+*-serviceaccount.json
+firebase-adminsdk*.json
+.docker/config.json
+kubeconfig
+*.kubeconfig
+.kube/config
+.netrc
+.npmrc
+.pypirc
+.vault-token
+*.token
+*.token.json
+auth.json
+.htpasswd
+
+# Database dumps / local DBs (may contain PII)
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+dump.rdb
+*.dump
+*.sql.gz
+*.sql.bz2
+
+# Backup / rejected-patch files (may leak older secrets)
+*.orig
+*.rej
+*.save
+.~*
+
+# AI tooling local state
+.claude/settings.local.json
+.cursorignore
+.aider*
+
+# direnv (often holds local secrets)
+.envrc
+.direnv/
+
+# VSCode Local History extension
+.history/
+
+# Logs
+*.log
+logs
+
+# Runtime
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Data dirs (local only)
 .data
+data/.idea
+drafts/
