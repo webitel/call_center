@@ -321,7 +321,7 @@ func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manage
 	attempt.Off("*")
 
 	if agent != nil {
-		if err := sess.RemoveMemberUser(context.Background(), agent.UserId(), "leaving"); err != nil {
+		if err := sess.RemoveMemberUser(context.Background()); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
 	}
