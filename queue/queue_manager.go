@@ -1004,8 +1004,8 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	return attempt, nil
 }
 
-func (qm *Manager) NewIMSession(att *Attempt, from string) *im.Session {
-	return qm.app.IMClient().NewSession(att.domainId, *att.MemberCallId(), from)
+func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember string) *im.Session {
+	return qm.app.IMClient().NewSession(att.domainId, *att.MemberCallId(), subBot, subMember)
 }
 
 func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {
@@ -1616,6 +1616,7 @@ func (qm *Manager) NotificationQueue(name string, attempt *Attempt) {
 	err := qm.app.NotificationQueue(map[string]any{
 		"event":      name,
 		"attempt_id": attempt.Id(),
+		"result":     attempt.Result(),
 	})
 	if err != nil {
 		attempt.log.Error(err.Error())
