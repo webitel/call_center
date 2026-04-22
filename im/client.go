@@ -81,22 +81,23 @@ func (cm *Client) listenEvents() {
 		case msg := <-cm.events:
 			if sess, ok := cm.GetSession(msg.ThreadID); ok {
 				sess.onMessage(Message{
-					Bot: false, // todo
+					FromSub: msg.From.Sub,
 				})
 			}
 		}
 	}
 }
 
-func (cm *Client) NewSession(domainID int64, threadID, from string) *Session {
+func (cm *Client) NewSession(domainID int64, threadID, subBot, subMember string) *Session {
 	sess := &Session{
 		cli:           cm,
 		threadId:      threadID,
-		from:          from,
+		subBot:        subBot,
+		subMember:     subMember,
 		lastMessageAt: model.GetMillis(),
 		hdrs: metadata.New(map[string]string{
 			"x-webitel-type":   "schema",
-			"x-webitel-schema": fmt.Sprintf("%d.%s", domainID, from),
+			"x-webitel-schema": fmt.Sprintf("%d.%s", domainID, subBot),
 		}),
 	}
 

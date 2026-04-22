@@ -73,7 +73,7 @@ func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 	}
 	_ = json.Unmarshal(attempt.member.Destination, &imInfo)
 
-	sess := queue.queueManager.NewIMSession(attempt, imInfo.ToSub)
+	sess := queue.queueManager.NewIMSession(attempt, imInfo.ToSub, imInfo.Sub)
 	go queue.run(attempt, sess, imInfo)
 
 	return nil
