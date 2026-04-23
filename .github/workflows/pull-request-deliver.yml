@@ -8,19 +8,37 @@ on:
 
 permissions: { contents: read }
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
 jobs:
+  version:
+    name: Version
+    uses: webitel/reusable-workflows/.github/workflows/_version.yml@v2
+    if: |
+      github.event.workflow_run.head_repository.fork == false &&
+      github.event.workflow_run.conclusion == 'success'
+
+    with:
+      development-branch: ${{ github.event.repository.default_branch }}
+      triggered-branch: ${{ github.event.workflow_run.head_branch }}
+      arch: ${{ vars.BUILD_ARCH }}
+      codename: ${{ vars.DEB_CODENAME }}
+
   publish:
-    name: Publish .deb package
+    name: Publish .deb package (${{ matrix.arch }}/${{ matrix.codename }})
+    needs: [ version ]
+    strategy:
+      matrix:
+        arch: ${{ fromJSON(needs.version.outputs.arch-matrix) }}
+        codename: ${{ fromJSON(needs.version.outputs.codename-matrix) }}
+
     uses: webitel/reusable-workflows/.github/workflows/_publish-deb.yml@v2
     permissions:
       id-token: write
       actions: read
       contents: read
-
-    # Only run this job if the triggering workflow was not skipped (and on webitel repositories)
-    if: |
-      github.event.workflow_run.head_repository.fork == false &&
-      github.event.workflow_run.conclusion == 'success'
 
     secrets:
       DEB_S3_ACCESS_KEY_ID: ${{ secrets.DEB_S3_ACCESS_KEY_ID }}
@@ -30,16 +48,15 @@ jobs:
       DELIVERY_BOT_APP_PEM: ${{ secrets.DELIVERY_BOT_APP_PEM }}
 
     with:
-      arch: amd64
+      arch: ${{ matrix.arch }}
       deb-package-pattern: "webitel-call-center*.deb"
       deb-component: dev
-      deb-codename: ${{ vars.DEB_CODENAME }}
+      deb-codename: ${{ matrix.codename }}
       deb-s3-bucket-name: ${{ vars.DEB_S3_BUCKET_NAME }}
       deb-s3-bucket-region: ${{ vars.DEB_S3_DEFAULT_REGION }}
       deb-s3-endpoint: ${{ vars.DEB_S3_ENDPOINT }}
       deb-s3-force-path-style: ${{ vars.DEB_S3_FORCE_PATH_STYLE == 'true' }}
       github-app-client-id: ${{ vars.DELIVERY_BOT_CLIENT_ID }}
-      github-app-id: ${{ vars.DELIVERY_BOT_APP_ID }}
       artifact-repository-owner: ${{ github.repository_owner }}
       artifact-repository: ${{ github.event.repository.name }}
       artifact-actions-run-id: ${{ github.event.workflow_run.id }}
