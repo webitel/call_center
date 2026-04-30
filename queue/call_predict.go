@@ -1,8 +1,10 @@
 package queue
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/webitel/call_center/agent_manager"
@@ -30,12 +32,23 @@ type PredictCallQueueSettings struct {
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
 
-	MinAttempts      uint    `json:"min_attempts"`
-	MaxAbandonedRate uint    `json:"max_abandoned_rate"`
-	MaxAgentLine     uint    `json:"max_agent_line"`
 	PlaybackSilence  uint    `json:"playback_silence"`
 	AutoAnswerTone   *string `json:"auto_answer_tone"`
-	transferAfter    string
+
+	// AutoPace enables fully automatic pacing driven by target_occupancy and smoothed stats.
+	// When true, max_agent_line, dialing_rate, max_agent_lose, max_wait_time
+	// become advisory upper bounds only; the engine derives actual values from
+	// the AIMD regulator and the occupancy signal.
+	AutoPace bool `json:"auto_pace"`
+
+	// TargetOccupancy is the desired agent channel occupancy (0.0-1.0, default 0.85).
+	// Used as the primary pacing guard when AutoPace=true (and always in pred_allow).
+	TargetOccupancy float64 `json:"target_occupancy"`
+
+	// AbandonHalfLifeSec controls the EWMA decay constant τ for abandoned_rate (default 300 s).
+	AbandonHalfLifeSec int `json:"abandon_half_life_sec"`
+
+	transferAfter string
 }
 
 func PredictCallQueueSettingsFromBytes(data []byte) PredictCallQueueSettings {
@@ -51,7 +64,21 @@ type PredictCallQueue struct {
 
 func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettings) QueueObject {
 	if settings.MaxWaitTime == 0 {
-		settings.MaxWaitTime = 30
+		// Adaptive default: p95 member-answer + 50% safety margin, clamped to [15, 60] s.
+		// Falls back to 30 s if cc_distribute_stats has no data yet.
+		p95, appErr := callQueue.Manager().store.Member().GetQueueP95MemberAnswer(int64(callQueue.id))
+		if appErr == nil && p95 > 0 {
+			computed := uint16(math.Ceil(p95 * 1.5))
+			if computed < 15 {
+				computed = 15
+			}
+			if computed > 60 {
+				computed = 60
+			}
+			settings.MaxWaitTime = computed
+		} else {
+			settings.MaxWaitTime = 30
+		}
 	}
 
 	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
@@ -530,6 +557,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		queue.queueManager.LosePredictAgent(predictAgentId)
+		recordLoseRace(context.Background(), int64(queue.id), predictAgentId)
 
 		if !queue.queueManager.SendAfterDistributeSchema(attempt) {
 			if queue.RetryAbandoned {

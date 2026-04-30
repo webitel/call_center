@@ -933,6 +933,72 @@ func (s *SqlMemberStore) RefreshQueueStatsLast2H() *model.AppError {
 	return nil
 }
 
+func (s *SqlMemberStore) RefreshPredictivePacing() *model.AppError {
+	_, err := s.GetMaster().Exec(`refresh materialized view CONCURRENTLY call_center.cc_distribute_stats_light`)
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.RefreshPredictivePacing", "store.sql_member.refresh_predictive_pacing.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	_, err = s.GetMaster().Exec(`SELECT call_center.cc_update_predict_state()`)
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.RefreshPredictivePacing", "store.sql_member.update_predict_state.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s *SqlMemberStore) GetQueueP95MemberAnswer(queueId int64) (float64, *model.AppError) {
+	var p95 float64
+	err := s.GetMaster().SelectOne(&p95,
+		`SELECT COALESCE(p95_member_answer, 0)
+		   FROM call_center.cc_distribute_stats
+		  WHERE queue_id = :QueueId AND bucket_id IS NULL
+		  LIMIT 1`,
+		map[string]any{"QueueId": queueId},
+	)
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.GetQueueP95MemberAnswer", "store.sql_member.get_queue_p95.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	return p95, nil
+}
+
+func (s *SqlMemberStore) FetchPredictivePacingStats() ([]*model.PacingStatRow, *model.AppError) {
+	var rows []*model.PacingStatRow
+	_, err := s.GetMaster().Select(&rows, `
+		SELECT
+		    dsl.queue_id                                                   AS queue_id,
+		    dsl.bucket_id                                                  AS bucket_id,
+		    COALESCE(ps.over_dial, dsl.over_dial)::double precision        AS over_dial,
+		    dsl.abandoned_rate_ewma::double precision                      AS abandon_rate,
+		    COALESCE(
+		        (q.payload -> 'target_abandoned_rate')::double precision,
+		        COALESCE((q.payload -> 'max_abandoned_rate')::double precision, 3.0)
+		    )                                                              AS target_abandon,
+		    (CASE
+		       WHEN q.variables->>'wbt_dialing_rate_auto' = 'true' THEN
+		          LEAST(GREATEST(ceil(COALESCE(ps.over_dial, dsl.over_dial))::int, 1),
+		                COALESCE((q.payload -> 'dialing_rate')::int, 5))
+		       ELSE
+		          COALESCE((q.payload -> 'dialing_rate')::int, 5)
+		     END)::int                                                     AS max_predict
+		FROM call_center.cc_distribute_stats_light dsl
+		JOIN call_center.cc_queue q ON q.id = dsl.queue_id
+		LEFT JOIN call_center.cc_predict_state ps
+		       ON ps.queue_id = dsl.queue_id
+		      AND ps.bucket_id = COALESCE(dsl.bucket_id, 0)
+	`)
+	if err != nil {
+		return nil, model.NewAppError("SqlMemberStore.FetchPredictivePacingStats",
+			"store.sql_member.fetch_predictive_pacing_stats.app_error", nil,
+			err.Error(), http.StatusInternalServerError)
+	}
+	return rows, nil
+}
+
 func (s *SqlMemberStore) TransferredTo(id, toId int64) *model.AppError {
 	_, err := s.GetMaster().Exec(`select * from call_center.cc_attempt_transferred_to(:Id, :ToId)
 			as x (last_state_change timestamptz)`, map[string]any{

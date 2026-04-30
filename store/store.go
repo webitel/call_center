@@ -91,6 +91,9 @@ type MemberStore interface {
 	CreateConversationChannel(parentChannelId, name string, attemptId int64) (string, *model.AppError)
 
 	RefreshQueueStatsLast2H() *model.AppError
+	RefreshPredictivePacing() *model.AppError
+	GetQueueP95MemberAnswer(queueId int64) (float64, *model.AppError)
+	FetchPredictivePacingStats() ([]*model.PacingStatRow, *model.AppError)
 
 	TransferredTo(id, toId int64) *model.AppError
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError

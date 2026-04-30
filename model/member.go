@@ -283,3 +283,14 @@ func (a *AttemptCallback) JsonVariables() *[]byte {
 	data, _ := json.Marshal(a.Variables)
 	return &data
 }
+
+// PacingStatRow holds per-(queue, bucket) pacing metrics read from
+// cc_distribute_stats_light / cc_predict_state for OTel emission.
+type PacingStatRow struct {
+	QueueID       int64   `db:"queue_id"`
+	BucketID      *int32  `db:"bucket_id"`
+	OverDial      float64 `db:"over_dial"`
+	AbandonRate   float64 `db:"abandon_rate"`
+	TargetAbandon float64 `db:"target_abandon"`
+	MaxPredict    int32   `db:"max_predict"`
+}
