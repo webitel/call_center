@@ -350,18 +350,13 @@ as x (
 	return attempt, nil
 }
 
-func (s *SqlMemberStore) DistributeIMToQueue(node string, queueId int64, threadId string, dest, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError) {
+func (s *SqlMemberStore) DistributeIMToQueue(node string, queueId int64, threadId string, dest []byte, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError) {
 	var attempt *model.InboundIMQueue
 
 	var v *string
 	if vars != nil {
 		v = new(string)
 		*v = model.MapToJson(vars)
-	}
-	var d *string
-	if dest != nil {
-		d = new(string)
-		*d = model.MapToJson(dest)
 	}
 
 	if err := s.GetMaster().SelectOne(&attempt, `
@@ -385,7 +380,7 @@ as x (
 			"AppId":         node,
 			"QueueId":       queueId,
 			"ThreadId":      threadId,
-			"Destination":   d,
+			"Destination":   dest,
 			"Variables":     v,
 			"BucketId":      bucketId,
 			"Priority":      priority,

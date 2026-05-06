@@ -36,13 +36,14 @@ type Communication struct {
 }
 
 type MemberCommunication struct {
-	Destination string        `json:"destination"`
-	Type        Communication `json:"type"`
-	Priority    int           `json:"priority"`
-	Display     *string       `json:"display"`
-	Description string        `json:"description"`
-	Attempts    int           `json:"attempts"`
-	Dtmf        *string       `json:"dtmf"`
+	Destination string          `json:"destination"`
+	Type        Communication   `json:"type"`
+	Priority    int             `json:"priority,omitempty"`
+	Display     *string         `json:"display,omitempty"`
+	Description string          `json:"description,omitempty"`
+	Attempts    int             `json:"attempts,omitempty"`
+	Dtmf        *string         `json:"dtmf,omitempty"`
+	Thread      json.RawMessage `json:"thread,omitempty"`
 }
 
 type AttemptCallback struct {

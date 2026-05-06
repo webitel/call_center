@@ -32,11 +32,29 @@ type InboundIMQueueSettings struct {
 	LastMessageTimeout bool   `json:"last_message_timeout"` // Use last message time for timeout calculation
 }
 
-// IMMemberInfo contains information about instant messaging member
 type IMMemberInfo struct {
-	Name  string `json:"name"`   // Member display name
-	Sub   string `json:"chat"`   // Chat subscription identifier
-	ToSub string `json:"to_sub"` // Target subscription identifier
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
+type IMThreadInfo struct {
+	Subject     string         `json:"subject"`
+	Members     []IMMemberInfo `json:"members"`
+	LastMessage string         `json:"last_msg"`
+}
+
+// IMMemberInfo contains information about instant messaging member
+type IMThreadCommunication struct {
+	Destination string       `json:"destination"`
+	Thread      IMThreadInfo `json:"thread"`
+
+	ApiSub    string `json:"api_sub"`    // Chat subscription identifier
+	MemberSub string `json:"member_sub"` // Target subscription identifier
+}
+
+func (t *IMThreadCommunication) Json() []byte {
+	data, _ := json.Marshal(t)
+	return data
 }
 
 // InboundIMQueue represents a queue for inbound instant messaging attempts
@@ -66,20 +84,20 @@ func NewInboundIMQueue(base BaseQueue, settings InboundIMQueueSettings) QueueObj
 
 // DistributeAttempt initiates distribution of an IM attempt to available agents
 func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError {
-	var imInfo IMMemberInfo
+	var imInfo IMThreadCommunication
 
 	if attempt.member == nil {
 		return NewErrorVariableRequired(queue, attempt, "member")
 	}
 	_ = json.Unmarshal(attempt.member.Destination, &imInfo)
 
-	sess := queue.queueManager.NewIMSession(attempt, imInfo.ToSub, imInfo.Sub)
+	sess := queue.queueManager.NewIMSession(attempt, imInfo.ApiSub, imInfo.MemberSub)
 	go queue.run(attempt, sess, imInfo)
 
 	return nil
 }
 
-func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMMemberInfo) {
+func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMThreadCommunication) {
 	defer attempt.Log("stopped queue")
 
 	queue.Hook(HookJoined, attempt)
