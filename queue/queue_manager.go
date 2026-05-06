@@ -952,19 +952,32 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		stickyAgentId = model.NewInt(int(in.StickyAgentId))
 	}
 
+	infoThread := in.GetThread()
+
+	dest := IMThreadCommunication{
+		Destination: infoThread.GetFrom().GetSub(),
+		Thread: IMThreadInfo{
+			Subject:     infoThread.GetSubject(),
+			LastMessage: infoThread.GetLastMessage(),
+		},
+
+		ApiSub:    infoThread.GetTo().GetSub(),
+		MemberSub: infoThread.GetFrom().GetSub(),
+	}
+
+	for _, v := range infoThread.Members {
+		dest.Thread.Members = append(dest.Thread.Members, IMMemberInfo{
+			Type: v.GetType(),
+			Name: v.GetName(),
+		})
+	}
+
 	// FIXME add domain
 	res, err := qm.store.Member().DistributeIMToQueue(
 		qm.app.GetInstanceId(),
 		int64(in.GetQueue().GetId()),
 		in.GetThreadId(),
-		map[string]string{
-			"msg":         in.GetMember().GetLastMsg(),
-			"chat":        in.GetMember().GetFrom().GetSub(),
-			"name":        in.GetMember().GetFrom().GetName(),
-			"to_sub":      in.GetMember().GetTo().GetSub(),
-			"member":      `{"type": "bot"}`,
-			"destination": in.GetMember().GetFrom().GetSub(),
-		},
+		dest.Json(),
 		in.GetVariables(),
 		bucketId,
 		int(in.GetPriority()),
