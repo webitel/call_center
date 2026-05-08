@@ -1,0 +1,24 @@
+name: Cleanup Actions artifacts
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        type: boolean
+        default: false
+        description: Log only, don't delete
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: Run
+    uses: webitel/reusable-workflows/.github/workflows/cleanup-artifacts.yml@v2
+    with:
+      keep-latest: 1
+      dry-run: ${{ inputs.dry-run || false }}
