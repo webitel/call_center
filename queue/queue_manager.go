@@ -969,6 +969,8 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		dest.Thread.Members = append(dest.Thread.Members, IMMemberInfo{
 			Type: v.GetType(),
 			Name: v.GetName(),
+			Iss:  v.GetIss(),
+			Sub:  v.GetSub(),
 		})
 	}
 

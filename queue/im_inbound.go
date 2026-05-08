@@ -35,6 +35,8 @@ type InboundIMQueueSettings struct {
 type IMMemberInfo struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
+	Iss  string `json:"iss"`
+	Sub  string `json:"sub"`
 }
 
 type IMThreadInfo struct {
