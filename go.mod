@@ -9,7 +9,7 @@ require (
 	github.com/olebedev/emitter v0.0.0-20190110104742-e8d1457e6aee
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
-	github.com/streadway/amqp v1.1.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa
 	github.com/webitel/engine/pkg/wbt v0.0.0-20250722070748-6033ec4e9e17
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20250813100350-51e53b0daf6f

@@ -3,15 +3,18 @@ package rabbit
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/streadway/amqp"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/call_center/mq"
-	"github.com/webitel/wlog"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+
+	"github.com/webitel/wlog"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/mq"
 )
 
 const (
@@ -93,7 +96,7 @@ func (a *AMQP) listen() {
 }
 
 func (a *AMQP) readMessage(msg *amqp.Delivery) {
-	//fmt.Println(string(msg.Body))
+	// fmt.Println(string(msg.Body))
 	log := a.log.With(
 		wlog.String("exchange", msg.Exchange),
 		wlog.String("routing", msg.RoutingKey),
@@ -145,7 +148,7 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 		return
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 
 	if err = json.Unmarshal(data, &body); err != nil {
 		log.Error(fmt.Sprintf("event %s: error json unmarshal %s", rk, err.Error()),
@@ -154,7 +157,7 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 		return
 	}
 
-	//fmt.Println(string(data))
+	// fmt.Println(string(data))
 
 	a.chatEvent <- model.ChatEvent{
 		Name:     rks[1],
@@ -211,7 +214,6 @@ func (a *AMQP) connect() error {
 			"x-expires":    10000, // delete after 10s
 		},
 	)
-
 	if err != nil {
 		return err
 	}
@@ -225,7 +227,6 @@ func (a *AMQP) connect() error {
 		false,
 		nil,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -274,7 +275,7 @@ func (a *AMQP) Close() {
 }
 
 func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
-	//todo, check connection
+	// todo, check connection
 	a.log.Debug(fmt.Sprintf("publish %s [%s]", key, string(data)),
 		wlog.String("routing", key),
 		wlog.String("exchange", model.CallCenterExchange),
