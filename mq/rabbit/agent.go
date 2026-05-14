@@ -2,10 +2,11 @@ package rabbit
 
 import (
 	"fmt"
-	"github.com/streadway/amqp"
+	"net/http"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
-	"net/http"
 )
 
 func (a *AMQP) AgentChangeStatus(domainId int64, userId int64, e mq.E) *model.AppError {
