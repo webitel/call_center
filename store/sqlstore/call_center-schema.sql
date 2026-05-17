@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict natTSpdEEHirZB2d05sfSLcOjCQqsJiawEgfFSF5rYKO9x9EmayCwdtWehou0LK
+\restrict n96fGvYDTsLbaAZwtLYskVa6GUnnRRCYjAgsxUJeNzu8gv5BYud5Vlo5gddkNgd
 
--- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
--- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
+-- Dumped from database version 15.17 (Debian 15.17-1.pgdg12+1)
+-- Dumped by pg_dump version 15.17 (Debian 15.17-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -85,6 +85,801 @@ CREATE TYPE call_center.cc_member_destination_view AS (
 	attempts integer,
 	last_cause character varying,
 	display character varying
+);
+
+
+--
+-- Name: composite_type_audit_q_298; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_298 AS (
+	"1 *ferf" numeric,
+	"2 hfddh" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_299; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_299 AS (
+	"1 *віавпирол" numeric,
+	"2 вкарепноргло" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_300; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_300 AS (
+	"1 *тест" numeric,
+	"2 *тест" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_303; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_303 AS (
+	"1 *some 1?" numeric,
+	"2 some 2" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_308; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_308 AS (
+	"1 *к1 1-5 б" numeric,
+	"2 *к2 з 1-5 б" numeric,
+	"3 к3 необ" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_309; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_309 AS (
+	"1 *к1 1-5 б" numeric,
+	"2 *к2 з 1-5 б" numeric,
+	"3 к3 необ" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_338; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_338 AS (
+	"1 *gggggggg" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_339; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_339 AS (
+	"1 *аааааааа" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_341; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_341 AS (
+	"1 *тест" numeric,
+	"2 *тест" numeric,
+	"3 театссстстс" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_344; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_344 AS (
+	"1 *yy" numeric,
+	"2 *kyfk" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_345; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_345 AS (
+	"1 *2" numeric,
+	"2 tertw" numeric,
+	"3 *urur" numeric,
+	"4 irityi" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_346; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_346 AS (
+	"1 *gh" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_347; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_347 AS (
+	"1 *обов'язковий" numeric,
+	"2 *обов'язковий" numeric,
+	"3 не обов'язковий" numeric,
+	"4 не обов'язковий" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_350; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_350 AS (
+	"1 *обов'язковий" numeric,
+	"2 *обов'язковий" numeric,
+	"3 не обов'язковий" numeric,
+	"4 не обов'язковий" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_352; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_352 AS (
+	"1 *question 1" numeric,
+	"2 question 2" numeric,
+	"3 *question 3" numeric,
+	"4 question 4" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_356; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_356 AS (
+	"1 *some 1?" numeric,
+	"2 some 2" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_358; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_358 AS (
+	"1 *dsadasdsadsa" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_360; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_360 AS (
+	"1 *тест" numeric,
+	"2 кв" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_361; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_361 AS (
+	"1 *1" numeric,
+	"2 fdnkfd" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_363; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_363 AS (
+	"1 *Наскільки задоволені Ви якіс" numeric,
+	"2 Як оцінюєте оператора кол-цен" numeric,
+	"3 *Як би ви оцінили оператора к" numeric,
+	"4 *Наскільки ефективно оператор" numeric,
+	"5 Чи зрозуміло оператор кол-цен" numeric,
+	"6 *Чи були оператори кол-центру" numeric,
+	"7 Як оцінюєте оператора кол-цен" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_371; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_371 AS (
+	"1 *вфівіфвфівфвф" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_372; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_372 AS (
+	"1 *dasdsadasdas" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_373; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_373 AS (
+	"1 *dasdsadasdas" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_374; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_374 AS (
+	"1 *dd3we1q21321" numeric,
+	"2 *dddddd" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_378; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_378 AS (
+	"1 *перший критерій" numeric,
+	"2 *другий критерій" numeric,
+	"3 *третій критерій" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_380; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_380 AS (
+	"1 *Завершення розмови" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_382; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_382 AS (
+	"1 *required" numeric,
+	"2 *required 2.0" numeric,
+	"3 Not required " numeric,
+	"4 *required  3.0" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_384; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_384 AS (
+	"1 *required" numeric,
+	"2 *required 2.0" numeric,
+	"3 Not required " numeric,
+	"4 *required " numeric,
+	"5 Not required " numeric,
+	"6 *required 4.0" numeric,
+	"7 *required  5.0" numeric,
+	"8 *required  6.0" numeric,
+	"9 *not required  7.0" numeric,
+	"10 *required  8.0" numeric,
+	"11 *required  9.0" numeric,
+	"12 not required  10.0" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_385; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_385 AS (
+	"1 *Привітання" numeric,
+	"2 *Назва" numeric,
+	"3 *Привітання" numeric,
+	"4 *Назва 3" numeric,
+	"5 *Назва 4" numeric,
+	"6 *Назва 5" numeric,
+	"7 *Назва 6" numeric,
+	"8 *Назва 7" numeric,
+	"9 *Назва 8" numeric,
+	"10 *Назва 9" numeric,
+	"11 *Назва 10" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_386; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_386 AS (
+	"1 *Lorem ipsum dolor sit amet, " numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_390; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_390 AS (
+	"1 *required" numeric,
+	"2 *required 2.0" numeric,
+	"3 Not required " numeric,
+	"4 required  3.0" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_392; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_392 AS (
+	"1 *required" numeric,
+	"2 *required 2.0" numeric,
+	"3 *Not required " numeric,
+	"4 required  3.0" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_393; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_393 AS (
+	"1 *Pozdrav/Představení se" numeric,
+	"2 *Test score" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_397; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_397 AS (
+	"1 *питання" numeric,
+	"2 *питання 2 " numeric,
+	"3 питання 3" numeric,
+	"4 *питання 4 " numeric,
+	"5 питання 5 " numeric,
+	"6 *питання 6" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_398; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_398 AS (
+	"1 *q1" numeric,
+	"2 q1" numeric,
+	"3 *q2" numeric,
+	"4 q3" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_399; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_399 AS (
+	"1 *питання" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_400; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_400 AS (
+	"1 *питання 1" numeric,
+	"2 *питання 2" numeric,
+	"3 *питання 3" numeric,
+	"4 *питання 4" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_401; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_401 AS (
+	"1 *Питання 1 " numeric,
+	"2 *Питання 2" numeric,
+	"3 Питання 3" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_403; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_403 AS (
+	"1 *Прозвучало ли приветствие?" numeric,
+	"2 *Какой балл вы выставите за в" numeric,
+	"3 *Оцените полноту ответа опера" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_406; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_406 AS (
+	"1 *123" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_412; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_412 AS (
+	"1 *123" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_414; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_414 AS (
+	"1 *критерій" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_416; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_416 AS (
+	"1 *критерій" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_417; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_417 AS (
+	"1 *критерій" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_418; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_418 AS (
+	"1 *e" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_423; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_423 AS (
+	"1 *dsfd" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_425; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_425 AS (
+	"1 *Criteria" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_454; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_454 AS (
+	"1 *Criteria" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_466; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_466 AS (
+	"1 *criteria" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_474; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_474 AS (
+	"1 *ффф" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_475; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_475 AS (
+	"1 *сччяячсчяч" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_476; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_476 AS (
+	"1 *Criteria" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_478; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_478 AS (
+	"1 *Criteria" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_484; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_484 AS (
+	"1 *fc" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_498; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_498 AS (
+	"1 *aaaa" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_503; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_503 AS (
+	"1 *aaaaa122334" numeric,
+	"2 *aaaaa122334" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_513; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_513 AS (
+	"1 *чссччс" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_516; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_516 AS (
+	"1 *TestDmytro01" numeric,
+	"2 *a1" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_517; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_517 AS (
+	"1 *ТестКритерій" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_523; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_523 AS (
+	"1 speed" numeric,
+	"2 *answer sit" numeric,
+	"3 *Did the agent verify custome" numeric,
+	"4 Did the agent verify first id" numeric,
+	"5 *Did the agent verify second " numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_526; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_526 AS (
+	"1 *speed" numeric,
+	"2 answer sit" numeric,
+	"3 *second option" numeric,
+	"4 *3'rd option" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_533; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_533 AS (
+	"1 *speed" numeric,
+	"2 answer sit" numeric,
+	"3 *second option" numeric,
+	"4 *3'rd option" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_538; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_538 AS (
+	"1 *khj" numeric,
+	"2 *jkhkjlhv" numeric,
+	"3 *khgfiyuf" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_539; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_539 AS (
+	"1 speed" numeric,
+	"2 *answer sit" numeric,
+	"3 *Did the agent verify custome" numeric,
+	"4 Did the agent verify first id" numeric,
+	"5 *Did the agent verify second " numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_541; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_541 AS (
+	"1 *Чи був дзвінок успішним?" numeric,
+	"2 *Чи було достаньо інформації " numeric,
+	"3 *Чи згадувалось в розмові про" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_542; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_542 AS (
+	"1 first question" numeric,
+	"2 *second question" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_543; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_543 AS (
+	"1 *wer" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_544; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_544 AS (
+	"1 *dsgf" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_545; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_545 AS (
+	"1 *khjg" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_547; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_547 AS (
+	"1 *987" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_549; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_549 AS (
+	"1 *нш" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_552; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_552 AS (
+	"1 *ioug" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_553; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_553 AS (
+	"1 *u" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_554; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_554 AS (
+	"1 *gylo" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_555; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_555 AS (
+	"1 *uio" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_556; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_556 AS (
+	"1 *123" numeric
+);
+
+
+--
+-- Name: composite_type_audit_q_557; Type: TYPE; Schema: call_center; Owner: -
+--
+
+CREATE TYPE call_center.composite_type_audit_q_557 AS (
+	"1 *111" numeric
 );
 
 
@@ -209,11 +1004,11 @@ CREATE FUNCTION call_center.cc_agent_init_channel() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    insert into call_center.cc_agent_channel (agent_id, channel, state)
-    select new.id, c, 'waiting'
-    from unnest('{chat,call,task,out_call}'::text[]) c;
-    RETURN NEW;
-END;
+        insert into call_center.cc_agent_channel (agent_id, channel, state)
+        select new.id, c, 'waiting'
+        from unnest('{chat,call,task,out_call,im}'::text[]) c;
+        RETURN NEW;
+    END;
 $$;
 
 
@@ -851,6 +1646,7 @@ begin
             joined_at = last_state_change_,
             timeout  = now() + (agent_hold_::varchar || ' sec')::interval,
             no_answers = (no_answers + 1),
+            attempt_id = attempt_id_,
             last_missed_at = now()
         where c.agent_id = agent_id_ and c.channel = channel_
         returning no_answers into no_answers_;
@@ -892,7 +1688,7 @@ begin
             joined_at        = now(),
             last_offering_at = now(),
             queue_id         = attempt.queue_id,
-            attempt_id         = case when attempt.channel = 'call' then attempt.id else null end,
+            attempt_id         = attempt.id,
             last_bucket_id   = coalesce(attempt.bucket_id, last_bucket_id)
         where (ch.agent_id, ch.channel) = (attempt.agent_id, attempt.channel);
     end if;
@@ -978,7 +1774,7 @@ begin
    update call_center.cc_member_attempt a
     set reporting_at = now(),
         result = case
-            when a.queue_id is null then 'timeout'  
+            when a.queue_id is null then 'timeout'
             when max_attempts_ = 1
                 and q.prolongation_is_timeout_retry = false
             then 'canceled_by_timeout'
@@ -988,7 +1784,7 @@ begin
         schema_processing = do_leaving_
     from call_center.cc_queue q
     where a.id = attempt_id_
-        and (q.id = a.queue_id or a.queue_id is null) 
+        and (q.id = a.queue_id or a.queue_id is null)
     returning a.* into attempt;
 
     if not do_leaving_  is true then
@@ -1049,10 +1845,10 @@ CREATE FUNCTION call_center.cc_attempt_transferred_from(attempt_id_ bigint, to_a
     AS $$
 declare
     attempt call_center.cc_member_attempt%rowtype;
-    user_id_ int8 = null;
+        user_id_ int8 = null;
     domain_id_ int8;
     wrap_time_ int;
-    agent_timeout_ timestamptz;
+     agent_timeout_ timestamptz;
 begin
 
     update call_center.cc_member_attempt
@@ -1069,7 +1865,7 @@ begin
         select a.user_id, a.domain_id, case when a.on_demand then null else coalesce(tm.wrap_up_time, 0) end
         into user_id_, domain_id_, wrap_time_
         from call_center.cc_agent a
-                 left join call_center.cc_team tm on tm.id = attempt.team_id
+            left join call_center.cc_team tm on tm.id = attempt.team_id
         where a.id = attempt.transferred_agent_id;
 
         if wrap_time_ > 0 or wrap_time_ isnull then
@@ -1190,7 +1986,7 @@ BEGIN
             and ( (cc.gateway_id notnull and cc.direction = 'outbound') or (cc.gateway_id notnull and cc.direction = 'inbound') )
     loop
         if c.gateway_id notnull and c.direction = 'outbound' then
-            return next c.to_number;
+            return next c.destination;
         elseif c.gateway_id notnull and c.direction = 'inbound' then
             return next c.from_number;
         end if;
@@ -1264,9 +2060,10 @@ CREATE UNLOGGED TABLE call_center.cc_calls (
     blind_transfers jsonb,
     did text,
     destination_name text,
-    attempt_ids bigint[]
+    attempt_ids bigint[],
+    progress_at timestamp with time zone
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
+WITH (fillfactor='20', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
 
 --
@@ -1302,33 +2099,35 @@ CREATE PROCEDURE call_center.cc_call_set_bridged(IN call_id_ uuid, IN state_ cha
     LANGUAGE plpgsql
     AS $$
 declare
-transfer_to_ uuid;
+  transfer_to_ uuid;
   transfer_from_ uuid;
   transfer_from_name_ varchar;
   transfer_from_number_ varchar;
+  contact_id_ int8;
 begin
-update call_center.cc_calls cc
-set bridged_id = c.bridged_id,
-    state      = state_,
-    timestamp  = timestamp_,
-    to_number  = case
+
+  update call_center.cc_calls cc
+  set bridged_id = c.bridged_id,
+      state      = state_,
+      timestamp  = timestamp_,
+      to_number  = case
                      when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                         then c.number_
+                       then c.number_
                      else to_number end,
-    to_name    = case
+      to_name    = case
                      when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                         then c.name_
+                       then c.name_
                      else to_name end,
-    to_type    = case
+      to_type    = case
                      when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound' and cc.gateway_id isnull )
-                         then c.type_
+                       then c.type_
                      else to_type end,
-    to_id      = case
+      to_id      = case
                      when (cc.direction = 'inbound' and cc.parent_id isnull) or (cc.direction = 'outbound'  and cc.gateway_id isnull )
-                         then c.id_
+                       then c.id_
                      else to_id end,
-    from_name = case when cc.gateway_id notnull then coalesce(_to_name, from_name) else from_name end
-    from (
+      from_name = case when cc.gateway_id notnull then coalesce(_to_name, from_name) else from_name end
+  from (
          select b.id,
                 b.bridged_id as transfer_to,
                 b2.id parent_id,
@@ -1339,22 +2138,22 @@ set bridged_id = c.bridged_id,
                 left join lateral call_center.cc_call_get_owner_leg(b2) b2o on true
          where b.id = call_bridged_id_
        ) c
-where c.id = cc.id
-    returning c.transfer_to, cc.from_name, cc.from_number
-into transfer_to_, transfer_from_name_, transfer_from_number_;
+  where c.id = cc.id
+  returning c.transfer_to, cc.from_name, cc.from_number
+    into transfer_to_, transfer_from_name_, transfer_from_number_;
 
-
-update call_center.cc_calls cc
-set bridged_id    = c.bridged_id,
-    state         = state_,
-    timestamp     = timestamp_,
-    parent_id     = case
+  update call_center.cc_calls cc
+  set bridged_id    = c.bridged_id,
+      state         = state_,
+      timestamp     = timestamp_,
+      parent_id     = case
                         when c.is_leg_a is true and cc.parent_id notnull and cc.parent_id != c.bridged_id then c.bridged_id
                         else cc.parent_id end,
       transfer_from = case
                         when cc.parent_id notnull and cc.parent_id != c.bridged_id then cc.parent_id
                         else cc.transfer_from end,
       transfer_to = transfer_to_,
+
 
       from_number = case
                       when transfer_from_number_ notnull and direction = 'inbound' and transfer_to_ notnull and cc.parent_id notnull and cc.parent_id != c.bridged_id
@@ -1385,6 +2184,7 @@ set bridged_id    = c.bridged_id,
                 b2.id parent_id,
                 b2.id bridged_id,
                 b.parent_id isnull as is_leg_a,
+                b2.contact_id,
                 b2o.*
          from call_center.cc_calls b
                 left join call_center.cc_calls b2 on b2.id = call_bridged_id_
@@ -1392,12 +2192,13 @@ set bridged_id    = c.bridged_id,
          where b.id = call_id_::uuid
        ) c
   where c.id = cc.id
-  returning cc.transfer_from into transfer_from_;
+  returning cc.transfer_from, c.contact_id into transfer_from_, contact_id_;
 
-update call_center.cc_calls set
+  update call_center.cc_calls set
                                 transfer_from =  case when id = transfer_from_ then transfer_to_ end,
-                                transfer_to =  case when id = transfer_to_ then transfer_from_ end
-where id in (transfer_from_, transfer_to_);
+                                transfer_to =  case when id = transfer_to_ then transfer_from_ end,
+                                contact_id = case when id = transfer_to_ and contact_id isnull then (select cc.contact_id from call_center.cc_calls cc where cc.id = transfer_to_) else cc_calls.contact_id end
+  where id in (transfer_from_, transfer_to_);
 
 end;
 $$;
@@ -1562,18 +2363,20 @@ BEGIN
             end if;
 
             new.hold = new.hold || jsonb_build_object(
-                    'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
-                    'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
-                    'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
-                );
+                'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
+                'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
+                'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
+            );
 
 
-            --             if new.parent_id notnull then
+--             if new.parent_id notnull then
 --                 update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
 --             end if;
         end if;
 
         end if;
+    else if (new.state = 'progress') then
+        new.progress_at = coalesce(new.progress_at, new.timestamp);
     else if (new.state = 'bridge') then
         new.bridged_at = coalesce(new.bridged_at, new.timestamp);
     else if new.state = 'hangup' then
@@ -1586,16 +2389,17 @@ BEGIN
             end if;
 
             new.hold = new.hold || jsonb_build_object(
-                    'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
-                    'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
-                    'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
-                );
+                'start', (extract(epoch from old.timestamp)::double precision * 1000)::int8,
+                'finish', (extract(epoch from new.timestamp)::double precision * 1000)::int8,
+                'sec', extract ('epoch' from new.timestamp - old.timestamp)::int8
+            );
 
 
-            --             if new.parent_id notnull then
+--             if new.parent_id notnull then
 --                 update cc_calls set hold_sec  = hold_sec + new.hold_sec  where id = new.parent_id;
 --             end if;
         end if;
+    end if;
     end if;
     end if;
     end if;
@@ -2280,7 +3084,7 @@ BEGIN
   elseif _last_msg_channel_type = 'webitel' then
       _member_jsonb := jsonb_build_object('type', 'agent');
   else
-      _member_jsonb := jsonb_build_object('type', 'contact');
+      _member_jsonb := jsonb_build_object('type', 'self');
   end if;
 
 
@@ -2347,6 +3151,145 @@ $$;
 
 
 --
+-- Name: cc_distribute_inbound_im_to_queue(character varying, bigint, character varying, jsonb, jsonb, integer, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_distribute_inbound_im_to_queue(_node_name character varying, _queue_id bigint, _thread_id character varying, destination_ jsonb, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$declare
+    _timezone_id int4;
+    _discard_abandoned_after int4;
+    _weight int4;
+    dnc_list_id_ int4;
+    _domain_id int8;
+    _calendar_id int4;
+    _queue_updated_at int8;
+    _team_updated_at int8;
+    _team_id_ int;
+    _enabled bool;
+    _q_type smallint;
+    _attempt record;
+    _sticky bool;
+    _sticky_ignore_status bool;
+    _max_waiting_size int;
+    _qparams jsonb;
+    _ignore_calendar bool;
+BEGIN
+  select c.timezone_id,
+           (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
+         q.domain_id,
+         q.dnc_list_id,
+         q.calendar_id,
+         q.updated_at,
+         ct.updated_at,
+         q.team_id,
+         q.enabled,
+         q.type,
+         q.sticky_agent,
+         (payload->>'max_waiting_size')::int max_size,
+         case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
+             then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
+         call_center.cc_queue_params(q),
+         case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
+  from call_center.cc_queue q
+    left join flow.calendar c on q.calendar_id = c.id
+    left join call_center.cc_team ct on q.team_id = ct.id
+  where  q.id = _queue_id
+  into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
+      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _qparams, _ignore_calendar;
+
+  if not _q_type = 9 then
+      raise exception 'queue type not inbound IM';
+  end if;
+
+  if not _enabled = true then
+      raise exception 'queue disabled';
+  end if;
+
+  if not _calendar_id isnull  and (not _ignore_calendar and not exists(select accept
+            from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+            as x (name varchar, excepted varchar, accept bool, expire bool)
+            where accept and excepted is null and not expire)) then
+      raise exception 'thread [%] calendar not working [%] [%]', _thread_id, _calendar_id, _queue_id;
+  end if;
+
+  if _max_waiting_size > 0 then
+      if (select count(*) from call_center.cc_member_attempt aa
+                          where aa.queue_id = _queue_id
+                            and aa.bridged_at isnull
+                            and aa.leaving_at isnull
+                            and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+        raise exception using
+            errcode='MAXWS',
+            message='Queue maximum waiting size';
+      end if;
+  end if;
+
+
+  if  _discard_abandoned_after > 0 then
+      select
+            case when log.result = 'abandoned' then
+                 extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+            else coalesce(_priority, 0) end
+        from call_center.cc_member_attempt_history log
+        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+            and log.queue_id = _queue_id
+            and log.destination->>'destination' = destination_->>'destination'
+        order by log.leaving_at desc
+        limit 1
+        into _weight;
+  end if;
+
+  if _sticky_agent_id notnull and _sticky then
+      if not exists(select 1
+                    from call_center.cc_agent a
+                    where a.id = _sticky_agent_id
+                      and a.domain_id = _domain_id
+                      and (a.status = 'online' or _sticky_ignore_status is true)
+                      and exists(select 1
+                                 from call_center.cc_skill_in_agent sa
+                                          inner join call_center.cc_queue_skill qs
+                                                     on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                                 where sa.agent_id = _sticky_agent_id
+                                   and sa.enabled
+                                   and sa.capacity between qs.min_capacity and qs.max_capacity)
+          ) then
+          _sticky_agent_id = null;
+      end if;
+  else
+      _sticky_agent_id = null;
+  end if;
+
+
+
+  insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id,
+                                             destination, node_id, sticky_agent_id, list_communication_id, queue_params, queue_type)
+  values (_domain_id, 'im', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _thread_id::varchar,
+          destination_,
+              _node_name, _sticky_agent_id, (select clc.id
+                            from call_center.cc_list_communications clc
+                            where (clc.list_id = dnc_list_id_ and clc.number = destination_->>'destination')), _qparams, 6)
+  returning * into _attempt;
+
+
+  return row(
+      _attempt.id::int8,
+      _attempt.queue_id::int,
+      _queue_updated_at::int8,
+      _attempt.destination::jsonb,
+      coalesce((variables_::jsonb), '{}'::jsonb),
+      (destination_->>'destination')::varchar,
+      _team_updated_at::int8,
+
+      _thread_id::varchar,
+      call_center.cc_view_timestamp(now())::int8,
+      _attempt.list_communication_id::int8
+  );
+END;
+$$;
+
+
+--
 -- Name: cc_distribute_members_list(integer, integer, smallint, boolean, smallint[], integer, integer, boolean, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -2401,91 +3344,91 @@ CREATE FUNCTION call_center.cc_distribute_outbound_call(_node_name character var
     _number varchar;
 BEGIN
 
-    select *
-    from call_center.cc_calls c
-    where c.id = _call_id::uuid
+  select *
+  from call_center.cc_calls c
+  where c.id = _call_id::uuid
 --   for update
-    into _call;
+  into _call;
 
-    if _call.id isnull or _call.direction isnull then
-        raise exception 'not found call';
-    elseif _call.direction <> 'outbound' then
-        _number = _call.from_number;
-    else
-        _number = _call.destination;
-    end if;
-
-
-    select
-        a.id,
-        a.team_id,
-        t.updated_at,
-        a.domain_id,
-        (a.updated_at - extract(epoch from u.updated_at))::int8
-    from call_center.cc_agent a
-             inner join call_center.cc_team t on t.id = a.team_id
-             inner join directory.wbt_user u on u.id = a.user_id
-    where a.user_id = _user_id -- check attempt
-      and length(coalesce(u.extension, '')) > 0
-        for update
-    into _agent_id,
-        _team_id_,
-        _team_updated_at,
-        _domain_id,
-        _agent_updated_at
-    ;
-
-    if _call.domain_id != _domain_id then
-        raise exception 'the queue on another domain';
-    end if;
-
-    if _team_id_ isnull then
-        raise exception 'not found agent';
-    end if;
+  if _call.id isnull or _call.direction isnull then
+      raise exception 'not found call';
+  elseif _call.direction <> 'outbound' then
+      _number = _call.from_number;
+  else
+      _number = _call.destination;
+  end if;
 
 
-    insert into call_center.cc_member_attempt (channel, domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id, queue_params)
-    values ('out_call', _domain_id, 'active', _team_id_, _call_id, jsonb_build_object('destination', _number),
-            _node_name, _agent_id, _call.attempt_id, q_params)
-    returning * into _attempt;
+  select
+    a.id,
+    a.team_id,
+    t.updated_at,
+    a.domain_id,
+    (a.updated_at - extract(epoch from u.updated_at))::int8
+  from call_center.cc_agent a
+      inner join call_center.cc_team t on t.id = a.team_id
+      inner join directory.wbt_user u on u.id = a.user_id
+  where a.user_id = _user_id -- check attempt
+    and length(coalesce(u.extension, '')) > 0
+  for update
+  into _agent_id,
+      _team_id_,
+      _team_updated_at,
+      _domain_id,
+      _agent_updated_at
+      ;
 
-    update call_center.cc_calls
-    set team_id = _team_id_,
-        attempt_id = _attempt.id,
-        payload    = case when jsonb_typeof(variables_::jsonb) = 'object' then variables_ else coalesce(payload, '{}') end
-    where id = _call_id::uuid
-    returning * into _call;
+  if _call.domain_id != _domain_id then
+      raise exception 'the queue on another domain';
+  end if;
 
-    if _call.id isnull or _call.direction isnull then
-        raise exception 'not found call';
-    end if;
+  if _team_id_ isnull then
+      raise exception 'not found agent';
+  end if;
 
-    return row(
-        _attempt.id::int8,
-        _attempt.destination::jsonb,
-        variables_::jsonb,
-        _call.from_name::varchar,
-        _team_id_::int,
-        _team_updated_at::int8,
-        _agent_updated_at::int8,
 
-        _call.id::varchar,
-        _call.state::varchar,
-        _call.direction::varchar,
-        _call.destination::varchar,
-        call_center.cc_view_timestamp(_call.timestamp)::int8,
-        _call.app_id::varchar,
-        _number::varchar,
-        case when (_call.direction <> 'outbound'
-            and _call.to_name::varchar <> ''
-            and _call.to_name::varchar notnull)
-                 then _call.from_name::varchar
-             else _call.to_name::varchar end,
-        call_center.cc_view_timestamp(_call.answered_at)::int8,
-        call_center.cc_view_timestamp(_call.bridged_at)::int8,
-        call_center.cc_view_timestamp(_call.created_at)::int8,
-        _agent_id
-        );
+  insert into call_center.cc_member_attempt (channel, domain_id, state, team_id, member_call_id, destination, node_id, agent_id, parent_id, queue_params)
+  values ('out_call', _domain_id, 'active', _team_id_, _call_id, jsonb_build_object('destination', _number),
+              _node_name, _agent_id, _call.attempt_id, q_params)
+  returning * into _attempt;
+
+  update call_center.cc_calls
+  set team_id = _team_id_,
+      attempt_id = _attempt.id,
+      payload    = case when jsonb_typeof(variables_::jsonb) = 'object' then variables_ else coalesce(payload, '{}') end
+  where id = _call_id::uuid
+  returning * into _call;
+
+  if _call.id isnull or _call.direction isnull then
+      raise exception 'not found call';
+  end if;
+
+  return row(
+      _attempt.id::int8,
+      _attempt.destination::jsonb,
+      variables_::jsonb,
+      _call.from_name::varchar,
+      _team_id_::int,
+      _team_updated_at::int8,
+      _agent_updated_at::int8,
+
+      _call.id::varchar,
+      _call.state::varchar,
+      _call.direction::varchar,
+      _call.destination::varchar,
+      call_center.cc_view_timestamp(_call.timestamp)::int8,
+      _call.app_id::varchar,
+      _number::varchar,
+            case when (_call.direction <> 'outbound'
+                    and _call.to_name::varchar <> ''
+                    and _call.to_name::varchar notnull)
+        then _call.from_name::varchar
+        else _call.to_name::varchar end,
+      call_center.cc_view_timestamp(_call.answered_at)::int8,
+      call_center.cc_view_timestamp(_call.bridged_at)::int8,
+      call_center.cc_view_timestamp(_call.created_at)::int8,
+      _agent_id
+  );
 END;
 $$;
 
@@ -2572,7 +3515,7 @@ $_$;
 
 CREATE FUNCTION call_center.cc_get_agent_queues(_domain_id integer, _user_id integer) RETURNS integer[]
     LANGUAGE sql STABLE
-    AS $$ 
+    AS $$
    	select array_agg(distinct cq.id)
    	from call_center.cc_agent ca
    	inner join call_center.cc_skill_in_agent csia 
@@ -2632,6 +3575,7 @@ begin
 from information_schema.columns
 where table_name = _table_name
     and column_name = _col_name
+    and _col_name != 'value'
     and data_type in ('json', 'jsonb'));
 end;
 $$;
@@ -3376,6 +4320,7 @@ CREATE FUNCTION call_center.cc_queue_params(q call_center.cc_queue) RETURNS json
     || jsonb_build_object('has_prolongation', q.prolongation_enabled)
     || jsonb_build_object('remaining_prolongations', q.prolongation_repeats_number)
     || jsonb_build_object('prolongation_sec', q.prolongation_time_sec)
+    || jsonb_build_object('is_timeout_retry', q.prolongation_is_timeout_retry)
     as queue_params;
 $$;
 
@@ -3420,45 +4365,45 @@ begin
 
     if NOT pg_try_advisory_xact_lock(132132118) then
         raise exception 'LOCKED cc_scheduler_jobs';
-    end if;
+end if;
 
-    with del as (
-        delete from call_center.cc_trigger_job
-            where stopped_at notnull
-            returning id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
+with del as (
+delete from call_center.cc_trigger_job
+where stopped_at notnull
+        returning id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
     )
-    insert into call_center.cc_trigger_job_log (id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id)
-    select id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
-    from del
-    ;
+insert into call_center.cc_trigger_job_log (id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id)
+select id, trigger_id, state, created_at, started_at, stopped_at, parameters, error, result, node_id, domain_id
+from del
+;
 
-    with u as (
-        update call_center.cc_trigger t2
-            set schedule_at = (t.new_schedule_at)::timestamp
-            from (select t.id,
-                         jsonb_build_object('variables', t.variables,
-                                            'schema_id', t.schema_id,
-                                            'timeout', t.timeout_sec
-                             ) as                                      params,
-                         call_center.cc_cron_next_after_now(t.expression, (t.schedule_at)::timestamp, (now() at time zone tz.sys_name)::timestamp) new_schedule_at,
-                         t.domain_id,
-                         (t.schedule_at)::timestamp as old_schedule_at,
-                         (now() at time zone tz.sys_name)::timestamp - (t.schedule_at)::timestamp < interval '5m' valid
-                  from call_center.cc_trigger t
-                           inner join flow.calendar_timezones tz on tz.id = t.timezone_id
-                  where t.enabled
-                    and t.type = 'cron'
-                    and (t.schedule_at)::timestamp <= (now() at time zone tz.sys_name)::timestamp
-                    and not exists(select 1 from call_center.cc_trigger_job tj where tj.trigger_id = t.id and tj.state = 0)
-                      for update of t skip locked) t
-            where t2.id = t.id
-            returning t.*
+with u as (
+update call_center.cc_trigger t2
+set schedule_at = (t.new_schedule_at)::timestamp
+from (select t.id,
+    jsonb_build_object('variables', t.variables,
+    'schema_id', t.schema_id,
+    'timeout', t.timeout_sec
+    ) as                                      params,
+    call_center.cc_cron_next_after_now(t.expression, (t.schedule_at)::timestamp, (now() at time zone tz.sys_name)::timestamp) new_schedule_at,
+    t.domain_id,
+    (t.schedule_at)::timestamp as old_schedule_at,
+    (now() at time zone tz.sys_name)::timestamp - (t.schedule_at)::timestamp < interval '5m' valid
+    from call_center.cc_trigger t
+    inner join flow.calendar_timezones tz on tz.id = t.timezone_id
+    where t.enabled
+    and t.type = 'cron'
+    and (t.schedule_at)::timestamp <= (now() at time zone tz.sys_name)::timestamp
+    and not exists(select 1 from call_center.cc_trigger_job tj where tj.trigger_id = t.id and tj.state = 0)
+    for update of t skip locked) t
+where t2.id = t.id
+    returning t.*
     )
-    insert
-    into call_center.cc_trigger_job(trigger_id, parameters, domain_id)
-    select id, params, domain_id
-    from u
-    where u.valid;
+insert
+into call_center.cc_trigger_job(trigger_id, parameters, domain_id)
+select id, params, domain_id
+from u
+where u.valid;
 end;
 $$;
 
@@ -3564,18 +4509,17 @@ CREATE FUNCTION call_center.cc_set_agent_change_status() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    -- FIXME
     if TG_OP = 'INSERT' then
         return new;
     end if;
 
-    -- TODO del me
     insert into call_center.cc_agent_state_history (agent_id, joined_at, state, duration, payload)
     values (old.id, old.last_state_change, old.status,  new.last_state_change - old.last_state_change, old.status_payload);
 
 
     insert into call_center.cc_agent_status_log (agent_id, joined_at, status, duration, payload)
-    values (old.id, old.last_state_change, old.status,  new.last_state_change - old.last_state_change, old.status_payload);
+    values (old.id, old.last_state_change, old.status,  new.last_state_change - old.last_state_change, old.status_payload)
+    on conflict do nothing ;
     RETURN new;
 END;
 $$;
@@ -3806,6 +4750,58 @@ $$;
 
 
 --
+-- Name: composite_type_audit_q(bigint, bigint); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.composite_type_audit_q(IN domain_id_ bigint, IN form_id_ bigint)
+    LANGUAGE plpgsql
+    AS $$
+declare
+    column_list text;
+begin
+    select string_agg('"' || left(c.row_idx || ' ' || replace(c.question, '"', ''), 31) || '" decimal', ', ')
+    into column_list
+    FROM (with form_questions as (select x.form_id,
+                                         x.form_name,
+                                         row_number() over (partition by x.form_id) row_idx,
+                                         x.question
+                                  from (select form.id                              form_id,
+                                               form.name                            form_name,
+                                               jsonb_array_elements(form.questions) question
+                                        from call_center.cc_audit_form form
+                                        where form.domain_id = domain_id_
+                                          and form.id = form_id_) x)
+
+          select form.form_id
+               , form.row_idx
+               , case
+                     when (form.question ->> 'required')::bool then '*' || (form.question ->> 'question')::text
+                     else form.question ->> 'question' end question
+          from form_questions form
+          order by 2) as c;
+    execute 'drop type if exists call_center.composite_type_audit_q_' || form_id_;
+    execute 'create type call_center.composite_type_audit_q_' || form_id_ || ' as (' || column_list || ')';
+end ;
+$$;
+
+
+--
+-- Name: create_composite_type_audit_q(bigint, bigint[]); Type: PROCEDURE; Schema: call_center; Owner: -
+--
+
+CREATE PROCEDURE call_center.create_composite_type_audit_q(IN domain_id_ bigint, IN form_ids_ bigint[])
+    LANGUAGE plpgsql
+    AS $$
+begin
+    for i in 1..array_length(form_ids_, 1)
+        loop
+            call call_center.composite_type_audit_q(domain_id_, (form_ids_)[i]);
+        end loop;
+end ;
+$$;
+
+
+--
 -- Name: rbac_users_from_group(character varying, bigint, smallint, integer[]); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -3932,7 +4928,7 @@ CREATE TABLE call_center.cc_agent (
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_progress_count_c CHECK ((progressive_count > '-1'::integer))
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
+WITH (fillfactor='20', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
 --
@@ -3978,7 +4974,6 @@ CREATE TABLE call_center.cc_agent_channel (
     channel character varying NOT NULL,
     joined_at timestamp with time zone DEFAULT now() NOT NULL,
     timeout timestamp with time zone,
-    max_opened smallint DEFAULT 0,
     no_answers integer DEFAULT 0 NOT NULL,
     queue_id integer,
     last_offering_at timestamp with time zone,
@@ -3988,9 +4983,10 @@ CREATE TABLE call_center.cc_agent_channel (
     channel_changed_at timestamp with time zone DEFAULT now() NOT NULL,
     online boolean DEFAULT false NOT NULL,
     lose_attempt integer DEFAULT 0 NOT NULL,
-    attempt_id integer
+    attempt_id integer,
+    max_opened smallint DEFAULT 0
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
+WITH (fillfactor='20', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
 --
@@ -4254,7 +5250,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_pause_cause AS
      LEFT JOIN flow.region r ON ((r.id = a.region_id)))
      LEFT JOIN flow.calendar_timezones t ON ((t.id = r.timezone_id)))
      LEFT JOIN LATERAL ( SELECT cc_agent_state_history.payload,
-            sum(cc_agent_state_history.duration) AS d
+            sum(cc_agent_state_history.duration) FILTER (WHERE (cc_agent_state_history.duration > '00:00:00'::interval)) AS d
            FROM call_center.cc_agent_state_history
           WHERE ((cc_agent_state_history.joined_at > ((now())::date + age(now(), (timezone(COALESCE(t.sys_name, 'UTC'::text), now()))::timestamp with time zone))) AND (cc_agent_state_history.agent_id = a.id) AND ((cc_agent_state_history.state)::text = 'pause'::text) AND (cc_agent_state_history.channel IS NULL))
           GROUP BY cc_agent_state_history.payload) p ON (true))
@@ -4353,7 +5349,8 @@ CREATE TABLE call_center.cc_calls_history (
     hangup_phrase character varying,
     blind_transfers jsonb,
     destination_name text,
-    attempt_ids bigint[]
+    attempt_ids bigint[],
+    progress_at timestamp with time zone
 );
 
 
@@ -4698,7 +5695,7 @@ CREATE TABLE call_center.cc_audit_form (
     enabled boolean DEFAULT false NOT NULL,
     created_by bigint,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by bigint NOT NULL,
+    updated_by bigint,
     updated_at timestamp with time zone DEFAULT now(),
     questions jsonb,
     team_ids integer[],
@@ -4984,7 +5981,7 @@ CREATE TABLE call_center.cc_member (
     sys_destinations call_center.cc_destination[],
     CONSTRAINT cc_member_bucket_skill_check CHECK ((NOT ((bucket_id IS NOT NULL) AND (skill_id IS NOT NULL))))
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000');
+WITH (autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_vacuum_cost_delay='20', autovacuum_enabled='1', autovacuum_analyze_threshold='2000', fillfactor='20');
 ALTER TABLE ONLY call_center.cc_member ALTER COLUMN communications SET STATISTICS 100;
 
 
@@ -5039,7 +6036,7 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     offered_agent_ids integer[],
     available_prolongation_quant smallint DEFAULT 0
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
+WITH (fillfactor='20', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
 
 --
@@ -5114,7 +6111,7 @@ CREATE VIEW call_center.cc_call_active_list AS
             WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - now())))::integer
             ELSE 0
         END AS reporting_sec,
-    c.agent_id,
+    cma.agent_id,
     aa.team_id,
     c.user_id,
     c.queue_id,
@@ -5158,7 +6155,8 @@ CREATE TABLE call_center.cc_calls_annotation (
     start_sec integer DEFAULT 0 NOT NULL,
     end_sec integer DEFAULT 0 NOT NULL,
     updated_by bigint,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    file_id bigint
 );
 
 
@@ -5215,6 +6213,38 @@ CREATE SEQUENCE call_center.cc_call_list_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_call_list_id_seq OWNED BY call_center.cc_list.id;
+
+
+--
+-- Name: cc_calls_media_stats; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_calls_media_stats (
+    created_at timestamp with time zone,
+    sip_id text NOT NULL,
+    domain_id bigint,
+    mos_avg double precision,
+    mos_min double precision,
+    mos_min_at double precision,
+    mos_max double precision,
+    mos_max_at double precision,
+    jitter_avg double precision,
+    jitter_min double precision,
+    jitter_min_at double precision,
+    jitter_max double precision,
+    jitter_max_at double precision,
+    packetloss_avg double precision,
+    packetloss_min double precision,
+    packetloss_min_at double precision,
+    packetloss_max double precision,
+    packetloss_max_at double precision,
+    roundtrip_avg double precision,
+    roundtrip_min double precision,
+    roundtrip_min_at double precision,
+    roundtrip_max double precision,
+    roundtrip_max_at double precision,
+    user_id bigint
+);
 
 
 --
@@ -5350,7 +6380,8 @@ CREATE VIEW call_center.cc_calls_history_list AS
                     call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS updated_by,
                     a.note,
                     a.start_sec,
-                    a.end_sec
+                    a.end_sec,
+                    a.file_id
                    FROM ((call_center.cc_calls_annotation a
                      LEFT JOIN directory.wbt_user cc_1 ON ((cc_1.id = a.created_by)))
                      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
@@ -5429,8 +6460,202 @@ CREATE VIEW call_center.cc_calls_history_list AS
            FROM chat.conversation co
           WHERE ((co.props ->> 'wbt_meeting_id'::text) = (c.params ->> 'meeting_id'::text))
          LIMIT 1) AS conversation_id,
-    (c.params ->> 'meeting_id'::text) AS meeting_id
-   FROM (((((((((((((call_center.cc_calls_history c
+    (c.params ->> 'meeting_id'::text) AS meeting_id,
+    row_to_json(ms.*) AS quality_metrics
+   FROM ((((((((((((((call_center.cc_calls_history c
+     LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
+     LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
+     LEFT JOIN call_center.cc_member_attempt_history cma ON ((cma.id = c.attempt_id)))
+     LEFT JOIN call_center.cc_agent aa ON ((cma.agent_id = aa.id)))
+     LEFT JOIN directory.wbt_user cag ON ((cag.id = aa.user_id)))
+     LEFT JOIN call_center.cc_team ct ON ((aa.team_id = ct.id)))
+     LEFT JOIN directory.wbt_user u ON ((u.id = c.user_id)))
+     LEFT JOIN directory.sip_gateway gw ON ((gw.id = c.gateway_id)))
+     LEFT JOIN directory.wbt_auth au ON ((au.id = c.grantee_id)))
+     LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
+     LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
+     LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
+     LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)))
+     LEFT JOIN call_center.cc_calls_media_stats ms ON ((ms.sip_id = (c.params ->> 'sip_id'::text))));
+
+
+--
+-- Name: cc_calls_history_list2; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_calls_history_list2 AS
+ SELECT c.id,
+    c.app_id,
+    'call'::character varying AS type,
+    c.parent_id,
+    c.transfer_from,
+        CASE
+            WHEN ((c.parent_id IS NOT NULL) AND (c.transfer_to IS NULL) AND (c.id <> call_center.cc_bridged_id(c.parent_id))) THEN call_center.cc_bridged_id(c.parent_id)
+            ELSE c.transfer_to
+        END AS transfer_to,
+    call_center.cc_get_lookup(u.id, (COALESCE(u.name, (u.username)::text))::character varying) AS "user",
+        CASE
+            WHEN (cq.type = ANY (ARRAY[4, 5])) THEN cag.extension
+            ELSE u.extension
+        END AS extension,
+    call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
+    c.direction,
+    c.destination,
+    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
+    json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying)) AS "to",
+    c.payload AS variables,
+    c.created_at,
+    c.answered_at,
+    c.bridged_at,
+    c.hangup_at,
+    c.stored_at,
+    COALESCE(c.hangup_by, ''::character varying) AS hangup_by,
+    c.cause,
+    (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint AS duration,
+    COALESCE(c.hold_sec, 0) AS hold_sec,
+    COALESCE(
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.answered_at - c.created_at)))::bigint
+            ELSE (date_part('epoch'::text, (c.hangup_at - c.created_at)))::bigint
+        END, (0)::bigint) AS wait_sec,
+        CASE
+            WHEN (c.answered_at IS NOT NULL) THEN (date_part('epoch'::text, (c.hangup_at - c.answered_at)))::bigint
+            ELSE (0)::bigint
+        END AS bill_sec,
+    c.sip_code,
+    ff.files,
+    call_center.cc_get_lookup((cq.id)::bigint, cq.name) AS queue,
+    call_center.cc_get_lookup(c.member_id, cm.name) AS member,
+    call_center.cc_get_lookup(ct.id, ct.name) AS team,
+    call_center.cc_get_lookup((aa.id)::bigint, (COALESCE(cag.username, (cag.name)::name))::character varying) AS agent,
+    cma.joined_at,
+    cma.leaving_at,
+    cma.reporting_at,
+    cma.bridged_at AS queue_bridged_at,
+        CASE
+            WHEN (cma.bridged_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.bridged_at - cma.joined_at)))::integer
+            ELSE (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer
+        END AS queue_wait_sec,
+    (date_part('epoch'::text, (cma.leaving_at - cma.joined_at)))::integer AS queue_duration_sec,
+    cma.result,
+        CASE
+            WHEN (cma.reporting_at IS NOT NULL) THEN (date_part('epoch'::text, (cma.reporting_at - cma.leaving_at)))::integer
+            ELSE 0
+        END AS reporting_sec,
+    c.agent_id,
+    c.team_id,
+    c.user_id,
+    c.queue_id,
+    c.member_id,
+    c.attempt_id,
+    c.domain_id,
+    c.gateway_id,
+    c.from_number,
+    c.to_number,
+    c.tags,
+    cma.display,
+    (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history hp
+          WHERE (((c.parent_id IS NULL) OR (c.blind_transfer IS NOT NULL)) AND (hp.parent_id = c.id) AND (hp.created_at > (c.created_at)::date)))) AS has_children,
+    (COALESCE(regexp_replace((cma.description)::text, '^[\r\n\t ]*|[\r\n\t ]*$'::text, ''::text, 'g'::text), (''::character varying)::text))::character varying AS agent_description,
+    c.grantee_id,
+    ( SELECT jsonb_agg(x.hi ORDER BY (x.hi -> 'start'::text)) AS res
+           FROM ( SELECT jsonb_array_elements(chh.hold) AS hi
+                   FROM call_center.cc_calls_history chh
+                  WHERE ((chh.parent_id = c.id) AND (chh.created_at > (c.created_at)::date) AND (chh.hold IS NOT NULL))
+                UNION
+                 SELECT jsonb_array_elements(c.hold) AS jsonb_array_elements) x
+          WHERE (x.hi IS NOT NULL)) AS hold,
+    c.gateway_ids,
+    c.user_ids,
+    c.agent_ids,
+    c.queue_ids,
+    c.team_ids,
+    ( SELECT json_agg(row_to_json(annotations.*)) AS json_agg
+           FROM ( SELECT a.id,
+                    a.call_id,
+                    a.created_at,
+                    call_center.cc_get_lookup(cc_1.id, (COALESCE(cc_1.name, (cc_1.username)::text))::character varying) AS created_by,
+                    a.updated_at,
+                    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS updated_by,
+                    a.note,
+                    a.start_sec,
+                    a.end_sec
+                   FROM ((call_center.cc_calls_annotation a
+                     LEFT JOIN directory.wbt_user cc_1 ON ((cc_1.id = a.created_by)))
+                     LEFT JOIN directory.wbt_user uc ON ((uc.id = a.updated_by)))
+                  WHERE ((a.call_id)::text = (c.id)::text)
+                  ORDER BY a.created_at DESC) annotations) AS annotations,
+    COALESCE(c.amd_result, c.amd_ai_result) AS amd_result,
+    c.amd_duration,
+    c.amd_ai_result,
+    c.amd_ai_logs,
+    c.amd_ai_positive,
+    cq.type AS queue_type,
+        CASE
+            WHEN (c.parent_id IS NOT NULL) THEN ''::text
+            WHEN ((c.cause)::text = ANY (ARRAY[('USER_BUSY'::character varying)::text, ('NO_ANSWER'::character varying)::text])) THEN 'not_answered'::text
+            WHEN (((c.cause)::text = 'ORIGINATOR_CANCEL'::text) OR (((c.cause)::text = 'NORMAL_UNSPECIFIED'::text) AND (c.amd_ai_result IS NOT NULL)) OR (((c.cause)::text = 'LOSE_RACE'::text) AND (cq.type = 4))) THEN 'cancelled'::text
+            WHEN ((c.hangup_by)::text = 'F'::text) THEN 'ended'::text
+            WHEN ((c.cause)::text = 'NORMAL_CLEARING'::text) THEN
+            CASE
+                WHEN ((((c.cause)::text = 'NORMAL_CLEARING'::text) AND ((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'A'::text) AND (c.user_id IS NOT NULL)) OR (((c.direction)::text = 'inbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (c.bridged_at IS NOT NULL)) OR (((c.direction)::text = 'outbound'::text) AND ((c.hangup_by)::text = 'B'::text) AND (cq.type = ANY (ARRAY[4, 5, 1])) AND (c.bridged_at IS NOT NULL))) THEN 'agent_dropped'::text
+                ELSE 'client_dropped'::text
+            END
+            ELSE 'error'::text
+        END AS hangup_disposition,
+    c.blind_transfer,
+    ( SELECT jsonb_agg(json_build_object('id', j.id, 'created_at', call_center.cc_view_timestamp(j.created_at), 'action', j.action, 'file_id', j.file_id, 'state', j.state, 'error', j.error, 'updated_at', call_center.cc_view_timestamp(j.updated_at))) AS jsonb_agg
+           FROM storage.file_jobs j
+          WHERE (j.file_id IN ( SELECT f_1.id
+                   FROM ( SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                        UNION
+                         SELECT f1.id
+                           FROM storage.files f1
+                          WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1))) AS files_job,
+    ( SELECT json_agg(json_build_object('id', tr.id, 'locale', tr.locale, 'file_id', tr.file_id, 'file', call_center.cc_get_lookup(ff_1.id, ff_1.name))) AS data
+           FROM (storage.file_transcript tr
+             LEFT JOIN storage.files ff_1 ON ((ff_1.id = tr.file_id)))
+          WHERE ((tr.uuid)::text = (c.id)::text)
+          GROUP BY (tr.uuid)::text) AS transcripts,
+    c.talk_sec,
+    call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
+    ar.id AS rate_id,
+    call_center.cc_get_lookup(aru.id, COALESCE((aru.name)::character varying, (aru.username)::character varying)) AS rated_user,
+    call_center.cc_get_lookup(arub.id, COALESCE((arub.name)::character varying, (arub.username)::character varying)) AS rated_by,
+    ar.score_optional,
+    ar.score_required,
+    ((EXISTS ( SELECT 1
+          WHERE ((c.answered_at IS NOT NULL) AND (cq.type = 2)))) OR (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history cr
+          WHERE ((cr.id = c.bridged_id) AND (c.bridged_id IS NOT NULL) AND (c.blind_transfer IS NULL) AND (cr.blind_transfer IS NULL) AND (c.transfer_to IS NULL) AND (cr.transfer_to IS NULL) AND (c.transfer_from IS NULL) AND (cr.transfer_from IS NULL) AND (COALESCE(cr.user_id, c.user_id) IS NOT NULL))))) AS allow_evaluation,
+    cma.form_fields,
+    c.bridged_id,
+    call_center.cc_get_lookup(cc.id, (cc.common_name)::character varying) AS contact,
+    c.contact_id,
+    c.search_number,
+    c.hide_missed,
+    c.redial_id,
+    ((c.parent_id IS NOT NULL) AND (EXISTS ( SELECT 1
+           FROM call_center.cc_calls_history lega
+          WHERE ((lega.id = c.parent_id) AND (lega.domain_id = c.domain_id) AND (lega.bridged_at IS NOT NULL))))) AS parent_bridged,
+    ( SELECT jsonb_agg(call_center.cc_get_lookup(ash.id, ash.name)) AS jsonb_agg
+           FROM flow.acr_routing_scheme ash
+          WHERE (ash.id = ANY (c.schema_ids))) AS schemas,
+    c.schema_ids,
+    c.hangup_phrase,
+    c.blind_transfers,
+    c.destination_name,
+    c.attempt_ids,
+    ( SELECT jsonb_agg(json_build_object('id', p.id, 'agent', u_1."user", 'form_fields', p.form_fields, 'reporting_at', call_center.cc_view_timestamp(p.reporting_at))) AS jsonb_agg
+           FROM (call_center.cc_member_attempt_history p
+             LEFT JOIN call_center.cc_agent_with_user u_1 ON ((u_1.id = p.agent_id)))
+          WHERE ((p.id IN ( SELECT DISTINCT x.x
+                   FROM unnest((c.attempt_ids || c.attempt_id)) x(x))) AND (p.reporting_at IS NOT NULL))
+         LIMIT 20) AS forms
+   FROM ((((((((((((((call_center.cc_calls_history c
      LEFT JOIN call_center.cc_queue cq ON ((c.queue_id = cq.id)))
      LEFT JOIN call_center.cc_team ct ON ((c.team_id = ct.id)))
      LEFT JOIN call_center.cc_member cm ON ((c.member_id = cm.id)))
@@ -5443,39 +6668,40 @@ CREATE VIEW call_center.cc_calls_history_list AS
      LEFT JOIN call_center.cc_audit_rate ar ON (((ar.call_id)::text = (c.id)::text)))
      LEFT JOIN directory.wbt_user aru ON ((aru.id = ar.rated_user_id)))
      LEFT JOIN directory.wbt_user arub ON ((arub.id = ar.created_by)))
-     LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)));
-
-
---
--- Name: cc_calls_media_stats; Type: TABLE; Schema: call_center; Owner: -
---
-
-CREATE TABLE call_center.cc_calls_media_stats (
-    created_at timestamp with time zone,
-    sip_id text NOT NULL,
-    domain_id bigint,
-    mos_avg double precision,
-    mos_min double precision,
-    mos_min_at double precision,
-    mos_max double precision,
-    mos_max_at double precision,
-    jitter_avg double precision,
-    jitter_min double precision,
-    jitter_min_at double precision,
-    jitter_max double precision,
-    jitter_max_at double precision,
-    packetloss_avg double precision,
-    packetloss_min double precision,
-    packetloss_min_at double precision,
-    packetloss_max double precision,
-    packetloss_max_at double precision,
-    roundtrip_avg double precision,
-    roundtrip_min double precision,
-    roundtrip_min_at double precision,
-    roundtrip_max double precision,
-    roundtrip_max_at double precision,
-    user_id bigint
-);
+     LEFT JOIN contacts.contact cc ON ((cc.id = c.contact_id)))
+     LEFT JOIN LATERAL ( SELECT json_agg(jsonb_build_object('id', f_1.id, 'name', f_1.name, 'size', f_1.size, 'mime_type', f_1.mime_type, 'start_at',
+                CASE
+                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_start'::text))::bigint
+                    ELSE ((f_1.custom_properties ->> 'start_time'::text))::bigint
+                END, 'stop_at',
+                CASE
+                    WHEN ((f_1.channel)::text = 'call'::text) THEN ((c.params -> 'record_stop'::text))::bigint
+                    ELSE ((f_1.custom_properties ->> 'end_time'::text))::bigint
+                END, 'start_record', f_1.sr, 'channel', f_1.channel)) FILTER (WHERE ((f_1.channel)::text = 'call'::text)) AS files
+           FROM ( SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    COALESCE(f1.view_name, f1.name) AS name,
+                    f1.channel,
+                    f1.custom_properties,
+                        CASE
+                            WHEN (((c.direction)::text = 'outbound'::text) AND (c.user_id IS NOT NULL) AND ((c.queue_id IS NULL) OR (cq.type = 2))) THEN 'operator'::text
+                            ELSE 'client'::text
+                        END AS sr
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND ((f1.uuid)::text = (c.id)::text))
+                UNION ALL
+                 SELECT f1.id,
+                    f1.size,
+                    f1.mime_type,
+                    COALESCE(f1.view_name, f1.name) AS name,
+                    f1.channel,
+                    f1.custom_properties,
+                    NULL::text AS sr
+                   FROM storage.files f1
+                  WHERE ((f1.domain_id = c.domain_id) AND (NOT (f1.removed IS TRUE)) AND (c.parent_id IS NOT NULL) AND ((f1.uuid)::text = (c.parent_id)::text))) f_1) ff ON (true))
+  WHERE (c.domain_id = 1)
+  ORDER BY c.created_at DESC;
 
 
 --
@@ -5653,7 +6879,7 @@ CREATE MATERIALIZED VIEW call_center.cc_distribute_stats AS
     s.abandoned_calls,
     s.connection_rate,
     (call_center.cc_wrap_over_dial((s.over_dial)::numeric, (s.abandoned_rate)::numeric, COALESCE(((q.payload -> 'target_abandoned_rate'::text))::numeric, COALESCE(((q.payload -> 'max_abandoned_rate'::text))::numeric, 3.0)), COALESCE(((q.payload -> 'max_abandoned_rate'::text))::numeric, 3.0), COALESCE(((q.payload -> 'load_factor'::text))::numeric, 10.0)))::double precision AS over_dial,
-    s.abandoned_rate,
+    GREATEST(s.abandoned_rate, (0)::double precision) AS abandoned_rate,
     s.hit_rate,
     s.agents,
     s.aggent_ids
@@ -6071,7 +7297,7 @@ CREATE VIEW call_center.cc_manual_queue_list AS
    FROM ( SELECT a.domain_id,
             a.user_id,
             array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = 'call'::text)) AS calls,
-            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = 'chat'::text)) AS chats
+            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = ANY (ARRAY['chat'::text, 'im'::text]))) AS chats
            FROM (attempts a
              LEFT JOIN call_center.cc_bucket b ON ((b.id = a.bucket_id)))
           GROUP BY a.domain_id, a.user_id) x
@@ -6809,7 +8035,7 @@ CREATE TABLE call_center.cc_queue_statistics (
     member_waiting integer DEFAULT 0 NOT NULL,
     bucket_id bigint
 )
-WITH (fillfactor='20', log_autovacuum_min_duration='0', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
+WITH (fillfactor='20', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
 
 
 --
@@ -7712,8 +8938,8 @@ CREATE TABLE call_center.socket_session (
     ip text,
     app_id text NOT NULL,
     domain_id bigint NOT NULL,
-    application_name text DEFAULT ''::text NOT NULL,
-    ver text DEFAULT ''::text NOT NULL
+    ver text DEFAULT ''::text NOT NULL,
+    application_name text DEFAULT ''::text NOT NULL
 );
 
 
@@ -8554,7 +9780,7 @@ ALTER TABLE ONLY call_center.feedback
 --
 
 ALTER TABLE ONLY call_center.feedback
-    ADD CONSTRAINT feedback_pk_2 UNIQUE (domain_id, source, source_id);
+    ADD CONSTRAINT feedback_pk_2 UNIQUE (source, source_id);
 
 
 --
@@ -8941,17 +10167,17 @@ CREATE INDEX cc_calls_history_mat_view_agent ON call_center.cc_calls_history USI
 
 
 --
+-- Name: cc_calls_history_meeting_id; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_calls_history_meeting_id ON call_center.cc_calls_history USING btree (((params ->> 'meeting_id'::text))) WHERE (((params ->> 'meeting_id'::text) IS NOT NULL) AND (parent_id IS NULL));
+
+
+--
 -- Name: cc_calls_history_member_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
 CREATE INDEX cc_calls_history_member_id_index ON call_center.cc_calls_history USING btree (member_id);
-
-
---
--- Name: cc_calls_history_parent_created_idx; Type: INDEX; Schema: call_center; Owner: -
---
-
-CREATE INDEX cc_calls_history_parent_created_idx ON call_center.cc_calls_history USING btree (parent_id, created_at) INCLUDE (params);
 
 
 --
@@ -9301,7 +10527,14 @@ CREATE INDEX cc_member_attempt_history_mat_view_agent ON call_center.cc_member_a
 -- Name: cc_member_attempt_history_mat_view_agent2; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_member_attempt_history_mat_view_agent2 ON call_center.cc_member_attempt_history USING btree (agent_id, domain_id, leaving_at) INCLUDE (reporting_at, bridged_at, leaving_at, channel) WHERE (((channel)::text = ANY (ARRAY['chat'::text, 'task'::text])) AND (bridged_at IS NOT NULL));
+CREATE INDEX cc_member_attempt_history_mat_view_agent2 ON call_center.cc_member_attempt_history USING btree (agent_id, domain_id, leaving_at) INCLUDE (reporting_at, bridged_at, leaving_at, channel) WHERE ((channel)::text = ANY (ARRAY['chat'::text, 'task'::text]));
+
+
+--
+-- Name: cc_member_attempt_history_mat_view_chat_task; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_history_mat_view_chat_task ON call_center.cc_member_attempt_history USING btree (agent_id, leaving_at) WHERE ((channel)::text = ANY (ARRAY['chat'::text, 'task'::text]));
 
 
 --
@@ -9442,6 +10675,13 @@ CREATE INDEX cc_member_queue_id_created_at ON call_center.cc_member USING btree 
 --
 
 CREATE INDEX cc_member_queue_id_index ON call_center.cc_member USING btree (queue_id);
+
+
+--
+-- Name: cc_member_reset_by_queue; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_reset_by_queue ON call_center.cc_member USING btree (domain_id, queue_id) INCLUDE (id) WHERE ((stop_at IS NOT NULL) AND ((stop_cause)::text <> ALL ('{success,expired,cancel,terminate,no_communications}'::text[])));
 
 
 --
@@ -9973,7 +11213,7 @@ CREATE INDEX cc_trigger_job_log_trigger_id_started_at_index ON call_center.cc_tr
 -- Name: idx_cc_agent_domain_user; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX idx_cc_agent_domain_user ON call_center.cc_agent USING btree (domain_id, user_id);
+CREATE UNIQUE INDEX idx_cc_agent_domain_user ON call_center.cc_agent USING btree (domain_id, user_id) INCLUDE (team_id, id);
 
 
 --
@@ -9984,10 +11224,10 @@ CREATE INDEX idx_cc_member_attempt_member_id ON call_center.cc_member_attempt US
 
 
 --
--- Name: idx_cc_quick_reply_domain_id; Type: INDEX; Schema: call_center; Owner: -
+-- Name: idx_cc_skill_in_agent_enabled; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX idx_cc_quick_reply_domain_id ON call_center.cc_quick_reply USING btree (domain_id);
+CREATE INDEX idx_cc_skill_in_agent_enabled ON call_center.cc_skill_in_agent USING btree (agent_id, enabled);
 
 
 --
@@ -10037,6 +11277,15 @@ CREATE STATISTICS call_center.cc_calls_history_user_ids_st ON domain_id, user_id
 --
 
 CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
+ WITH users_with_calls AS (
+         SELECT DISTINCT c.user_id
+           FROM call_center.cc_calls c
+          WHERE ((c.user_id IS NOT NULL) AND (((c.hangup_at IS NULL) AND (NOT (EXISTS ( SELECT 1
+                   FROM call_center.cc_calls cc
+                  WHERE ((cc.parent_id = c.id) AND (cc.hangup_at IS NOT NULL)))))) OR ((c.hangup_at IS NOT NULL) AND (c.attempt_id IS NOT NULL) AND (EXISTS ( SELECT 1
+                   FROM call_center.cc_agent_channel ch
+                  WHERE ((ch.agent_id = c.agent_id) AND ((ch.channel)::text = ANY ((ARRAY['call'::character varying, 'out_call'::character varying])::text[])) AND ((ch.state)::text = 'processing'::text)))))))
+        )
  SELECT q.queue,
     q.priority,
     q.type,
@@ -10094,14 +11343,12 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
      LEFT JOIN LATERAL ( SELECT DISTINCT array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'online'::text)) AS agent_on_ids,
             array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = 'offline'::text)) AS agent_off_ids,
             array_agg(DISTINCT a_1.id) FILTER (WHERE ((a_1.status)::text = ANY (ARRAY[('pause'::character varying)::text, ('break_out'::character varying)::text]))) AS agent_p_ids,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND ((ac.state)::text = 'waiting'::text))) AS free,
-            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND ac_call.is_busy)) AS agent_b_ids,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND ((ac.state)::text = 'waiting'::text) AND ((ac_call.user_id IS NULL) OR ((ac.channel)::text = ANY (ARRAY['chat'::text, 'task'::text]))))) AS free,
+            array_agg(DISTINCT a_1.id) FILTER (WHERE (((a_1.status)::text = 'online'::text) AND (ac_call.user_id IS NOT NULL))) AS agent_b_ids,
             array_agg(DISTINCT a_1.id) AS total
            FROM ((((call_center.cc_agent a_1
              JOIN call_center.cc_agent_channel ac ON (((ac.agent_id = a_1.id) AND ((ac.channel)::text = q.chan_name))))
-             LEFT JOIN LATERAL ( SELECT bool_or(((ac_call_1.state)::text <> 'waiting'::text)) AS is_busy
-                   FROM call_center.cc_agent_channel ac_call_1
-                  WHERE ((ac_call_1.agent_id = a_1.id) AND ((ac_call_1.channel)::text = ANY (ARRAY['call'::text, 'out_call'::text])))) ac_call ON (true))
+             LEFT JOIN users_with_calls ac_call ON ((ac_call.user_id = a_1.user_id)))
              JOIN call_center.cc_queue_skill qs ON (((qs.queue_id = q.queue_id) AND qs.enabled)))
              JOIN call_center.cc_skill_in_agent sia ON (((sia.agent_id = a_1.id) AND sia.enabled)))
           WHERE ((a_1.domain_id = q.domain_id) AND ((q.team_id IS NULL) OR (a_1.team_id = q.team_id)) AND (qs.skill_id = sia.skill_id) AND (sia.capacity >= qs.min_capacity) AND (sia.capacity <= qs.max_capacity))
@@ -10306,7 +11553,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
+  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6, 9])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
   ORDER BY q.domain_id, q.priority DESC, q.op;
 
 
@@ -11992,5 +13239,5 @@ ALTER TABLE ONLY call_center.system_settings
 -- PostgreSQL database dump complete
 --
 
-\unrestrict natTSpdEEHirZB2d05sfSLcOjCQqsJiawEgfFSF5rYKO9x9EmayCwdtWehou0LK
+\unrestrict n96fGvYDTsLbaAZwtLYskVa6GUnnRRCYjAgsxUJeNzu8gv5BYud5Vlo5gddkNgd
 

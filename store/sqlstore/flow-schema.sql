@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict VWFYmlu4gE8WB90HdipxF5fm5iSvWh2EmBzY7yOohOEiEp1W3vaeYckbkGQszP5
+\restrict IawNXR9OaAWdy7ffAiLoHHdvrhBPcc3ap73HXcl72TECEqKf7TU0pboEQi6X1wj
 
--- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
--- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
+-- Dumped from database version 15.17 (Debian 15.17-1.pgdg12+1)
+-- Dumped by pg_dump version 15.17 (Debian 15.17-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -809,6 +809,29 @@ CREATE VIEW flow.region_list AS
 
 
 --
+-- Name: runtime_state; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.runtime_state (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    connection_id text NOT NULL,
+    domain_id bigint NOT NULL,
+    channel smallint NOT NULL,
+    schema_id integer NOT NULL,
+    schema_version bigint NOT NULL,
+    app_id text NOT NULL,
+    state jsonb NOT NULL,
+    status text DEFAULT 'running'::text NOT NULL,
+    resume_key text,
+    fail_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    suspended_at timestamp with time zone,
+    completed_at timestamp with time zone
+);
+
+
+--
 -- Name: scheme_log; Type: TABLE; Schema: flow; Owner: -
 --
 
@@ -913,6 +936,25 @@ CREATE UNLOGGED TABLE flow.session (
     seq integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: session_checkpoint; Type: TABLE; Schema: flow; Owner: -
+--
+
+CREATE TABLE flow.session_checkpoint (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    connection_id text NOT NULL,
+    domain_id bigint NOT NULL,
+    channel smallint NOT NULL,
+    schema_id integer NOT NULL,
+    app_id text NOT NULL,
+    variables jsonb,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    closed_at timestamp with time zone
 );
 
 
@@ -1131,11 +1173,27 @@ ALTER TABLE ONLY flow.calendar_timezones
 
 
 --
+-- Name: session_checkpoint flow_session_checkpoint_pkey; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.session_checkpoint
+    ADD CONSTRAINT flow_session_checkpoint_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: region region_pk; Type: CONSTRAINT; Schema: flow; Owner: -
 --
 
 ALTER TABLE ONLY flow.region
     ADD CONSTRAINT region_pk PRIMARY KEY (id);
+
+
+--
+-- Name: runtime_state runtime_state_pkey; Type: CONSTRAINT; Schema: flow; Owner: -
+--
+
+ALTER TABLE ONLY flow.runtime_state
+    ADD CONSTRAINT runtime_state_pkey PRIMARY KEY (id);
 
 
 --
@@ -1325,10 +1383,45 @@ CREATE INDEX calendar_updated_by_index ON flow.calendar USING btree (updated_by)
 
 
 --
+-- Name: flow_session_checkpoint_app_active_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX flow_session_checkpoint_app_active_idx ON flow.session_checkpoint USING btree (app_id, updated_at) WHERE (status = 'active'::text);
+
+
+--
+-- Name: flow_session_checkpoint_conn_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX flow_session_checkpoint_conn_idx ON flow.session_checkpoint USING btree (connection_id);
+
+
+--
 -- Name: region_domain_id_name_uindex; Type: INDEX; Schema: flow; Owner: -
 --
 
 CREATE UNIQUE INDEX region_domain_id_name_uindex ON flow.region USING btree (domain_id, name);
+
+
+--
+-- Name: runtime_state_app_active_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX runtime_state_app_active_idx ON flow.runtime_state USING btree (app_id, updated_at) WHERE ((status = 'running'::text) OR (status = 'suspended'::text));
+
+
+--
+-- Name: runtime_state_conn_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX runtime_state_conn_idx ON flow.runtime_state USING btree (connection_id);
+
+
+--
+-- Name: runtime_state_resume_key_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX runtime_state_resume_key_idx ON flow.runtime_state USING btree (resume_key) WHERE (resume_key IS NOT NULL);
 
 
 --
@@ -1578,5 +1671,5 @@ ALTER TABLE ONLY flow.web_hook
 -- PostgreSQL database dump complete
 --
 
-\unrestrict VWFYmlu4gE8WB90HdipxF5fm5iSvWh2EmBzY7yOohOEiEp1W3vaeYckbkGQszP5
+\unrestrict IawNXR9OaAWdy7ffAiLoHHdvrhBPcc3ap73HXcl72TECEqKf7TU0pboEQi6X1wj
 
