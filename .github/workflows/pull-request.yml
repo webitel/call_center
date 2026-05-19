@@ -39,7 +39,7 @@ jobs:
     needs: [ prepare ]
     uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v2
     with:
-      binary-name: call_center
+      binary-name: webitel-call-center
       ldflags: >
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
