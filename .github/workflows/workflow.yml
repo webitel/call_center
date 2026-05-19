@@ -3,7 +3,7 @@ run-name: "webitel-call-center@${{ github.ref_name }}#${{ github.run_number }} -
 
 on:
   push:
-    branches: [ master, "v[0-9]+.[0-9]+" ]
+    branches: [ main, "v[0-9]+.[0-9]+" ]
 
 permissions: { contents: read }
 concurrency:
@@ -47,7 +47,7 @@ jobs:
     uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v2
     with:
       arch: ${{ matrix.arch }}
-      binary-name: call_center
+      binary-name: webitel-call-center
       ldflags: >
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
