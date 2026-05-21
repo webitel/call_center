@@ -39,7 +39,8 @@ type SqlSettings struct {
 }
 
 type MessageQueueSettings struct {
-	Url string `flag:"amqp|amqp://admin:admin@rabbit:5672?heartbeat=10|AMQP connection" env:"AMQP"`
+	Url   string `flag:"amqp|amqp://admin:admin@rabbit:5672?heartbeat=10|AMQP connection" env:"AMQP"`
+	UseIM bool   `json:"use_im" flag:"use_im|false|Use IM handlers" env:"USE_IM"`
 }
 
 type ServerSettings struct {

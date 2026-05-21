@@ -199,7 +199,9 @@ func (a *AMQP) initConnection() {
 			}
 			a.errorChan = make(chan *amqp.Error, 1)
 			a.channel.NotifyClose(a.errorChan)
-			a.subscribeIM()
+			if a.settings.UseIM {
+				a.subscribeIM()
+			}
 		}
 	}
 }
