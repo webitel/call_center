@@ -17,7 +17,8 @@ type Message struct {
 
 type Session struct {
 	threadId                string
-	memberId                string
+	agentMemberId           string
+	clientMemberId          string
 	subBot                  string
 	subMember               string
 	cli                     *Client
@@ -27,6 +28,8 @@ type Session struct {
 	lastMessageAtFromAgent  int64
 	ActivityAt              int64
 	userId                  string
+	ctx                     context.Context
+	cancel                  context.CancelFunc
 	sync.RWMutex
 }
 
@@ -44,6 +47,10 @@ func (s *Session) Answered() bool {
 
 func (s *Session) Close() {
 	s.cli.closeSession(s.threadId)
+}
+
+func (s *Session) Done() <-chan struct{} {
+	return s.ctx.Done()
 }
 
 func (s *Session) SetActivity() {
@@ -122,7 +129,7 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 	}
 
 	if res.GetMember().GetId() != "" {
-		s.memberId = res.GetMember().GetId()
+		s.agentMemberId = res.GetMember().GetId()
 	}
 
 	s.Lock()
@@ -133,7 +140,7 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 }
 
 func (s *Session) RemoveMemberUser(ctx context.Context) error {
-	if s.memberId == "" {
+	if s.agentMemberId == "" {
 		return nil
 	}
 
@@ -141,7 +148,7 @@ func (s *Session) RemoveMemberUser(ctx context.Context) error {
 		metadata.NewOutgoingContext(ctx, s.hdrs),
 		&thread.RemoveMemberRequest{
 			ThreadId: s.threadId,
-			MemberId: s.memberId,
+			MemberId: s.agentMemberId,
 		})
 
 	return err

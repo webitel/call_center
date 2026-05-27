@@ -33,10 +33,12 @@ type InboundIMQueueSettings struct {
 }
 
 type IMMemberInfo struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Iss  string `json:"iss"`
-	Sub  string `json:"sub"`
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Iss      string `json:"iss"`
+	Sub      string `json:"sub"`
+	MemberId string `json:"id,omitempty"`
+	Role     int    `json:"role,omitempty"`
 }
 
 type IMThreadInfo struct {
@@ -52,6 +54,7 @@ type IMThreadCommunication struct {
 
 	ApiSub    string `json:"api_sub"`    // Chat subscription identifier
 	MemberSub string `json:"member_sub"` // Target subscription identifier
+	MemberId  string `json:"member_id"`
 }
 
 func (t *IMThreadCommunication) Json() []byte {
@@ -93,7 +96,7 @@ func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 	}
 	_ = json.Unmarshal(attempt.member.Destination, &imInfo)
 
-	sess := queue.queueManager.NewIMSession(attempt, imInfo.ApiSub, imInfo.MemberSub)
+	sess := queue.queueManager.NewIMSession(attempt, imInfo.ApiSub, imInfo.MemberSub, imInfo.MemberId)
 	go queue.run(attempt, sess, imInfo)
 
 	return nil
@@ -137,6 +140,10 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 			return
 
 		case <-attempt.Context.Done():
+			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			return
+
+		case <-sess.Done():
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
@@ -185,6 +192,8 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 ) bool {
 	for {
 		select {
+		case <-sess.Done():
+			return false
 		case state := <-task.stateC:
 			inviteTimeout.Stop()
 

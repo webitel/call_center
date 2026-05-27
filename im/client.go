@@ -80,26 +80,39 @@ func (cm *Client) listenEvents() {
 			return
 		case msg := <-cm.events:
 			if sess, ok := cm.GetSession(msg.ThreadID); ok {
-				sess.onMessage(Message{
-					FromSub: msg.From.Sub,
-				})
+				if msg.System != nil && msg.System.Type == "member_removed" {
+					if sess.agentMemberId == msg.System.Metadata.RemovedMemberId ||
+						sess.clientMemberId == msg.System.Metadata.RemovedMemberId {
+						wlog.Debug("removing member from session", wlog.String("thread_id", msg.ThreadID))
+						sess.cancel() // todo
+					} else {
+						wlog.Debug("removing other member from session", wlog.String("thread_id", msg.ThreadID))
+					}
+				} else {
+					sess.onMessage(Message{
+						FromSub: msg.From.Sub,
+					})
+				}
 			}
 		}
 	}
 }
 
-func (cm *Client) NewSession(domainID int64, threadID, subBot, subMember string) *Session {
+func (cm *Client) NewSession(ctx context.Context, domainID int64, threadID, subBot, subMember, memberId string) *Session {
 	sess := &Session{
-		cli:           cm,
-		threadId:      threadID,
-		subBot:        subBot,
-		subMember:     subMember,
-		lastMessageAt: model.GetMillis(),
+		cli:            cm,
+		threadId:       threadID,
+		clientMemberId: memberId,
+		subBot:         subBot,
+		subMember:      subMember,
+		lastMessageAt:  model.GetMillis(),
 		hdrs: metadata.New(map[string]string{
 			"x-webitel-type":   "schema",
 			"x-webitel-schema": fmt.Sprintf("%d.%s", domainID, subBot),
 		}),
 	}
+
+	sess.ctx, sess.cancel = context.WithCancel(ctx)
 
 	cm.addSession(sess)
 
