@@ -963,14 +963,17 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 
 		ApiSub:    infoThread.GetTo().GetSub(),
 		MemberSub: infoThread.GetFrom().GetSub(),
+		MemberId:  infoThread.GetFrom().GetMemberId(),
 	}
 
 	for _, v := range infoThread.Members {
 		dest.Thread.Members = append(dest.Thread.Members, IMMemberInfo{
-			Type: v.GetType(),
-			Name: v.GetName(),
-			Iss:  v.GetIss(),
-			Sub:  v.GetSub(),
+			Type:     v.GetType(),
+			Name:     v.GetName(),
+			Iss:      v.GetIss(),
+			Sub:      v.GetSub(),
+			MemberId: v.GetMemberId(),
+			Role:     int(v.GetRole()),
 		})
 	}
 
@@ -1019,8 +1022,8 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	return attempt, nil
 }
 
-func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember string) *im.Session {
-	return qm.app.IMClient().NewSession(att.domainId, *att.MemberCallId(), subBot, subMember)
+func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {
+	return qm.app.IMClient().NewSession(att.Context, att.domainId, *att.MemberCallId(), subBot, subMember, memberId)
 }
 
 func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {

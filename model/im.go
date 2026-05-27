@@ -14,11 +14,20 @@ type InboundIMQueue struct {
 	ThreadCreatedAt int64  `json:"thread_created_at" db:"thread_created_at"`
 }
 
+type IMSystem struct {
+	Type     string `json:"type" db:"type"`
+	Metadata struct {
+		RemovedMemberId        string `json:"removed_member_id" db:"removed_member_id"`
+		RemovedMemberContactId string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
+	} `json:"metadata" db:"metadata"`
+}
+
 type IMMessageWrapper struct {
 	ID       string    `json:"id"`
 	Message  IMMessage `json:"payload"`
 	UserID   string    `json:"user_id"`
 	DomainID int64     `json:"domain_id"`
+	System   *IMSystem `json:"system"`
 	Echo     bool      `json:"echo"`
 }
 
@@ -31,6 +40,7 @@ type IMMessage struct {
 	To        IMEndpoint `json:"to"`
 	Text      string     `json:"text"`
 	CreatedAt int64      `json:"created_at"` // Unix timestamp у мілісекундах
+	System    *IMSystem  `json:"system"`
 }
 
 type IMEndpoint struct {
