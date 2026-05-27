@@ -3,10 +3,11 @@ package queue
 import (
 	"encoding/json"
 
-	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/model"
 	flow "github.com/webitel/flow_manager/pkg/processing"
 	"github.com/webitel/wlog"
+
+	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/model"
 )
 
 type Channel interface {
@@ -16,7 +17,7 @@ type Channel interface {
 }
 
 type ChannelEvent struct {
-	AttemptId *int64 `json:"attempt_id,omitempty"` //TODO channel_id ?
+	AttemptId *int64 `json:"attempt_id,omitempty"` // TODO channel_id ?
 	Channel   string `json:"channel"`
 	Status    string `json:"status"`
 	Timestamp int64  `json:"timestamp"`
@@ -40,9 +41,9 @@ type Distribute struct {
 }
 
 type Offering struct {
-	MemberChannelId *string     `json:"member_channel_id"`
-	AgentChannelId  *string     `json:"agent_channel_id"`
-	AutoAnswer      interface{} `json:"auto_answer"`
+	MemberChannelId *string `json:"member_channel_id"`
+	AgentChannelId  *string `json:"agent_channel_id"`
+	AutoAnswer      any     `json:"auto_answer"`
 }
 
 type Missed struct {
@@ -143,10 +144,10 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 		},
 	}
 
-	//todo: send all channel variables ?
+	// todo: send all channel variables ?
 	if queue.TypeName() == "progressive" {
 		e.Distribute.Variables = a.ExportSchemaVariables()
-	} else if a.channel == model.QueueChannelTask {
+	} else if a.channel == model.QueueChannelTask || a.channel == model.QueueChannelIM {
 		e.Distribute.Variables = model.UnionStringMaps(
 			a.ExportVariables(),
 			queue.Variables(),
@@ -194,11 +195,12 @@ func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, ag
 		} else {
 			e.Distribute.HasForm = true
 		}
-
 	}
 
-	//todo: send all channel variables ?
-	if a.channel == model.QueueChannelTask || queue.TypeName() == "progressive" {
+	// todo: send all channel variables ?
+	if a.channel == model.QueueChannelTask ||
+		queue.TypeName() == "progressive" ||
+		a.channel == model.QueueChannelIM {
 		e.Distribute.Variables = a.ExportSchemaVariables()
 	}
 
@@ -217,7 +219,7 @@ func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, ag
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewOfferingEvent(a *Attempt, userId int64, timestamp int64, aChannel, mChannel Channel) model.Event {
+func NewOfferingEvent(a *Attempt, userId, timestamp int64, aChannel, mChannel Channel) model.Event {
 	e := OfferingEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,
@@ -246,7 +248,7 @@ func NewOfferingEvent(a *Attempt, userId int64, timestamp int64, aChannel, mChan
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewAnsweredEvent(a *Attempt, userId int64, timestamp int64) model.Event {
+func NewAnsweredEvent(a *Attempt, userId, timestamp int64) model.Event {
 	e := AnsweredEvent{
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
@@ -259,7 +261,7 @@ func NewAnsweredEvent(a *Attempt, userId int64, timestamp int64) model.Event {
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewBridgedEventEvent(a *Attempt, userId int64, timestamp int64) model.Event {
+func NewBridgedEventEvent(a *Attempt, userId, timestamp int64) model.Event {
 	e := BridgedEvent{
 		ChannelEvent: ChannelEvent{
 			Channel:   a.channel,
@@ -297,7 +299,7 @@ func NewNextFormEvent(a *Attempt, userId int64) model.Event {
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadlineSec uint32, renewal uint32, prolongation *ProcessingProlongation) model.Event {
+func NewProcessingEventEvent(a *Attempt, userId, timestamp int64, deadlineSec, renewal uint32, prolongation *ProcessingProlongation) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:                timestamp + (int64(deadlineSec) * 1000),
@@ -316,7 +318,7 @@ func NewProcessingEventEvent(a *Attempt, userId int64, timestamp int64, deadline
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeout, timestamp int64, renewal uint32, prolongation *ProcessingProlongation) model.Event {
+func NewRenewalProcessingEvent(attId, userId int64, channel string, timeout, timestamp int64, renewal uint32, prolongation *ProcessingProlongation) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:                timeout,
@@ -335,7 +337,7 @@ func NewRenewalProcessingEvent(attId int64, userId int64, channel string, timeou
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewMissedEventEvent(a *Attempt, userId int64, timestamp int64, timeout int64) model.Event {
+func NewMissedEventEvent(a *Attempt, userId, timestamp, timeout int64) model.Event {
 	e := MissedEvent{
 		Missed: Missed{
 			Timeout: timeout,
@@ -351,7 +353,7 @@ func NewMissedEventEvent(a *Attempt, userId int64, timestamp int64, timeout int6
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewWrapTimeEventEvent(channel string, attemptId *int64, userId int64, timestamp int64, timeout int64) model.Event {
+func NewWrapTimeEventEvent(channel string, attemptId *int64, userId, timestamp, timeout int64) model.Event {
 	e := WrapTimeEvent{
 		WrapTime: WrapTime{
 			Timeout: timeout,
