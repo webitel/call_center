@@ -8,6 +8,7 @@ import (
 
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
+	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
@@ -162,6 +163,10 @@ func (d *DialingImpl) routeIdleAgents() {
 	}
 
 	result, err := d.store.Agent().ReservedForAttemptByNode(d.app.GetInstanceId())
+	result = utils.FilterSlice(result, func(v *model.AgentsForAttempt) bool {
+		return v.AgentId != 0 && v.TeamId != 0
+	})
+	
 	if err != nil {
 		d.log.Error(err.Error(),
 			wlog.Err(err),

@@ -23,44 +23,62 @@ func NewSqlAgentStore(sqlStore SqlStore) store.AgentStore {
 func (s *SqlAgentStore) CreateTableIfNotExists() {
 }
 
-func (s *SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
-	var agentsInAttempt []*model.AgentsForAttempt
-	if _, err := s.GetMaster().Select(&agentsInAttempt, `
-	update call_center.cc_member_attempt a
-set state = :Active
-from (
-        select a.id as attempt_id,
-            a.agent_id,
-            (
-                ca.updated_at - extract(
-                    epoch
-                    from u.updated_at
-                )
-            )::int8 as agent_updated_at,
-            a.team_id,
-            team.updated_at as team_updated_at
-        from call_center.cc_member_attempt a
-            inner join call_center.cc_agent ca on a.agent_id = ca.id
-            inner join call_center.cc_team team on team.id = a.team_id
-            inner join directory.wbt_user u on u.id = ca.user_id
-        where a.state = :WaitAgent
-            and a.agent_id notnull
-            and a.node_id = :Node 
-        for update skip locked
-    ) t
-where a.id = t.attempt_id
-returning t.*
-`, map[string]any{
-		"Node":      nodeId,
-		"Active":    model.MemberStateActive,
-		"WaitAgent": model.MemberStateWaitAgent,
-	}); err != nil {
+func (s *SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {	
+	var (
+		query = `
+		with active_calls_agents_cte as (
+			select distinct a.id agent_ids
+			from directory.wbt_user u
+				inner join call_center.cc_agent a on a.user_id = u.id
+			where exists (
+				select 1
+				from call_center.cc_calls cc
+				where cc.user_id = u.id
+					and cc.hangup_at is null
+			)
+		)
+		update call_center.cc_member_attempt a
+		set state = case when t.agent_id = 0 then a.state else :Active end,
+		agent_id = case when t.agent_id = 0 then null else t.agent_id end,
+		team_id = case when t.team_id = 0 then null else t.team_id end 
+		from (
+		        select a.id as attempt_id,
+		            case when acac.agent_ids is not null then 0 else  a.agent_id end as agent_id,
+		            (
+		                ca.updated_at - extract(
+		                    epoch
+		                    from u.updated_at
+		                )
+		            )::int8 as agent_updated_at,
+		            case when acac.agent_ids is not null then 0 else a.team_id end as team_id,
+		            team.updated_at as team_updated_at
+		        from call_center.cc_member_attempt a
+		            inner join call_center.cc_agent ca on a.agent_id = ca.id
+		            inner join call_center.cc_team team on team.id = a.team_id
+		            inner join directory.wbt_user u on u.id = ca.user_id
+					left join active_calls_agents_cte acac on acac.agent_ids = a.agent_id and a.channel = 'call'
+		        where a.state = :WaitAgent
+		            and a.agent_id notnull
+		            and a.node_id = :Node
+		        for update skip locked
+		    ) t
+		where a.id = t.attempt_id
+		returning t.*
+		`
+		args = map[string]any{
+			"Node":      nodeId,
+			"Active":    model.MemberStateActive,
+			"WaitAgent": model.MemberStateWaitAgent,
+		}
+		agentsInAttempt []*model.AgentsForAttempt
+	)
+	
+	if _, err := s.GetMaster().Select(&agentsInAttempt, query, args); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
 			map[string]any{"Error": err.Error()},
 			err.Error(), http.StatusInternalServerError)
-	} else {
-		return agentsInAttempt, nil
-	}
+	} 
+	return agentsInAttempt, nil
 }
 
 func (s *SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
