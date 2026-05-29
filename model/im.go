@@ -17,9 +17,16 @@ type InboundIMQueue struct {
 type IMSystem struct {
 	Type     string `json:"type" db:"type"`
 	Metadata struct {
-		RemovedMemberId        string `json:"removed_member_id" db:"removed_member_id"`
-		RemovedMemberContactId string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
+		RemovedMemberId            string `json:"removed_member_id" db:"removed_member_id"`
+		RemovedMemberContactId     string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
+		TransferredMemberId        string `json:"transferred_member_id" db:"transferred_member_id"`
+		TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
 	} `json:"metadata" db:"metadata"`
+}
+
+func (s *IMSystem) AffectsMember(memberID string) bool {
+	m := s.Metadata
+	return m.RemovedMemberId == memberID || m.TransferredMemberId == memberID
 }
 
 type IMMessageWrapper struct {
