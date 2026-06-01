@@ -3084,7 +3084,7 @@ BEGIN
   elseif _last_msg_channel_type = 'webitel' then
       _member_jsonb := jsonb_build_object('type', 'agent');
   else
-      _member_jsonb := jsonb_build_object('type', 'self');
+      _member_jsonb := jsonb_build_object('type', 'contacts');
   end if;
 
 
