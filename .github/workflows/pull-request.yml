@@ -48,11 +48,14 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       version-build: ${{ github.run_number }}
       prerelease: dev~pr${{ github.event.pull_request.number }}
-      package-name: ${{ vars.SERVICE_NAME }}
+      package-name: webitel-call-center
       package-description: ${{ github.event.repository.description }}
       package-contents: |
-        src=deploy/systemd/${{ vars.SERVICE_NAME }}.service dst=/etc/systemd/system/${{ vars.SERVICE_NAME }}.service type=config
+        src=deploy/systemd/webitel-call-center.service dst=/etc/systemd/system/webitel-call-center.service type=config
         
 
       scripts: |
+        postinstall: deploy/debian/postinst.sh
+        preremove: deploy/debian/prerm.sh
+        postremove: deploy/debian/postrm.sh
         
