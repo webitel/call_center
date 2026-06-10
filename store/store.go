@@ -60,7 +60,7 @@ type MemberStore interface {
 	/*
 		Flow control
 	*/
-	SetBarred(id int64) *model.AppError
+	SetBarred(id int64, blockAllNumbers bool) *model.AppError
 	CancelAgentAttempt(id int64, agentHoldTime int) (*model.MissedAgent, *model.AppError)
 	SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError
 
