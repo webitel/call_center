@@ -1264,7 +1264,7 @@ func (qm *Manager) Abandoned(attempt *Attempt) {
 
 func (qm *Manager) Barred(attempt *Attempt) *model.AppError {
 	// todo hook
-	return qm.teamManager.store.Member().SetBarred(attempt.Id())
+	return qm.teamManager.store.Member().SetBarred(attempt.Id(), attempt.BlockAllMemberNumbersFromList())
 }
 
 func (qm *Manager) SetAttemptSuccess(attempt *Attempt, vars map[string]string) {

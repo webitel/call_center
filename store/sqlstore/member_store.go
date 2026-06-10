@@ -683,21 +683,31 @@ where x.last_state_change notnull `,
 	return missed, nil
 }
 
-func (s *SqlMemberStore) SetBarred(id int64) *model.AppError {
+func (s *SqlMemberStore) SetBarred(id int64, blockAllNumbers bool) *model.AppError {
 	_, err := s.GetMaster().Exec(`with u as (
     update call_center.cc_member_attempt
         set leaving_at = now(),
             result = 'barred',
             state = 'leaving'
     where id = :AttemptId
-    returning member_id, result
+    returning member_id, result, communication_idx::int, id, call_center.cc_view_timestamp(leaving_at) t,
+        waiting_other_numbers, leaving_at
 )
 update call_center.cc_member m
-set stop_at = now(),
-    stop_cause = u.result
+set stop_cause = case when :BlockAllNumbers is true or u.waiting_other_numbers <= 0 then u.result else m.stop_cause end,
+    stop_at = case when :BlockAllNumbers is true or u.waiting_other_numbers <= 0  then u.leaving_at else m.stop_at end,
+    communications =  jsonb_set(
+                m.communications,
+                (array[u.communication_idx::int])::text[], m.communications->(u.communication_idx::int) ||
+                                                                   jsonb_build_object('last_activity_at', u.t) ||
+                                                                   jsonb_build_object('attempt_id', u.id) ||
+                                                                   jsonb_build_object('attempts', coalesce((m.communications#>(format('{%s,attempts}', u.communication_idx::int)::text[]))::int, 0) + 1) ||
+                                                                   jsonb_build_object('stop_at', u.t)
+                )
 from u
 where m.id = u.member_id`, map[string]any{
-		"AttemptId": id,
+		"AttemptId":       id,
+		"BlockAllNumbers": blockAllNumbers,
 	})
 	if err != nil {
 		return model.NewAppError("SqlMemberStore.SetBarred", "store.sql_member.set_attempt_barred.app_error", nil,

@@ -623,3 +623,10 @@ func (a *Attempt) Close() {
 		}
 	}
 }
+
+func (a *Attempt) BlockAllMemberNumbersFromList() bool {
+	if a.member != nil {
+		return a.member.BlockAllMemberNumbersFromList
+	}
+	return false
+}
