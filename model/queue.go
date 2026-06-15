@@ -39,6 +39,7 @@ const (
 	QUEUE_ID_FIELD         = "cc_queue_id"
 	QUEUE_TEAM_ID_FIELD    = "cc_team_id"
 	QUEUE_AGENT_ID_FIELD   = "cc_agent_id"
+	QUEUE_AGENT_NAME_FIELD = "wbt_agent_name"
 	QUEUE_UPDATED_AT_FIELD = "cc_queue_updated_at"
 
 	QUEUE_NAME_FIELD        = "cc_queue_name"

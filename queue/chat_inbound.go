@@ -144,6 +144,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 				attempt.ExportVariables(),
 				queue.variables,
 				map[string]string{
+					model.QUEUE_AGENT_NAME_FIELD: agent.Name(),
 					model.QUEUE_AGENT_ID_FIELD:   fmt.Sprintf("%d", agent.Id()),
 					model.QUEUE_TEAM_ID_FIELD:    fmt.Sprintf("%d", team.Id()),
 					model.QUEUE_ID_FIELD:         fmt.Sprintf("%d", queue.Id()),
