@@ -2,10 +2,11 @@ package agent_manager
 
 import (
 	"fmt"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 	"strconv"
 	"sync"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 type Agent struct {
@@ -43,6 +44,8 @@ func (agent *Agent) UserId() int64 {
 	}
 	return 0
 }
+
+func (agent *Agent) ChatName() string { return agent.info.ChatName }
 
 func (agent *Agent) Name() string {
 	return agent.info.Name

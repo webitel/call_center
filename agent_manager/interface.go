@@ -26,6 +26,7 @@ type AgentObject interface {
 	DomainId() int64
 	UserId() int64
 	Name() string
+	ChatName() string
 	GetCallEndpoints() []string
 	CallNumber() string
 	UpdatedAt() int64

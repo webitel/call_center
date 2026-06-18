@@ -45,7 +45,7 @@ from (
             inner join directory.wbt_user u on u.id = ca.user_id
         where a.state = :WaitAgent
             and a.agent_id notnull
-            and a.node_id = :Node 
+            and a.node_id = :Node
         for update skip locked
     ) t
 where a.id = t.attempt_id
@@ -87,7 +87,8 @@ func (s *SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
     a.team_id,
     team.updated_at as team_updated_at,
     coalesce(push.config, '{}') variables,
-    push.config notnull has_push
+    push.config notnull has_push,
+    coalesce(nullif(u.chat_name, ''), u.name, u.username) as chat_name
 from call_center.cc_agent a
     inner join directory.wbt_user u on u.id = a.user_id
     inner join directory.wbt_domain d on d.dc = a.domain_id
@@ -146,7 +147,7 @@ func (s *SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, 
 }
 
 func (s *SqlAgentStore) MissedAttempt(agentId int, attemptId int64, cause string) *model.AppError {
-	_, err := s.GetMaster().Exec(`insert into call_center.cc_agent_missed_attempt (attempt_id, agent_id, cause) 
+	_, err := s.GetMaster().Exec(`insert into call_center.cc_agent_missed_attempt (attempt_id, agent_id, cause)
   values (:AttemptId, :AgentId, :Cause)`, map[string]interface{}{
 		"AttemptId": attemptId,
 		"AgentId":   agentId,
@@ -190,7 +191,7 @@ func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlin
 func (s *SqlAgentStore) SetStatus(agentId int, status string, payload, statusComment *string) *model.AppError {
 	const query = `
 		with ag as (
-			update 
+			update
 				call_center.cc_agent
 			set
 				status = :Status,
@@ -392,7 +393,7 @@ func (s *SqlAgentStore) RefreshAgentStatistics() *model.AppError {
 // todo need index
 func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *model.AppError) {
 	const query = `
-	select 
+	select
 		a.id,
 	    a.updated_at,
 	    not exists(
@@ -415,7 +416,7 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 	            and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
 	    ) ws,
 	    t.updated_at as team_updated_at,
-		(lic.has_license is null) as reason_no_cc_license 
+		(lic.has_license is null) as reason_no_cc_license
 	from call_center.cc_agent a
 	left join call_center.cc_team t on t.id = a.team_id
 	left join lateral (
@@ -475,7 +476,7 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 	                    )
 	            )
 	        )
-	    ) 
+	    )
 	for update of a skip locked
 	`
 	args := map[string]any{
