@@ -44,6 +44,8 @@ const (
 )
 
 type Agent struct {
+	AgentStatus
+
 	Id            int               `json:"id" db:"id"`
 	DomainId      int64             `json:"domain_id" db:"domain_id"`
 	UserId        *int64            `json:"user_id" db:"user_id"`
@@ -57,7 +59,7 @@ type Agent struct {
 	GreetingMedia *RingtoneFile     `json:"greeting_media" db:"greeting_media"`
 	Variables     map[string]string `json:"variables" db:"variables"`
 	HasPush       bool              `json:"has_push" db:"has_push"`
-	AgentStatus
+	ChatName      string            `json:"chat_name" db:"chat_name"`
 }
 
 type AgentHashKey struct {
