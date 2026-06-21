@@ -8,7 +8,7 @@ Thumbs.db
 .env.*
 *.env
 !.env.example
-!.env.otel.example
+!.env.*.example
 !.env.sample
 !example.env
 env
