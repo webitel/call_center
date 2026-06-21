@@ -1,17 +1,70 @@
 [Unit]
-Description=Webitel CallCenter process
-After=network.target
+Description=Webitel Call Center
+After=network.target consul.service rabbitmq-server.service postgresql.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
-Restart=always
+User=webitel
+Group=webitel
+LogsDirectory=webitel
+
+EnvironmentFile=/etc/default/webitel-call-center
+EnvironmentFile=-/etc/default/webitel-otel
+EnvironmentFile=-/etc/default/webitel
+ExecStart=/usr/local/bin/webitel-call-center
+
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
 TimeoutStartSec=0
-ExecStart=/usr/local/bin/webitel-call-center \
-	-consul 127.0.0.1:8500 \
-	-grpc_addr 127.0.0.1 \
-	-wait_channel_close 0 \
-	-amqp amqp://webitel:webitel@127.0.0.1:5672?heartbeat=10 \
-	-data_source postgres://opensips:webitel@127.0.0.1:5432/webitel?application_name=call_center&sslmode=disable&connect_timeout=10
+TimeoutStopSec=30
+LimitNOFILE=64000
+LimitNPROC=4096
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=webitel-call-center
+
+# Filesystem isolation
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoExecPaths=/
+ExecPaths=/usr/local/bin/webitel-call-center
+
+# Process isolation
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+NoNewPrivileges=yes
+PrivateMounts=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+ProtectClock=yes
+ProtectHostname=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+# Capabilities & syscalls
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+SystemCallFilter=~@obsolete
+SystemCallErrorNumber=EPERM
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
