@@ -52,7 +52,7 @@ jobs:
       package-description: ${{ github.event.repository.description }}
       package-contents: |
         src=deploy/systemd/webitel-call-center.service dst=/etc/systemd/system/webitel-call-center.service type=config
-        src=.env.example dst=/etc/default/webitel-call-center type=config
+        src=.env.example dst=/etc/default/webitel-call-center type=config mode=0640
         
 
       scripts: |
