@@ -36,7 +36,8 @@ create_user() {
 
     if ! getent passwd "$USER_NAME" >/dev/null 2>&1; then
         echo "Creating user: $USER_NAME"
-        adduser --system --no-create-home --ingroup "$GROUP_NAME" \
+        adduser --system --ingroup "$GROUP_NAME" \
+                --home /var/lib/webitel \
                 --disabled-password --disabled-login \
                 --shell /bin/false \
                 --gecos "Webitel service user" \
