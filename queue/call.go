@@ -122,7 +122,7 @@ func (queue *CallingQueue) hasProcessAmd(call call_manager.Call, state call_mana
 
 		// TODO
 		if amd.Ai {
-			if queue.amdPlaybackFile != nil {
+			if queue.amdPlaybackFile != nil && !call.HasAmdError() {
 				_ = call.BroadcastPlaybackFile(queue.DomainId(), queue.amdPlaybackFile, "aleg")
 			}
 		}
