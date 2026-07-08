@@ -957,6 +957,7 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	dest := IMThreadCommunication{
 		Destination: infoThread.GetFrom().GetSub(),
 		Thread: IMThreadInfo{
+			ID:          in.GetThreadId(),
 			Subject:     infoThread.GetSubject(),
 			LastMessage: infoThread.GetLastMessage(),
 		},
