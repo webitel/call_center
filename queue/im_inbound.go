@@ -42,6 +42,7 @@ type IMMemberInfo struct {
 }
 
 type IMThreadInfo struct {
+	ID          string         `json:"id"`
 	Subject     string         `json:"subject"`
 	Members     []IMMemberInfo `json:"members"`
 	LastMessage string         `json:"last_msg"`
