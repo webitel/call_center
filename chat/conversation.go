@@ -3,12 +3,13 @@ package chat
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/pkg/wbt/chat_manager"
-	"github.com/webitel/wlog"
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
+	"github.com/webitel/wlog"
 )
 
 type ChatState uint8
@@ -113,8 +114,17 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	c.sessions = append(c.sessions, sess)
 	c.Unlock()
 
-	invId, err := c.cli.InviteToConversation(ctx, c.DomainId, userId, c.id, c.inviterId, c.inviterUserId, title, int(timeout),
-		model.UnionStringMaps(c.variables, vars))
+	invId, err := c.cli.InviteToConversation(
+		ctx,
+		c.DomainId,
+		userId,
+		c.id,
+		c.inviterId,
+		c.inviterUserId,
+		title,
+		int(timeout),
+		model.UnionStringMaps(c.variables, vars),
+	)
 
 	if err != nil {
 		if isChannelClose(err) {

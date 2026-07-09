@@ -52,24 +52,24 @@ const (
 	QUEUE_ATTEMPT_SEQ       = "cc_attempt_seq"
 )
 
-const (
-	AgentTimeout   LeaveCause = "agent_timeout"
-	ClientTimeout             = "client_timeout"
-	SilenceTimeout            = "silence_timeout"
-	AgentLeave                = "agent_leave"
-)
-
 type LeaveCause string
 
 const (
-	ClientLeave CloseCause = "client_leave"
+	AgentTimeout   LeaveCause = "agent_timeout"
+	ClientTimeout  LeaveCause = "client_timeout"
+	SilenceTimeout LeaveCause = "silence_timeout"
+	AgentLeave     LeaveCause = "agent_leave"
 )
 
 type CloseCause string
 
 const (
-	QueueAutoAnswerVariable = "wbt_auto_answer"
-	QueueManualDistribute   = "cc_manual_distribution"
+	ClientLeave CloseCause = "client_leave"
+)
+
+const (
+	QueueAutoAnswerVariable string = "wbt_auto_answer"
+	QueueManualDistribute   string = "cc_manual_distribution"
 )
 
 type RingtoneFile struct {
@@ -125,6 +125,7 @@ type Queue struct {
 	Processing           bool              `json:"processing" db:"processing"`
 	ProcessingSec        uint32            `json:"processing_sec" db:"processing_sec"`
 	ProcessingRenewalSec uint32            `json:"processing_renewal_sec" db:"processing_renewal_sec"`
+	ProcessingAutosave   bool              `json:"processing_autosave" db:"processing_autosave"`
 	Endless              bool              `json:"endless" db:"endless"`
 	Hooks                []*QueueHook      `json:"hooks" db:"hooks"`
 	GranteeId            *int              `json:"grantee_id" db:"grantee_id"`

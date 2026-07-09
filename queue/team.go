@@ -304,7 +304,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		prolongation = NewProcessingProlongation(queue.ProlongationSteps(), queue.ProlongationSec())
 	}
 
-	e := NewProcessingEventEvent(attempt, agent.UserId(), timestamp, timeoutSec, queue.ProcessingRenewalSec(), prolongation)
+	e := NewProcessingEventEvent(attempt, agent.UserId(), timestamp, timeoutSec, queue.ProcessingRenewalSec(), prolongation, queue.ProcessingAutosave())
 	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		attempt.Log(err.Error())

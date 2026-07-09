@@ -582,7 +582,8 @@ func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uin
 				coalesce(cq.prolongation_enabled, (a.queue_params->>'has_prolongation')::bool, false) as prolongation_enabled,
 				coalesce(cq.prolongation_repeats_number, (a.queue_params->>'remaining_prolongations')::int, 0) as prolongation_repeats_number,
 				coalesce(cq.processing_renewal_sec, (a.queue_params->>'processing_renewal_sec')::int, 0) as processing_renewal_sec,
-				coalesce(cq.prolongation_time_sec, (a.queue_params->>'prolongation_sec')::int, 0) as prolongation_time_sec
+				coalesce(cq.prolongation_time_sec, (a.queue_params->>'prolongation_sec')::int, 0) as prolongation_time_sec,
+				coalesce(cq.processing_autosave, (a.queue_params->'processing_autosave')::bool, false) as processing_autosave
 			from call_center.cc_member_attempt a
 			inner join call_center.cc_agent ca on ca.id = a.agent_id
 			left join call_center.cc_queue cq on cq.id = a.queue_id

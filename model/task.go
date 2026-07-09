@@ -18,6 +18,7 @@ type QueueDumpParams struct {
 	HasReporting         *bool  `json:"has_reporting,omitempty"`
 	HasForm              *bool  `json:"has_form,omitempty"`
 	ProcessingSec        uint32 `json:"processing_sec,omitempty"`
+	ProcessingAutosave   bool   `json:"processing_autosave"`
 	ProcessingRenewalSec uint32 `json:"processing_renewal_sec,omitempty"`
 	QueueName            string `json:"queue_name,omitempty"`
 
