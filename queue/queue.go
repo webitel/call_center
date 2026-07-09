@@ -33,6 +33,7 @@ type QueueObject interface {
 	ProcessingTransfer() bool
 	Processing() bool
 	ProcessingSec() uint32
+	ProcessingAutosave() bool
 	ProcessingRenewalSec() uint32
 	Hook(name string, at *Attempt)
 	Endless() bool
@@ -82,6 +83,7 @@ type BaseQueue struct {
 	isProlongationEnabled      bool
 	prolongationSec            uint32
 	isProlongationTimeoutRetry bool
+	processingAutosave         bool
 }
 
 func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
@@ -103,6 +105,7 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 		formSchemaId:         settings.FormSchemaId,
 		processing:           settings.Processing,
 		processingSec:        settings.ProcessingSec,
+		processingAutosave:   settings.ProcessingAutosave,
 		processingRenewalSec: settings.ProcessingRenewalSec,
 		endless:              settings.Endless,
 		hooks:                NewHookHub(settings.Hooks),
@@ -206,6 +209,8 @@ func NewQueue(queueManager *Manager, resourceManager *ResourceManager, settings 
 			fmt.Sprintf("Queue type %v not implement", settings.Type), http.StatusInternalServerError)
 	}
 }
+
+func (queue *BaseQueue) ProcessingAutosave() bool { return queue.processingAutosave }
 
 func (queue *BaseQueue) HasForm() bool {
 	return queue.formSchemaId != nil && queue.Processing()

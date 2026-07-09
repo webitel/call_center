@@ -150,11 +150,6 @@ func (qm *Manager) CreateAttemptIfNotExists(ctx context.Context, attempt *model.
 
 	if a, ok = qm.GetAttempt(attempt.Id); ok {
 		panic("ERROR")
-		//if attempt.Result == nil {
-		//	wlog.Error(fmt.Sprintf("attempt %v in queue", a.Id()))
-		//} else {
-		//	a.SetMember(attempt)
-		//}
 	} else {
 		a = qm.createAttempt(ctx, attempt)
 		if attempt.AgentId != nil && attempt.AgentUpdatedAt != nil {
@@ -203,9 +198,9 @@ func (qm *Manager) GetQueue(id int, updatedAt int64) (QueueObject, *model.AppErr
 	})
 
 	if doErr != nil {
-		switch doErr.(type) {
+		switch doErr := doErr.(type) {
 		case *model.AppError:
-			err = doErr.(*model.AppError)
+			err = doErr
 		default:
 			err = model.NewAppError("Queue.Get", "queue.get.app_err", nil, doErr.Error(), http.StatusInternalServerError)
 		}
@@ -457,6 +452,7 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 		qParams.HasReporting = model.NewBool(true)
 		qParams.ProcessingSec = in.Processing.Sec
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
+		qParams.ProcessingAutosave = in.GetProcessing().GetAutosave()
 		if in.Processing.GetForm().GetId() > 0 {
 			qParams.HasForm = model.NewBool(true)
 		}
@@ -1363,7 +1359,6 @@ func (qm *Manager) setChannelReporting(attempt *Attempt, ccCause string, leave b
 		} else {
 			return errNotFoundConnection
 		}
-		break
 	case model.QueueChannelChat:
 		var conv *chat.Conversation
 		if conv, err = qm.GetChat(attempt.agentChannel.Id()); err == nil {
@@ -1396,7 +1391,17 @@ func (qm *Manager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (er
 		prolongation = NewProcessingProlongation(data.RemainingProlongations, data.ProlongationSec)
 	}
 
-	ev := NewRenewalProcessingEvent(data.AttemptId, data.UserId, data.Channel, data.Timeout, data.Timestamp, data.RenewalSec, prolongation)
+	ev := NewRenewalProcessingEvent(
+		data.AttemptId,
+		data.UserId,
+		data.Channel,
+		data.Timeout,
+		data.Timestamp,
+		data.RenewalSec,
+		prolongation,
+		data.ProcessingAutosave,
+	)
+
 	return qm.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 

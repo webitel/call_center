@@ -46,9 +46,7 @@ func NewDialing(app App, m mq.MQ, callManager call_manager.CallManager, agentMan
 	return &dialing
 }
 
-func (d *DialingImpl) Manager() *Manager {
-	return d.queueManager
-}
+func (d *DialingImpl) Manager() *Manager { return d.queueManager }
 
 func (d *DialingImpl) Start() {
 	d.log.Debug("starting dialing service")

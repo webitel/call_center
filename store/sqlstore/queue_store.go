@@ -47,7 +47,8 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 			q.prolongation_enabled,
 			q.prolongation_repeats_number,
 			q.prolongation_time_sec,
-			q.prolongation_is_timeout_retry,	
+			q.prolongation_is_timeout_retry,
+			q.processing_autosave,
 			f.mime_type as ringtone_type,
 			(
 				select
@@ -60,12 +61,12 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 					qe.queue_id = q.id and qe.enabled
 			) as hooks,
 			coalesce(
-				(q.payload->'endless')::bool, 
+				(q.payload->'endless')::bool,
 				false
 			) as endless,
 			case
 				when fh.id notnull then jsonb_build_object(
-					'id', fh.id, 
+					'id', fh.id,
 					'type', fh.mime_type
 				)
 			end as hold_music,
@@ -76,18 +77,12 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 					'type', amdpf.mime_type
 				)
 			end as amd_playback_file
-		from
-			call_center.cc_queue q
-		inner join
-			directory.wbt_domain d on q.domain_id = d.dc
-		left join
-			storage.media_files f on f.id = q.ringtone_id
-		left join
-			storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
-		left join
-			storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
-		where
-			q.id = :Id
+		from call_center.cc_queue q
+		inner join directory.wbt_domain d on q.domain_id = d.dc
+		left join storage.media_files f on f.id = q.ringtone_id
+		left join storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
+		left join storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
+		where q.id = :Id
 	`
 
 	args := map[string]any{

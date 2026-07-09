@@ -166,11 +166,13 @@ type RenewalProcessing struct {
 	RemainingProlongations uint32 `json:"remaining_prolongations" db:"remaining_prolongations"`
 	IsProlongationEnabled  bool   `json:"prolongation_enabled" db:"prolongation_enabled"`
 	ProlongationSec        uint32 `json:"prolongation_time_sec" db:"prolongation_time_sec"`
+	ProcessingAutosave     bool   `json:"processing_autosave" db:"processing_autosave"`
 }
 
 type EventAttemptOffering struct {
-	MemberId int64 `json:"member_id"`
 	EventAttempt
+
+	MemberId int64 `json:"member_id"`
 }
 
 func (e *EventAttemptOffering) ToJSON() string {

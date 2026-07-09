@@ -514,8 +514,6 @@ func (a *Attempt) AddVariables(vars map[string]string) {
 	}
 
 	a.Unlock()
-
-	return
 }
 
 func (a *Attempt) RemoveVariable(name string) {

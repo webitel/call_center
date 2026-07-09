@@ -51,6 +51,7 @@ type Missed struct {
 }
 
 type Processing struct {
+	Autosave               bool                    `json:"autosave"`
 	Timeout                int64                   `json:"timeout"`
 	Sec                    uint32                  `json:"sec"`
 	RenewalSec             uint32                  `json:"renewal_sec"`
@@ -299,13 +300,14 @@ func NewNextFormEvent(a *Attempt, userId int64) model.Event {
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewProcessingEventEvent(a *Attempt, userId, timestamp int64, deadlineSec, renewal uint32, prolongation *ProcessingProlongation) model.Event {
+func NewProcessingEventEvent(a *Attempt, userId, timestamp int64, deadlineSec, renewal uint32, prolongation *ProcessingProlongation, autosave bool) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:                timestamp + (int64(deadlineSec) * 1000),
 			Sec:                    deadlineSec,
 			RenewalSec:             renewal,
 			ProcessingProlongation: prolongation,
+			Autosave:               autosave,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
@@ -318,13 +320,21 @@ func NewProcessingEventEvent(a *Attempt, userId, timestamp int64, deadlineSec, r
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewRenewalProcessingEvent(attId, userId int64, channel string, timeout, timestamp int64, renewal uint32, prolongation *ProcessingProlongation) model.Event {
+func NewRenewalProcessingEvent(
+	attId, userId int64,
+	channel string,
+	timeout, timestamp int64,
+	renewal uint32,
+	prolongation *ProcessingProlongation,
+	autosave bool,
+) model.Event {
 	e := ProcessingEvent{
 		Processing: Processing{
 			Timeout:                timeout,
 			RenewalSec:             renewal,
 			Sec:                    uint32((timeout - timestamp) / 1000),
 			ProcessingProlongation: prolongation,
+			Autosave:               autosave,
 		},
 		ChannelEvent: ChannelEvent{
 			Timestamp: timestamp,
