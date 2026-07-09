@@ -449,6 +449,7 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 	}
 
 	if in.Processing != nil && in.Processing.Enabled {
+		qParams.ProcessingAutosave = in.GetProcessing().GetAutosave()
 		qParams.HasReporting = model.NewBool(true)
 		qParams.ProcessingSec = in.Processing.Sec
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
@@ -617,6 +618,7 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 	}
 
 	if in.Processing != nil && in.Processing.Enabled {
+		qParams.ProcessingAutosave = in.GetProcessing().GetAutosave()
 		qParams.HasReporting = model.NewBool(true)
 		qParams.ProcessingSec = in.Processing.Sec
 		qParams.ProcessingRenewalSec = in.Processing.RenewalSec
