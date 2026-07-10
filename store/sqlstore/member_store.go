@@ -172,7 +172,6 @@ as x (
 
 func (s *SqlMemberStore) DistributeCallToAgent(node, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError) {
 	var att *model.InboundCallAgent
-
 	err := s.GetMaster().SelectOne(&att, `select *
 from call_center.cc_distribute_inbound_call_to_agent(:Node, :MemberCallId, :Variables, :AgentId, :Prams::jsonb)
 as x (
@@ -197,7 +196,14 @@ as x (
     call_created_at int8,
 	parent_call_id varchar
 )
-where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]any{
+where :Force::bool or not exists(
+	select 1
+	from call_center.cc_member_attempt a
+	where a.agent_id = :AgentId
+	and a.state != 'leaving'
+	and "a"."channel" = 'call'
+	for update
+)`, map[string]any{
 		"Node":         node,
 		"MemberCallId": callId,
 		"Variables":    model.MapToJson(vars),
