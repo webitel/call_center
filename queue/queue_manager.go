@@ -903,6 +903,7 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 		bucketId,
 		int(in.GetPriority()),
 		stickyAgentId,
+		in.GetExtraChatCount(),
 	)
 	if err != nil {
 		qm.log.Error(err.Error(),
