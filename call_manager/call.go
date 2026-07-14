@@ -858,6 +858,10 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["amd_result"] = call.amdResult
 	}
 
+	if call.amdAiResult.Result != "" {
+		vars["amd_ai_result"] = call.amdAiResult.Result
+	}
+
 	var ans int64
 	if call.acceptAt != 0 {
 		ans = call.acceptAt
