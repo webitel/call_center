@@ -1241,6 +1241,11 @@ func (qm *Manager) SaveFormFields(ctx context.Context, domainId, id int64, field
 	}
 
 	// store db ?
+	if att.IsProcessingAutosaveEnabled() {
+		if err := qm.store.Member().UpdateProcessingFormAtHistory(ctx, id, fields); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

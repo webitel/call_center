@@ -12,17 +12,14 @@ import (
 	"github.com/webitel/call_center/store"
 )
 
-type SqlMemberStore struct {
-	SqlStore
-}
+type SqlMemberStore struct{ SqlStore }
 
 func NewSqlMemberStore(sqlStore SqlStore) store.MemberStore {
 	us := &SqlMemberStore{sqlStore}
 	return us
 }
 
-func (s *SqlMemberStore) CreateTableIfNotExists() {
-}
+func (s *SqlMemberStore) CreateTableIfNotExists() {}
 
 func (s *SqlMemberStore) ReserveMembersByNode(nodeId string, enableOmnichannel bool) (int64, *model.AppError) {
 	if i, err := s.GetMaster().SelectNullInt(`call call_center.cc_distribute(:DisableOmnichannel::bool)`, map[string]any{
@@ -1207,4 +1204,36 @@ from call_center.cc_manual_queue_list`)
 	}
 
 	return list, nil
+}
+
+func (s *SqlMemberStore) UpdateProcessingFormAtHistory(ctx context.Context, id int64, formFields map[string]string) *model.AppError {
+	query := `
+		with upd_attempt as (
+			update "call_center"."cc_member_attempt"
+			set "form_fields" = coalesce("form_fields", '{}'::jsonb) || coalesce(:FormFields::jsonb, '{}'::jsonb)
+			where "id" = :ID
+			returning "id"
+		)
+		update "call_center"."cc_member_attempt_history"
+		set "form_fields" = coalesce("form_fields", '{}'::jsonb) || coalesce(:FormFields::jsonb, '{}'::jsonb)
+		where "id" = :ID
+		and not exists (select 1 from upd_attempt)
+	`
+
+	args := map[string]any{
+		"FormFields": mapToJson(formFields),
+		"ID":         id,
+	}
+
+	if _, err := s.GetMaster().WithContext(ctx).Exec(query, args); err != nil {
+		return model.NewAppError(
+			"SqlMemberStore.UpdateProcessingFormAtHistory",
+			"store.sql_member.update_processing_form_at_history.app_error",
+			nil,
+			err.Error(),
+			extractCodeFromErr(err),
+		)
+	}
+
+	return nil
 }
