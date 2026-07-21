@@ -51,6 +51,7 @@ jobs:
       ldflags: >
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
+        -X github.com/webitel/call_center/model.CurrentVersion=${{ needs.prepare.outputs.version }}
         
 
       version: ${{ needs.prepare.outputs.version }}
