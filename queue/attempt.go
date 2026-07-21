@@ -115,6 +115,10 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logg
 	return a
 }
 
+func (a *Attempt) IsProcessingAutosaveEnabled() bool {
+	return a.queue != nil && a.queue.ProcessingAutosave()
+}
+
 // Change attempt settings
 func (a *Attempt) AfterDistributeSchema() (*model.SchemaResult, bool) {
 	if a.queue == nil {
