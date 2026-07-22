@@ -1,3 +1,6 @@
+ALTER TABLE call_center.cc_queue
+    ADD COLUMN IF NOT EXISTS processing_autosave boolean NOT NULL DEFAULT false;
+
 CREATE OR REPLACE FUNCTION call_center.cc_queue_params(q call_center.cc_queue) RETURNS jsonb
   LANGUAGE sql IMMUTABLE
 AS $$
