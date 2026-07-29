@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -62,6 +63,10 @@ type Agent struct {
 	ChatName      string            `json:"chat_name" db:"chat_name"`
 }
 
+func (a *Agent) Online() bool               { return a.Status == AgentStatusOnline }
+func (a *Agent) Offline() bool              { return a.Status == AgentStatusOffline }
+func (a *Agent) OnDemandEquals(d bool) bool { return d == a.OnDemand }
+
 type AgentHashKey struct {
 	Id                int   `json:"id" db:"id" `
 	UpdatedAt         int64 `json:"updated_at" db:"updated_at"`
@@ -86,8 +91,13 @@ type MissedAgent struct {
 }
 
 type AgentOnlineData struct {
-	Timestamp int64          `json:"timestamp" db:"timestamp"`
-	Channel   []AgentChannel `json:"channel" db:"channel"`
+	Timestamp    int64          `json:"timestamp" db:"timestamp"`
+	Channel      []AgentChannel `json:"channel" db:"channel"`
+	StatusPreset *Lookup        `json:"status_preset" db:"status_preset"`
+}
+
+func (d *AgentOnlineData) IsStatusPresetEmpty() bool {
+	return d.StatusPreset != nil && d.StatusPreset.Id > 0
 }
 
 type AgentEvent struct {
@@ -142,6 +152,23 @@ type AgentStatus struct {
 	Status        string  `json:"status" db:"status"`
 	StatusPayload *string `json:"status_payload,omitempty" db:"status_payload"`
 	StatusComment *string `json:"status_comment,omitempty" db:"status_comment"`
+	StatusPreset  *Lookup `json:"status_preset,omitempty" db:"status_preset"`
+}
+
+func WithStatusPreset(preset *Lookup) func(*AgentStatus) {
+	return func(as *AgentStatus) {
+		as.StatusPreset = preset
+	}
+}
+
+func CreateAgentStatus(status string, options ...func(*AgentStatus)) AgentStatus {
+	st := AgentStatus{Status: status}
+
+	for _, o := range options {
+		o(&st)
+	}
+
+	return st
 }
 
 type MissedAgentAttempt struct {
@@ -198,4 +225,37 @@ func (agent *Agent) GetUserId() int64 {
 		return *agent.UserId
 	}
 	return 0
+}
+
+type AgentOnlineRequest struct {
+	DomainID int64
+	AgentID  int64
+	OnDemand bool
+	Status   *Lookup
+}
+
+func (r *AgentOnlineRequest) UseDefaultStatus() bool { return r.Status == nil }
+
+func (r *AgentOnlineRequest) StatusIDPtr() *int {
+	if r.Status == nil || r.Status.Id <= 0 {
+		return nil
+	}
+
+	return &r.Status.Id
+}
+
+func (r *AgentOnlineRequest) StatusNamePtr() *string {
+	if r.Status == nil || strings.TrimSpace(r.Status.Name) == "" {
+		return nil
+	}
+
+	return &r.Status.Name
+}
+
+type SetOnlineAtomicResponse struct {
+	Agent
+
+	Channels     []AgentChannel `json:"channels" db:"channels"`
+	Timestamp    int64          `json:"login_timestamp" db:"login_timestamp"`
+	StatusPreset Lookup         `json:"status_preset" db:"status_preset"`
 }

@@ -63,6 +63,94 @@ returning t.*
 	}
 }
 
+func (s *SqlAgentStore) SetOnlineAtomic(ctx context.Context, status *model.AgentOnlineRequest) (*model.SetOnlineAtomicResponse, *model.AppError) {
+	var res model.SetOnlineAtomicResponse
+	if err := s.GetMaster().WithContext(ctx).SelectOne(
+		&res,
+		"select * from call_center.cc_set_agent_online(:AgentID::int8, :DomainID::int8, :OnDemand::boolean, :StatusID::int8, :StatusName::varchar);",
+		map[string]any{
+			"AgentID":    status.AgentID,
+			"DomainID":   status.DomainID,
+			"OnDemand":   status.OnDemand,
+			"StatusID":   status.StatusIDPtr(),
+			"StatusName": status.StatusNamePtr(),
+		},
+	); err != nil {
+		return nil, model.NewAppError("SetOnlineAtomic", "sqlstore.agent_store.set_online_atomic.app_err", nil, err.Error(), extractCodeFromErr(err))
+	}
+
+	return &res, nil
+}
+
+func (s *SqlAgentStore) GetWithContext(ctx context.Context, id int) (*model.Agent, *model.AppError) {
+	var agent *model.Agent
+	if err := s.GetReplica().WithContext(ctx).SelectOne(&agent, `
+	select a.id,
+    a.user_id,
+    a.domain_id,
+    (
+        a.updated_at - extract(
+            epoch
+            from u.updated_at
+        )
+    )::int8 as updated_at,
+    coalesce((u.name)::varchar, u.username) as name,
+    'sofia/sip/' || u.extension || '@' || d.name as destination,
+    u.extension,
+    a.status,
+    a.status_payload,
+    a.on_demand,
+    case
+        when g.id notnull then json_build_object('id', g.id, 'type', g.mime_type)::jsonb
+    end as greeting_media,
+    a.team_id,
+    team.updated_at as team_updated_at,
+    coalesce(push.config, '{}') variables,
+    push.config notnull has_push,
+    coalesce(nullif(u.chat_name, ''), u.name, u.username) as chat_name
+from call_center.cc_agent a
+    inner join directory.wbt_user u on u.id = a.user_id
+    inner join directory.wbt_domain d on d.dc = a.domain_id
+    inner join call_center.cc_team team on team.id = a.team_id
+    left join storage.media_files g on g.id = a.greeting_media_id
+    left join lateral (
+        select jsonb_object(array_agg(key), array_agg(val)) as push
+        from (
+                SELECT case
+                        when s.props->>'pn-type'::text = 'fcm' then 'wbt_push_fcm'
+                        else 'wbt_push_apn'
+                    end as key,
+                    array_to_string(
+                        array_agg(DISTINCT s.props->>'pn-rpid'::text),
+                        '::'
+                    ) as val
+                FROM directory.wbt_session s
+                WHERE s.user_id IS NOT NULL
+                    AND s.access notnull
+                    AND NULLIF(s.props->>'pn-rpid'::text, ''::text) IS NOT NULL
+                    AND s.user_id = a.user_id
+                    and s.props->>'pn-type'::text in ('fcm', 'apns')
+                    AND now() at time zone 'UTC' < s.expires
+                group by s.props->>'pn-type'::text = 'fcm'
+            ) t
+        where key notnull
+            and val notnull
+    ) push(config) ON true
+where a.id = :Id
+		`, map[string]any{"Id": id}); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusNotFound)
+		} else {
+			return nil, model.NewAppError("SqlAgentStore.Get", "store.sql_agent.get.app_error", nil,
+				fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
+		}
+	} else {
+		return agent, nil
+	}
+}
+
+// DEPRECATED
 func (s *SqlAgentStore) Get(id int) (*model.Agent, *model.AppError) {
 	var agent *model.Agent
 	if err := s.GetReplica().SelectOne(&agent, `
@@ -132,7 +220,6 @@ where a.id = :Id
 }
 
 func (s *SqlAgentStore) ConfirmAttempt(agentId int, attemptId int64) ([]string, *model.AppError) {
-
 	var res []string
 
 	_, err := s.GetMaster().Select(&res, `select cnt from call_center.cc_confirm_agent_attempt(:AgentId, :AttemptId) cnt`,
@@ -175,7 +262,7 @@ func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlin
 
 	err := s.GetMaster().SelectOne(&data, `select timestamp, channel
 		from call_center.cc_agent_set_login(:AgentId, :OnDemand) channels  (channel jsonb, timestamp int8)`,
-		map[string]interface{}{
+		map[string]any{
 			"AgentId":  agentId,
 			"OnDemand": onDemand,
 		})
@@ -191,34 +278,28 @@ func (s *SqlAgentStore) SetOnline(agentId int, onDemand bool) (*model.AgentOnlin
 func (s *SqlAgentStore) SetStatus(agentId int, status string, payload, statusComment *string) *model.AppError {
 	const query = `
 		with ag as (
-			update
-				call_center.cc_agent
+			update call_center.cc_agent
 			set
 				status = :Status,
 				status_payload = :Payload,
 				status_comment = :StatusComment,
-				last_state_change = now()
+				last_state_change = now(),
+				status_id = case when :Status is distinct from 'online' then null else status_id end
 			where
 				id = :AgentId
 				and not exists (
-					select
-						1
-					from
-						call_center.cc_member_attempt att
+					select 1
+					from call_center.cc_member_attempt att
 					where
 						att.agent_id = call_center.cc_agent.id
 						and att.state = 'wait_agent' for update
 				)
 			returning id
 		)
-		update
-			call_center.cc_agent_channel c
-		set
-			online = false
-		from
-			ag
-		where
-			c.agent_id = ag.id
+		update call_center.cc_agent_channel c
+		set online = false
+		from ag
+		where c.agent_id = ag.id;
 	`
 
 	args := map[string]any{
@@ -229,8 +310,13 @@ func (s *SqlAgentStore) SetStatus(agentId int, status string, payload, statusCom
 	}
 
 	if _, err := s.GetMaster().Exec(query, args); err != nil {
-		return model.NewAppError("SqlAgentStore.SetStatus", "store.sql_agent.set_status.app_error", nil,
-			fmt.Sprintf("AgentId=%v, %s", agentId, err.Error()), http.StatusInternalServerError)
+		return model.NewAppError(
+			"SqlAgentStore.SetStatus",
+			"store.sql_agent.set_status.app_error",
+			nil,
+			fmt.Sprintf("AgentId=%d, %+v", agentId, err),
+			http.StatusInternalServerError,
+		)
 	}
 	return nil
 }

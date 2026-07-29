@@ -110,9 +110,11 @@ type MemberStore interface {
 
 type AgentStore interface {
 	Get(id int) (*model.Agent, *model.AppError)
+	GetWithContext(ctx context.Context, id int) (*model.Agent, *model.AppError)
 	GetChannelTimeout() ([]*model.ChannelTimeout, *model.AppError)
 
 	SetOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError)
+	SetOnlineAtomic(ctx context.Context, status *model.AgentOnlineRequest) (*model.SetOnlineAtomicResponse, *model.AppError)
 	WaitingChannel(agentId int, channel string) (int64, *model.AppError)
 
 	SetOnBreak(agentId int) *model.AppError
