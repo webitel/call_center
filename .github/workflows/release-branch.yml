@@ -29,6 +29,7 @@ jobs:
         env:
           CLIENT_VERSION: ${{ github.event.client_payload.version }}
           INPUT_VERSION: ${{ inputs.version }}
+        
         run: |
           set -euo pipefail
           version="${CLIENT_VERSION:-$INPUT_VERSION}"
@@ -53,38 +54,45 @@ jobs:
           client-id: ${{ vars.DELIVERY_BOT_CLIENT_ID }}
           private-key: ${{ secrets.DELIVERY_BOT_APP_PEM }}
 
-      - name: Create release branch
-        uses: peterjgrainger/action-create-branch@v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        with:
-          branch: ${{ steps.version.outputs.value }}
-
-      - name: Checkout release branch
+      - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.version.outputs.value }}
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Create release branch
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+
+        run: |
+          set -euo pipefail
+
+          # re-runs are expected: continue from an existing release branch instead of rewinding it
+          if git ls-remote --exit-code --heads origin "$VERSION" >/dev/null 2>&1; then
+            echo "branch $VERSION already exists; continuing from it"
+            git fetch --depth=1 origin "+refs/heads/$VERSION:refs/remotes/origin/$VERSION"
+            git switch -c "$VERSION" "origin/$VERSION"
+          else
+            git switch -c "$VERSION"
+          fi
 
       - name: Pin buf inputs to the release branch
         env:
           VERSION: ${{ steps.version.outputs.value }}
           GIT_USERNAME: ${{ steps.app-token.outputs.user-name }}
           GIT_EMAIL: ${{ steps.app-token.outputs.user-email }}
+
         run: |
           set -euo pipefail
 
           # pin every buf.gen*.yaml input that tracks webitel/protos to the release branch
-          changed=0
           while IFS= read -r f; do
             if grep -q 'git_repo: "https://github.com/webitel/protos"' "$f"; then
               sed -i -E "s#^([[:space:]]*branch:[[:space:]]*\")main(\")#\1${VERSION}\2#" "$f"
               echo "pinned $f -> $VERSION"
-              changed=1
             fi
           done < <(find . -type f -name 'buf.gen*.yaml')
 
-          if [ "$changed" = "0" ]; then
+          if git diff --quiet; then
             echo "no buf.gen*.yaml references webitel/protos; nothing to pin"
             exit 0
           fi
@@ -92,7 +100,14 @@ jobs:
           git config user.name "$GIT_USERNAME"
           git config user.email "$GIT_EMAIL"
           git add -A
-          
-          # [skip ci]: pin does not affect the build (generated code is committed)
-          git commit -m "chore: pin buf inputs to $VERSION [skip ci]"
+          git commit -m "chore: pin buf inputs to $VERSION"
+
+      - name: Push release branch
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+
+        run: |
+          set -euo pipefail
+
           git push origin "HEAD:refs/heads/$VERSION"
+          echo "branch $VERSION is at $(git rev-parse HEAD)"
