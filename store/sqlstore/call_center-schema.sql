@@ -2,14 +2,15 @@
 -- PostgreSQL database dump
 --
 
-\restrict n96fGvYDTsLbaAZwtLYskVa6GUnnRRCYjAgsxUJeNzu8gv5BYud5Vlo5gddkNgd
+\restrict Jg310VHASAtXVQSqr1GnmYQ7JYEd0yUqdOwbFn6RKazn63ioy1fmKZDmt8sf9Es
 
--- Dumped from database version 15.17 (Debian 15.17-1.pgdg12+1)
--- Dumped by pg_dump version 15.17 (Debian 15.17-1.pgdg12+1)
+-- Dumped from database version 18.4 (Debian 18.4-1.pgdg12+1)
+-- Dumped by pg_dump version 18.4 (Debian 18.4-1.pgdg12+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -1157,6 +1158,103 @@ begin
 
     return row (res_::jsonb, call_center.cc_view_timestamp(now()));
 end;
+$$;
+
+
+--
+-- Name: cc_agent_set_login_v2(integer, boolean, bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_agent_set_login_v2(agent_id_ integer, on_demand_ boolean DEFAULT false, p_status_id bigint DEFAULT NULL::bigint, p_status_name character varying DEFAULT NULL::character varying) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    screen_control_ bool;
+    res_ jsonb;
+    user_id_ int8;
+BEGIN
+    UPDATE call_center.cc_agent a
+    SET status            = 'online',
+        status_payload    = NULL,
+        on_demand         = on_demand_,
+        last_state_change = NOW(),
+        status_id         = CASE 
+            WHEN p_status_id IS NOT NULL THEN p_status_id
+            WHEN p_status_name IS NOT NULL THEN (
+                SELECT s.id 
+                FROM call_center.skill_preset s 
+                WHERE LOWER(s."name") = LOWER(TRIM(p_status_name)) 
+                  AND s.domain_id = a.domain_id 
+                LIMIT 1
+            )
+            ELSE NULL
+        END
+    WHERE a.id = agent_id_
+    RETURNING a.user_id, a.screen_control INTO user_id_, screen_control_;
+
+    IF screen_control_ AND NOT EXISTS (
+        SELECT 1 
+        FROM call_center.socket_session ss
+        WHERE ss.user_id = user_id_ 
+          AND ss.application_name = 'desc_track' 
+          AND NOW() - ss.updated_at < '65 sec'::interval
+    ) THEN
+        RAISE EXCEPTION 'The agent must connect via the "desc_track" client application.'
+        USING
+            DETAIL = 'The agent must connect via the "desc_track" client application.',
+            ERRCODE = '09000';
+    END IF;
+
+    IF NOT (
+        EXISTS (
+            SELECT 1
+            FROM directory.wbt_user_presence p
+            WHERE p.user_id = user_id_
+              AND p.open > 0
+              AND p.status IN ('sip', 'web')
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM directory.wbt_session s
+            WHERE s.user_id IS NOT NULL 
+              AND NULLIF((s.props ->> 'pn-rpid'::text), ''::text) IS NOT NULL
+              AND s.user_id = user_id_::int8
+              AND s.access IS NOT NULL
+              AND s.expires > NOW() AT TIME ZONE 'UTC'
+        )
+    ) THEN
+        RAISE EXCEPTION 'not found: sip, web or pn';
+    END IF;
+
+    WITH chls AS (
+        UPDATE call_center.cc_agent_channel c
+        SET state = CASE WHEN x.x = 1 THEN c.state ELSE 'waiting' END,
+            online = TRUE,
+            no_answers = 0,
+            timeout = CASE WHEN x.x = 1 THEN c.timeout ELSE NULL END
+        FROM call_center.cc_agent_channel c2
+        LEFT JOIN LATERAL (
+            SELECT a.channel, 1 AS x
+            FROM call_center.cc_member_attempt a
+            WHERE a.agent_id = agent_id_
+              AND a.channel = c2.channel
+            LIMIT 1
+        ) x ON TRUE
+        WHERE c2.agent_id = agent_id_
+          AND (c.agent_id, c.channel) = (c2.agent_id, c2.channel)
+        RETURNING jsonb_build_object(
+            'channel', c.channel,
+            'joined_at', call_center.cc_view_timestamp(c.joined_at),
+            'state', c.state,
+            'no_answers', c.no_answers
+        ) xx
+    )
+    SELECT jsonb_agg(chls.xx)
+    INTO res_
+    FROM chls;
+
+    RETURN ROW (res_::jsonb, call_center.cc_view_timestamp(NOW()));
+END;
 $$;
 
 
@@ -2321,7 +2419,7 @@ CREATE FUNCTION call_center.cc_calls_rbac_users(_domain_id bigint, _user_id bigi
         select a.user_id, a.auditor_ids && array [x.user_id] aud
         from call_center.cc_agent a
         where a.domain_id = x.domain_id
-          and (a.user_id = x.user_id or (a.supervisor_ids && array [x.agent_id] and a.supervisor) or
+          and (a.user_id = x.user_id or (a.supervisor_ids && array [x.agent_id] and x.supervisor) or
                a.auditor_ids && array [x.user_id])
 
         union
@@ -2963,41 +3061,41 @@ $$;
 
 
 --
--- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, jsonb, integer, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_distribute_inbound_chat_to_queue(character varying, bigint, character varying, jsonb, integer, integer, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer) RETURNS record
+CREATE FUNCTION call_center.cc_distribute_inbound_chat_to_queue(_node_name character varying, _queue_id bigint, _conversation_id character varying, variables_ jsonb, bucket_id_ integer, _priority integer DEFAULT 0, _sticky_agent_id integer DEFAULT NULL::integer, _extra_chat_count boolean DEFAULT false) RETURNS record
     LANGUAGE plpgsql
     AS $$declare
-    _timezone_id int4;
-    _discard_abandoned_after int4;
-    _weight int4;
-    dnc_list_id_ int4;
-    _domain_id int8;
-    _calendar_id int4;
-    _queue_updated_at int8;
-    _team_updated_at int8;
-    _team_id_ int;
-    _enabled bool;
-    _q_type smallint;
-    _attempt record;
-    _con_created timestamptz;
-    _con_name varchar;
-    _con_type varchar;
-    _last_msg varchar;
-    _client_name varchar;
-    _inviter_channel_id varchar;
-    _inviter_user_id varchar;
-    _sticky bool;
-    _sticky_ignore_status bool;
-    _max_waiting_size int;
-    _qparams jsonb;
-    _ignore_calendar bool;
-    _member_jsonb jsonb;
-    _last_msg_channel_type varchar;
+  _timezone_id int4;
+  _discard_abandoned_after int4;
+  _weight int4;
+  dnc_list_id_ int4;
+  _domain_id int8;
+  _calendar_id int4;
+  _queue_updated_at int8;
+  _team_updated_at int8;
+  _team_id_ int;
+  _enabled bool;
+  _q_type smallint;
+  _attempt record;
+  _con_created timestamptz;
+  _con_name varchar;
+  _con_type varchar;
+  _last_msg varchar;
+  _client_name varchar;
+  _inviter_channel_id varchar;
+  _inviter_user_id varchar;
+  _sticky bool;
+  _sticky_ignore_status bool;
+  _max_waiting_size int;
+  _qparams jsonb;
+  _ignore_calendar bool;
+  _member_jsonb jsonb;
+  _last_msg_channel_type varchar;
 BEGIN
   select c.timezone_id,
-           (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
+         (coalesce(payload->>'discard_abandoned_after', '0'))::int discard_abandoned_after,
          q.domain_id,
          q.dnc_list_id,
          q.calendar_id,
@@ -3009,41 +3107,41 @@ BEGIN
          q.sticky_agent,
          (payload->>'max_waiting_size')::int max_size,
          case when jsonb_typeof(payload->'sticky_ignore_status') = 'boolean'
-             then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
+                then (payload->'sticky_ignore_status')::bool else false end sticky_ignore_status,
          call_center.cc_queue_params(q),
          case when jsonb_typeof(q.payload->'ignore_calendar') = 'boolean' then (q.payload->'ignore_calendar')::bool else false end
   from call_center.cc_queue q
-    left join flow.calendar c on q.calendar_id = c.id
-    left join call_center.cc_team ct on q.team_id = ct.id
+         left join flow.calendar c on q.calendar_id = c.id
+         left join call_center.cc_team ct on q.team_id = ct.id
   where  q.id = _queue_id
   into _timezone_id, _discard_abandoned_after, _domain_id, dnc_list_id_, _calendar_id, _queue_updated_at,
-      _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _qparams, _ignore_calendar;
+    _team_updated_at, _team_id_, _enabled, _q_type, _sticky, _max_waiting_size, _sticky_ignore_status, _qparams, _ignore_calendar;
 
   if not _q_type = 6 then
-      raise exception 'queue type not inbound chat';
+    raise exception 'queue type not inbound chat';
   end if;
 
   if not _enabled = true then
-      raise exception 'queue disabled';
+    raise exception 'queue disabled';
   end if;
 
   if not _calendar_id isnull  and (not _ignore_calendar and not exists(select accept
-            from flow.calendar_check_timing(_domain_id, _calendar_id, null)
-            as x (name varchar, excepted varchar, accept bool, expire bool)
-            where accept and excepted is null and not expire)) then
-      raise exception 'conversation [%] calendar not working [%] [%]', _conversation_id, _calendar_id, _queue_id;
+                                                                       from flow.calendar_check_timing(_domain_id, _calendar_id, null)
+                                                                              as x (name varchar, excepted varchar, accept bool, expire bool)
+                                                                       where accept and excepted is null and not expire)) then
+    raise exception 'conversation [%] calendar not working [%] [%]', _conversation_id, _calendar_id, _queue_id;
   end if;
 
   if _max_waiting_size > 0 then
-      if (select count(*) from call_center.cc_member_attempt aa
-                          where aa.queue_id = _queue_id
-                            and aa.bridged_at isnull
-                            and aa.leaving_at isnull
-                            and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
-        raise exception using
-            errcode='MAXWS',
-            message='Queue maximum waiting size';
-      end if;
+    if (select count(*) from call_center.cc_member_attempt aa
+        where aa.queue_id = _queue_id
+          and aa.bridged_at isnull
+          and aa.leaving_at isnull
+          and (bucket_id_ isnull or aa.bucket_id = bucket_id_)) >= _max_waiting_size then
+      raise exception using
+        errcode='MAXWS',
+        message='Queue maximum waiting size';
+    end if;
   end if;
 
   select cli.external_id,
@@ -3055,97 +3153,105 @@ BEGIN
          lst.channel_type,
          c.type
   from chat.channel c
-           left join chat.client cli on cli.id = c.user_id
-           left join lateral (
-               	select 
-					coalesce(m.text, m.file_name, 'empty') message,
-					ch.type as channel_type
-                from chat.message m
-                left join chat.channel ch on ch.id = m.channel_id
-                where m.conversation_id = _conversation_id::uuid
-                order by m.created_at desc
-                limit 1
-           ) lst on true
+         left join chat.client cli on cli.id = c.user_id
+         left join lateral (
+    select
+      coalesce(m.text, m.file_name, 'empty') message,
+      ch.type as channel_type
+    from chat.message m
+           left join chat.channel ch on ch.id = m.channel_id
+    where m.conversation_id = _conversation_id::uuid
+    order by m.created_at desc
+    limit 1
+    ) lst on true
   where c.closed_at isnull
-        and c.conversation_id = _conversation_id::uuid
+    and c.conversation_id = _conversation_id::uuid
     and not c.internal
   into _con_name, _con_created, _inviter_channel_id, _inviter_user_id, _client_name, _last_msg, _last_msg_channel_type, _con_type;
 
   if coalesce(_inviter_channel_id, '') = '' or coalesce(_inviter_user_id, '') = '' isnull then
-      raise exception using
-            errcode='VALID',
-            message='Bad request inviter_channel_id or user_id';
+    raise exception using
+      errcode='VALID',
+      message='Bad request inviter_channel_id or user_id';
   end if;
 
   _member_jsonb := null;
 
   if _last_msg_channel_type is null then
-      _member_jsonb := jsonb_build_object('type', 'bot');
+    _member_jsonb := jsonb_build_object('type', 'bot');
   elseif _last_msg_channel_type = 'webitel' then
-      _member_jsonb := jsonb_build_object('type', 'agent');
+    _member_jsonb := jsonb_build_object('type', 'agent');
   else
-      _member_jsonb := jsonb_build_object('type', 'contacts');
+    _member_jsonb := jsonb_build_object('type', 'contacts');
   end if;
 
 
   if  _discard_abandoned_after > 0 then
-      select
-            case when log.result = 'abandoned' then
-                 extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
-            else coalesce(_priority, 0) end
-        from call_center.cc_member_attempt_history log
-        where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
-            and log.queue_id = _queue_id
-            and log.destination->>'destination' = _con_name
-        order by log.leaving_at desc
-        limit 1
-        into _weight;
+    select
+      case when log.result = 'abandoned' then
+             extract(epoch from now() - log.leaving_at)::int8 + coalesce(_priority, 0)
+           else coalesce(_priority, 0) end
+    from call_center.cc_member_attempt_history log
+    where log.leaving_at >= (now() -  (_discard_abandoned_after || ' sec')::interval)
+      and log.queue_id = _queue_id
+      and log.destination->>'destination' = _con_name
+    order by log.leaving_at desc
+    limit 1
+    into _weight;
   end if;
 
   if _sticky_agent_id notnull and _sticky then
-      if not exists(select 1
-                    from call_center.cc_agent a
-                    where a.id = _sticky_agent_id
-                      and a.domain_id = _domain_id
-                      and (a.status = 'online' or _sticky_ignore_status is true)
-                      and exists(select 1
-                                 from call_center.cc_skill_in_agent sa
-                                          inner join call_center.cc_queue_skill qs
-                                                     on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
-                                 where sa.agent_id = _sticky_agent_id
-                                   and sa.enabled
-                                   and sa.capacity between qs.min_capacity and qs.max_capacity)
-          ) then
-          _sticky_agent_id = null;
-      end if;
-  else
+    if not exists(select 1
+                  from call_center.cc_agent a
+                  where a.id = _sticky_agent_id
+                    and a.domain_id = _domain_id
+                    and (a.status = 'online' or _sticky_ignore_status is true)
+                    and exists(select 1
+                               from call_center.cc_skill_in_agent sa
+                                      inner join call_center.cc_queue_skill qs
+                                                 on qs.skill_id = sa.skill_id and qs.queue_id = _queue_id
+                               where sa.agent_id = _sticky_agent_id
+                                 and sa.enabled
+                                 and sa.capacity between qs.min_capacity and qs.max_capacity)
+    ) then
       _sticky_agent_id = null;
+    end if;
+  else
+    _sticky_agent_id = null;
+  end if;
+
+
+    if exists(select 1
+        from call_center.cc_member_attempt
+        where member_call_id = _conversation_id and now() - joined_at < interval '5s'
+    and leaving_at isnull) then
+      raise exception 'conversation % already queue', _conversation_id;
   end if;
 
   insert into call_center.cc_member_attempt (domain_id, channel, state, queue_id, member_id, bucket_id, weight, member_call_id,
-                                             destination, node_id, sticky_agent_id, list_communication_id, queue_params, queue_type)
+                                             destination, node_id, sticky_agent_id, extra_chat_count, list_communication_id, queue_params, queue_type)
   values (_domain_id, 'chat', 'waiting', _queue_id, null, bucket_id_, coalesce(_weight, _priority), _conversation_id::varchar,
           jsonb_build_object('destination', _con_name, 'name', _client_name, 'msg', _last_msg, 'chat', _con_type) ||
-		  case when _member_jsonb notnull then jsonb_build_object('member', _member_jsonb) else '{}'::jsonb end,
-              _node_name, _sticky_agent_id, (select clc.id
-                            from call_center.cc_list_communications clc
-                            where (clc.list_id = dnc_list_id_ and clc.number = _con_name)), _qparams, 6)
+          case when _member_jsonb notnull then jsonb_build_object('member', _member_jsonb) else '{}'::jsonb end,
+          _node_name, _sticky_agent_id, coalesce(_extra_chat_count, false), (select clc.id
+                                         from call_center.cc_list_communications clc
+                                         where (clc.list_id = dnc_list_id_ and clc.number = _con_name)), _qparams, 6)
   returning * into _attempt;
 
 
   return row(
-      _attempt.id::int8,
-      _attempt.queue_id::int,
-      _queue_updated_at::int8,
-      _attempt.destination::jsonb,
-      coalesce((variables_::jsonb), '{}'::jsonb) || jsonb_build_object('inviter_channel_id', _inviter_channel_id) || jsonb_build_object('inviter_user_id', _inviter_user_id),
-      _conversation_id::varchar,
-      _team_updated_at::int8,
+    _attempt.id::int8,
+    _attempt.queue_id::int,
+    _queue_updated_at::int8,
+    _attempt.destination::jsonb,
+    coalesce((variables_::jsonb), '{}'::jsonb) || jsonb_build_object('inviter_channel_id', _inviter_channel_id) || jsonb_build_object('inviter_user_id', _inviter_user_id),
+    _conversation_id::varchar,
+    _team_updated_at::int8,
 
-      _conversation_id::varchar,
-      call_center.cc_view_timestamp(_con_created)::int8,
-      _attempt.list_communication_id::int8
-  );
+    _conversation_id::varchar,
+    call_center.cc_view_timestamp(_con_created)::int8,
+    _attempt.list_communication_id::int8
+    );
 END;
 $$;
 
@@ -4224,6 +4330,87 @@ $_$;
 
 
 --
+-- Name: cc_patch_online_skills(bigint, bigint, bigint, text, text, boolean, bigint[], boolean); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_patch_online_skills(p_id bigint, p_domain_id bigint, p_updated_by bigint, p_name text DEFAULT NULL::text, p_description text DEFAULT NULL::text, p_patch_description boolean DEFAULT false, p_skills bigint[] DEFAULT NULL::bigint[], p_patch_skills boolean DEFAULT false) RETURNS TABLE(id bigint, domain_id bigint, created_by jsonb, created_at timestamp with time zone, updated_by jsonb, updated_at timestamp with time zone, name text, description text, skills jsonb)
+    LANGUAGE plpgsql
+    AS $$
+begin
+    update call_center.cc_online_skills sp
+    set
+        updated_at  = now(),
+        updated_by  = coalesce(p_updated_by, sp.updated_by),
+        name        = coalesce(p_name, sp.name),
+        description = case when p_patch_description then p_description else sp.description end
+    where sp.id = p_id and sp.domain_id = p_domain_id;
+
+    
+    if p_patch_skills then
+        delete from call_center.skills_in_skill_preset
+        where online_skill_id = p_id
+          and (p_skills is null or skill_id <> all(p_skills));
+
+        if p_skills is not null and array_length(p_skills, 1) > 0 then
+            insert into call_center.cc_skills_in_online_skills (domain_id, online_skill_id, skill_id)
+            select p_domain_id, p_id, s.id
+            from unnest(p_skills) as s(id)
+            on conflict (online_skill_id, skill_id) do nothing;
+        end if;
+    end if;
+
+    
+    return query
+    select
+        sp.id,
+        sp.domain_id,
+        call_center.cc_get_lookup(uc.id, uc.name) as created_by,
+        sp.created_at,
+        call_center.cc_get_lookup(ua.id, ua.name) as updated_by,
+        sp.updated_at,
+        sp.name,
+        sp.description,
+        coalesce(
+            (
+                select jsonb_agg(call_center.cc_get_lookup(s.id, s.name))
+                from call_center.cc_skills_in_online_skills si
+                inner join call_center.cc_skill s on s.id = si.skill_id
+                where si.online_skill_id = sp.id
+            ),
+            '[]'::jsonb
+        ) as skills
+    from call_center.cc_online_skills sp
+    left join directory.wbt_user uc on uc.id = sp.created_by
+    left join directory.wbt_user ua on ua.id = sp.updated_by
+    where sp.id = p_id and sp.domain_id = p_domain_id;
+end;
+$$;
+
+
+--
+-- Name: cc_prevent_sys_record_mod(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_prevent_sys_record_mod() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+begin
+	if OLD.is_system is true then
+    raise exception 'Cannot % system record with id=%', TG_OP, OLD.id
+      using errcode = 'check_violation',
+            detail = 'System presets are read-only and cannot be updated or deleted.';
+    end if;
+
+	if TG_OP = 'DELETE' then
+        return OLD;
+    end if;
+
+    return NEW;
+end;
+$$;
+
+
+--
 -- Name: cc_queue_default_timezone_offset_id(integer); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -4301,7 +4488,8 @@ CREATE TABLE call_center.cc_queue (
     prolongation_enabled boolean DEFAULT false,
     prolongation_repeats_number smallint DEFAULT 0,
     prolongation_time_sec smallint DEFAULT 0,
-    prolongation_is_timeout_retry boolean DEFAULT true
+    prolongation_is_timeout_retry boolean DEFAULT true,
+    processing_autosave boolean DEFAULT false NOT NULL
 );
 
 
@@ -4312,16 +4500,18 @@ CREATE TABLE call_center.cc_queue (
 CREATE FUNCTION call_center.cc_queue_params(q call_center.cc_queue) RETURNS jsonb
     LANGUAGE sql IMMUTABLE
     AS $$
-    select jsonb_build_object('has_reporting', q.processing)
-    || jsonb_build_object('has_form', q.processing and q.form_schema_id notnull)
-    || jsonb_build_object('processing_sec', q.processing_sec)
-    || jsonb_build_object('processing_renewal_sec', q.processing_renewal_sec)
-    || jsonb_build_object('queue_name', q.name)
-    || jsonb_build_object('has_prolongation', q.prolongation_enabled)
-    || jsonb_build_object('remaining_prolongations', q.prolongation_repeats_number)
-    || jsonb_build_object('prolongation_sec', q.prolongation_time_sec)
-    || jsonb_build_object('is_timeout_retry', q.prolongation_is_timeout_retry)
-    as queue_params;
+SELECT jsonb_build_object(
+    'has_reporting', q.processing,
+    'has_form', (q.processing AND q.form_schema_id IS NOT NULL),
+    'processing_sec', q.processing_sec,
+    'processing_renewal_sec', q.processing_renewal_sec,
+    'queue_name', q.name,
+    'has_prolongation', q.prolongation_enabled,
+    'remaining_prolongations', q.prolongation_repeats_number,
+    'prolongation_sec', q.prolongation_time_sec,
+    'is_timeout_retry', q.prolongation_is_timeout_retry,
+    'processing_autosave', q.processing_autosave
+  );
 $$;
 
 
@@ -4412,7 +4602,7 @@ $$;
 -- Name: cc_set_active_members(character varying); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint, seq integer, communication_idx integer, timezone character varying, bucket_id bigint)
+CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURNS TABLE(id bigint, member_id bigint, result character varying, queue_id integer, queue_updated_at bigint, queue_count integer, queue_active_count integer, queue_waiting_count integer, resource_id integer, resource_updated_at bigint, gateway_updated_at bigint, destination jsonb, variables jsonb, name character varying, member_call_id character varying, agent_id integer, agent_updated_at bigint, team_updated_at bigint, list_communication_id bigint, seq integer, communication_idx integer, timezone character varying, bucket_id bigint, block_all_member_numbers_from_list boolean)
     LANGUAGE plpgsql
     AS $$BEGIN
     return query update call_center.cc_member_attempt a
@@ -4446,7 +4636,9 @@ CREATE FUNCTION call_center.cc_set_active_members(node character varying) RETURN
        cq.type                                                  as queue_type,
        cm.id as member_id,
        tz.sys_name::varchar as member_timezone,
-       c.bucket_id
+       c.bucket_id,
+       case when (s.value)::bool then cm.search_destinations else array[c.destination ->> 'destination'] end as check_block_numbers,
+       coalesce((s.value)::bool, false) block_all_member_numbers_from_list
 from call_center.cc_member_attempt c
          left join call_center.cc_member cm on c.member_id = cm.id
          left join lateral (
@@ -4464,14 +4656,17 @@ from call_center.cc_member_attempt c
                  left join directory.wbt_user u on u.id = ca.user_id
                  left join flow.calendar cr on cr.id = cq.calendar_id
                  left join flow.calendar_timezones tz on tz.id = coalesce(cm.timezone_id, cr.timezone_id)
+                 left join call_center.system_settings s on s.domain_id = c.domain_id
+                                                                and s.name = 'block_all_member_numbers_from_list'
+                                                                and jsonb_typeof(s.value) = 'boolean'
         where c.state = 'idle'
           and c.leaving_at isnull
         order by cq.priority desc, c.weight desc
-            for update of c, cq skip locked
+            for update of c  skip locked
         ) c
             left join call_center.cc_list_communications lc on lc.list_id = c.dnc_list_id and
-                                                   lc.number = c.destination ->> 'destination'
-        where a.id = c.id --and node = 'call_center-igor'
+                                                   lc.number = any(check_block_numbers)
+        where a.id = c.id
         returning
             a.id::bigint as id,
             a.member_id::bigint as member_id,
@@ -4495,7 +4690,8 @@ from call_center.cc_member_attempt c
             a.seq,
             a.communication_idx,
             c.member_timezone,
-            c.bucket_id
+            c.bucket_id,
+            c.block_all_member_numbers_from_list
     ;
 END;
 $$;
@@ -4562,6 +4758,198 @@ BEGIN
   values (old.agent_id, old.joined_at, old.state, old.channel, new.joined_at - old.joined_at, old.queue_id, old.attempt_id);
 
   RETURN new;
+END;
+$$;
+
+
+--
+-- Name: cc_set_agent_online(bigint, bigint, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_set_agent_online(p_agent_id bigint, p_domain_id bigint, p_on_demand boolean) RETURNS TABLE(id bigint, user_id bigint, domain_id bigint, updated_at bigint, name character varying, destination text, extension character varying, status character varying, status_payload jsonb, on_demand boolean, greeting_media jsonb, team_id bigint, team_updated_at bigint, variables jsonb, has_push boolean, chat_name character varying, channels jsonb, login_timestamp bigint)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_current_status varchar;
+    v_current_on_demand boolean;
+    v_set_login_res record;
+BEGIN
+    SELECT a.status, a.on_demand
+    INTO v_current_status, v_current_on_demand 
+    FROM call_center.cc_agent a
+    WHERE a.id = p_agent_id
+        AND a.domain_id = p_domain_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'agent_not_found' USING errcode = 'P0002';
+    END IF;
+    
+    IF v_current_status = 'online' AND v_current_on_demand IS NOT DISTINCT FROM p_on_demand THEN
+        RAISE EXCEPTION 'agent_already_online' USING errcode = '23000';
+    END IF;
+
+    SELECT channel, "timestamp"
+    INTO v_set_login_res
+    FROM call_center.cc_agent_set_login(cast(p_agent_id as integer), p_on_demand) 
+    AS (channel jsonb, timestamp int8);
+
+    RETURN QUERY
+    SELECT 
+        a.id::int8,
+        a.user_id::int8,
+        a.domain_id::int8,
+        (a.updated_at - extract(epoch from u.updated_at))::int8 AS updated_at,
+        coalesce((u.name)::varchar, u.username)::varchar AS name,                   
+        ('sofia/sip/' || u.extension || '@' || d.name)::text AS destination,
+        u.extension::varchar,
+        a.status::varchar,
+        a.status_payload::jsonb,
+        a.on_demand::boolean,
+        CASE
+            WHEN g.id IS NOT NULL THEN json_build_object('id', g.id, 'type', g.mime_type)::jsonb
+        END AS greeting_media,
+        a.team_id::int8,                                                             
+        team.updated_at::int8 AS team_updated_at,
+        coalesce(push.config, '{}'::jsonb)::jsonb AS variables,
+        (push.config IS NOT NULL)::boolean AS has_push,
+        coalesce(nullif(u.chat_name, ''), u.name, u.username)::varchar AS chat_name, 
+        v_set_login_res.channel::jsonb AS channels,
+        v_set_login_res.timestamp::int8 AS login_timestamp
+    FROM call_center.cc_agent a
+        INNER JOIN directory.wbt_user u ON u.id = a.user_id
+        INNER JOIN directory.wbt_domain d ON d.dc = a.domain_id
+        INNER JOIN call_center.cc_team team ON team.id = a.team_id
+        LEFT JOIN storage.media_files g ON g.id = a.greeting_media_id
+        LEFT JOIN LATERAL (
+            SELECT jsonb_object(array_agg(key), array_agg(val)) AS push
+            FROM (
+                SELECT 
+                    CASE
+                        WHEN s.props->>'pn-type'::text = 'fcm' THEN 'wbt_push_fcm'
+                        ELSE 'wbt_push_apn'
+                    END AS key,
+                    array_to_string(
+                        array_agg(DISTINCT s.props->>'pn-rpid'::text),
+                        '::'
+                    ) AS val
+                FROM directory.wbt_session s
+                WHERE s.user_id IS NOT NULL
+                    AND s.access IS NOT NULL
+                    AND NULLIF(s.props->>'pn-rpid'::text, ''::text) IS NOT NULL
+                    AND s.user_id = a.user_id
+                    AND s.props->>'pn-type'::text IN ('fcm', 'apns')
+                    AND now() AT TIME ZONE 'UTC' < s.expires
+                GROUP BY (s.props->>'pn-type'::text = 'fcm')
+            ) t
+            WHERE key IS NOT NULL AND val IS NOT NULL
+        ) push(config) ON true
+    WHERE a.id = p_agent_id AND a.domain_id = p_domain_id;
+END;
+$$;
+
+
+--
+-- Name: cc_set_agent_online(bigint, bigint, boolean, bigint, character varying); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_set_agent_online(p_agent_id bigint, p_domain_id bigint, p_on_demand boolean, p_status_id bigint DEFAULT NULL::bigint, p_status_name character varying DEFAULT NULL::character varying) RETURNS TABLE(id bigint, user_id bigint, domain_id bigint, updated_at bigint, name character varying, destination text, extension character varying, status character varying, status_payload jsonb, on_demand boolean, greeting_media jsonb, team_id bigint, team_updated_at bigint, variables jsonb, has_push boolean, chat_name character varying, channels jsonb, login_timestamp bigint, status_preset jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_current_status varchar;
+    v_current_on_demand boolean;
+    v_current_status_id int8;
+    v_target_status_id int8;
+    v_set_login_res record;
+BEGIN
+    SELECT a.status, a.on_demand, a.status_id
+    INTO v_current_status, v_current_on_demand, v_current_status_id
+    FROM call_center.cc_agent a
+    WHERE a.id = p_agent_id
+        AND a.domain_id = p_domain_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'agent_not_found' USING errcode = 'P0002';
+    END IF;
+ 
+    IF p_status_id IS NOT NULL THEN
+        v_target_status_id := p_status_id;
+    ELSIF p_status_name IS NOT NULL THEN
+        SELECT s.id INTO v_target_status_id
+        FROM call_center.skill_preset s
+        WHERE LOWER(s."name") = LOWER(TRIM(p_status_name))
+          AND s.domain_id = p_domain_id
+        LIMIT 1;
+    ELSE
+        v_target_status_id := NULL;
+    END IF;
+    
+    IF v_current_status = 'online' 
+       AND v_current_on_demand IS NOT DISTINCT FROM p_on_demand 
+       AND v_current_status_id IS NOT DISTINCT FROM v_target_status_id THEN
+        RAISE EXCEPTION 'agent_already_online' USING errcode = '23000';
+    END IF;
+
+    SELECT channel, "timestamp"
+    INTO v_set_login_res
+    FROM call_center.cc_agent_set_login(CAST(p_agent_id AS integer), p_on_demand, p_status_id, p_status_name) 
+    AS (channel jsonb, timestamp int8);
+
+    RETURN QUERY
+    SELECT 
+        a.id::int8,
+        a.user_id::int8,
+        a.domain_id::int8,
+        (a.updated_at - EXTRACT(EPOCH FROM u.updated_at))::int8 AS updated_at,
+        COALESCE((u.name)::varchar, u.username)::varchar AS name,                    
+        ('sofia/sip/' || u.extension || '@' || d.name)::text AS destination,
+        u.extension::varchar,
+        a.status::varchar,
+        a.status_payload::jsonb,                        
+        a.on_demand::boolean,
+        CASE
+            WHEN g.id IS NOT NULL THEN json_build_object('id', g.id, 'type', g.mime_type)::jsonb
+        END AS greeting_media,
+        a.team_id::int8,                                                             
+        team.updated_at::int8 AS team_updated_at,
+        COALESCE(push.config, '{}'::jsonb)::jsonb AS variables,
+        (push.config IS NOT NULL)::boolean AS has_push,
+        COALESCE(NULLIF(u.chat_name, ''), u.name, u.username)::varchar AS chat_name, 
+        v_set_login_res.channel::jsonb AS channels,
+        v_set_login_res.timestamp::int8 AS login_timestamp,
+        coalesce(call_center.cc_get_lookup(sp.id, sp.name), '{}'::jsonb) AS status_preset
+    FROM call_center.cc_agent a
+        INNER JOIN directory.wbt_user u ON u.id = a.user_id
+        INNER JOIN directory.wbt_domain d ON d.dc = a.domain_id
+        INNER JOIN call_center.cc_team team ON team.id = a.team_id
+        LEFT JOIN storage.media_files g ON g.id = a.greeting_media_id
+        LEFT JOIN call_center.skill_preset sp ON sp.id = a.status_id
+        LEFT JOIN LATERAL (
+            SELECT jsonb_object(array_agg(key), array_agg(val)) AS push
+            FROM (
+                SELECT 
+                    CASE
+                        WHEN s.props->>'pn-type'::text = 'fcm' THEN 'wbt_push_fcm'
+                        ELSE 'wbt_push_apn'
+                    END AS key,
+                    array_to_string(
+                        array_agg(DISTINCT s.props->>'pn-rpid'::text),
+                        '::'
+                    ) AS val
+                FROM directory.wbt_session s
+                WHERE s.user_id IS NOT NULL
+                    AND s.access IS NOT NULL
+                    AND NULLIF(s.props->>'pn-rpid'::text, ''::text) IS NOT NULL
+                    AND s.user_id = a.user_id
+                    AND s.props->>'pn-type'::text IN ('fcm', 'apns')
+                    AND NOW() AT TIME ZONE 'UTC' < s.expires
+                GROUP BY (s.props->>'pn-type'::text = 'fcm')
+            ) t
+            WHERE key IS NOT NULL AND val IS NOT NULL
+        ) push(config) ON TRUE
+    WHERE a.id = p_agent_id AND a.domain_id = p_domain_id;
 END;
 $$;
 
@@ -4911,7 +5299,7 @@ CREATE TABLE call_center.cc_agent (
     created_by bigint,
     updated_by bigint,
     status_payload character varying,
-    progressive_count integer DEFAULT 1,
+    progressive_count integer,
     last_state_change timestamp with time zone DEFAULT now() NOT NULL,
     on_demand boolean DEFAULT false NOT NULL,
     allow_channels character varying[] DEFAULT '{call}'::character varying[],
@@ -4925,7 +5313,10 @@ CREATE TABLE call_center.cc_agent (
     task_count smallint DEFAULT 1 NOT NULL,
     screen_control boolean DEFAULT false NOT NULL,
     status_comment text,
+    extra_chat_count smallint DEFAULT 0,
+    status_id bigint,
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
+    CONSTRAINT cc_agent_extra_chat_count_c CHECK ((extra_chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_progress_count_c CHECK ((progressive_count > '-1'::integer))
 )
 WITH (fillfactor='20', autovacuum_vacuum_scale_factor='0.01', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20');
@@ -5193,7 +5584,8 @@ CREATE VIEW call_center.cc_agent_list AS
                 ( SELECT stt.status
                    FROM directory.wbt_user_presence stt
                   WHERE ((stt.user_id = a.user_id) AND (stt.status IS NOT NULL) AND (stt.open > 0))
-                  ORDER BY stt.prior, stt.status)) status(open)), '{}'::name[]) AS user_presence_status
+                  ORDER BY stt.prior, stt.status)) status(open)), '{}'::name[]) AS user_presence_status,
+    a.extra_chat_count
    FROM (((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
      LEFT JOIN storage.media_files g ON ((g.id = a.greeting_media_id)))
@@ -5278,7 +5670,8 @@ CREATE TABLE call_center.cc_audit_rate (
     rated_user_id bigint,
     call_created_at timestamp with time zone,
     select_yes_count bigint DEFAULT 0,
-    critical_count bigint DEFAULT 0
+    critical_count bigint DEFAULT 0,
+    conversation_id uuid
 );
 
 
@@ -5531,7 +5924,7 @@ CREATE MATERIALIZED VIEW call_center.cc_agent_today_stats AS
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.queue_id IS NULL))) AS "direct inbound",
             count(*) FILTER (WHERE ((h.parent_id IS NOT NULL) AND (h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS internal_inb,
             count(*) FILTER (WHERE ((h.bridged_at IS NOT NULL) AND (h.queue_id IS NULL) AND (pc.user_id IS NOT NULL))) AS user_2user,
-            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (NOT (h.hide_missed IS TRUE)) AND (pc.bridged_at IS NULL) AND (cq.type <> ALL (ARRAY[4, 5])))) AS missed,
+            count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (NOT (h.hide_missed IS TRUE)) AND (pc.bridged_at IS NULL) AND (COALESCE((cq.type)::integer, 0) <> ALL (ARRAY[4, 5])))) AS missed,
             count(h.parent_id) FILTER (WHERE ((h.bridged_at IS NULL) AND (NOT (h.hide_missed IS TRUE)) AND (h.queue_id IS NOT NULL))) AS queue_missed,
             count(*) FILTER (WHERE (((h.direction)::text = 'inbound'::text) AND (h.bridged_at IS NULL) AND (h.queue_id IS NOT NULL) AND ((h.cause)::text = ANY (ARRAY[('NO_ANSWER'::character varying)::text, ('USER_BUSY'::character varying)::text])))) AS abandoned,
             count(*) FILTER (WHERE ((cq.type = ANY (ARRAY[(3)::smallint, (4)::smallint, (5)::smallint])) AND (h.bridged_at IS NOT NULL))) AS outbound_queue,
@@ -5825,7 +6218,8 @@ CREATE VIEW call_center.cc_audit_rate_view AS
     r.rated_user_id,
     r.created_by AS grantor,
     r.select_yes_count,
-    r.critical_count
+    r.critical_count,
+    r.conversation_id
    FROM (((((call_center.cc_audit_rate r
      LEFT JOIN LATERAL ( SELECT jsonb_agg(
                 CASE
@@ -5944,10 +6338,10 @@ CREATE VIEW call_center.cc_bucket_in_queue_view AS
 --
 
 CREATE VIEW call_center.cc_bucket_view AS
- SELECT b.id,
-    ((b.name)::character varying COLLATE "default") AS name,
-    b.description,
-    b.domain_id
+ SELECT id,
+    ((name)::character varying COLLATE "default") AS name,
+    description,
+    domain_id
    FROM call_center.cc_bucket b;
 
 
@@ -6034,7 +6428,8 @@ CREATE UNLOGGED TABLE call_center.cc_member_attempt (
     variables jsonb,
     queue_type smallint,
     offered_agent_ids integer[],
-    available_prolongation_quant smallint DEFAULT 0
+    available_prolongation_quant smallint DEFAULT 0,
+    extra_chat_count boolean DEFAULT false NOT NULL
 )
 WITH (fillfactor='20', autovacuum_analyze_scale_factor='0.05', autovacuum_enabled='1', autovacuum_vacuum_cost_delay='20', autovacuum_vacuum_threshold='100', autovacuum_vacuum_scale_factor='0.01');
 
@@ -6069,10 +6464,10 @@ CREATE VIEW call_center.cc_call_active_list AS
     call_center.cc_get_lookup(gw.id, gw.name) AS gateway,
     c.direction,
     c.destination,
-    json_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
+    jsonb_build_object('type', COALESCE(c.from_type, ''::character varying), 'number', COALESCE(c.from_number, ''::character varying), 'id', COALESCE(c.from_id, ''::character varying), 'name', COALESCE(c.from_name, ''::character varying)) AS "from",
         CASE
-            WHEN ((c.to_number)::text <> ''::text) THEN json_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying))
-            ELSE NULL::json
+            WHEN ((c.to_number)::text <> ''::text) THEN jsonb_build_object('type', COALESCE(c.to_type, ''::character varying), 'number', COALESCE(c.to_number, ''::character varying), 'id', COALESCE(c.to_id, ''::character varying), 'name', COALESCE(c.to_name, ''::character varying))
+            ELSE NULL::jsonb
         END AS "to",
         CASE
             WHEN (c.payload IS NULL) THEN '{}'::jsonb
@@ -6810,13 +7205,13 @@ ALTER SEQUENCE call_center.cc_communication_id_seq OWNED BY call_center.cc_commu
 --
 
 CREATE VIEW call_center.cc_communication_list AS
- SELECT c.id,
-    c.name,
-    c.code,
-    c.description,
-    c.channel,
-    c."default",
-    c.domain_id
+ SELECT id,
+    name,
+    code,
+    description,
+    channel,
+    "default",
+    domain_id
    FROM call_center.cc_communication c;
 
 
@@ -6989,7 +7384,7 @@ ALTER SEQUENCE call_center.cc_email_id_seq OWNED BY call_center.cc_email.id;
 --
 
 CREATE TABLE call_center.cc_email_profile (
-    id integer NOT NULL,
+    id integer CONSTRAINT cc_email_profile_id_not_null1 NOT NULL,
     domain_id bigint NOT NULL,
     name character varying NOT NULL,
     description character varying DEFAULT ''::character varying NOT NULL,
@@ -7079,24 +7474,98 @@ ALTER SEQUENCE call_center.cc_email_profiles_id_seq OWNED BY call_center.cc_emai
 
 
 --
+-- Name: cc_email_profile_rc; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_email_profile_rc (
+    id integer DEFAULT nextval('call_center.cc_email_profiles_id_seq'::regclass) CONSTRAINT cc_email_profile_id_not_null1 NOT NULL,
+    domain_id bigint CONSTRAINT cc_email_profile_domain_id_not_null NOT NULL,
+    name character varying CONSTRAINT cc_email_profile_name_not_null NOT NULL,
+    description character varying DEFAULT ''::character varying CONSTRAINT cc_email_profile_description_not_null NOT NULL,
+    enabled boolean DEFAULT true CONSTRAINT cc_email_profile_enabled_not_null NOT NULL,
+    last_activity_at timestamp with time zone,
+    fetch_err character varying,
+    updated_at timestamp with time zone DEFAULT now() CONSTRAINT cc_email_profile_updated_at_not_null NOT NULL,
+    fetch_interval integer DEFAULT 5 CONSTRAINT cc_email_profile_fetch_interval_not_null NOT NULL,
+    state character varying DEFAULT 'idle'::character varying CONSTRAINT cc_email_profile_state_not_null NOT NULL,
+    flow_id integer,
+    imap_host character varying,
+    mailbox character varying,
+    imap_port integer,
+    smtp_port integer,
+    login character varying,
+    password bytea,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT cc_email_profile_created_at_not_null NOT NULL,
+    created_by bigint,
+    updated_by bigint,
+    smtp_host character varying,
+    params jsonb,
+    auth_type character varying DEFAULT 'plain'::character varying CONSTRAINT cc_email_profile_auth_type_not_null NOT NULL,
+    listen boolean DEFAULT false CONSTRAINT cc_email_profile_listen_not_null NOT NULL,
+    token jsonb
+);
+
+
+--
+-- Name: COLUMN cc_email_profile_rc.fetch_interval; Type: COMMENT; Schema: call_center; Owner: -
+--
+
+COMMENT ON COLUMN call_center.cc_email_profile_rc.fetch_interval IS 'sec; TODO add check > 5';
+
+
+--
+-- Name: cc_email_profile_rc_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_email_profile_rc_list AS
+ SELECT t.id,
+    t.domain_id,
+    call_center.cc_view_timestamp(t.created_at) AS created_at,
+    call_center.cc_get_lookup(t.created_by, (cc.name)::character varying) AS created_by,
+    call_center.cc_view_timestamp(t.updated_at) AS updated_at,
+    call_center.cc_get_lookup(t.updated_by, (cu.name)::character varying) AS updated_by,
+    call_center.cc_view_timestamp(t.last_activity_at) AS activity_at,
+    t.name,
+    t.imap_host,
+    t.smtp_host,
+    t.login,
+    t.mailbox,
+    t.smtp_port,
+    t.imap_port,
+    t.fetch_err AS fetch_error,
+    t.fetch_interval,
+    t.state,
+    call_center.cc_get_lookup((t.flow_id)::bigint, s.name) AS schema,
+    t.description,
+    t.enabled,
+    t.password,
+    t.listen,
+    (((t.token ->> 'expiry'::text) IS NOT NULL) AND ((t.token ->> 'access_token'::text) IS NOT NULL)) AS logged
+   FROM (((call_center.cc_email_profile_rc t
+     LEFT JOIN directory.wbt_user cc ON ((cc.id = t.created_by)))
+     LEFT JOIN directory.wbt_user cu ON ((cu.id = t.updated_by)))
+     LEFT JOIN flow.acr_routing_scheme s ON ((s.id = t.flow_id)));
+
+
+--
 -- Name: cc_inbound_stats; Type: MATERIALIZED VIEW; Schema: call_center; Owner: -
 --
 
 CREATE MATERIALIZED VIEW call_center.cc_inbound_stats AS
- SELECT h.queue_id,
-    h.bucket_id,
-    COALESCE(avg(date_part('epoch'::text, (COALESCE(h.bridged_at, h.reporting_at, h.leaving_at) - h.joined_at))) FILTER (WHERE (h.bridged_at IS NOT NULL)), (0)::double precision) AS ata,
-    count(DISTINCT h.agent_id) AS agent_cnt,
-    COALESCE(avg(date_part('epoch'::text, (COALESCE(h.reporting_at, h.leaving_at) - h.joined_at))) FILTER (WHERE (h.bridged_at IS NOT NULL)), (0)::double precision) AS aha,
+ SELECT queue_id,
+    bucket_id,
+    COALESCE(avg(date_part('epoch'::text, (COALESCE(bridged_at, reporting_at, leaving_at) - joined_at))) FILTER (WHERE (bridged_at IS NOT NULL)), (0)::double precision) AS ata,
+    count(DISTINCT agent_id) AS agent_cnt,
+    COALESCE(avg(date_part('epoch'::text, (COALESCE(reporting_at, leaving_at) - joined_at))) FILTER (WHERE (bridged_at IS NOT NULL)), (0)::double precision) AS aha,
     count(*) AS cnt,
-    count(*) FILTER (WHERE (h.bridged_at IS NOT NULL)) AS cntb,
-    (((count(*) FILTER (WHERE ((h.bridged_at - h.joined_at) < '00:00:20'::interval)))::double precision * (100)::double precision) / (count(*))::double precision) AS sl20,
-    (((count(*) FILTER (WHERE ((h.bridged_at - h.joined_at) < '00:00:30'::interval)))::double precision * (100)::double precision) / (count(*))::double precision) AS sl30
+    count(*) FILTER (WHERE (bridged_at IS NOT NULL)) AS cntb,
+    (((count(*) FILTER (WHERE ((bridged_at - joined_at) < '00:00:20'::interval)))::double precision * (100)::double precision) / (count(*))::double precision) AS sl20,
+    (((count(*) FILTER (WHERE ((bridged_at - joined_at) < '00:00:30'::interval)))::double precision * (100)::double precision) / (count(*))::double precision) AS sl30
    FROM call_center.cc_member_attempt_history h
-  WHERE ((h.leaving_at > (now() - '01:00:00'::interval)) AND (h.queue_id = ANY (ARRAY( SELECT q.id
+  WHERE ((leaving_at > (now() - '01:00:00'::interval)) AND (queue_id = ANY (ARRAY( SELECT q.id
            FROM call_center.cc_queue q
           WHERE (q.enabled AND (q.type = 1))))))
-  GROUP BY h.queue_id, h.bucket_id
+  GROUP BY queue_id, bucket_id
   WITH NO DATA;
 
 
@@ -7284,16 +7753,16 @@ CREATE VIEW call_center.cc_manual_queue_list AS
             a.destination AS communication,
             a.sticky_agent_id,
             a.channel,
-            (((EXTRACT(epoch FROM (now() - a.joined_at)) / (q.max_wait_time)::numeric) * (100)::numeric))::integer AS deadline
+            (((EXTRACT(epoch FROM (now() - a.joined_at)) / COALESCE(NULLIF((q.max_wait_time)::numeric, (0)::numeric), (3600)::numeric)) * (100)::numeric))::integer AS deadline
            FROM (call_center.cc_member_attempt a
              JOIN queues q ON ((q.queue_id = a.queue_id)))
           WHERE ((a.domain_id = q.domain_id) AND (a.agent_id IS NULL) AND ((a.state)::text = 'wait_agent'::text) AND (a.queue_id = q.queue_id) AND (COALESCE(q.bucket_id, 0) = COALESCE(a.bucket_id, (0)::bigint)) AND ((a.sticky_agent_id IS NULL) OR (a.sticky_agent_id = q.agent_id) OR (a.joined_at < (now() - ((q.sticky_agent_sec || ' sec'::text))::interval))))
          FOR UPDATE OF a SKIP LOCKED
         )
- SELECT x.domain_id,
-    array_agg(x.user_id) AS users,
-    array_to_json(x.calls[1:10]) AS calls,
-    array_to_json(x.chats[1:100]) AS chats
+ SELECT domain_id,
+    array_agg(user_id) AS users,
+    array_to_json(calls[1:10]) AS calls,
+    array_to_json(chats[1:100]) AS chats
    FROM ( SELECT a.domain_id,
             a.user_id,
             array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = 'call'::text)) AS calls,
@@ -7301,7 +7770,7 @@ CREATE VIEW call_center.cc_manual_queue_list AS
            FROM (attempts a
              LEFT JOIN call_center.cc_bucket b ON ((b.id = a.bucket_id)))
           GROUP BY a.domain_id, a.user_id) x
-  GROUP BY x.domain_id, x.calls[1:10], x.chats[1:100];
+  GROUP BY domain_id, calls[1:10], chats[1:100];
 
 
 --
@@ -7538,6 +8007,59 @@ CREATE SEQUENCE call_center.cc_notification_id_seq
 --
 
 ALTER SEQUENCE call_center.cc_notification_id_seq OWNED BY call_center.cc_notification.id;
+
+
+--
+-- Name: cc_online_skills; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_online_skills (
+    id bigint CONSTRAINT skill_preset_id_not_null NOT NULL,
+    domain_id bigint CONSTRAINT skill_preset_domain_id_not_null NOT NULL,
+    created_by bigint,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT skill_preset_created_at_not_null NOT NULL,
+    updated_by bigint,
+    updated_at timestamp with time zone DEFAULT now() CONSTRAINT skill_preset_updated_at_not_null NOT NULL,
+    name text CONSTRAINT skill_preset_name_not_null NOT NULL,
+    description text,
+    is_system boolean DEFAULT false CONSTRAINT skill_preset_is_system_not_null NOT NULL,
+    CONSTRAINT chk_skill_preset_name_valid CHECK (((TRIM(BOTH FROM name) <> ''::text) AND ((is_system IS TRUE) OR (lower(TRIM(BOTH FROM name)) <> 'standart online'::text))))
+);
+
+
+--
+-- Name: cc_skills_in_online_skills; Type: TABLE; Schema: call_center; Owner: -
+--
+
+CREATE TABLE call_center.cc_skills_in_online_skills (
+    domain_id bigint CONSTRAINT skills_in_skill_preset_domain_id_not_null NOT NULL,
+    online_skill_id bigint CONSTRAINT skills_in_skill_preset_skill_preset_id_not_null NOT NULL,
+    skill_id bigint CONSTRAINT skills_in_skill_preset_skill_id_not_null NOT NULL
+);
+
+
+--
+-- Name: cc_online_skills_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_online_skills_list AS
+ SELECT p.id,
+    p.domain_id,
+    call_center.cc_get_lookup(uc.id, (COALESCE(uc.name, (uc.username)::text))::character varying) AS created_by,
+    p.created_at,
+    call_center.cc_get_lookup(ua.id, (COALESCE(ua.name, (ua.username)::text))::character varying) AS updated_by,
+    p.updated_at,
+    p.name,
+    p.description,
+    s.skills,
+    p.is_system
+   FROM (((call_center.cc_online_skills p
+     LEFT JOIN LATERAL ( SELECT jsonb_agg(call_center.cc_get_lookup((s_1.id)::bigint, s_1.name)) AS skills
+           FROM (call_center.cc_skills_in_online_skills si
+             JOIN call_center.cc_skill s_1 ON ((s_1.id = si.skill_id)))
+          WHERE (si.online_skill_id = p.id)) s ON (true))
+     LEFT JOIN directory.wbt_user uc ON ((uc.id = p.created_by)))
+     LEFT JOIN directory.wbt_user ua ON ((ua.id = p.updated_by)));
 
 
 --
@@ -7898,15 +8420,15 @@ ALTER SEQUENCE call_center.cc_preset_query_id_seq OWNED BY call_center.cc_preset
 --
 
 CREATE VIEW call_center.cc_preset_query_list AS
- SELECT p.id,
-    p.name,
-    p.description,
-    p.created_at,
-    p.updated_at,
-    p.section,
-    p.preset,
-    p.domain_id,
-    p.user_id
+ SELECT id,
+    name,
+    description,
+    created_at,
+    updated_at,
+    section,
+    preset,
+    domain_id,
+    user_id
    FROM call_center.cc_preset_query p;
 
 
@@ -8075,7 +8597,7 @@ CREATE VIEW call_center.cc_queue_list AS
     q.processing,
     q.processing_sec,
     q.processing_renewal_sec,
-    jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec) AS task_processing,
+    jsonb_build_object('enabled', q.processing, 'form_schema', call_center.cc_get_lookup(fs.id, fs.name), 'sec', q.processing_sec, 'renewal_sec', q.processing_renewal_sec, 'processing_autosave', q.processing_autosave) AS task_processing,
     call_center.cc_get_lookup(au.id, (au.name)::character varying) AS grantee,
     q.team_id,
     q.tags,
@@ -8926,6 +9448,25 @@ ALTER SEQUENCE call_center.feedback_id_seq OWNED BY call_center.feedback.id;
 
 
 --
+-- Name: skill_preset_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
+--
+
+CREATE SEQUENCE call_center.skill_preset_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: skill_preset_id_seq; Type: SEQUENCE OWNED BY; Schema: call_center; Owner: -
+--
+
+ALTER SEQUENCE call_center.skill_preset_id_seq OWNED BY call_center.cc_online_skills.id;
+
+
+--
 -- Name: socket_session; Type: TABLE; Schema: call_center; Owner: -
 --
 
@@ -9143,6 +9684,13 @@ ALTER TABLE ONLY call_center.cc_member_messages ALTER COLUMN id SET DEFAULT next
 --
 
 ALTER TABLE ONLY call_center.cc_notification ALTER COLUMN id SET DEFAULT nextval('call_center.cc_notification_id_seq'::regclass);
+
+
+--
+-- Name: cc_online_skills id; Type: DEFAULT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills ALTER COLUMN id SET DEFAULT nextval('call_center.skill_preset_id_seq'::regclass);
 
 
 --
@@ -9488,6 +10036,14 @@ ALTER TABLE ONLY call_center.cc_email
 
 
 --
+-- Name: cc_email_profile_rc cc_email_profile_rc_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_email_profile_rc
+    ADD CONSTRAINT cc_email_profile_rc_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: cc_email_profile cc_email_profiles_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -9784,11 +10340,35 @@ ALTER TABLE ONLY call_center.feedback
 
 
 --
+-- Name: cc_online_skills skill_preset_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills
+    ADD CONSTRAINT skill_preset_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cc_skills_in_online_skills skills_in_skill_preset_pkey; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skills_in_online_skills
+    ADD CONSTRAINT skills_in_skill_preset_pkey PRIMARY KEY (online_skill_id, skill_id);
+
+
+--
 -- Name: system_settings systemc_settings_pk; Type: CONSTRAINT; Schema: call_center; Owner: -
 --
 
 ALTER TABLE ONLY call_center.system_settings
     ADD CONSTRAINT systemc_settings_pk PRIMARY KEY (id);
+
+
+--
+-- Name: cc_online_skills uk_skill_preset_domain_id_id; Type: CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills
+    ADD CONSTRAINT uk_skill_preset_domain_id_id UNIQUE (domain_id, id);
 
 
 --
@@ -9959,6 +10539,13 @@ CREATE INDEX cc_audit_rate_call_created_at ON call_center.cc_audit_rate USING bt
 --
 
 CREATE UNIQUE INDEX cc_audit_rate_call_id_uindex ON call_center.cc_audit_rate USING btree (call_id);
+
+
+--
+-- Name: cc_audit_rate_conversation_id_uindex; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX cc_audit_rate_conversation_id_uindex ON call_center.cc_audit_rate USING btree (conversation_id);
 
 
 --
@@ -10381,6 +10968,13 @@ CREATE INDEX cc_email_owner_id_index ON call_center.cc_email USING btree (owner_
 --
 
 CREATE INDEX cc_email_profile_domain_id_index ON call_center.cc_email_profile USING btree (domain_id);
+
+
+--
+-- Name: cc_email_profile_rc_domain_id_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_email_profile_rc_domain_id_idx ON call_center.cc_email_profile_rc USING btree (domain_id);
 
 
 --
@@ -11231,6 +11825,34 @@ CREATE INDEX idx_cc_skill_in_agent_enabled ON call_center.cc_skill_in_agent USIN
 
 
 --
+-- Name: idx_skill_preset_domain_id_created_by; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX idx_skill_preset_domain_id_created_by ON call_center.cc_online_skills USING btree (domain_id, created_by) WHERE (created_by IS NOT NULL);
+
+
+--
+-- Name: idx_skill_preset_domain_id_updated_by; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX idx_skill_preset_domain_id_updated_by ON call_center.cc_online_skills USING btree (domain_id, updated_by) WHERE (updated_by IS NOT NULL);
+
+
+--
+-- Name: idx_skills_in_skill_preset; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX idx_skills_in_skill_preset ON call_center.cc_skills_in_online_skills USING btree (skill_id);
+
+
+--
+-- Name: idx_uq_skill_preset_domain_name_lower; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_uq_skill_preset_domain_name_lower ON call_center.cc_online_skills USING btree (domain_id, lower(TRIM(BOTH FROM name)));
+
+
+--
 -- Name: socket_session_app_id_index; Type: INDEX; Schema: call_center; Owner: -
 --
 
@@ -11284,7 +11906,7 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
                    FROM call_center.cc_calls cc
                   WHERE ((cc.parent_id = c.id) AND (cc.hangup_at IS NOT NULL)))))) OR ((c.hangup_at IS NOT NULL) AND (c.attempt_id IS NOT NULL) AND (EXISTS ( SELECT 1
                    FROM call_center.cc_agent_channel ch
-                  WHERE ((ch.agent_id = c.agent_id) AND ((ch.channel)::text = ANY ((ARRAY['call'::character varying, 'out_call'::character varying])::text[])) AND ((ch.state)::text = 'processing'::text)))))))
+                  WHERE ((ch.agent_id = c.agent_id) AND ((ch.channel)::text = ANY (ARRAY[('call'::character varying)::text, ('out_call'::character varying)::text])) AND ((ch.state)::text = 'processing'::text)))))))
         )
  SELECT q.queue,
     q.priority,
@@ -11360,12 +11982,27 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view AS
 --
 
 CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
- WITH queues AS MATERIALIZED (
+ WITH tz_now AS MATERIALIZED (
+         SELECT t.id,
+            t.names,
+            t.utc_offset,
+            ((to_char(timezone(t.names[1], now()), 'SSSS'::text))::integer / 60) AS min_of_day,
+            (date_part('isodow'::text, timezone(t.names[1], now())))::integer AS iso_dow
+           FROM flow.calendar_timezone_offsets t
+        ), active_offsets AS MATERIALIZED (
+         SELECT corg.id AS resource_group_id,
+            array_agg(DISTINCT t.id) AS x
+           FROM ((call_center.cc_outbound_resource_group corg
+             CROSS JOIN LATERAL jsonb_array_elements(corg."time") e(value))
+             CROSS JOIN tz_now t)
+          WHERE ((t.min_of_day >= ((e.value -> 'start_time_of_day'::text))::integer) AND (t.min_of_day <= ((e.value -> 'end_time_of_day'::text))::integer))
+          GROUP BY corg.id
+        ), queues AS MATERIALIZED (
          SELECT q_1.domain_id,
             q_1.id,
             q_1.calendar_id,
             q_1.type,
-            q_1.sticky_agent,
+            (q_1.sticky_agent AND (COALESCE(((q_1.payload -> 'sticky_agent_sec'::text))::integer, 30) > 0)) AS sticky_agent,
             q_1.recall_calendar,
                 CASE
                     WHEN (jsonb_typeof((q_1.payload -> 'ignore_calendar'::text)) = 'boolean'::text) THEN ((q_1.payload -> 'ignore_calendar'::text))::boolean
@@ -11386,7 +12023,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
             COALESCE((q_1.payload ->> 'resource_strategy'::text), ''::text) AS rs,
             ((q_1.payload -> 'wait_between_retries_desc'::text))::boolean AS wait_between_retries_desc,
             COALESCE(((q_1.payload -> 'strict_circuit'::text))::boolean, false) AS strict_circuit,
-            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.priority DESC NULLS LAST, cbiq.ratio DESC NULLS LAST, m.bucket_id) AS buckets,
+            array_agg(ROW((m.bucket_id)::integer, (m.member_waiting)::integer, m.op)::call_center.cc_sys_distribute_bucket ORDER BY cbiq.priority DESC NULLS LAST, cbiq.ratio DESC NULLS LAST, m.rnd) AS buckets,
             m.op,
             min(m.min_wt) AS min_wt
            FROM ((( WITH mem AS MATERIALIZED (
@@ -11394,7 +12031,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                             a.bucket_id,
                             count(*) AS member_waiting,
                             false AS op,
-                            min((EXTRACT(epoch FROM a.joined_at))::bigint) AS min_wt
+                            min((EXTRACT(epoch FROM a.joined_at))::bigint) AS min_wt,
+                            random() AS rnd
                            FROM call_center.cc_member_attempt a
                           WHERE ((a.bridged_at IS NULL) AND (a.leaving_at IS NULL) AND ((a.state)::text = 'wait_agent'::text))
                           GROUP BY a.queue_id, a.bucket_id
@@ -11403,7 +12041,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                             q_2.bucket_id,
                             q_2.member_waiting,
                             true AS op,
-                            0 AS min_wt
+                            ((random() * (1000)::double precision))::bigint AS min_wt,
+                            random() AS rnd
                            FROM call_center.cc_queue_statistics q_2
                           WHERE (q_2.member_waiting > 0)
                         )
@@ -11412,7 +12051,8 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                     mem.bucket_id,
                     mem.member_waiting,
                     mem.op,
-                    mem.min_wt
+                    mem.min_wt,
+                    mem.rnd
                    FROM mem) m
              JOIN call_center.cc_queue q_1 ON ((q_1.id = m.queue_id)))
              LEFT JOIN call_center.cc_bucket_in_queue cbiq ON (((cbiq.queue_id = m.queue_id) AND (cbiq.bucket_id = m.bucket_id))))
@@ -11433,7 +12073,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
              LEFT JOIN flow.calendar_timezones tz ON ((tz.id = c.timezone_id)))
              JOIN queues ON ((queues.calendar_id = c.id)))
              JOIN LATERAL unnest(c.accepts) a(disabled, day, start_time_of_day, end_time_of_day, special) ON (true))
-             JOIN flow.calendar_timezone_offsets o1 ON ((((a.day + 1) = (date_part('isodow'::text, timezone(o1.names[1], now())))::integer) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) >= a.start_time_of_day) AND (((to_char(timezone(o1.names[1], now()), 'SSSS'::text))::integer / 60) <= a.end_time_of_day))))
+             JOIN tz_now o1 ON (((o1.iso_dow = (a.day + 1)) AND (o1.min_of_day >= a.start_time_of_day) AND (o1.min_of_day <= a.end_time_of_day))))
           WHERE ((NOT (a.disabled IS TRUE)) AND (NOT (EXISTS ( SELECT 1
                    FROM unnest(c.excepts) x(disabled, date, name, repeat, work_start, work_stop, working)
                   WHERE ((NOT (x.disabled IS TRUE)) AND
@@ -11442,6 +12082,12 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                             ELSE (((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name))::date = ((to_timestamp(((x.date / 1000))::double precision) AT TIME ZONE tz.sys_name))::date)
                         END AND (NOT (x.working AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) >= x.work_start) AND (((to_char((CURRENT_TIMESTAMP AT TIME ZONE tz.sys_name), 'SSSS'::text))::integer / 60) <= x.work_stop))))))))
           GROUP BY c.id, queues.id, queues.rs, queues.recall_calendar, tz.offset_id
+        ), used AS MATERIALIZED (
+         SELECT cc_member_attempt.resource_id,
+            (count(*))::integer AS cnt
+           FROM call_center.cc_member_attempt
+          WHERE (((cc_member_attempt.state)::text <> ALL (ARRAY[('leaving'::character varying)::text, ('processing'::character varying)::text])) AND (cc_member_attempt.resource_id IS NOT NULL))
+          GROUP BY cc_member_attempt.resource_id
         ), resources AS MATERIALIZED (
          SELECT l_1.queue_id,
             array_agg(ROW(cor.communication_id, (cor.id)::bigint, ((l_1.l & (l2.x)::integer[]))::smallint[], (cor.resource_group_id)::integer)::call_center.cc_sys_distribute_type ORDER BY
@@ -11449,7 +12095,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                     WHEN (l_1.rs = 'priority-based'::text) THEN cor.priority
                     ELSE NULL::integer
                 END, (random())) AS types,
-            array_agg(ROW((cor.id)::bigint, ((cor."limit" - used.cnt))::integer, cor.patterns)::call_center.cc_sys_distribute_resource) AS resources,
+            array_agg(ROW((cor.id)::bigint, (cor."limit" - COALESCE(used.cnt, 0)), cor.patterns)::call_center.cc_sys_distribute_resource) AS resources,
             call_center.cc_array_merge_agg((l_1.l & (l2.x)::integer[])) AS offset_ids
            FROM (((calend l_1
              JOIN ( SELECT corg.queue_id,
@@ -11506,21 +12152,9 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
                                     ELSE NULL::integer
                                 END IS NOT NULL)
                           ORDER BY cqr.queue_id, corig.priority DESC) corg ON ((corg.queue_id = calend_1.queue_id)))) cor ON ((cor.queue_id = l_1.queue_id)))
-             JOIN LATERAL ( WITH times AS (
-                         SELECT ((e.value -> 'start_time_of_day'::text))::integer AS start,
-                            ((e.value -> 'end_time_of_day'::text))::integer AS "end"
-                           FROM jsonb_array_elements(cor."time") e(value)
-                        )
-                 SELECT array_agg(DISTINCT t.id) AS x
-                   FROM flow.calendar_timezone_offsets t,
-                    times,
-                    LATERAL ( SELECT timezone(t.names[1], CURRENT_TIMESTAMP) AS t) with_timezone
-                  WHERE ((((to_char(with_timezone.t, 'SSSS'::text))::integer / 60) >= times.start) AND (((to_char(with_timezone.t, 'SSSS'::text))::integer / 60) <= times."end"))) l2 ON ((l2.* IS NOT NULL)))
-             LEFT JOIN LATERAL ( SELECT count(*) AS cnt
-                   FROM ( SELECT 1 AS cnt
-                           FROM call_center.cc_member_attempt c_1
-                          WHERE ((c_1.resource_id = cor.id) AND ((c_1.state)::text <> ALL (ARRAY[('leaving'::character varying)::text, ('processing'::character varying)::text])))) c) used ON (true))
-          WHERE (cor.enabled AND ((cor.last_error_at IS NULL) OR (cor.last_error_at <= (now() - ((cor.failure_dial_delay || ' s'::text))::interval))) AND ((cor."limit" - used.cnt) > 0))
+             JOIN active_offsets l2 ON ((l2.resource_group_id = cor.resource_group_id)))
+             LEFT JOIN used ON ((used.resource_id = cor.id)))
+          WHERE (cor.enabled AND ((cor.last_error_at IS NULL) OR (cor.last_error_at <= (now() - ((cor.failure_dial_delay || ' s'::text))::interval))) AND ((cor."limit" - COALESCE(used.cnt, 0)) > 0))
           GROUP BY l_1.queue_id
         )
  SELECT q.id,
@@ -11553,7 +12187,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6, 9])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
+  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
   ORDER BY q.domain_id, q.priority DESC, q.op;
 
 
@@ -11852,6 +12486,20 @@ CREATE TRIGGER tg_cc_set_agent_channel_change_status_u BEFORE UPDATE ON call_cen
 
 
 --
+-- Name: cc_online_skills trg_prevent_skill_preset_delete; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER trg_prevent_skill_preset_delete BEFORE DELETE ON call_center.cc_online_skills FOR EACH ROW EXECUTE FUNCTION call_center.cc_prevent_sys_record_mod();
+
+
+--
+-- Name: cc_online_skills trg_prevent_skill_preset_update; Type: TRIGGER; Schema: call_center; Owner: -
+--
+
+CREATE TRIGGER trg_prevent_skill_preset_update BEFORE UPDATE ON call_center.cc_online_skills FOR EACH ROW EXECUTE FUNCTION call_center.cc_prevent_sys_record_mod();
+
+
+--
 -- Name: cc_agent_acl cc_agent_acl_cc_agent_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -11937,6 +12585,14 @@ ALTER TABLE ONLY call_center.cc_agent
 
 ALTER TABLE ONLY call_center.cc_agent_state_history
     ADD CONSTRAINT cc_agent_status_history_cc_agent_id_fk FOREIGN KEY (agent_id) REFERENCES call_center.cc_agent(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: cc_agent cc_agent_status_id_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_agent
+    ADD CONSTRAINT cc_agent_status_id_fkey FOREIGN KEY (status_id) REFERENCES call_center.cc_online_skills(id) ON DELETE SET NULL;
 
 
 --
@@ -13220,6 +13876,46 @@ ALTER TABLE ONLY call_center.cc_trigger
 
 
 --
+-- Name: cc_online_skills skill_preset_domain_id_created_by_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills
+    ADD CONSTRAINT skill_preset_domain_id_created_by_fkey FOREIGN KEY (domain_id, created_by) REFERENCES directory.wbt_user(dc, id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_online_skills skill_preset_domain_id_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills
+    ADD CONSTRAINT skill_preset_domain_id_fkey FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_online_skills skill_preset_domain_id_updated_by_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_online_skills
+    ADD CONSTRAINT skill_preset_domain_id_updated_by_fkey FOREIGN KEY (domain_id, updated_by) REFERENCES directory.wbt_user(dc, id) ON DELETE SET NULL;
+
+
+--
+-- Name: cc_skills_in_online_skills skills_in_skill_preset_domain_id_skill_id_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skills_in_online_skills
+    ADD CONSTRAINT skills_in_skill_preset_domain_id_skill_id_fkey FOREIGN KEY (domain_id, skill_id) REFERENCES call_center.cc_skill(domain_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: cc_skills_in_online_skills skills_in_skill_preset_domain_id_skill_preset_id_fkey; Type: FK CONSTRAINT; Schema: call_center; Owner: -
+--
+
+ALTER TABLE ONLY call_center.cc_skills_in_online_skills
+    ADD CONSTRAINT skills_in_skill_preset_domain_id_skill_preset_id_fkey FOREIGN KEY (domain_id, online_skill_id) REFERENCES call_center.cc_online_skills(domain_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: socket_session socket_session_wbt_user_id_fk; Type: FK CONSTRAINT; Schema: call_center; Owner: -
 --
 
@@ -13239,5 +13935,5 @@ ALTER TABLE ONLY call_center.system_settings
 -- PostgreSQL database dump complete
 --
 
-\unrestrict n96fGvYDTsLbaAZwtLYskVa6GUnnRRCYjAgsxUJeNzu8gv5BYud5Vlo5gddkNgd
+\unrestrict Jg310VHASAtXVQSqr1GnmYQ7JYEd0yUqdOwbFn6RKazn63ioy1fmKZDmt8sf9Es
 
