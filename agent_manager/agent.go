@@ -65,9 +65,11 @@ func (agent *Agent) IsExpire(updatedAt int64) bool {
 
 func (agent *Agent) StoreStatus(s model.AgentStatus) {
 	agent.Lock()
+	defer agent.Unlock()
+
 	agent.info.Status = s.Status
 	agent.info.StatusPayload = s.StatusPayload
-	agent.Unlock()
+	agent.info.StatusPreset = s.StatusPreset
 }
 
 // TODO
@@ -111,17 +113,14 @@ func (agent *Agent) GreetingMedia() *model.RingtoneFile {
 }
 
 func (agent *Agent) SetOnDemand(v bool) {
-	//todo mutex
+	agent.Lock()
+	defer agent.Unlock()
+
 	agent.info.OnDemand = v
 }
 
-func (agent *Agent) Variables() map[string]string {
-	return agent.info.Variables
-}
-
-func (agent *Agent) HasPush() bool {
-	return agent.info.HasPush
-}
+func (agent *Agent) Variables() map[string]string { return agent.info.Variables }
+func (agent *Agent) HasPush() bool                { return agent.info.HasPush }
 
 func (agent *Agent) HookData() map[string]string {
 	agent.RLock()
@@ -140,6 +139,11 @@ func (agent *Agent) HookData() map[string]string {
 	}
 	if agent.info.Extension != nil {
 		data["extension"] = *agent.info.Extension
+	}
+
+	if agent.info.StatusPreset != nil {
+		data["online_skill.id"] = fmt.Sprintf("%d", agent.info.StatusPreset.Id)
+		data["online_skill.name"] = agent.info.StatusPreset.Name
 	}
 
 	return data

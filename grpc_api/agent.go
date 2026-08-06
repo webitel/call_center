@@ -6,35 +6,62 @@ import (
 	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/engine/pkg/wbt/gen/engine"
 )
 
 type agent struct {
-	app *app.App
 	cc.UnsafeAgentServiceServer
+
+	app *app.App
 }
 
-func NewAgentApi(a *app.App) *agent {
-	return &agent{app: a}
+func NewAgentApi(a *app.App) *agent { return &agent{app: a} }
+
+func AgentChannelToCC(channel model.AgentChannel) *cc.Channel {
+	return &cc.Channel{
+		Channel:  channel.Channel,
+		State:    channel.State,
+		JoinedAt: channel.JoinedAt,
+	}
+}
+
+func AgentChannelsToCC(channels []model.AgentChannel) []*cc.Channel {
+	res := make([]*cc.Channel, 0, len(channels))
+
+	for _, channel := range channels {
+		res = append(res, AgentChannelToCC(channel))
+	}
+
+	return res
 }
 
 func (api *agent) Online(ctx context.Context, in *cc.OnlineRequest) (*cc.OnlineResponse, error) {
-	info, err := api.app.SetAgentOnline(int(in.AgentId), in.GetOnDemand())
+	info, err := api.app.AgentGoOnline(
+		ctx,
+		&model.AgentOnlineRequest{
+			AgentID:  in.GetAgentId(),
+			OnDemand: in.GetOnDemand(),
+			DomainID: in.GetDomainId(),
+			Status: &model.Lookup{
+				Id:   int(in.GetOnlineSkill().GetId()),
+				Name: in.GetOnlineSkill().GetName(),
+			},
+		},
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
-	chls := make([]*cc.Channel, 0, len(info.Channel))
-	for _, v := range info.Channel {
-		chls = append(chls, &cc.Channel{
-			Channel:  v.Channel,
-			State:    v.State,
-			JoinedAt: v.JoinedAt,
-		})
+	var preset *engine.Lookup
+	if !info.IsStatusPresetEmpty() {
+		preset = &engine.Lookup{Id: int64(info.StatusPreset.Id), Name: info.StatusPreset.Name}
 	}
 
 	return &cc.OnlineResponse{
-		Timestamp: info.Timestamp,
-		Channel:   chls,
+		Timestamp:   info.Timestamp,
+		Channel:     AgentChannelsToCC(info.Channel),
+		OnlineSkill: preset,
 	}, nil
 }
 

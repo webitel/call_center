@@ -9,6 +9,7 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -25,6 +26,8 @@ var (
 type HookAutoOfflineAgent func(agent AgentObject)
 
 type agentManager struct {
+	sync.Mutex
+
 	store                store.Store
 	mq                   mq.MQ
 	watcher              *utils.Watcher
@@ -33,7 +36,7 @@ type agentManager struct {
 	agentsCache          utils.ObjectCache
 	hookAutoOfflineAgent HookAutoOfflineAgent
 	log                  *wlog.Logger
-	sync.Mutex
+	requestGroup         singleflight.Group
 }
 
 func NewAgentManager(nodeId string, s store.Store, mq_ mq.MQ, log *wlog.Logger) AgentManager {
@@ -63,32 +66,69 @@ func (am *agentManager) Start() {
 	})
 }
 
-func (am *agentManager) Stop() {
-	am.watcher.Stop()
+func (am *agentManager) Stop() { am.watcher.Stop() }
+
+func (am *agentManager) PutAgentCache(a *model.Agent) AgentObject {
+	if item, exists := am.agentsCache.Get(a.Id); exists {
+		if currentAgent, ok := item.(AgentObject); ok {
+			if currentAgent.UpdatedAt() >= a.UpdatedAt {
+				return currentAgent
+			}
+		}
+	}
+
+	agent := NewAgent(a, am, am.log)
+
+	am.agentsCache.AddWithDefaultExpires(a.Id, agent)
+
+	agent.Log().Debug("updated agent in cache", wlog.String("agent_name", agent.Name()), wlog.Int64("updated_at", agent.UpdatedAt()))
+
+	return agent
 }
 
 func (am *agentManager) GetAgent(id int, updatedAt int64) (AgentObject, *model.AppError) {
-	am.Lock()
-	defer am.Unlock()
-
-	var agent AgentObject
-	item, ok := am.agentsCache.Get(id)
-	if ok {
-		agent, ok = item.(AgentObject)
-		if ok && !agent.IsExpire(updatedAt) {
+	if item, ok := am.agentsCache.Get(id); ok {
+		if agent, ok := item.(AgentObject); ok && !agent.IsExpire(updatedAt) {
 			return agent, nil
 		}
 	}
 
-	if a, err := am.store.Agent().Get(id); err != nil {
-		return nil, err
-	} else {
-		agent = NewAgent(a, am, am.log)
+	key := fmt.Sprintf("agent:%d", id)
+
+	val, err, _ := am.requestGroup.Do(key, func() (any, error) {
+		if item, ok := am.agentsCache.Get(id); ok {
+			if agent, ok := item.(AgentObject); ok && !agent.IsExpire(updatedAt) {
+				return agent, nil
+			}
+		}
+
+		a, appErr := am.store.Agent().Get(id)
+		if appErr != nil {
+			return nil, appErr
+		}
+
+		agent := NewAgent(a, am, am.log)
+
+		am.agentsCache.AddWithDefaultExpires(id, agent)
+
+		agent.Log().Debug("add agent to cache", wlog.String("agent_name", agent.Name()))
+
+		return agent, nil
+	})
+
+	if err != nil {
+		if weer, ok := err.(*model.AppError); ok {
+			return nil, weer
+		}
+
+		return nil, model.NewAppError("GetAgent", "agent_manager.agent_manager.get_agent.update_cache", nil, err.Error(), 500)
 	}
 
-	am.agentsCache.AddWithDefaultExpires(id, agent)
-	agent.Log().Debug(fmt.Sprintf("add agent to cache %v", agent.Name()))
-	return agent, nil
+	return val.(AgentObject), nil
+}
+
+func (am *agentManager) PublishAgentStatusChangeEvent(agent AgentObject, e model.Event) *model.AppError {
+	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), e)
 }
 
 func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
@@ -109,8 +149,16 @@ func (am *agentManager) SetOnline(agent AgentObject, onDemand bool) (*model.Agen
 }
 
 func (am *agentManager) setAgentStatus(agent AgentObject, status *model.AgentStatus) *model.AppError {
-	if err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload, status.StatusComment); err != nil {
-		agent.Log().Error(fmt.Sprintf("agent %s[%d] has been changed state to \"%s\" error: %s", agent.Name(), agent.Id(), status.Status, err.Error()))
+	err := am.store.Agent().SetStatus(agent.Id(), status.Status, status.StatusPayload, status.StatusComment)
+	if err != nil {
+		agent.Log().Error(
+			"changing agent status",
+			wlog.String("agent_name", agent.Name()),
+			wlog.Int("agent_id", agent.Id()),
+			wlog.String("new_status", status.Status),
+			wlog.Err(err),
+		)
+
 		return err
 	}
 
@@ -135,10 +183,10 @@ func (am *agentManager) SetOffline(agent AgentObject, sys *string) *model.AppErr
 	}
 
 	err := am.setAgentStatus(agent, &event.AgentStatus)
-
 	if err != nil {
 		return err
 	}
+
 	agent.StoreStatus(event.AgentStatus)
 	//add channel queue
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))

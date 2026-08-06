@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"strconv"
 
@@ -19,40 +20,41 @@ func (app *App) GetAgentById(agentId int) (*model.Agent, *model.AppError) {
 	}
 }
 
-func (app *App) SetAgentOnline(agentId int, onDemand bool) (*model.AgentOnlineData, *model.AppError) {
-	var agent *model.Agent
-	var err *model.AppError
-	var data *model.AgentOnlineData
-
-	if agent, err = app.GetAgentById(agentId); err != nil {
+func (app *App) AgentGoOnline(ctx context.Context, r *model.AgentOnlineRequest) (*model.AgentOnlineData, *model.AppError) {
+	agentData, err := app.Store.Agent().SetOnlineAtomic(ctx, r)
+	if err != nil {
 		return nil, err
 	}
 
-	if agent.Status == model.AgentStatusOnline && agent.OnDemand == onDemand {
-		return nil, model.NewAppError("SetAgentLogin", "app.agent.set_login.agent_logged", nil, "", http.StatusBadRequest)
+	ad := model.AgentOnlineData{
+		Timestamp:    agentData.Timestamp,
+		Channel:      agentData.Channels,
+		StatusPreset: &agentData.StatusPreset,
 	}
 
-	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
-		return nil, err
-	} else {
-		data, err = app.agentManager.SetOnline(agentObj, onDemand)
-		if err != nil {
-			return nil, err
-		}
-		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
-		return data, nil
+	agentObj := app.agentManager.PutAgentCache(&agentData.Agent)
+
+	agentObj.SetOnDemand(r.OnDemand)
+	agentObj.StoreStatus(model.CreateAgentStatus(model.AgentStatusOnline, model.WithStatusPreset(ad.StatusPreset)))
+
+	event := agent_manager.NewAgentEventOnlineStatus(agentObj, &ad, r.OnDemand)
+
+	if err = app.agentManager.PublishAgentStatusChangeEvent(agentObj, event); err != nil {
+		agentObj.Log().Error("publishing agent online status change event to broker", wlog.Err(err))
 	}
+
+	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agentData.Agent.TeamUpdatedAt)
+
+	return &ad, nil
 }
 
 func (app *App) SetAgentLogout(agentId int) *model.AppError {
-	var agent *model.Agent
-	var err *model.AppError
-
-	if agent, err = app.GetAgentById(agentId); err != nil {
+	agent, err := app.GetAgentById(agentId)
+	if err != nil {
 		return err
 	}
 
-	if agent.Status == model.AgentStatusOffline {
+	if agent.Offline() {
 		return model.NewAppError("SetAgentLogout", "app.agent.set_logout.agent_logged_out", nil, "", http.StatusBadRequest)
 	}
 
@@ -61,16 +63,19 @@ func (app *App) SetAgentLogout(agentId int) *model.AppError {
 		app.hangupNoAnswerChannels(chs)
 	}
 
-	if agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt); err != nil {
+	agentObj, err := app.agentManager.GetAgent(agentId, agent.UpdatedAt)
+	if err != nil {
 		return err
-	} else {
-		err = app.agentManager.SetOffline(agentObj, nil)
-		if err != nil {
-			return err
-		}
-		app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
-		return nil
 	}
+
+	err = app.agentManager.SetOffline(agentObj, nil)
+	if err != nil {
+		return err
+	}
+
+	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agentObj, agent.TeamUpdatedAt)
+
+	return nil
 }
 
 func (app *App) SetAgentPause(agentId int, payload, statusComment *string, timeout *int) *model.AppError {
@@ -174,9 +179,7 @@ func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, userId int64
 		vars = make(map[string]string)
 	}
 
-	for k, v := range data.Variables {
-		vars[k] = v
-	}
+	maps.Copy(vars, data.Variables)
 
 	vars["agent_id"] = strconv.Itoa(int(data.AgentId))
 	vars["user_id"] = strconv.Itoa(int(userId))
@@ -198,7 +201,6 @@ func (app *App) RunTeamTrigger(ctx context.Context, domainId int64, userId int64
 
 func (app *App) hookAutoOfflineAgent(agent agent_manager.AgentObject) {
 	app.Queue().Manager().AgentTeamHook(model.HookAgentStatus, agent, agent.TeamUpdatedAt())
-	return
 }
 
 func getString(p *string) string {

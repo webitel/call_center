@@ -107,7 +107,7 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 		}
 	}
 
-	v, err, shared := teamGroupRequest.Do(fmt.Sprintf("%d-%d", id, updatedAt), func() (interface{}, error) {
+	v, err, shared := teamGroupRequest.Do(fmt.Sprintf("%d-%d", id, updatedAt), func() (any, error) {
 		data, err := tm.store.Team().Get(id)
 		if err != nil {
 			return nil, err
@@ -117,9 +117,9 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 	})
 
 	if err != nil {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *model.AppError:
-			return nil, err.(*model.AppError)
+			return nil, err
 		default:
 			return nil, model.NewAppError("Queue", "queue.manager.team.get", nil, err.Error(), http.StatusInternalServerError)
 		}
@@ -128,7 +128,7 @@ func (tm *teamManager) GetTeam(id int, updatedAt int64) (*agentTeam, *model.AppE
 
 	if !shared {
 		tm.cache.AddWithDefaultExpires(id, team)
-		team.log.Debug(fmt.Sprintf("team [%d] %v store to cache", team.Id(), team.Name()))
+		team.log.Debug("team stored to cache", wlog.Int64("id", team.Id()), wlog.String("name", team.Name()))
 	}
 
 	return team, nil
@@ -140,25 +140,25 @@ func (tm *teamManager) HookAgent(event string, agent agent_manager.AgentObject, 
 		return err
 	}
 
-	if h, ok := team.hook.getByName(event); ok {
-		// add params last attempt
-		req := &workflow.StartFlowRequest{
-			SchemaId:  h.SchemaId,
-			DomainId:  agent.DomainId(),
-			Variables: agent.HookData(),
-		}
-
-		id, err := tm.app.FlowManager().Queue().StartFlow(req)
-		if err != nil {
-			team.log.Error(fmt.Sprintf("hook \"%s\", error: %s", event, err.Error()),
-				wlog.Err(err),
-			)
-		} else {
-			team.log.Debug(fmt.Sprintf("hook \"%s\" external job_id: %s", event, id))
-		}
-
-		//call_manager.DUMP(req.Variables)
+	hook, exists := team.hook.getByName(event)
+	if !exists {
+		return nil
 	}
+
+	req := &workflow.StartFlowRequest{
+		SchemaId:  hook.SchemaId,
+		DomainId:  agent.DomainId(),
+		Variables: agent.HookData(),
+	}
+
+	id, werr := tm.app.FlowManager().Queue().StartFlow(req)
+	if werr != nil {
+		team.log.Error("starting hook external job", wlog.String("hook", event), wlog.Err(werr))
+
+		return model.NewAppError("HookAgent", "queue.team.hook_agent.flow_request", nil, werr.Error(), 500)
+	}
+
+	team.log.Debug("started hook external job", wlog.String("hook", event), wlog.String("id", id))
 
 	return nil
 }
