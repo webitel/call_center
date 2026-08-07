@@ -1,4 +1,4 @@
-create or replace function "call_center"."cc_agent_has_queue_skill"(p_agent_id int8, p_queue_id int8, p_domain_id int8, p_ignore_status boolean default false )
+create or replace function "call_center"."cc_agent_has_queue_skill"(p_agent_id int8, p_queue_id int8, p_domain_id int8, p_ignore_status boolean default false)
 returns boolean
 language sql
 stable
@@ -13,8 +13,8 @@ as $$
         select 1
         from "call_center"."cc_skill_in_agent" sa
         inner join "call_center"."cc_queue_skill" qs on qs."skill_id" = sa."skill_id" and qs."queue_id" = p_queue_id
-        left join "call_center"."skill_preset" sp on sp."id" = a."status_id" and a."status" = 'online'
-        left join "call_center"."skills_in_skill_preset" spp on spp."skill_preset_id" = a."status_id" and spp."skill_id" = sa."skill_id" and a."status" = 'online'
+        left join "call_center"."cc_online_skills" sp on sp."id" = a."status_id" and a."status" = 'online'
+        left join "call_center"."cc_skills_in_online_skill" spp on spp."online_skill_id" = a."status_id" and spp."skill_id" = sa."skill_id" and a."status" = 'online'
         where sa."agent_id" = a."id"
           and sa."enabled"
           and sa."capacity" between qs."min_capacity" and qs."max_capacity"
