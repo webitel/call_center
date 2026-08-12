@@ -18,9 +18,7 @@ func NewSqlQueueStore(sqlStore SqlStore) store.QueueStore {
 	return us
 }
 
-func (s *SqlQueueStore) CreateIndexesIfNotExists() {
-
-}
+func (s *SqlQueueStore) CreateIndexesIfNotExists() {}
 
 func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 	query := `
@@ -31,7 +29,9 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 			q.name as domain_name,
 			q.name,
 			q.strategy,
-			q.payload,
+			coalesce(q.payload, '{}'::jsonb) || jsonb_build_object(
+				'record_all_setting', coalesce(case when jsonb_typeof(ss.value) = 'boolean' then ss.value end, false)
+			) as payload,
 			q.updated_at,
 			q.variables,
 			q.team_id,
@@ -82,6 +82,7 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 		left join storage.media_files f on f.id = q.ringtone_id
 		left join storage.media_files fh on fh.id = (q.payload->'hold'->'id')::int8
 		left join storage.media_files amdpf on amdpf.id = (payload->'amd'->'playback'->>'id')::int8
+		left join call_center.system_settings ss on (ss.domain_id, ss.name) = (q.domain_id, 'record_all_calls')
 		where q.id = :Id
 	`
 

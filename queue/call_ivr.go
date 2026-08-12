@@ -11,9 +11,7 @@ import (
 )
 
 type QueueIVRSettings struct {
-	Recordings bool `json:"recordings"`
-	RecordMono bool `json:"record_mono"`
-	RecordAll  bool `json:"record_all"`
+	RecordingQueue
 
 	Amd                    *model.QueueAmdSettings `json:"amd"`
 	MinDuration            uint                    `json:"min_duration"`
@@ -139,7 +137,7 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		return
 	}
 
-	if queue.Recordings {
+	if queue.HasRecording() {
 		queue.SetRecordings(call, true, queue.RecordMono)
 	}
 
@@ -170,8 +168,6 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		select {
 		case <-call.HangupChan():
 			calling = false
-			break
-
 		case state := <-call.State():
 
 			switch state {

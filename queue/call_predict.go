@@ -16,9 +16,7 @@ const (
 )
 
 type PredictCallQueueSettings struct {
-	Recordings bool `json:"recordings"`
-	RecordMono bool `json:"record_mono"`
-	RecordAll  bool `json:"record_all"`
+	RecordingQueue
 
 	MaxWaitTime            uint16                  `json:"max_wait_time"`
 	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
@@ -87,7 +85,7 @@ func (queue *PredictCallQueue) runPark(attempt *Attempt) {
 
 	retryCounter := 1
 	var dst, callerIdNumber string
-	resourceIds := make([]int, 0, 0)
+	resourceIds := make([]int, 0)
 	var allowCall bool = true
 	var flip *model.AttemptFlipResource
 	lastExec := false
@@ -199,7 +197,7 @@ retry_:
 
 	if allowCall {
 
-		if queue.Recordings {
+		if queue.HasRecording() {
 			queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
 		}
 
@@ -352,10 +350,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			mCall.WaitForHangup()
 		case c := <-mCall.State():
 			attempt.Log(fmt.Sprintf("change call state to %s", c.String()))
-			if c == call_manager.CALL_STATE_HANGUP {
+			switch c {
+			case call_manager.CALL_STATE_HANGUP:
 				calling = false
-				break
-			} else if c == call_manager.CALL_STATE_BRIDGE {
+			case call_manager.CALL_STATE_BRIDGE:
 				timeout.Stop()
 			}
 

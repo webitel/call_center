@@ -18,9 +18,7 @@ type ProgressiveCallQueue struct {
 }
 
 type ProgressiveCallQueueSettings struct {
-	Recordings bool `json:"recordings"`
-	RecordMono bool `json:"record_mono"`
-	RecordAll  bool `json:"record_all"`
+	RecordingQueue
 
 	WaitBetweenRetries     uint64                  `json:"wait_between_retries"`
 	WaitBetweenRetriesDesc bool                    `json:"wait_between_retries_desc"`
@@ -153,7 +151,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	var agentCall call_manager.Call
 
-	if queue.Recordings {
+	if queue.HasRecording() {
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
 	}
 
@@ -333,7 +331,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 						}
 					}
 				} else {
-					attempt.Log(fmt.Sprintf("error logic"))
+					attempt.Log("error logic")
 				}
 			}
 		case <-mCall.HangupChan():

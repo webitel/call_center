@@ -12,9 +12,7 @@ import (
 )
 
 type OfflineQueueSettings struct {
-	Recordings bool `json:"recordings"`
-	RecordMono bool `json:"record_mono"`
-	RecordAll  bool `json:"record_all"`
+	RecordingQueue
 
 	OriginateTimeout   uint16 `json:"originate_timeout"`
 	WaitBetweenRetries uint64 `json:"wait_between_retries"`
@@ -163,7 +161,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			Destination: attempt.Destination(),
 			Display:     callerIdNumber,
 			Timeout:     queue.OriginateTimeout,
-			Recordings:  queue.Recordings,
+			Recordings:  queue.HasRecording(),
 			RecordMono:  queue.RecordMono,
 			RecordAll:   queue.RecordAll,
 		}),
