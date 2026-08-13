@@ -84,6 +84,7 @@ type Call interface {
 	SetOtherChannelVar(vars map[string]string) *model.AppError
 	AiResult() model.AmdAiResult
 	BreakPark(vars map[string]string) *model.AppError
+	ShouldMarkAsMissed() bool
 
 	Log() *wlog.Logger
 }
@@ -223,6 +224,19 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	call.log.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
+}
+
+func (call *CallImpl) ShouldMarkAsMissed() bool {
+	if call == nil {
+		return true // for old logic compatibility
+	}
+
+	switch call.HangupCause() {
+	case "", model.CALL_HANGUP_LOSE_RACE, model.CALL_HANGUP_ORIGINATOR_CANCEL:
+		return false
+	default:
+		return true
+	}
 }
 
 func (call *CallImpl) Log() *wlog.Logger {

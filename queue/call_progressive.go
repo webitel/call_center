@@ -354,8 +354,15 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 				time.Sleep(time.Millisecond * 200) // todo WTEL-4057
 				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
 			}
+
+			if agentCall.ShouldMarkAsMissed() {
+				team.Missed(attempt, agent)
+			} else {
+				team.Cancel(attempt, agent)
+			}
+
 			// FIXME cancel if progressive cnt > 1
-			team.Missed(attempt, agent)
+
 			queue.queueManager.LeavingMember(attempt)
 		}
 	}

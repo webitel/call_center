@@ -491,11 +491,10 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			}
 
 			if agentCall.BridgeAt() == 0 {
-				agentCause := agentCall.HangupCause()
-				if agentCause == model.CALL_HANGUP_ORIGINATOR_CANCEL || agentCause == model.CALL_HANGUP_LOSE_RACE {
-					team.WaitingAgentAndWaitingAttempt(attempt, agent)
-				} else {
+				if agentCall.ShouldMarkAsMissed() {
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
+				} else {
+					team.WaitingAgentAndWaitingAttempt(attempt, agent)
 				}
 
 				attempt.SetState(model.MemberStateWaitAgent)

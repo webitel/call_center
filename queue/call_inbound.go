@@ -87,7 +87,12 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 		case c := <-mCall.State():
 			if c == call_manager.CALL_STATE_HANGUP {
 				if agentCall != nil && agentCall.BridgeAt() == 0 {
-					team.MissedAgentAndWaitingAttempt(attempt, agent)
+					if agentCall.ShouldMarkAsMissed() {
+						team.MissedAgentAndWaitingAttempt(attempt, agent)
+					} else {
+						team.WaitingAgentAndWaitingAttempt(attempt, agent)
+					}
+
 					attempt.SetState(model.MemberStateWaitAgent)
 					if agentCall.HangupAt() == 0 {
 						//TODO WaitForHangup
@@ -267,7 +272,12 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			}
 
 			if agentCall.BridgeAt() == 0 {
-				team.MissedAgentAndWaitingAttempt(attempt, agent)
+				if agentCall.ShouldMarkAsMissed() {
+					team.MissedAgentAndWaitingAttempt(attempt, agent)
+				} else {
+					team.WaitingAgentAndWaitingAttempt(attempt, agent)
+				}
+
 				attempt.SetState(model.MemberStateWaitAgent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
 					//TODO WaitForHangup
