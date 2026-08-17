@@ -25,6 +25,7 @@ type CallingQueueObject any
 
 type CallingQueue struct {
 	BaseQueue
+
 	HoldMusic   *model.RingtoneFile
 	granteeId   *int
 	bridgeSleep time.Duration
