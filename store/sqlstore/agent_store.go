@@ -402,10 +402,7 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 	            and p.status = 'sip'
 	            and p.open > 0
 	    ) sip,
-	    (
-	        t.screen_control
-	        or a.screen_control
-	    )
+		coalesce(t.screen_control or a.screen_control, false)
 	    and not coalesce(sca.has, false) reason_sca,
 	    not exists(
 	        select 1

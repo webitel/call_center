@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
@@ -18,7 +19,6 @@ type OutboundCallQueue struct {
 }
 
 func NewOutboundCallQueue(callQueue BaseQueue, withoutAnswer bool) *OutboundCallQueue {
-
 	q := &OutboundCallQueue{
 		OutboundQueueSettings: OutboundQueueSettings{
 			processingWithoutAnswer: withoutAnswer,
