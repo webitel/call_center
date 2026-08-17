@@ -28,6 +28,10 @@ type QueueDumpParams struct {
 	IsTimeoutRetry         bool   `json:"is_timeout_retry,omitempty"`
 }
 
+func (p *QueueDumpParams) HasProlongationParams() bool {
+	return p.HasProlongation != nil && *p.HasProlongation
+}
+
 func (q *QueueDumpParams) ToJson() []byte {
 	d, _ := json.Marshal(&q)
 	if d == nil {

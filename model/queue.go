@@ -139,6 +139,15 @@ type Queue struct {
 	IsProlongationTimeoutRetry bool   `json:"prolongation_is_timeout_retry" db:"prolongation_is_timeout_retry"`
 }
 
+func (q *Queue) UseProlongationOptions(dump *QueueDumpParams) *Queue {
+	q.IsProlongationEnabled = true
+	q.ProlongationSec = dump.ProlongationSec
+	q.ProlongationRepeats = dump.RemainingProlongations
+	q.IsProlongationTimeoutRetry = dump.IsTimeoutRetry
+
+	return q
+}
+
 func (q *Queue) Channel() string {
 	switch q.Type {
 	case QueueTypeInboundChat:

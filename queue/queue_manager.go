@@ -731,6 +731,10 @@ func (qm *Manager) OutboundCall(ctx context.Context, in *cc.OutboundCallRequest)
 		if in.Processing.GetForm().GetId() > 0 {
 			settings.FormSchemaId = model.NewInt(int(in.Processing.GetForm().GetId()))
 		}
+
+		if qParams.HasProlongationParams() {
+			settings.UseProlongationOptions(qParams)
+		}
 	}
 
 	queue := NewOutboundCallQueue(NewBaseQueue(qm, qm.resourceManager, settings), processingWithoutAnswer)
