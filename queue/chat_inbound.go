@@ -303,7 +303,12 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 		if conv.BridgedAt() > 0 && !transferredProcessing {
 			team.Reporting(queue, attempt, agent, conv.ReportingAt() > 0, conv.Cause() == "transfer")
 		} else {
-			team.Missed(attempt, agent)
+			if conv.Cause() == string(model.ClientLeave) {
+				team.CancelAgentAttempt(attempt, agent)
+			} else {
+				team.Missed(attempt, agent)
+			}
+
 			queue.queueManager.LeavingMember(attempt)
 		}
 	} else {

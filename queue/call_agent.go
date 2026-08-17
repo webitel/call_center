@@ -178,7 +178,13 @@ top:
 		team.Reporting(queue, attempt, agent, agentCall.ReportingAt() > 0, agentCall.Transferred())
 	} else {
 		mCall.StopPlayback()
-		team.Missed(attempt, agent)
+
+		if agentCall.ShouldMarkAsMissed() {
+			team.Missed(attempt, agent)
+		} else {
+			team.Cancel(attempt, agent)
+		}
+
 		queue.queueManager.LeavingMember(attempt)
 	}
 
