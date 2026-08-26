@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -62,13 +63,8 @@ func NewTeamManager(app App, s store.Store, m mq.MQ) *teamManager {
 	}
 }
 
-func (at *agentTeam) Name() string {
-	return at.data.Name
-}
-
-func (at *agentTeam) Id() int64 {
-	return at.data.Id
-}
+func (at *agentTeam) Name() string { return at.data.Name }
+func (at *agentTeam) Id() int64    { return at.data.Id }
 
 func (at *agentTeam) CallTimeout() uint16 {
 	return at.data.CallTimeout
@@ -180,7 +176,6 @@ func (tm *agentTeam) Answered(attempt *Attempt, agent agent_manager.AgentObject)
 }
 
 func (tm *agentTeam) Bridged(attempt *Attempt, agent agent_manager.AgentObject) {
-
 	if attempt.queue != nil && !attempt.processTransfer {
 		attempt.queue.StartProcessingForm(attempt) //TODO
 	}
@@ -315,13 +310,18 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
-
 	if _, ok := attempt.AfterDistributeSchema(); ok {
 		//TODO
 	}
 
-	missed, err := tm.teamManager.store.Member().SetAttemptMissed(attempt.Id(), int(tm.NoAnswerDelayTime()),
-		attempt.maxAttempts, attempt.waitBetween, attempt.perNumbers)
+	missed, err := tm.teamManager.store.Member().SetAttemptMissed(
+		attempt.Id(),
+		int(tm.NoAnswerDelayTime()),
+		attempt.maxAttempts,
+		attempt.waitBetween,
+		attempt.perNumbers,
+	)
+
 	if err != nil {
 		attempt.Log(err.Error())
 		return
@@ -334,6 +334,32 @@ func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
 	attempt.SetResult(model.MemberStateCancel)
 
 	tm.MissedAgent(missed, attempt, agent)
+}
+
+func (tm *agentTeam) CancelAttemptAndReleaseAgent(att *Attempt, a agent_manager.AgentObject) {
+	if err := tm.teamManager.store.Member().CancelAttemptAndReleaseAgent(context.Background(), int(att.Id()), 0); err != nil {
+		att.log.Error("canceling attempt and releasing agent", wlog.Err(err))
+		return
+	}
+
+	att.SetResult(model.MemberStateCancel)
+
+	waitingEvent := NewWaitingChannelEvent(
+		att.channel,
+		a.UserId(),
+		model.NewInt64(att.Id()),
+		model.GetMillis(),
+	)
+
+	if err := tm.teamManager.mq.AgentChannelEvent(
+		att.channel,
+		a.DomainId(),
+		att.QueueId(),
+		a.UserId(),
+		waitingEvent,
+	); err != nil {
+		att.log.Error("publishing agent channel waiting event", wlog.Err(err), wlog.String("channel", att.channel))
+	}
 }
 
 func (tm *agentTeam) CancelAgentAttempt(attempt *Attempt, agent agent_manager.AgentObject) {
@@ -361,7 +387,6 @@ func (tm *agentTeam) MissedAgent(missed *model.MissedAgent, attempt *Attempt, ag
 	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		attempt.Log(err.Error())
-		return
 	}
 }
 
@@ -414,8 +439,5 @@ func (tm *agentTeam) Transfer(attempt *Attempt, agent agent_manager.AgentObject)
 	err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
 	if err != nil {
 		attempt.Log(err.Error())
-		return
 	}
-
-	return
 }

@@ -171,7 +171,7 @@ top:
 	}
 
 	if agentCall != nil && agentCall.HangupAt() == 0 {
-		attempt.log.Warn(fmt.Sprintf("agent call %s no hangup", agentCall.Id()))
+		attempt.log.Warn("agent call without hangup", wlog.String("agent_call_id", agentCall.Id()))
 	}
 
 	if agentCall != nil && agentCall.BridgeAt() > 0 {
@@ -182,7 +182,7 @@ top:
 		if agentCall.ShouldMarkAsMissed() {
 			team.Missed(attempt, agent)
 		} else {
-			team.Cancel(attempt, agent)
+			team.CancelAttemptAndReleaseAgent(attempt, agent)
 		}
 
 		queue.queueManager.LeavingMember(attempt)

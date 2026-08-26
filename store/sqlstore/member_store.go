@@ -1237,3 +1237,30 @@ func (s *SqlMemberStore) UpdateProcessingFormAtHistory(ctx context.Context, id i
 
 	return nil
 }
+
+func (s *SqlMemberStore) CancelAttemptAndReleaseAgent(ctx context.Context, attemptID, agendHoldSec int) *model.AppError {
+	if _, err := s.GetMaster().WithContext(ctx).SelectNullInt(
+		`
+		select 1 as ok
+		from call_center.cc_attempt_cancel_release_agent(
+			cast(:AttemptID as int8),
+			cast(:AgentHoldSec as int8)
+		) as x
+	 	where x.last_state_change is not null;
+	`,
+		map[string]any{
+			"AttemptID":    attemptID,
+			"AgentHoldSec": agendHoldSec,
+		},
+	); err != nil {
+		return model.NewAppError(
+			"SqlMemberStore.CancelAttemptAndReleaseAgent",
+			"store.sql_member.cancel_attempt_release_agent.app_error",
+			nil,
+			fmt.Sprintf("AttemptID=%d; Error=%+v", attemptID, err),
+			extractCodeFromErr(err),
+		)
+	}
+
+	return nil
+}
