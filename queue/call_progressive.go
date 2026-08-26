@@ -358,7 +358,7 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 			if agentCall.ShouldMarkAsMissed() {
 				team.Missed(attempt, agent)
 			} else {
-				team.Cancel(attempt, agent)
+				team.CancelAttemptAndReleaseAgent(attempt, agent)
 			}
 
 			// FIXME cancel if progressive cnt > 1
