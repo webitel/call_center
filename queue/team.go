@@ -238,7 +238,7 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting bool, transfer bool) {
 	if queue.Manager().waitChannelClose && attempt.Callback() != nil {
-		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true); err != nil {
+		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true, false); err != nil {
 			attempt.Log(err.Error())
 		}
 		return
