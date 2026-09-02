@@ -66,12 +66,13 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 	callerIdNumber := attempt.Display()
 
 	callRequest := &model.CallRequest{
-		Id:           attempt.MemberCallId(),
-		Endpoints:    []string{dst},
-		CallerNumber: attempt.Destination(),
-		CallerName:   attempt.Name(),
-		Timeout:      uint16(queue.OriginateTimeout),
-		Destination:  attempt.Destination(),
+		Id:                attempt.MemberCallId(),
+		Endpoints:         []string{dst},
+		CallerNumber:      attempt.Destination(),
+		CallerName:        attempt.Name(),
+		Timeout:           uint16(queue.OriginateTimeout),
+		Destination:       attempt.Destination(),
+		OriginationNumber: callerIdNumber,
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.resource.Variables(),

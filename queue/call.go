@@ -133,9 +133,10 @@ func (queue *CallingQueue) NewCall(callRequest *model.CallRequest) (call_manager
 
 func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at *agentTeam, attempt *Attempt, caller Caller, apps []*model.CallRequestApplication) *model.CallRequest {
 	cr := &model.CallRequest{
-		Endpoints:   agent.GetCallEndpoints(),
-		Strategy:    model.CALL_STRATEGY_DEFAULT,
-		Destination: attempt.Destination(),
+		Endpoints:         agent.GetCallEndpoints(),
+		Strategy:          model.CALL_STRATEGY_DEFAULT,
+		Destination:       attempt.Destination(),
+		OriginationNumber: caller.Number,
 		Variables: model.UnionStringMaps(
 			attempt.ExportVariables(),
 			queue.Variables(),
