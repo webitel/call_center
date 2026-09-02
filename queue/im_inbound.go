@@ -202,6 +202,10 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 			case TaskStateBridged:
 				if err := sess.AddMemberUser(attempt.Context, agent.UserId()); err != nil {
 					attempt.Log(err.Error())
+					team.MissedAgentAndWaitingAttempt(attempt, agent)
+					attempt.SetState(model.MemberStateWaitAgent)
+					attempt.Emit(AttemptHookMissedAgent, agent.Id())
+					return true // Continue waiting for another agent
 				}
 
 				queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
