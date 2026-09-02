@@ -17,10 +17,11 @@ type Channel interface {
 }
 
 type ChannelEvent struct {
-	AttemptId *int64 `json:"attempt_id,omitempty"` // TODO channel_id ?
-	Channel   string `json:"channel"`
-	Status    string `json:"status"`
-	Timestamp int64  `json:"timestamp"`
+	AttemptId *int64  `json:"attempt_id,omitempty"` // TODO channel_id ?
+	Channel   string  `json:"channel"`
+	Status    string  `json:"status"`
+	Timestamp int64   `json:"timestamp"`
+	Error     *string `json:"error,omitempty"`
 }
 
 // TODO refactoring call event to CC
@@ -347,7 +348,7 @@ func NewRenewalProcessingEvent(
 	return model.NewEvent("channel", userId, e)
 }
 
-func NewMissedEventEvent(a *Attempt, userId, timestamp, timeout int64) model.Event {
+func NewMissedEventEvent(a *Attempt, userId, timestamp, timeout int64, err error) model.Event {
 	e := MissedEvent{
 		Missed: Missed{
 			Timeout: timeout,
@@ -358,6 +359,11 @@ func NewMissedEventEvent(a *Attempt, userId, timestamp, timeout int64) model.Eve
 			Timestamp: timestamp,
 			Status:    model.ChannelStateMissed,
 		},
+	}
+
+	if err != nil {
+		errStr := err.Error()
+		e.ChannelEvent.Error = &errStr
 	}
 
 	return model.NewEvent("channel", userId, e)
