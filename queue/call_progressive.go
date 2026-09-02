@@ -85,12 +85,13 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 	callerIdNumber := attempt.Display()
 
 	callRequest := &model.CallRequest{
-		Id:           attempt.MemberCallId(),
-		Endpoints:    []string{dst},
-		CallerNumber: attempt.Destination(),
-		CallerName:   attempt.Name(),
-		Timeout:      queue.OriginateTimeout,
-		Destination:  attempt.Destination(),
+		Id:                attempt.MemberCallId(),
+		Endpoints:         []string{dst},
+		CallerNumber:      attempt.Destination(),
+		CallerName:        attempt.Name(),
+		Timeout:           queue.OriginateTimeout,
+		Destination:       attempt.Destination(),
+		OriginationNumber: callerIdNumber,
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.ExportVariables(),
