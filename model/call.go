@@ -349,6 +349,14 @@ type CallRequest struct {
 	OriginationNumber string
 }
 
+func (cr *CallRequest) OriginationNumberSafe() string {
+	if cr == nil {
+		return ""
+	}
+
+	return cr.OriginationNumber
+}
+
 func (cr *CallRequest) SetPush() {
 	cr.Variables["execute_on_originate"] = "wbt_send_hook"
 }

@@ -877,8 +877,8 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["amd_ai_result"] = call.amdAiResult.Result
 	}
 
-	if call.callRequest.OriginationNumber != "" {
-		vars["origination_caller_id_number"] = call.callRequest.OriginationNumber
+	if on := call.callRequest.OriginationNumberSafe(); on != "" {
+		vars["origination_caller_id_number"] = on
 	}
 
 	var ans int64

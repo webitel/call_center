@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -405,9 +406,7 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		}
 	}
 
-	for k, v := range a.ProcessingFields() {
-		res[k] = v
-	}
+	maps.Copy(res, a.ProcessingFields())
 
 	if a.member.Seq != nil {
 		res[model.QUEUE_ATTEMPT_SEQ] = fmt.Sprintf("%d", *a.member.Seq)
