@@ -859,6 +859,10 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["amd_result"] = call.amdResult
 	}
 
+	if call.callRequest.OriginationNumber != "" {
+		vars["origination_caller_id_number"] = call.callRequest.OriginationNumber
+	}
+
 	var ans int64
 	if call.acceptAt != 0 {
 		ans = call.acceptAt

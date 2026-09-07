@@ -74,11 +74,14 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		return
 	}
 
+	callerIdNumber := attempt.Display()
+
 	callRequest := &model.CallRequest{
-		Endpoints:    agent.GetCallEndpoints(),
-		CallerName:   attempt.Name(),
-		CallerNumber: attempt.Destination(),
-		Timeout:      team.CallTimeout(),
+		Endpoints:         agent.GetCallEndpoints(),
+		CallerName:        attempt.Name(),
+		CallerNumber:      attempt.Destination(),
+		Timeout:           team.CallTimeout(),
+		OriginationNumber: callerIdNumber,
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			attempt.ExportVariables(),
@@ -100,7 +103,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"wbt_from_id":                       fmt.Sprintf("%v", agent.Id()),
 				"wbt_from_number":                   agent.CallNumber(),
 				"wbt_from_name":                     agent.Name(),
-				"wbt_from_type":                     "user", //todo agent ?
+				"wbt_from_type":                     "user", // todo agent ?
 
 				"wbt_to_id":     fmt.Sprintf("%d", *attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
@@ -158,7 +161,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			ParentId:    call.Id(),
 			Name:        attempt.Name(),
 			Destination: attempt.Destination(),
-			Display:     attempt.Display(),
+			Display:     callerIdNumber,
 			Timeout:     queue.OriginateTimeout,
 			Recordings:  queue.Recordings,
 			RecordMono:  queue.RecordMono,
@@ -171,7 +174,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	call.Invite()
 
-	var calling = true
+	calling := true
 	for calling {
 		select {
 		case state := <-call.State():
@@ -216,7 +219,7 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		}
 	}
 
-	if call.BillSeconds() > 0 || call.AcceptAt() > 0 { //FIXME Accept or Bridge ?
+	if call.BillSeconds() > 0 || call.AcceptAt() > 0 { // FIXME Accept or Bridge ?
 		attempt.log.Debug(fmt.Sprintf("attempt[%d] reporting...", attempt.Id()))
 		team.Reporting(queue, attempt, agent, call.ReportingAt() > 0, call.Transferred())
 	} else {

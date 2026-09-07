@@ -3,10 +3,12 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 // FIXME AgentQueue
@@ -37,7 +39,6 @@ func PreviewSettingsFromBytes(data []byte) PreviewSettings {
 }
 
 func NewPreviewCallQueue(callQueue CallingQueue, settings PreviewSettings) QueueObject {
-
 	// TODO - CallVarTransferAfter setup new queue parameter
 	settings.transferAfter = callQueue.GetVariable(model.CallVarTransferAfter)
 	if settings.transferAfter != "" {
@@ -81,7 +82,6 @@ func (queue *PreviewCallQueue) DistributeAttempt(attempt *Attempt) *model.AppErr
 }
 
 func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agent_manager.AgentObject) {
-
 	if !queue.queueManager.DoDistributeSchema(&queue.BaseQueue, attempt) {
 		queue.queueManager.LeavingMember(attempt)
 		return
@@ -89,13 +89,14 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	// joined
 
-	display := attempt.Display()
+	callerIdNumber := attempt.Display()
 
 	callRequest := &model.CallRequest{
-		Endpoints:    agent.GetCallEndpoints(),
-		CallerName:   attempt.Name(),
-		CallerNumber: attempt.Destination(),
-		Timeout:      team.CallTimeout(),
+		Endpoints:         agent.GetCallEndpoints(),
+		CallerName:        attempt.Name(),
+		CallerNumber:      attempt.Destination(),
+		Timeout:           team.CallTimeout(),
+		OriginationNumber: callerIdNumber,
 		Variables: model.UnionStringMaps(
 			queue.Variables(),
 			agent.Variables(),
@@ -117,7 +118,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"wbt_from_id":                       fmt.Sprintf("%v", agent.Id()),
 				"wbt_from_number":                   agent.CallNumber(),
 				"wbt_from_name":                     agent.Name(),
-				"wbt_from_type":                     "user", //todo agent ?
+				"wbt_from_type":                     "user", // todo agent ?
 
 				"wbt_to_id":     fmt.Sprintf("%d", *attempt.MemberId()),
 				"wbt_to_name":   attempt.Name(),
@@ -188,7 +189,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			GranteeId:   queue.GranteeId(),
 			Name:        attempt.Name(),
 			Destination: attempt.Destination(),
-			Display:     display,
+			Display:     callerIdNumber,
 			Timeout:     queue.OriginateTimeout,
 			Recordings:  queue.Recordings,
 			RecordMono:  queue.RecordMono,
@@ -203,7 +204,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
 	printfIfErr(call.Invite())
-	var calling = true
+	calling := true
 
 	for calling {
 		select {
