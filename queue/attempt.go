@@ -471,6 +471,7 @@ func (a *Attempt) ExportSchemaVariables() map[string]string {
 		if a.queue.Processing() {
 			res["use_processing"] = "true"
 		}
+        res["queue_name"] = a.queue.Name()
 	}
 
 	if a.agent != nil {
