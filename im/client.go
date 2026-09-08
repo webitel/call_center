@@ -81,11 +81,16 @@ func (cm *Client) listenEvents() {
 		case msg := <-cm.events:
 			if sess, ok := cm.GetSession(msg.ThreadID); ok {
 				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transferred") {
-					if msg.System.AffectsMember(sess.agentMemberId) || msg.System.AffectsMember(sess.clientMemberId) {
-						wlog.Debug("removing member from session", wlog.String("thread_id", msg.ThreadID))
-						sess.cancel() // todo
+					// Only the client leaving ends the conversation. An agent being removed is
+					// normal transfer churn: control passes to the next operator and the session
+					// must keep running. Cancelling here on the outgoing agent aborted the next
+					// transfer's attempt for the same thread, so the invite never reached it. The
+					// agent's own attempt is torn down separately via finalizeAttempt/cleanupSession.
+					if msg.System.AffectsMember(sess.clientMemberId) {
+						wlog.Debug("closing session: client left thread", wlog.String("thread_id", msg.ThreadID))
+						sess.cancel()
 					} else {
-						wlog.Debug("removing other member from session", wlog.String("thread_id", msg.ThreadID))
+						wlog.Debug("member left thread, session kept", wlog.String("thread_id", msg.ThreadID))
 					}
 				} else {
 					sess.onMessage(Message{
