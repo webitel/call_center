@@ -863,7 +863,7 @@ func (call *CallImpl) Stats() map[string]string {
 		vars["amd_ai_result"] = call.amdAiResult.Result
 	}
 
-	if call.callRequest.OriginationNumber != "" {
+	if call.callRequest != nil && call.callRequest.OriginationNumber != "" {
 		vars["origination_caller_id_number"] = call.callRequest.OriginationNumber
 	}
 
