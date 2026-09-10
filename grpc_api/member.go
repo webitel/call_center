@@ -107,7 +107,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		}
 	}
 
-	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false)
+	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false, in.GetDraft())
 	if err != nil {
 		return nil, err
 	}
