@@ -981,6 +981,8 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		})
 	}
 
+	dest.Thread.UseSourceChannelIfExists()
+
 	// FIXME add domain
 	res, err := qm.store.Member().DistributeIMToQueue(
 		qm.app.GetInstanceId(),

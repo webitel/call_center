@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -41,11 +42,49 @@ type IMMemberInfo struct {
 	Role     int    `json:"role,omitempty"`
 }
 
+func (m *IMMemberInfo) IsBot() bool {
+	return m.Iss == "bot" || m.Type == "bot"
+}
+
+func (m *IMMemberInfo) IsInternalUser() bool {
+	return m.Iss == "webitel"
+}
+
 type IMThreadInfo struct {
 	ID          string         `json:"id"`
 	Subject     string         `json:"subject"`
 	Members     []IMMemberInfo `json:"members"`
 	LastMessage string         `json:"last_msg"`
+	Channel     *IMChannel     `json:"channel,omitempty"`
+}
+
+func (i *IMThreadInfo) UseSourceChannelIfExists() {
+	i.Channel = NewIMChannelFromMembers(i.Members)
+}
+
+type IMChannel struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+func NewIMChannelFromMembers(members []IMMemberInfo) *IMChannel {
+	botIdx := slices.IndexFunc(members, func(m IMMemberInfo) bool { return m.IsBot() })
+	if botIdx == -1 {
+		return nil
+	}
+
+	externalIdx := slices.IndexFunc(members, func(m IMMemberInfo) bool {
+		return !m.IsInternalUser() && !m.IsBot()
+	})
+
+	if externalIdx == -1 {
+		return nil
+	}
+
+	return &IMChannel{
+		Name: members[botIdx].Name,
+		Type: members[externalIdx].Type,
+	}
 }
 
 // IMMemberInfo contains information about instant messaging member
