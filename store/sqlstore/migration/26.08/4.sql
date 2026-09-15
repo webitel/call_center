@@ -100,8 +100,8 @@ CREATE OR REPLACE VIEW call_center.cc_calls_history_list
     c.attempt_id,
     c.domain_id,
     c.gateway_id,
-    c.from_number::text,
-    c.to_number::text,
+    c.from_number::text as from_number,
+    c.to_number::text as to_number,
     c.tags,
     cma.display,
     (EXISTS ( SELECT 1
