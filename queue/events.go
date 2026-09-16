@@ -26,19 +26,21 @@ type ChannelEvent struct {
 
 // TODO refactoring call event to CC
 type Distribute struct {
-	AppId           string                    `json:"app_id"`
-	Channel         string                    `json:"channel"`
-	QueueId         int                       `json:"queue_id"`
-	QueueName       string                    `json:"queue_name"`
-	MemberId        *int64                    `json:"member_id"`
-	MemberName      *string                   `json:"member_name"`
-	AgentId         *int                      `json:"agent_id"`
-	MemberChannelId *string                   `json:"member_channel_id"`
-	AgentChannelId  *string                   `json:"agent_channel_id"`
-	Communication   model.MemberCommunication `json:"communication"`
-	Variables       map[string]string         `json:"variables"`
-	HasReporting    bool                      `json:"has_reporting"`
-	HasForm         bool                      `json:"has_form,omitempty"`
+	AppId            string                    `json:"app_id"`
+	Channel          string                    `json:"channel"`
+	QueueId          int                       `json:"queue_id"`
+	QueueName        string                    `json:"queue_name"`
+	QueueMaxWaitTime *int                      `json:"queue_max_wait_time,omitempty"`
+	MemberId         *int64                    `json:"member_id"`
+	MemberName       *string                   `json:"member_name"`
+	MemberJoinedAt   int64                     `json:"member_joined_at"`
+	AgentId          *int                      `json:"agent_id"`
+	MemberChannelId  *string                   `json:"member_channel_id"`
+	AgentChannelId   *string                   `json:"agent_channel_id"`
+	Communication    model.MemberCommunication `json:"communication"`
+	Variables        map[string]string         `json:"variables"`
+	HasReporting     bool                      `json:"has_reporting"`
+	HasForm          bool                      `json:"has_form,omitempty"`
 }
 
 type Offering struct {
@@ -125,6 +127,21 @@ type WaitingChannelEvent struct {
 	ChannelEvent
 }
 
+func MaxWaitTimeFromQueue(q QueueObject) int {
+	switch r := q.(type) {
+	case *InboundChatQueue:
+		return int(r.settings.MaxWaitTime)
+	case *InboundIMQueue:
+		return int(r.settings.MaxWaitTime)
+	case *InboundQueue:
+		return r.props.MaxWaitTime
+	case *PredictCallQueue:
+		return int(r.MaxWaitTime)
+	default:
+		return 0
+	}
+}
+
 func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, hasReporting bool, mChannel, aChannel Channel) model.Event {
 	e := DistributeEvent{
 		ChannelEvent: ChannelEvent{
@@ -134,15 +151,16 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			Status:    model.ChannelStateDistribute,
 		},
 		Distribute: Distribute{
-			AppId:         queue.AppId(),
-			Communication: a.communication,
-			Channel:       queue.Channel(),
-			QueueId:       queue.Id(),
-			QueueName:     queue.Name(),
-			MemberId:      a.MemberId(),
-			MemberName:    a.MemberName(),
-			HasReporting:  hasReporting && !a.processTransfer,
-			HasForm:       queue.HasForm(),
+			AppId:          queue.AppId(),
+			Communication:  a.communication,
+			Channel:        queue.Channel(),
+			QueueId:        queue.Id(),
+			QueueName:      queue.Name(),
+			MemberId:       a.MemberId(),
+			MemberName:     a.MemberName(),
+			MemberJoinedAt: a.JoinedAt(),
+			HasReporting:   hasReporting && !a.processTransfer,
+			HasForm:        queue.HasForm(),
 		},
 	}
 
@@ -168,6 +186,10 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 		e.Distribute.AgentChannelId = model.NewString(aChannel.Id())
 	}
 
+	if mwt := MaxWaitTimeFromQueue(queue); mwt != 0 {
+		e.Distribute.QueueMaxWaitTime = &mwt
+	}
+
 	return model.NewEvent("channel", userId, e)
 }
 
@@ -181,13 +203,14 @@ func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, ag
 		},
 		ToAttemptId: attemptId,
 		Distribute: Distribute{
-			AppId:         queue.AppId(),
-			Communication: a.communication,
-			Channel:       queue.Channel(),
-			QueueId:       queue.Id(),
-			QueueName:     queue.Name(),
-			MemberId:      a.MemberId(),
-			HasReporting:  r,
+			AppId:          queue.AppId(),
+			Communication:  a.communication,
+			Channel:        queue.Channel(),
+			QueueId:        queue.Id(),
+			QueueName:      queue.Name(),
+			MemberId:       a.MemberId(),
+			HasReporting:   r,
+			MemberJoinedAt: a.JoinedAt(),
 		},
 	}
 
@@ -216,6 +239,10 @@ func NewTransferEvent(a *Attempt, attemptId, userId int64, queue QueueObject, ag
 
 	if aChannel != nil {
 		e.Distribute.AgentChannelId = model.NewString(aChannel.Id())
+	}
+
+	if mwt := MaxWaitTimeFromQueue(queue); mwt > 0 {
+		e.Distribute.QueueMaxWaitTime = &mwt
 	}
 
 	return model.NewEvent("channel", userId, e)
