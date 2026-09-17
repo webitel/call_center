@@ -19,13 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ThreadManagement_Search_FullMethodName          = "/webitel.im.api.gateway.v1.ThreadManagement/Search"
-	ThreadManagement_AddMember_FullMethodName       = "/webitel.im.api.gateway.v1.ThreadManagement/AddMember"
-	ThreadManagement_RemoveMember_FullMethodName    = "/webitel.im.api.gateway.v1.ThreadManagement/RemoveMember"
-	ThreadManagement_SetVariables_FullMethodName    = "/webitel.im.api.gateway.v1.ThreadManagement/SetVariables"
-	ThreadManagement_SearchVariables_FullMethodName = "/webitel.im.api.gateway.v1.ThreadManagement/SearchVariables"
-	ThreadManagement_LocateVariables_FullMethodName = "/webitel.im.api.gateway.v1.ThreadManagement/LocateVariables"
-	ThreadManagement_FlushVariables_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/FlushVariables"
+	ThreadManagement_Search_FullMethodName           = "/webitel.im.api.gateway.v1.ThreadManagement/Search"
+	ThreadManagement_SearchLeft_FullMethodName       = "/webitel.im.api.gateway.v1.ThreadManagement/SearchLeft"
+	ThreadManagement_GetUnreadSummary_FullMethodName = "/webitel.im.api.gateway.v1.ThreadManagement/GetUnreadSummary"
+	ThreadManagement_Create_FullMethodName           = "/webitel.im.api.gateway.v1.ThreadManagement/Create"
+	ThreadManagement_Get_FullMethodName              = "/webitel.im.api.gateway.v1.ThreadManagement/Get"
+	ThreadManagement_AddMember_FullMethodName        = "/webitel.im.api.gateway.v1.ThreadManagement/AddMember"
+	ThreadManagement_RemoveMember_FullMethodName     = "/webitel.im.api.gateway.v1.ThreadManagement/RemoveMember"
+	ThreadManagement_Transfer_FullMethodName         = "/webitel.im.api.gateway.v1.ThreadManagement/Transfer"
+	ThreadManagement_SetVariables_FullMethodName     = "/webitel.im.api.gateway.v1.ThreadManagement/SetVariables"
+	ThreadManagement_SearchVariables_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/SearchVariables"
+	ThreadManagement_LocateVariables_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/LocateVariables"
+	ThreadManagement_FlushVariables_FullMethodName   = "/webitel.im.api.gateway.v1.ThreadManagement/FlushVariables"
 )
 
 // ThreadManagementClient is the client API for ThreadManagement service.
@@ -34,10 +39,21 @@ const (
 type ThreadManagementClient interface {
 	// Search threads with filters
 	Search(ctx context.Context, in *ThreadSearchRequest, opts ...grpc.CallOption) (*SearchThreadResponse, error)
+	// Search threads that the caller has left from
+	SearchLeft(ctx context.Context, in *SearchLeftRequest, opts ...grpc.CallOption) (*SearchLeftResponse, error)
+	// Returns the unread summary for the calling participant: the number of
+	// chats with unread messages and the total number of unread messages.
+	GetUnreadSummary(ctx context.Context, in *GetUnreadSummaryRequest, opts ...grpc.CallOption) (*GetUnreadSummaryResponse, error)
+	Create(ctx context.Context, in *ThreadManagementCreateRequest, opts ...grpc.CallOption) (*ThreadManagementCreateResponse, error)
+	// Returns a single thread by its identifier.
+	Get(ctx context.Context, in *GetThreadRequest, opts ...grpc.CallOption) (*Thread, error)
 	// Add member to the thread.
 	AddMember(ctx context.Context, in *AddMemberRequest, opts ...grpc.CallOption) (*AddMemberResponse, error)
 	// Remove member from the thread.
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	// Transfer unites add member and remove member.
+	// It adds a new member to the thread and removes the initiator from the thread.
+	Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
 	// Sets or updates variables for a specific thread.
 	// Existing variables with the same keys will be overwritten if were setted by the caller.
 	// New variables will be created if they do not exist.
@@ -70,6 +86,42 @@ func (c *threadManagementClient) Search(ctx context.Context, in *ThreadSearchReq
 	return out, nil
 }
 
+func (c *threadManagementClient) SearchLeft(ctx context.Context, in *SearchLeftRequest, opts ...grpc.CallOption) (*SearchLeftResponse, error) {
+	out := new(SearchLeftResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_SearchLeft_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *threadManagementClient) GetUnreadSummary(ctx context.Context, in *GetUnreadSummaryRequest, opts ...grpc.CallOption) (*GetUnreadSummaryResponse, error) {
+	out := new(GetUnreadSummaryResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_GetUnreadSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *threadManagementClient) Create(ctx context.Context, in *ThreadManagementCreateRequest, opts ...grpc.CallOption) (*ThreadManagementCreateResponse, error) {
+	out := new(ThreadManagementCreateResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_Create_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *threadManagementClient) Get(ctx context.Context, in *GetThreadRequest, opts ...grpc.CallOption) (*Thread, error) {
+	out := new(Thread)
+	err := c.cc.Invoke(ctx, ThreadManagement_Get_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *threadManagementClient) AddMember(ctx context.Context, in *AddMemberRequest, opts ...grpc.CallOption) (*AddMemberResponse, error) {
 	out := new(AddMemberResponse)
 	err := c.cc.Invoke(ctx, ThreadManagement_AddMember_FullMethodName, in, out, opts...)
@@ -82,6 +134,15 @@ func (c *threadManagementClient) AddMember(ctx context.Context, in *AddMemberReq
 func (c *threadManagementClient) RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error) {
 	out := new(RemoveMemberResponse)
 	err := c.cc.Invoke(ctx, ThreadManagement_RemoveMember_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *threadManagementClient) Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error) {
+	out := new(TransferResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_Transfer_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,10 +191,21 @@ func (c *threadManagementClient) FlushVariables(ctx context.Context, in *FlushVa
 type ThreadManagementServer interface {
 	// Search threads with filters
 	Search(context.Context, *ThreadSearchRequest) (*SearchThreadResponse, error)
+	// Search threads that the caller has left from
+	SearchLeft(context.Context, *SearchLeftRequest) (*SearchLeftResponse, error)
+	// Returns the unread summary for the calling participant: the number of
+	// chats with unread messages and the total number of unread messages.
+	GetUnreadSummary(context.Context, *GetUnreadSummaryRequest) (*GetUnreadSummaryResponse, error)
+	Create(context.Context, *ThreadManagementCreateRequest) (*ThreadManagementCreateResponse, error)
+	// Returns a single thread by its identifier.
+	Get(context.Context, *GetThreadRequest) (*Thread, error)
 	// Add member to the thread.
 	AddMember(context.Context, *AddMemberRequest) (*AddMemberResponse, error)
 	// Remove member from the thread.
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	// Transfer unites add member and remove member.
+	// It adds a new member to the thread and removes the initiator from the thread.
+	Transfer(context.Context, *TransferRequest) (*TransferResponse, error)
 	// Sets or updates variables for a specific thread.
 	// Existing variables with the same keys will be overwritten if were setted by the caller.
 	// New variables will be created if they do not exist.
@@ -157,11 +229,26 @@ type UnimplementedThreadManagementServer struct {
 func (UnimplementedThreadManagementServer) Search(context.Context, *ThreadSearchRequest) (*SearchThreadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Search not implemented")
 }
+func (UnimplementedThreadManagementServer) SearchLeft(context.Context, *SearchLeftRequest) (*SearchLeftResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchLeft not implemented")
+}
+func (UnimplementedThreadManagementServer) GetUnreadSummary(context.Context, *GetUnreadSummaryRequest) (*GetUnreadSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUnreadSummary not implemented")
+}
+func (UnimplementedThreadManagementServer) Create(context.Context, *ThreadManagementCreateRequest) (*ThreadManagementCreateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+}
+func (UnimplementedThreadManagementServer) Get(context.Context, *GetThreadRequest) (*Thread, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
 func (UnimplementedThreadManagementServer) AddMember(context.Context, *AddMemberRequest) (*AddMemberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddMember not implemented")
 }
 func (UnimplementedThreadManagementServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveMember not implemented")
+}
+func (UnimplementedThreadManagementServer) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Transfer not implemented")
 }
 func (UnimplementedThreadManagementServer) SetVariables(context.Context, *SetVariablesRequest) (*ThreadVariables, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariables not implemented")
@@ -206,6 +293,78 @@ func _ThreadManagement_Search_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ThreadManagement_SearchLeft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchLeftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).SearchLeft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_SearchLeft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).SearchLeft(ctx, req.(*SearchLeftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThreadManagement_GetUnreadSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUnreadSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).GetUnreadSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_GetUnreadSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).GetUnreadSummary(ctx, req.(*GetUnreadSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThreadManagement_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ThreadManagementCreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).Create(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_Create_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).Create(ctx, req.(*ThreadManagementCreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThreadManagement_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetThreadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_Get_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).Get(ctx, req.(*GetThreadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ThreadManagement_AddMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddMemberRequest)
 	if err := dec(in); err != nil {
@@ -238,6 +397,24 @@ func _ThreadManagement_RemoveMember_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ThreadManagementServer).RemoveMember(ctx, req.(*RemoveMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThreadManagement_Transfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).Transfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_Transfer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).Transfer(ctx, req.(*TransferRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -326,12 +503,32 @@ var ThreadManagement_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ThreadManagement_Search_Handler,
 		},
 		{
+			MethodName: "SearchLeft",
+			Handler:    _ThreadManagement_SearchLeft_Handler,
+		},
+		{
+			MethodName: "GetUnreadSummary",
+			Handler:    _ThreadManagement_GetUnreadSummary_Handler,
+		},
+		{
+			MethodName: "Create",
+			Handler:    _ThreadManagement_Create_Handler,
+		},
+		{
+			MethodName: "Get",
+			Handler:    _ThreadManagement_Get_Handler,
+		},
+		{
 			MethodName: "AddMember",
 			Handler:    _ThreadManagement_AddMember_Handler,
 		},
 		{
 			MethodName: "RemoveMember",
 			Handler:    _ThreadManagement_RemoveMember_Handler,
+		},
+		{
+			MethodName: "Transfer",
+			Handler:    _ThreadManagement_Transfer_Handler,
 		},
 		{
 			MethodName: "SetVariables",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -982,14 +983,20 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	}
 
 	// FIXME add domain
+	return qm.distributeIMDestination(int64(in.GetQueue().GetId()), in.GetThreadId(), dest,
+		in.GetVariables(), bucketId, int(in.GetPriority()), stickyAgentId)
+}
+
+func (qm *Manager) distributeIMDestination(queueId int64, threadId string, dest IMThreadCommunication,
+	vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*Attempt, *model.AppError) {
 	res, err := qm.store.Member().DistributeIMToQueue(
 		qm.app.GetInstanceId(),
-		int64(in.GetQueue().GetId()),
-		in.GetThreadId(),
+		queueId,
+		threadId,
 		dest.Json(),
-		in.GetVariables(),
+		vars,
 		bucketId,
-		int(in.GetPriority()),
+		priority,
 		stickyAgentId,
 	)
 	if err != nil {
@@ -1024,6 +1031,52 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	}
 
 	return attempt, nil
+}
+
+func (qm *Manager) TransferIM(domainId, attemptId int64, agentId, queueId int32) *model.AppError {
+	att, ok := qm.GetAttempt(attemptId)
+	if !ok || att.domainId != domainId {
+		return model.NewAppError("QM", "qm.transfer_im.valid.attempt", nil, "Not found", http.StatusNotFound)
+	}
+
+	if att.channel != model.QueueChannelIM {
+		return model.NewAppError("QM", "qm.transfer_im.valid.channel", nil,
+			fmt.Sprintf("attempt %d is not an im conversation", attemptId), http.StatusBadRequest)
+	}
+
+	if att.MemberCallId() == nil {
+		return model.NewAppError("QM", "qm.transfer_im.valid.thread", nil,
+			fmt.Sprintf("attempt %d has no thread", attemptId), http.StatusBadRequest)
+	}
+
+	agent := att.Agent()
+	if agent == nil {
+		return model.NewAppError("QM", "qm.transfer_im.valid.agent", nil,
+			fmt.Sprintf("attempt %d has no agent to transfer from", attemptId), http.StatusBadRequest)
+	}
+
+	var dest IMThreadCommunication
+	if err := json.Unmarshal(att.member.Destination, &dest); err != nil {
+		return model.NewAppError("QM", "qm.transfer_im.destination", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	dest.TransferFrom = strconv.FormatInt(agent.UserId(), 10)
+
+	targetQueue := int64(queueId)
+	var stickyAgentId *int
+	if queueId == 0 {
+		targetQueue = int64(att.QueueId())
+		stickyAgentId = model.NewInt(int(agentId))
+	}
+
+	if _, err := qm.distributeIMDestination(targetQueue, *att.MemberCallId(), dest,
+		att.member.Variables, nil, 0, stickyAgentId); err != nil {
+		return err
+	}
+
+	qm.SetAttemptCancel(attemptId, AttemptResultTransfer)
+
+	return nil
 }
 
 func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {

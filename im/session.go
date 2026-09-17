@@ -46,7 +46,7 @@ func (s *Session) Answered() bool {
 }
 
 func (s *Session) Close() {
-	s.cli.closeSession(s.threadId)
+	s.cli.closeSession(s)
 }
 
 func (s *Session) Done() <-chan struct{} {
@@ -137,6 +137,36 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 	s.Unlock()
 
 	return err
+}
+
+func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUserId string) error {
+	res, err := s.cli.Api.Transfer(
+		metadata.NewOutgoingContext(ctx, s.hdrs),
+		&thread.TransferRequest{
+			ThreadId: s.threadId,
+			Contact: &thread.PeerIdentity{
+				Sub: strconv.Itoa(int(userId)),
+				Iss: "webitel",
+			},
+			Initiator: &thread.PeerIdentity{
+				Sub: fromUserId,
+				Iss: "webitel",
+			},
+			Role: thread.ThreadRole_ROLE_MEMBER,
+		})
+	if err != nil {
+		return err
+	}
+
+	if res.GetMember().GetId() != "" {
+		s.agentMemberId = res.GetMember().GetId()
+	}
+
+	s.Lock()
+	s.userId = strconv.Itoa(int(userId))
+	s.Unlock()
+
+	return nil
 }
 
 func (s *Session) RemoveMemberUser(ctx context.Context) error {
