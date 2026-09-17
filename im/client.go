@@ -86,7 +86,7 @@ func (cm *Client) listenEvents() {
 					// must keep running. Cancelling here on the outgoing agent aborted the next
 					// transfer's attempt for the same thread, so the invite never reached it. The
 					// agent's own attempt is torn down separately via finalizeAttempt/cleanupSession.
-					if msg.System.AffectsMember(sess.clientMemberId) {
+					if msg.System.AffectsMember(sess.clientMemberId) || msg.System.AffectsMember(sess.agentMemberId) {
 						wlog.Debug("closing session: client left thread", wlog.String("thread_id", msg.ThreadID))
 						sess.cancel()
 					} else {
