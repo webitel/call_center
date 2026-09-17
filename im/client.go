@@ -80,7 +80,7 @@ func (cm *Client) listenEvents() {
 			return
 		case msg := <-cm.events:
 			if sess, ok := cm.GetSession(msg.ThreadID); ok {
-				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transferred") {
+				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transfer") {
 					if msg.System.AffectsMember(sess.agentMemberId) || msg.System.AffectsMember(sess.clientMemberId) {
 						wlog.Debug("removing member from session", wlog.String("thread_id", msg.ThreadID))
 						sess.cancel() // todo

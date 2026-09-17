@@ -351,14 +351,14 @@ func (queue *InboundIMQueue) finalizeAttempt(
 
 // cleanupSession performs async cleanup of the session
 func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
-	attempt.Emit(AttemptHookLeaving)
-	attempt.Off("*")
-
 	if agent != nil {
 		if err := sess.RemoveMemberUser(context.Background()); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
 	}
+
+	attempt.Emit(AttemptHookLeaving)
+	attempt.Off("*")
 
 	queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
 	sess.Close()

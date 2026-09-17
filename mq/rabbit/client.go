@@ -44,6 +44,23 @@ type AMQP struct {
 	log                *wlog.Logger
 }
 
+//{"thread_id":"01a0aeaa-3060-7026-ba38-9e66f6cb0a31","domain_id":1,"member_id":"01a0aeaa-3065-72c6-a5d8-700439038919","position":0,"reason":"transfer","next_member_id":"01a0aead-75cf-75f9-bbb8-7dc74f5217ee","sub":2522,"occurred_at":"2026-09-17T09:23:18.616563255Z"}
+
+type BotGrantedMessageAgent struct {
+	MemberId string `json:"member_id"`
+}
+type BotGrantedMessage struct {
+	ThreadId     string                   `json:"thread_id"`
+	DomainId     int64                    `json:"domain_id"`
+	MemberId     string                   `json:"member_id"`
+	Position     int                      `json:"position"`
+	Reason       string                   `json:"reason"`
+	NextMemberId string                   `json:"next_member_id"`
+	Sub          string                   `json:"sub"`
+	Agents       []BotGrantedMessageAgent `json:"agents"`
+	OccurredAt   string                   `json:"occurred_at"`
+}
+
 func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog.Logger) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
@@ -291,6 +308,11 @@ func (a *AMQP) subscribeIM() {
 		os.Exit(1)
 	}
 
+	if err = a.channel.QueueBind(imQueue.Name, "im_thread.*.bot.control.#", "im_message.events", true, nil); err != nil {
+		wlog.Critical("[AMQP] during binding IM queue to message exchange", wlog.String("queue", imQueue.Name), wlog.String("exchange", model.IMExchange), wlog.Err(err))
+		panic("error during binding IM queue to message exchange")
+	}
+
 	msgs, err := a.channel.Consume(
 		imQueue.Name,
 		"",
@@ -319,7 +341,32 @@ func (a *AMQP) subscribeIM() {
 				}
 				a.imEvent <- data.Message
 
+			case "im_message.events":
+
+				if strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.granted.v1") {
+					var grm BotGrantedMessage
+					json.Unmarshal(m.Body, &grm)
+
+// 					println(string(m.Body))
+
+					if grm.Reason == "transfer" && len(grm.Agents) != 0 {
+						ms := model.IMMessage{
+							ThreadID: grm.ThreadId,
+							DomainID: int(grm.DomainId),
+							System: &model.IMSystem{
+								Type: grm.Reason,
+								Metadata: model.IMSystemMetadata{
+									TransferredMemberId: grm.Agents[0].MemberId,
+								},
+							},
+						}
+						a.imEvent <- ms
+					}
+
+				}
+
 			default:
+
 				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange %s", m.Exchange))
 			}
 
