@@ -131,9 +131,11 @@ func (cm *Client) GetSession(threadID string) (*Session, bool) {
 	return sess, ok
 }
 
-func (cm *Client) closeSession(threadID string) {
+func (cm *Client) closeSession(sess *Session) {
 	cm.Lock()
-	delete(cm.threads, threadID)
+	if cm.threads[sess.threadId] == sess {
+		delete(cm.threads, sess.threadId)
+	}
 	cm.Unlock()
 }
 
