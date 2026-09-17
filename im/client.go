@@ -80,7 +80,7 @@ func (cm *Client) listenEvents() {
 			return
 		case msg := <-cm.events:
 			if sess, ok := cm.GetSession(msg.ThreadID); ok {
-				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transferred") {
+				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transfer") {
 					// Only the client leaving ends the conversation. An agent being removed is
 					// normal transfer churn: control passes to the next operator and the session
 					// must keep running. Cancelling here on the outgoing agent aborted the next

@@ -14,14 +14,16 @@ type InboundIMQueue struct {
 	ThreadCreatedAt int64  `json:"thread_created_at" db:"thread_created_at"`
 }
 
+type IMSystemMetadata struct {
+	RemovedMemberId            string `json:"removed_member_id" db:"removed_member_id"`
+	RemovedMemberContactId     string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
+	TransferredMemberId        string `json:"transferred_member_id" db:"transferred_member_id"`
+	TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
+}
+
 type IMSystem struct {
-	Type     string `json:"type" db:"type"`
-	Metadata struct {
-		RemovedMemberId            string `json:"removed_member_id" db:"removed_member_id"`
-		RemovedMemberContactId     string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
-		TransferredMemberId        string `json:"transferred_member_id" db:"transferred_member_id"`
-		TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
-	} `json:"metadata" db:"metadata"`
+	Type     string           `json:"type" db:"type"`
+	Metadata IMSystemMetadata `json:"metadata" db:"metadata"`
 }
 
 func (s *IMSystem) AffectsMember(memberID string) bool {
