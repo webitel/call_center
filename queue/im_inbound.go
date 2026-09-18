@@ -176,14 +176,19 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 	for {
 		select {
 		case <-attempt.Cancel():
+			attempt.Log("finalize: attempt cancel (wait-agent)")
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
 		case <-attempt.Context.Done():
+			attempt.Log("finalize: attempt context done (wait-agent)")
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
 		case <-sess.Done():
+			// DIAG: member IM-сесію скасовано ще до з'єднання з агентом (найімовірніша
+			// причина abandoned при трансфері — сесію цього плеча погасив listenEvents).
+			attempt.Log(fmt.Sprintf("finalize: session done before bridge (wait-agent) bridged=%v", attempt.bridgedAt > 0))
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
@@ -233,6 +238,8 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 	for {
 		select {
 		case <-sess.Done():
+			// DIAG: сесію скасовано під час взаємодії з агентом (offering/bridged).
+			attempt.Log(fmt.Sprintf("session done during interaction bridged=%v", attempt.bridgedAt > 0))
 			return false
 		case state := <-task.stateC:
 			inviteTimeout.Stop()
