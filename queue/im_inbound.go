@@ -368,12 +368,6 @@ func (queue *InboundIMQueue) finalizeAttempt(
 	task *TaskChannel,
 	sess *im.Session,
 ) {
-	if attempt.bridgedAt == 0 {
-		task = nil
-		team = nil
-		agent = nil
-	}
-
 	if agent != nil && team != nil {
 		if task != nil && task.IsDeclined() && task.ReportingAt() == 0 {
 			team.Missed(attempt, agent)
@@ -390,7 +384,6 @@ func (queue *InboundIMQueue) finalizeAttempt(
 
 // cleanupSession performs async cleanup of the session
 func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
-
 	if agent != nil {
 		if err := sess.RemoveMemberUser(context.Background()); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
