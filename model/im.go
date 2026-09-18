@@ -27,6 +27,13 @@ type IMSystem struct {
 }
 
 func (s *IMSystem) AffectsMember(memberID string) bool {
+	// Порожній memberID (напр. сесія ще не з'бриджена → agentMemberId == "")
+	// НЕ має метчити подію з порожнім Removed/Transferred полем: "" == "" давало
+	// хибний cancel і абандонило щойно створене плече при трансфері.
+	if memberID == "" {
+		return false
+	}
+
 	m := s.Metadata
 	return m.RemovedMemberId == memberID || m.TransferredMemberId == memberID
 }
