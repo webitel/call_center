@@ -44,6 +44,21 @@ type AMQP struct {
 	log                *wlog.Logger
 }
 
+type BotGrantedMessageAgent struct {
+	MemberId string `json:"member_id"`
+}
+type BotGrantedMessage struct {
+	ThreadId     string                   `json:"thread_id"`
+	DomainId     int64                    `json:"domain_id"`
+	MemberId     string                   `json:"member_id"`
+	Position     int                      `json:"position"`
+	Reason       string                   `json:"reason"`
+	NextMemberId string                   `json:"next_member_id"`
+	Sub          string                   `json:"sub"`
+	Agents       []BotGrantedMessageAgent `json:"agents"`
+	OccurredAt   string                   `json:"occurred_at"`
+}
+
 func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog.Logger) mq.LayeredMQLayer {
 	mq_ := &AMQP{
 		settings:  &settings,
@@ -306,6 +321,11 @@ func (a *AMQP) subscribeIM() {
 		os.Exit(1)
 	}
 
+	if err = a.channel.QueueBind(imQueue.Name, "im_thread.*.bot.control.#", "im_message.events", true, nil); err != nil {
+		wlog.Critical("[AMQP] during binding IM queue to message exchange", wlog.String("queue", imQueue.Name), wlog.String("exchange", model.IMExchange), wlog.Err(err))
+		panic("error during binding IM queue to message exchange")
+	}
+
 	go func() {
 		for m := range msgs {
 			switch m.Exchange {
@@ -318,6 +338,31 @@ func (a *AMQP) subscribeIM() {
 					continue
 				}
 				a.imEvent <- data.Message
+
+
+			case "im_message.events":
+
+				if strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.granted.v1") {
+					var grm BotGrantedMessage
+					json.Unmarshal(m.Body, &grm)
+
+// 					println(string(m.Body))
+
+					if grm.Reason == "transfer" && len(grm.Agents) != 0 {
+						ms := model.IMMessage{
+							ThreadID: grm.ThreadId,
+							DomainID: int(grm.DomainId),
+							System: &model.IMSystem{
+								Type: grm.Reason,
+								Metadata: model.IMSystemMetadata{
+									TransferredMemberId: grm.Agents[0].MemberId,
+								},
+							},
+						}
+						a.imEvent <- ms
+					}
+
+				}
 
 			default:
 				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange %s", m.Exchange))

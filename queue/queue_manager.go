@@ -1023,7 +1023,7 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 }
 
 func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {
-	return qm.app.IMClient().NewSession(att.Context, att.domainId, *att.MemberCallId(), subBot, subMember, memberId)
+	return qm.app.IMClient().NewSession(att.Context, att.domainId, *att.MemberCallId(), subBot, subMember, memberId, int(att.Id()))
 }
 
 func (qm *Manager) DistributeDirectMember(memberId int64, communicationId, agentId int) (*Attempt, *model.AppError) {

@@ -137,14 +137,19 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 	for {
 		select {
 		case <-attempt.Cancel():
+			attempt.Log("finalize: attempt cancel (wait-agent)")
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
 		case <-attempt.Context.Done():
+			attempt.Log("finalize: attempt context done (wait-agent)")
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
 		case <-sess.Done():
+			// DIAG: member IM-сесію скасовано ще до з'єднання з агентом (найімовірніша
+			// причина abandoned при трансфері — сесію цього плеча погасив listenEvents).
+			attempt.Log(fmt.Sprintf("finalize: session done before bridge (wait-agent) bridged=%v", attempt.bridgedAt > 0))
 			queue.finalizeAttempt(attempt, agent, team, task, sess)
 			return
 
@@ -194,6 +199,8 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 	for {
 		select {
 		case <-sess.Done():
+			// DIAG: сесію скасовано під час взаємодії з агентом (offering/bridged).
+			attempt.Log(fmt.Sprintf("session done during interaction bridged=%v", attempt.bridgedAt > 0))
 			return false
 		case state := <-task.stateC:
 			inviteTimeout.Stop()
@@ -325,12 +332,6 @@ func (queue *InboundIMQueue) finalizeAttempt(
 	task *TaskChannel,
 	sess *im.Session,
 ) {
-	if attempt.bridgedAt == 0 {
-		task = nil
-		team = nil
-		agent = nil
-	}
-
 	if agent != nil && team != nil {
 		if task != nil && task.IsDeclined() && task.ReportingAt() == 0 {
 			team.Missed(attempt, agent)
@@ -347,15 +348,15 @@ func (queue *InboundIMQueue) finalizeAttempt(
 
 // cleanupSession performs async cleanup of the session
 func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
-	attempt.Emit(AttemptHookLeaving)
-	attempt.Off("*")
-
 	if agent != nil {
 		if err := sess.RemoveMemberUser(context.Background()); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
 	}
 
+	attempt.Emit(AttemptHookLeaving)
+	attempt.Off("*")
+
 	queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
-	sess.Close()
+	sess.Close(int(attempt.Id()))
 }

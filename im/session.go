@@ -16,6 +16,7 @@ type Message struct {
 }
 
 type Session struct {
+	tagID                   int
 	threadId                string
 	agentMemberId           string
 	clientMemberId          string
@@ -45,8 +46,8 @@ func (s *Session) Answered() bool {
 	return true
 }
 
-func (s *Session) Close() {
-	s.cli.closeSession(s.threadId)
+func (s *Session) Close(tagID int) {
+	s.cli.closeSession(s.threadId, tagID)
 }
 
 func (s *Session) Done() <-chan struct{} {
