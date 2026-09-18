@@ -394,5 +394,5 @@ func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manage
 	attempt.Off("*")
 
 	queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
-	sess.Close()
+	sess.Close(int(attempt.Id()))
 }

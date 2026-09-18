@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"slices"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -28,7 +29,7 @@ type Client struct {
 	cancel  context.CancelFunc
 	tls     *tls.Config
 	events  <-chan model.IMMessage
-	threads map[string]*Session
+	threads []*Session
 	sync.RWMutex
 }
 
@@ -38,7 +39,7 @@ func NewClient(consulAddr string, events <-chan model.IMMessage, log *wlog.Logge
 		log:        log,
 		tls:        t,
 		events:     events,
-		threads:    make(map[string]*Session),
+		threads:    make([]*Session, 0, 100),
 	}
 
 	cli.ctx, cli.cancel = context.WithCancel(context.Background()) // todo
@@ -102,9 +103,10 @@ func (cm *Client) listenEvents() {
 	}
 }
 
-func (cm *Client) NewSession(ctx context.Context, domainID int64, threadID, subBot, subMember, memberId string) *Session {
+func (cm *Client) NewSession(ctx context.Context, domainID int64, threadID, subBot, subMember, memberId string, tagID int) *Session {
 	sess := &Session{
 		cli:            cm,
+		tagID:          tagID,
 		threadId:       threadID,
 		clientMemberId: memberId,
 		subBot:         subBot,
@@ -125,20 +127,28 @@ func (cm *Client) NewSession(ctx context.Context, domainID int64, threadID, subB
 
 func (cm *Client) GetSession(threadID string) (*Session, bool) {
 	cm.RLock()
-	sess, ok := cm.threads[threadID]
-	cm.RUnlock()
+	defer cm.RUnlock()
 
-	return sess, ok
+	for i := len(cm.threads) - 1; i >= 0; i-- {
+		sess := cm.threads[i]
+		if sess != nil && sess.threadId == threadID {
+			return sess, true
+		}
+	}
+
+	return nil, false
 }
 
-func (cm *Client) closeSession(threadID string) {
+func (cm *Client) closeSession(threadID string, tagID int) {
 	cm.Lock()
-	delete(cm.threads, threadID)
+	cm.threads = slices.DeleteFunc(cm.threads, func(sess *Session) bool {
+		return sess != nil && sess.threadId == threadID && sess.tagID == tagID
+	})
 	cm.Unlock()
 }
 
 func (cm *Client) addSession(sess *Session) {
 	cm.Lock()
-	cm.threads[sess.threadId] = sess
+	cm.threads = append(cm.threads, sess)
 	cm.Unlock()
 }
