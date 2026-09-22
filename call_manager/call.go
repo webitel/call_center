@@ -166,8 +166,14 @@ const (
 	AmdNotSure = "NOTSURE"
 )
 
+var callStateNames = [...]string{"new", "invite", "ringing", "progress", "accept", "join", "leaving", "bridge", "hold", "amd", "hangup"}
+
 func (s CallState) String() string {
-	return [...]string{"new", "invite", "ringing", "accept", "join", "leaving", "bridge", "hold", "amd", "hangup"}[s]
+	if int(s) >= len(callStateNames) {
+		return fmt.Sprintf("unknown(%d)", s)
+	}
+
+	return callStateNames[s]
 }
 
 var (
