@@ -159,7 +159,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 				"bridge_export_vars":        "cc_agent_id",
 				"sip_h_X-Webitel-Direction": "internal",
 				"wbt_destination":           attempt.Destination(),
-				"wbt_to_id":                 fmt.Sprintf("%v", agent.Id()),
+				"wbt_to_id":                 fmt.Sprintf("%d", agent.UserId()),
 				"wbt_to_number":             agent.CallNumber(),
 				"wbt_to_name":               agent.Name(),
 				"wbt_to_type":               "user", // todo agent ?
