@@ -8,22 +8,27 @@ import (
 
 // Caching Interface
 type ObjectCache interface {
-	AddWithExpiresInSecs(key, value interface{}, expireAtSecs int64)
-	AddWithDefaultExpires(key, value interface{})
-	Add(key, value interface{})
+	AddWithExpiresInSecs(key, value any, expireAtSecs int64)
+	AddWithDefaultExpires(key, value any)
+	Add(key, value any)
 	Purge()
-	Get(key interface{}) (value interface{}, ok bool)
-	Remove(key interface{})
+	Get(key any) (value any, ok bool)
+	Remove(key any)
 	Len() int
 	Name() string
 	GetInvalidateClusterEvent() string
+
+	// RemoveFunc deletes first element found by provided key and matched predicate.
+	// Inside this func use mutex lock during calling predicate so provided predicate
+	// must not use same cache object inside to prevent deadlocks.
+	RemoveFunc(key any, pred func(v any) bool) bool
 }
 
 // Cache is a thread-safe fixed size LRU cache.
 type Cache struct {
 	size                   int
 	evictList              *list.List
-	items                  map[interface{}]*list.Element
+	items                  map[any]*list.Element
 	lock                   sync.RWMutex
 	name                   string
 	defaultExpiry          int64
@@ -34,8 +39,8 @@ type Cache struct {
 
 // entry is used to hold a value in the evictList
 type entry struct {
-	key          interface{}
-	value        interface{}
+	key          any
+	value        any
 	expireAtSecs int64
 	generation   int64
 }
@@ -45,7 +50,7 @@ func NewLru(size int) *Cache {
 	return &Cache{
 		size:      size,
 		evictList: list.New(),
-		items:     make(map[interface{}]*list.Element, size),
+		items:     make(map[any]*list.Element, size),
 	}
 }
 
@@ -66,15 +71,15 @@ func (c *Cache) Purge() {
 	c.currentGeneration++
 }
 
-func (c *Cache) Add(key, value interface{}) {
+func (c *Cache) Add(key, value any) {
 	c.AddWithExpiresInSecs(key, value, 0)
 }
 
-func (c *Cache) AddWithDefaultExpires(key, value interface{}) {
+func (c *Cache) AddWithDefaultExpires(key, value any) {
 	c.AddWithExpiresInSecs(key, value, c.defaultExpiry)
 }
 
-func (c *Cache) AddWithExpiresInSecs(key, value interface{}, expireAtSecs int64) {
+func (c *Cache) AddWithExpiresInSecs(key, value any, expireAtSecs int64) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -106,7 +111,7 @@ func (c *Cache) AddWithExpiresInSecs(key, value interface{}, expireAtSecs int64)
 	}
 }
 
-func (c *Cache) Get(key interface{}) (value interface{}, ok bool) {
+func (c *Cache) Get(key any) (value any, ok bool) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -125,7 +130,7 @@ func (c *Cache) Get(key interface{}) (value interface{}, ok bool) {
 	return nil, false
 }
 
-func (c *Cache) Remove(key interface{}) {
+func (c *Cache) Remove(key any) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -134,12 +139,35 @@ func (c *Cache) Remove(key interface{}) {
 	}
 }
 
+func (c *Cache) RemoveFunc(key any, pred func(v any) bool) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	item, exists := c.items[key]
+	if !exists {
+		return false
+	}
+
+	e, ok := item.Value.(*entry)
+	if !ok {
+		return false
+	}
+
+	if !pred(e.value) {
+		return false
+	}
+
+	c.removeElement(item)
+
+	return true
+}
+
 // Keys returns a slice of the keys in the cache, from oldest to newest.
-func (c *Cache) Keys() []interface{} {
+func (c *Cache) Keys() []any {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	keys := make([]interface{}, c.len)
+	keys := make([]any, c.len)
 	i := 0
 	for ent := c.evictList.Back(); ent != nil; ent = ent.Prev() {
 		e := ent.Value.(*entry)
