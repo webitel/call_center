@@ -306,15 +306,17 @@ func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChann
 	wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d",
 		attempt.Id(), sess.OperatorIdleMessage(), sess.MemberIdleMessage(), sess.SilentSec()))
 
+	botActive := sess.BotActive()
+
 	// Check agent idle timeout
-	if queue.settings.MaxIdleAgent > 0 && queue.isAgentIdle(task, sess) {
+	if !botActive && queue.settings.MaxIdleAgent > 0 && queue.isAgentIdle(task, sess) {
 		attempt.Log("max idle agent")
 		attempt.SetResult(AttemptResultAgentTimeout)
 		return false
 	}
 
 	// Check client idle timeout
-	if queue.settings.MaxIdleClient > 0 && queue.isClientIdle(task, sess) {
+	if !botActive && queue.settings.MaxIdleClient > 0 && queue.isClientIdle(task, sess) {
 		attempt.Log("max idle client")
 		attempt.SetResult(AttemptResultClientTimeout)
 		return false

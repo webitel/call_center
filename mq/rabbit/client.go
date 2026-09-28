@@ -54,9 +54,16 @@ type BotGrantedMessage struct {
 	Position     int                      `json:"position"`
 	Reason       string                   `json:"reason"`
 	NextMemberId string                   `json:"next_member_id"`
-	Sub          string                   `json:"sub"`
+	Sub          *int64                   `json:"sub"`
 	Agents       []BotGrantedMessageAgent `json:"agents"`
 	OccurredAt   string                   `json:"occurred_at"`
+}
+
+type BotReleasedMessage struct {
+	ThreadId string `json:"thread_id"`
+	DomainId int64  `json:"domain_id"`
+	MemberId string `json:"member_id"`
+	Reason   string `json:"reason"`
 }
 
 func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog.Logger) mq.LayeredMQLayer {
@@ -339,17 +346,19 @@ func (a *AMQP) subscribeIM() {
 				}
 				a.imEvent <- data.Message
 
-
 			case "im_message.events":
 
-				if strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.granted.v1") {
+				switch {
+				case strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.granted.v1"):
 					var grm BotGrantedMessage
-					json.Unmarshal(m.Body, &grm)
+					if err := json.Unmarshal(m.Body, &grm); err != nil {
+						wlog.Warn(fmt.Sprintf("unable to parse bot control granted event: %s", err.Error()))
 
-// 					println(string(m.Body))
+						break
+					}
 
 					if grm.Reason == "transfer" && len(grm.Agents) != 0 {
-						ms := model.IMMessage{
+						a.imEvent <- model.IMMessage{
 							ThreadID: grm.ThreadId,
 							DomainID: int(grm.DomainId),
 							System: &model.IMSystem{
@@ -359,9 +368,29 @@ func (a *AMQP) subscribeIM() {
 								},
 							},
 						}
-						a.imEvent <- ms
+
+						break
 					}
 
+					a.imEvent <- model.IMMessage{
+						ThreadID: grm.ThreadId,
+						DomainID: int(grm.DomainId),
+						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlGranted},
+					}
+
+				case strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.released.v1"):
+					var rel BotReleasedMessage
+					if err := json.Unmarshal(m.Body, &rel); err != nil {
+						wlog.Warn(fmt.Sprintf("unable to parse bot control released event: %s", err.Error()))
+
+						break
+					}
+
+					a.imEvent <- model.IMMessage{
+						ThreadID: rel.ThreadId,
+						DomainID: int(rel.DomainId),
+						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlReleased},
+					}
 				}
 
 			default:

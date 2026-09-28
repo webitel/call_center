@@ -95,6 +95,19 @@ func (cm *Client) listenEvents() {
 				continue
 			}
 
+			if msg.System != nil {
+				switch msg.System.Type {
+				case model.IMSystemTypeBotControlGranted:
+					sess.SetBotActive(true)
+
+					continue
+				case model.IMSystemTypeBotControlReleased:
+					sess.SetBotActive(false)
+
+					continue
+				}
+			}
+
 			if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transfer") {
 				affectsClient := msg.System.AffectsMember(sess.clientMemberId)
 				affectsAgent := msg.System.AffectsMember(sess.agentMemberId)
@@ -199,6 +212,20 @@ func (cm *Client) GetSession(threadID string) (*Session, bool) {
 
 	for _, sess := range cm.threads {
 		if sess != nil && sess.threadId == threadID {
+			return sess, true
+		}
+	}
+
+	return nil, false
+}
+
+func (cm *Client) BridgedSession(threadID string) (*Session, bool) {
+	cm.RLock()
+	defer cm.RUnlock()
+
+	for i := len(cm.threads) - 1; i >= 0; i-- {
+		sess := cm.threads[i]
+		if sess != nil && sess.threadId == threadID && sess.Bridged() {
 			return sess, true
 		}
 	}

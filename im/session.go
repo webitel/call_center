@@ -29,9 +29,42 @@ type Session struct {
 	lastMessageAtFromAgent  int64
 	ActivityAt              int64
 	userId                  string
+	botActive               bool
 	ctx                     context.Context
 	cancel                  context.CancelFunc
 	sync.RWMutex
+}
+
+func (s *Session) TagID() int {
+	return s.tagID
+}
+
+func (s *Session) Bridged() bool {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.userId != ""
+}
+
+func (s *Session) SetBotActive(active bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	if s.botActive && !active {
+		now := model.GetMillis()
+		s.lastMessageAt = now
+		s.lastMessageAtFromMember = now
+		s.lastMessageAtFromAgent = now
+	}
+
+	s.botActive = active
+}
+
+func (s *Session) BotActive() bool {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.botActive
 }
 
 func (s *Session) Id() string {
