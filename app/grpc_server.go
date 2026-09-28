@@ -3,21 +3,26 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/wlog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 type GrpcServer struct {
 	srv *grpc.Server
 	lis net.Listener
 	log *wlog.Logger
+}
+
+func (grpc *GrpcServer) Listener() net.Listener {
+	return grpc.lis
 }
 
 func (grpc *GrpcServer) GetPublicInterface() (string, int) {

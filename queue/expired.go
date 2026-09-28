@@ -2,13 +2,14 @@ package queue
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/pkg/wbt/gen/workflow"
 	"github.com/webitel/wlog"
-	"sync"
-	"time"
 )
 
 const (
@@ -47,8 +48,8 @@ func NewExpiredManager(app App, store store.Store) *ExpiredManager {
 
 func (s *ExpiredManager) Start() {
 	s.log.Debug("starting expired service")
-	s.watcher = utils.MakeWatcher("Expired", ExpiredPollingInterval, s.job)
 	s.startOnce.Do(func() {
+		s.watcher = utils.MakeWatcher("Expired", ExpiredPollingInterval, s.job)
 		go s.watcher.Start()
 	})
 }

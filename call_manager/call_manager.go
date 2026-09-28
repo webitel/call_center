@@ -3,6 +3,7 @@ package call_manager
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -22,6 +23,11 @@ const (
 	WATCHER_INTERVAL = 1000 * 5 // 30s
 )
 
+var (
+	ErrNoConnection = errors.New("no freeswitch connection registered")
+	ErrNotReady     = errors.New("no freeswitch connection is ready")
+)
+
 type CallManager interface {
 	Start()
 	Stop()
@@ -31,6 +37,7 @@ type CallManager interface {
 	InboundCallQueue(call *model.Call, ringtone string, vars map[string]string) (Call, *model.AppError)
 	ConnectCall(call *model.Call, ringtone string) (Call, *model.AppError)
 	CountConnection() int
+	Ready(ctx context.Context) error
 	GetFlowUri() string
 	RingtoneUri(domainId int64, id int, mimeType string) string
 	HangupManyCall(cause string, ids ...string)
@@ -440,4 +447,21 @@ func (cm *CallManagerImpl) removeFromCacheCall(call Call) {
 
 func (cm *CallManagerImpl) CountConnection() int {
 	return len(cm.poolConnections.All())
+}
+
+// Ready reports whether any FreeSWITCH connection is usable. All, not
+// getApiConnection: that advances the round-robin marker used by real calls.
+func (cm *CallManagerImpl) Ready(context.Context) error {
+	conns := cm.poolConnections.All()
+	if len(conns) == 0 {
+		return ErrNoConnection
+	}
+
+	for _, conn := range conns {
+		if conn != nil && conn.Ready() {
+			return nil
+		}
+	}
+
+	return ErrNotReady
 }

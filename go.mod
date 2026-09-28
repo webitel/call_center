@@ -1,6 +1,6 @@
 module github.com/webitel/call_center
 
-go 1.24.3
+go 1.25.4
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
@@ -11,10 +11,11 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/rabbitmq/amqp091-go v1.11.0
-	github.com/webitel/engine/pkg/discovery v0.0.0-20250925090335-284caa978daa
+	github.com/webitel/engine/pkg/discovery v0.0.0-20260826062815-ac09649ed0d9
 	github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156
 	github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41
+	github.com/webitel/webitel-go-kit/infra/health v0.0.0-20260925135833-3c8b95881539
 	github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/sdk v1.35.0

@@ -5,7 +5,7 @@ StartLimitIntervalSec=60
 StartLimitBurst=3
 
 [Service]
-Type=simple
+Type=notify
 User=webitel
 Group=webitel
 LogsDirectory=webitel
@@ -19,7 +19,7 @@ Restart=on-failure
 RestartSec=5
 KillMode=mixed
 KillSignal=SIGTERM
-TimeoutStartSec=0
+TimeoutStartSec=90
 TimeoutStopSec=30
 LimitNOFILE=64000
 LimitNPROC=4096

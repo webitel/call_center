@@ -1,12 +1,15 @@
 package rabbit
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -26,10 +29,15 @@ const (
 	EXIT_DECLARE_EXCHANGE = 110
 )
 
+var (
+	errConnectionClosed = errors.New("amqp: connection is closed")
+	errChannelClosed    = errors.New("amqp: channel is closed")
+)
+
 type AMQP struct {
 	settings           *model.MessageQueueSettings
-	connection         *amqp.Connection
-	channel            *amqp.Channel
+	connection         atomic.Pointer[amqp.Connection]
+	channel            atomic.Pointer[amqp.Channel]
 	errorChan          chan *amqp.Error
 	stop               chan struct{}
 	stopped            chan struct{}
@@ -86,6 +94,20 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog
 	mq_.initConnection()
 	go mq_.listen()
 	return mq_
+}
+
+func (a *AMQP) Ping(context.Context) error {
+	conn := a.connection.Load()
+	if conn == nil || conn.IsClosed() {
+		return errConnectionClosed
+	}
+
+	ch := a.channel.Load()
+	if ch == nil || ch.IsClosed() {
+		return errChannelClosed
+	}
+
+	return nil
 }
 
 func (a *AMQP) QueueEvent() mq.QueueEvent {
@@ -181,8 +203,6 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 		return
 	}
 
-	// fmt.Println(string(data))
-
 	a.chatEvent <- model.ChatEvent{
 		Name:     rks[1],
 		DomainId: int64(domainId),
@@ -201,14 +221,18 @@ func (a *AMQP) initConnection() {
 		os.Exit(1)
 	}
 	a.connectionAttempts++
-	a.connection, err = amqp.Dial(a.settings.Url)
+	var conn *amqp.Connection
+	conn, err = amqp.Dial(a.settings.Url)
+	a.connection.Store(conn)
 	if err != nil {
 		a.log.Critical(fmt.Sprintf("Failed to open AMQP connection to err:%v", err.Error()))
 		time.Sleep(time.Second * RECONNECT_SEC)
 		a.initConnection()
 	} else {
 		a.connectionAttempts = 0
-		a.channel, err = a.connection.Channel()
+		var ch *amqp.Channel
+		ch, err = conn.Channel()
+		a.channel.Store(ch)
 
 		if err != nil {
 			a.log.Critical(fmt.Sprintf("Failed to open AMQP channel to err:%v", err.Error()))
@@ -220,7 +244,7 @@ func (a *AMQP) initConnection() {
 				panic(err.Error())
 			}
 			a.errorChan = make(chan *amqp.Error, 1)
-			a.channel.NotifyClose(a.errorChan)
+			ch.NotifyClose(a.errorChan)
 			if a.settings.UseIM {
 				a.subscribeIM()
 			}
@@ -230,7 +254,8 @@ func (a *AMQP) initConnection() {
 
 func (a *AMQP) connect() error {
 	var err error
-	a.queue, err = a.channel.QueueDeclare(
+	ch := a.channel.Load()
+	a.queue, err = ch.QueueDeclare(
 		fmt.Sprintf("callcenter.%s", a.nodeName),
 		true,
 		false,
@@ -245,7 +270,7 @@ func (a *AMQP) connect() error {
 		return err
 	}
 
-	a.delivery, err = a.channel.Consume(
+	a.delivery, err = ch.Consume(
 		a.queue.Name,
 		model.NewId(),
 		true,
@@ -258,16 +283,16 @@ func (a *AMQP) connect() error {
 		return err
 	}
 
-	err = a.channel.QueueBind(a.queue.Name, "#", model.ChatExchange, true, nil)
+	err = ch.QueueBind(a.queue.Name, "#", model.ChatExchange, true, nil)
 	if err != nil {
 		return err
 	}
 
-	return a.channel.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
+	return ch.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
 }
 
 func (a *AMQP) initExchange() {
-	err := a.channel.ExchangeDeclare(
+	err := a.channel.Load().ExchangeDeclare(
 		model.CallCenterExchange,
 		"topic",
 		true,
@@ -288,7 +313,9 @@ func (a *AMQP) initExchange() {
 func (a *AMQP) subscribeIM() {
 	imQueueName := fmt.Sprintf("%s.%s.any", model.IMQueueNamePrefix, model.NewId()[0:8])
 
-	imQueue, err := a.channel.QueueDeclare(
+	ch := a.channel.Load()
+
+	imQueue, err := ch.QueueDeclare(
 		imQueueName,
 		true,
 		false,
@@ -307,13 +334,13 @@ func (a *AMQP) subscribeIM() {
 		wlog.Debug(fmt.Sprintf("Success declare queue %v connected consumers %v", imQueue.Name, imQueue.Consumers))
 	}
 
-	if err = a.channel.QueueBind(imQueue.Name, "#", model.IMExchange, true, nil); err != nil {
+	if err = ch.QueueBind(imQueue.Name, "#", model.IMExchange, true, nil); err != nil {
 		wlog.Critical(fmt.Sprintf("Error binding queue %s to %s: %s", imQueue.Name, model.IMExchange, err.Error()))
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
 
-	msgs, err := a.channel.Consume(
+	msgs, err := ch.Consume(
 		imQueue.Name,
 		"",
 		false,
@@ -328,7 +355,7 @@ func (a *AMQP) subscribeIM() {
 		os.Exit(1)
 	}
 
-	if err = a.channel.QueueBind(imQueue.Name, "im_thread.*.bot.control.#", "im_message.events", true, nil); err != nil {
+	if err = ch.QueueBind(imQueue.Name, "im_thread.*.bot.control.#", "im_message.events", true, nil); err != nil {
 		wlog.Critical("[AMQP] during binding IM queue to message exchange", wlog.String("queue", imQueue.Name), wlog.String("exchange", model.IMExchange), wlog.Err(err))
 		panic("error during binding IM queue to message exchange")
 	}
@@ -407,13 +434,13 @@ func (a *AMQP) Close() {
 	close(a.stop)
 	<-a.stopped
 
-	if a.channel != nil {
-		a.channel.Close()
+	if ch := a.channel.Load(); ch != nil {
+		ch.Close()
 		a.log.Debug("close AMQP channel")
 	}
 
-	if a.connection != nil {
-		a.connection.Close()
+	if conn := a.connection.Load(); conn != nil {
+		conn.Close()
 		a.log.Debug("close AMQP connection")
 	}
 }
@@ -424,7 +451,7 @@ func (a *AMQP) SendJSON(key string, data []byte) *model.AppError {
 		wlog.String("routing", key),
 		wlog.String("exchange", model.CallCenterExchange),
 	)
-	err := a.channel.Publish(
+	err := a.channel.Load().Publish(
 		model.CallCenterExchange,
 		key,
 		false,
