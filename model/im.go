@@ -21,6 +21,11 @@ type IMSystemMetadata struct {
 	TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
 }
 
+const (
+	IMSystemTypeBotControlGranted  = "bot_control_granted"
+	IMSystemTypeBotControlReleased = "bot_control_released"
+)
+
 type IMSystem struct {
 	Type     string           `json:"type" db:"type"`
 	Metadata IMSystemMetadata `json:"metadata" db:"metadata"`

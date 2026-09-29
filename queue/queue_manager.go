@@ -942,7 +942,16 @@ func (qm *Manager) DistributeChatToQueue(_ context.Context, in *cc.ChatJoinToQue
 	return attempt, nil
 }
 
-func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRequest) (*Attempt, *model.AppError) {
+func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRequest) (*Attempt, bool, *model.AppError) {
+	if sess, ok := qm.app.IMClient().BridgedSession(in.GetThreadId()); ok {
+		if attempt, ok := qm.GetAttempt(int64(sess.TagID())); ok {
+			sess.SetBotActive(false)
+			attempt.Log("rejoined bridged attempt")
+
+			return attempt, true, nil
+		}
+	}
+
 	// var member *model.MemberAttempt
 	var bucketId *int32
 	var stickyAgentId *int
@@ -998,7 +1007,7 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
 		)
-		return nil, err
+		return nil, false, err
 	}
 
 	attempt, _ := qm.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
@@ -1022,10 +1031,10 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 
 	if _, err = qm.DistributeAttempt(attempt); err != nil {
 		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
-		return nil, err
+		return nil, false, err
 	}
 
-	return attempt, nil
+	return attempt, false, nil
 }
 
 func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {

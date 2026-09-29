@@ -303,13 +303,14 @@ stop:
 }
 
 func (api *member) IMJoinToQueue(ctx context.Context, in *cc.IMJoinToQueueRequest) (*cc.IMJoinToQueueResponse, error) {
-	attempt, err := api.app.Queue().Manager().DistributeIMToQueue(ctx, in)
+	attempt, bridged, err := api.app.Queue().Manager().DistributeIMToQueue(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cc.IMJoinToQueueResponse{
 		AttemptId: attempt.Id(),
+		Bridged:   bridged,
 	}, nil
 }
 
