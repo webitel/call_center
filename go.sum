@@ -267,10 +267,10 @@ github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c15
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41 h1:vj6qE8RtTyz8B4syfUDCkZqULLJ/4I+LS0Rw5W7mao0=
 github.com/webitel/webitel-go-kit v0.0.13-0.20240908192731-3abe573c0e41/go.mod h1:MT93dkScj2kDwVudSdXr0MJdGZ+JvvHbYEsSSb2n+Aw=
-github.com/webitel/webitel-go-kit/infra/health v0.0.0-20260925135833-3c8b95881539 h1:Yj+wcU0DKEZQbydN5XOvPbG+vFe5JozlGpLOUsgOij8=
-github.com/webitel/webitel-go-kit/infra/health v0.0.0-20260925135833-3c8b95881539/go.mod h1:qumOZfpiFfBSIxGd3CMiEyiNKY4xNaVpUh6nlnTgoPk=
-github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7 h1:Qi/ustGBfh13I6aZ/ljul679SPJmHbZzFn9h43eloLg=
-github.com/webitel/wlog v0.0.0-20250325101442-de4f125c1ec7/go.mod h1:mXyM8hL9tEBLM4K+Uw8QLuGLo6/eX+5Lvv1ks2Y4us8=
+github.com/webitel/webitel-go-kit/infra/health v0.2.0 h1:aIhAz9LCp42neoeiwq7sR56QvuUCnRudlgvwszzg9qo=
+github.com/webitel/webitel-go-kit/infra/health v0.2.0/go.mod h1:qumOZfpiFfBSIxGd3CMiEyiNKY4xNaVpUh6nlnTgoPk=
+github.com/webitel/wlog v0.0.0-20260929140055-f81a38037840 h1:yuRJzLjThWrGQCK7yXnr473qNKYh9CxVODEWJiWX25k=
+github.com/webitel/wlog v0.0.0-20260929140055-f81a38037840/go.mod h1:mXyM8hL9tEBLM4K+Uw8QLuGLo6/eX+5Lvv1ks2Y4us8=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

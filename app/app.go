@@ -30,8 +30,6 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/trigger"
-	"github.com/webitel/call_center/utils"
-
 	// -------------------- plugin(s) -------------------- //
 	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/otlp"
 	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/stdout"
@@ -59,7 +57,6 @@ type App struct {
 	chatManager    *chat.ChatManager
 	triggerManager *trigger.Manager
 	health         *health.Registry
-	healthSDNotify *sdnotify.Notifier
 
 	ctx              context.Context
 	otelShutdownFunc otelsdk.ShutdownFunc
@@ -121,21 +118,19 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Log.Info("server is initializing...")
 
-	healthLog := slog.New(utils.NewSlogHandler(app.Log))
-	app.health = health.New(health.DefaultConfig(), healthLog)
-
-	if err := app.health.Start(app.ctx); err != nil {
-		return nil, fmt.Errorf("unable to start health registry: %w", err)
-	}
+	healthLog := slog.New(wlog.NewSlogHandler(app.Log))
 
 	// nil when NOTIFY_SOCKET is unset; Start and Stop are both nil-safe.
-	app.healthSDNotify = sdnotify.New(
-		app.health,
+	healthSDNotify := sdnotify.New(
 		sdnotify.WithLogger(healthLog),
 		sdnotify.WithStartTimeout(time.Duration(config.Health.StartTimeout)*time.Second),
 	)
-	if err := app.healthSDNotify.Start(app.ctx); err != nil {
-		return nil, fmt.Errorf("unable to start sd_notify: %w", err)
+
+	app.health = health.New(health.DefaultConfig(), healthLog,
+		health.WithTransport(healthSDNotify),
+	)
+	if err := app.health.Start(app.ctx); err != nil {
+		return nil, fmt.Errorf("unable to start health registry: %w", err)
 	}
 
 	sqlSupplier := sqlstore.NewSqlSupplier(app.Config().SqlSettings)
@@ -232,12 +227,7 @@ func (app *App) Shutdown() {
 		ctx, cancel := context.WithTimeout(context.Background(),
 			time.Duration(app.Config().Health.StopTimeout)*time.Second)
 
-		transports := make([]health.Stopper, 0, 1)
-		if app.healthSDNotify != nil {
-			transports = append(transports, app.healthSDNotify)
-		}
-
-		if err := health.Shutdown(ctx, app.health, transports...); err != nil {
+		if err := app.health.Shutdown(ctx); err != nil {
 			app.Log.Error(fmt.Sprintf("health shutdown: %s", err.Error()), wlog.Err(err))
 		}
 
