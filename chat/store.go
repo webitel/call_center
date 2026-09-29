@@ -2,7 +2,9 @@ package chat
 
 import (
 	"fmt"
+
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 func (m *ChatManager) GetConversation(conversationId string) (*Conversation, *model.AppError) {
@@ -29,16 +31,12 @@ func (m *ChatManager) StoreConversation(chat *Conversation) {
 }
 
 func (m *ChatManager) RemoveConversation(chat *Conversation) {
-	v, ok := m.chats.Get(chat.id)
-	if !ok {
-		m.log.Error(fmt.Sprintf("chat [%s] not exists", chat.id))
+	log := chat.log.With(wlog.String("chat_user_id", chat.inviterUserId))
+
+	if m.chats.RemoveFunc(chat.id, func(v any) bool { return v == chat }) {
+		log.Debug("chat removed from store")
 		return
 	}
 
-	if v == chat {
-		m.chats.Remove(chat.id)
-		chat.log.Debug(fmt.Sprintf("chat [%s] remove from store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
-	} else {
-		chat.log.Debug(fmt.Sprintf("chat [%s] cache miss store domaind_id=%d, chat_user_id=%s", chat.id, chat.DomainId, chat.inviterUserId))
-	}
+	log.Debug("chat cache miss store")
 }
