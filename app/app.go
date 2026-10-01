@@ -3,13 +3,18 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/webitel/engine/pkg/wbt/flow"
+	"github.com/webitel/webitel-go-kit/infra/health"
+	healthhttp "github.com/webitel/webitel-go-kit/infra/health/http"
+	"github.com/webitel/webitel-go-kit/infra/health/sdnotify"
 	otelsdk "github.com/webitel/webitel-go-kit/otel/sdk"
 	"github.com/webitel/wlog"
 
@@ -26,7 +31,6 @@ import (
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/trigger"
-
 	// -------------------- plugin(s) -------------------- //
 	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/otlp"
 	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/stdout"
@@ -44,7 +48,6 @@ type App struct {
 	Log            *wlog.Logger
 	configFile     string
 	config         atomic.Value
-	newStore       func() store.Store
 	cluster        cluster.Cluster
 	engine         engine.Engine
 	dialing        queue.Dialing
@@ -54,6 +57,7 @@ type App struct {
 	flowManager    flow.FlowManager
 	chatManager    *chat.ChatManager
 	triggerManager *trigger.Manager
+	health         *health.Registry
 
 	ctx              context.Context
 	otelShutdownFunc otelsdk.ShutdownFunc
@@ -115,16 +119,26 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Log.Info("server is initializing...")
 
-	if app.newStore == nil {
-		app.newStore = func() store.Store {
-			return store.NewLayeredStore(sqlstore.NewSqlSupplier(app.Config().SqlSettings))
-		}
+	healthLog := slog.New(wlog.NewSlogHandler(app.Log))
+
+	// nil when NOTIFY_SOCKET is unset or HEALTH_ADDRESS is empty; WithTransport skips nil.
+	app.health = health.New(health.DefaultConfig(), healthLog,
+		health.WithTransport(sdnotify.New(
+			sdnotify.WithLogger(healthLog),
+			sdnotify.WithStartTimeout(time.Duration(config.Health.StartTimeout)*time.Second),
+		)),
+		health.WithTransport(healthhttp.NewServer(config.Health.Address, healthhttp.WithLogger(healthLog))),
+	)
+	if err := app.health.Start(app.ctx); err != nil {
+		return nil, fmt.Errorf("unable to start health registry: %w", err)
 	}
 
-	app.Store = app.newStore()
+	sqlSupplier := sqlstore.NewSqlSupplier(app.Config().SqlSettings)
+
+	app.Store = store.NewLayeredStore(sqlSupplier)
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MessageQueueSettings, app.GetInstanceId(), app.Log))
 
-	if cl, err := cluster.NewCluster(*app.id, app.Config().DiscoverySettings.Url, app.Store.Cluster(), app.Log); err != nil {
+	if cl, err := cluster.NewCluster(*app.id, app.Config().DiscoverySettings.Url, app.Store.Cluster(), app.health.ReadyFunc(), app.Log); err != nil {
 		return nil, err
 	} else {
 		app.cluster = cl
@@ -176,6 +190,12 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, err
 	}
 
+	// Critical is node-local only: a shared one drops the whole fleet at once.
+	app.health.Critical("grpc", health.ListenerCheck(app.GrpcServer.Listener()))
+	app.health.Critical("freeswitch", app.callManager.Ready)
+	app.health.Informational("postgres", sqlSupplier.Ping)
+	app.health.Informational("rabbitmq", app.MQ.Ping)
+
 	return app, outErr
 }
 
@@ -202,6 +222,17 @@ func (app *App) QueueSettings() model.QueueSettings {
 
 func (app *App) Shutdown() {
 	app.Log.Info("stopping Server...")
+
+	if app.health != nil {
+		ctx, cancel := context.WithTimeout(context.Background(),
+			time.Duration(app.Config().Health.StopTimeout)*time.Second)
+
+		if err := app.health.Shutdown(ctx); err != nil {
+			app.Log.Error(fmt.Sprintf("health shutdown: %s", err.Error()), wlog.Err(err))
+		}
+
+		cancel()
+	}
 
 	if app.cluster != nil {
 		app.cluster.Stop()

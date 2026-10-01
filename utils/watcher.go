@@ -2,8 +2,10 @@ package utils
 
 import (
 	"fmt"
-	"github.com/webitel/wlog"
+	"sync"
 	"time"
+
+	"github.com/webitel/wlog"
 )
 
 type WatcherNotify func()
@@ -15,6 +17,8 @@ type Watcher struct {
 	pollingInterval int
 	PollAndNotify   WatcherNotify
 	log             *wlog.Logger
+	startOnce       sync.Once
+	closeOnce       sync.Once
 }
 
 func MakeWatcher(name string, pollingInterval int, pollAndNotify WatcherNotify) *Watcher {
@@ -33,8 +37,11 @@ func MakeWatcher(name string, pollingInterval int, pollAndNotify WatcherNotify) 
 }
 
 func (watcher *Watcher) Start() {
+	watcher.startOnce.Do(watcher.start)
+}
+
+func (watcher *Watcher) start() {
 	watcher.log.Debug(fmt.Sprintf("watcher [%s] started", watcher.name))
-	//<-time.After(time.Duration(rand.Intn(watcher.pollingInterval)) * time.Millisecond)
 
 	defer func() {
 		watcher.log.Debug(fmt.Sprintf("watcher [%s] finished", watcher.name))
@@ -53,7 +60,9 @@ func (watcher *Watcher) Start() {
 }
 
 func (watcher *Watcher) Stop() {
-	watcher.log.Debug(fmt.Sprintf("watcher [%s] stopping", watcher.name))
-	close(watcher.stop)
-	<-watcher.stopped
+	watcher.closeOnce.Do(func() {
+		watcher.log.Debug(fmt.Sprintf("watcher [%s] stopping", watcher.name))
+		close(watcher.stop)
+		<-watcher.stopped
+	})
 }

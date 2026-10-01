@@ -54,9 +54,9 @@ func NewManager(nodeId string, s store.Store, fw flow.FlowManager, log *wlog.Log
 
 func (m *Manager) Start() *model.AppError {
 	m.log.Info("starting trigger service")
-	m.watcher = utils.MakeWatcher("Trigger", m.pollingInterval, m.schedule)
 
 	m.startOnce.Do(func() {
+		m.watcher = utils.MakeWatcher("Trigger", m.pollingInterval, m.schedule)
 		m.clean()
 		go m.watcher.Start()
 		go m.listen()

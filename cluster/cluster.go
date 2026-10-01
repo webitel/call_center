@@ -2,12 +2,13 @@ package cluster
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/pkg/discovery"
 	"github.com/webitel/wlog"
-	"sync"
 )
 
 var DEFAULT_WATCHER_POLLING_INTERVAL = 10 * 1000 //30s
@@ -36,12 +37,8 @@ func NewServiceDiscovery(id, addr string, check func() (bool, error)) (discovery
 	return discovery.NewConsul(id, addr, check)
 }
 
-func NewCluster(nodeId, addr string, st store.ClusterStore, log *wlog.Logger) (Cluster, error) {
-
-	cons, err := NewServiceDiscovery(nodeId, addr, func() (bool, error) {
-		return true, nil //TODO
-	})
-
+func NewCluster(nodeId, addr string, st store.ClusterStore, checkFn func() (bool, error), log *wlog.Logger) (Cluster, error) {
+	cons, err := NewServiceDiscovery(nodeId, addr, checkFn)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +48,8 @@ func NewCluster(nodeId, addr string, st store.ClusterStore, log *wlog.Logger) (C
 		nodeId:          nodeId,
 		store:           st,
 		pollingInterval: DEFAULT_WATCHER_POLLING_INTERVAL,
-		log: log.With(wlog.Namespace("context"),
+		log: log.With(
+			wlog.Namespace("context"),
 			wlog.String("name", "cluster"),
 		),
 	}, nil
@@ -59,12 +57,12 @@ func NewCluster(nodeId, addr string, st store.ClusterStore, log *wlog.Logger) (C
 
 func (c *cluster) Start(pubHost string, pubPort int) error {
 	c.log.Info("starting cluster")
-	err := c.discovery.RegisterService(model.ServiceName, pubHost, pubPort, model.APP_SERVICE_TTL, model.APP_DEREGESTER_CRITICAL_TTL)
+	err := c.discovery.RegisterService(model.ServiceName, pubHost, pubPort, model.APP_SERVICE_TTL, model.APP_DEREGISTER_CRITICAL_TTL)
 	if err != nil {
 		return err
 	}
-	c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 	c.startOnce.Do(func() {
+		c.watcher = utils.MakeWatcher("Cluster", c.pollingInterval, c.Heartbeat)
 		go c.watcher.Start()
 	})
 	return nil

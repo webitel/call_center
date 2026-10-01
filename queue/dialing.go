@@ -50,9 +50,9 @@ func (d *DialingImpl) Manager() *Manager { return d.queueManager }
 
 func (d *DialingImpl) Start() {
 	d.log.Debug("starting dialing service")
-	d.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, d.routeData)
 
 	d.startOnce.Do(func() {
+		d.watcher = utils.MakeWatcher("Dialing", DEFAULT_WATCHER_POLLING_INTERVAL, d.routeData)
 		go d.watcher.Start()
 		go d.queueManager.Start()
 		go d.statisticsManager.Start()
@@ -62,7 +62,9 @@ func (d *DialingImpl) Start() {
 
 func (d *DialingImpl) Stop() {
 	d.queueManager.Stop()
-	d.watcher.Stop()
+	if d.watcher != nil {
+		d.watcher.Stop()
+	}
 	d.statisticsManager.Stop()
 	d.expiredManager.Stop()
 }
