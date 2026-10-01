@@ -75,8 +75,9 @@ type Config struct {
 }
 
 type HealthSettings struct {
-	StartTimeout int `json:"start_timeout" flag:"health_start_timeout|60|Must stay under unit's TimeoutStartSec. Seconds before sd_notify reports READY=1 regardless of check state" env:"HEALTH_START_TIMEOUT"`
-	StopTimeout  int `json:"stop_timeout" flag:"health_stop_timeout|12|Must exceed DrainHold and fit inside TimeoutStopSec. Seconds budget for readiness drain on shutdown" env:"HEALTH_STOP_TIMEOUT"`
+	Address      string `json:"address" flag:"health_address||Health probe server address (/livez, /readyz, /healthz); empty disables it" env:"HEALTH_ADDRESS"`
+	StartTimeout int    `json:"start_timeout" flag:"health_start_timeout|60|Must stay under unit's TimeoutStartSec. Seconds before sd_notify reports READY=1 regardless of check state" env:"HEALTH_START_TIMEOUT"`
+	StopTimeout  int    `json:"stop_timeout" flag:"health_stop_timeout|12|Must exceed DrainHold and fit inside TimeoutStopSec. Seconds budget for readiness drain on shutdown" env:"HEALTH_STOP_TIMEOUT"`
 }
 
 type TLSConfig struct {

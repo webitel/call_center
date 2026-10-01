@@ -13,6 +13,7 @@ import (
 
 	"github.com/webitel/engine/pkg/wbt/flow"
 	"github.com/webitel/webitel-go-kit/infra/health"
+	healthhttp "github.com/webitel/webitel-go-kit/infra/health/http"
 	"github.com/webitel/webitel-go-kit/infra/health/sdnotify"
 	otelsdk "github.com/webitel/webitel-go-kit/otel/sdk"
 	"github.com/webitel/wlog"
@@ -120,14 +121,13 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	healthLog := slog.New(wlog.NewSlogHandler(app.Log))
 
-	// nil when NOTIFY_SOCKET is unset; Start and Stop are both nil-safe.
-	healthSDNotify := sdnotify.New(
-		sdnotify.WithLogger(healthLog),
-		sdnotify.WithStartTimeout(time.Duration(config.Health.StartTimeout)*time.Second),
-	)
-
+	// nil when NOTIFY_SOCKET is unset or HEALTH_ADDRESS is empty; WithTransport skips nil.
 	app.health = health.New(health.DefaultConfig(), healthLog,
-		health.WithTransport(healthSDNotify),
+		health.WithTransport(sdnotify.New(
+			sdnotify.WithLogger(healthLog),
+			sdnotify.WithStartTimeout(time.Duration(config.Health.StartTimeout)*time.Second),
+		)),
+		health.WithTransport(healthhttp.NewServer(config.Health.Address, healthhttp.WithLogger(healthLog))),
 	)
 	if err := app.health.Start(app.ctx); err != nil {
 		return nil, fmt.Errorf("unable to start health registry: %w", err)
