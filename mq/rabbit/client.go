@@ -423,11 +423,13 @@ func (a *AMQP) subscribeIM() {
 						break
 					}
 
-					a.imEvent <- model.IMMessage{
+					msg := model.IMMessage{
 						ThreadID: grm.ThreadId,
 						DomainID: int(grm.DomainId),
 						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlGranted},
 					}
+
+					enqueue(a, a.imEvent, &a.imStalled, msg, "im")
 
 				case strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.released.v1"):
 					var rel BotReleasedMessage
@@ -437,11 +439,13 @@ func (a *AMQP) subscribeIM() {
 						break
 					}
 
-					a.imEvent <- model.IMMessage{
+					msg := model.IMMessage{
 						ThreadID: rel.ThreadId,
 						DomainID: int(rel.DomainId),
 						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlReleased},
 					}
+
+					enqueue(a, a.imEvent, &a.imStalled, msg, "im")
 				}
 
 			default:
