@@ -3,13 +3,28 @@ package chat
 import (
 	"context"
 	"fmt"
-	"github.com/webitel/call_center/model"
-	"github.com/webitel/engine/pkg/wbt/chat_manager"
-	"github.com/webitel/wlog"
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/webitel/call_center/model"
+	"github.com/webitel/engine/pkg/wbt/chat_manager"
+	"github.com/webitel/wlog"
 )
+
+// STATE_BUFFER_SIZE is the whole tolerance for a busy reader. Every chat event is
+// delivered once per participant, so a single leave in a conversation with nine agents
+// arrives nine times - the old buffer of 5 could not hold even one such burst. Once
+// even this is full the queue goroutine is gone for good, not merely late.
+const STATE_BUFFER_SIZE = 50
+
+// STATE_SEND_TIMEOUT gives a merely slow reader a chance to catch up before a state is
+// dropped. It is paid at most ONCE per conversation: the send runs on the goroutine that
+// drains every chat event, which is what keeps the AMQP reader moving, so a wait repeated
+// per event would fill the reader queue and stall calls.
+const STATE_SEND_TIMEOUT = time.Millisecond * 800
 
 type ChatState uint8
 
@@ -41,6 +56,7 @@ type Conversation struct {
 	lastMessageAt int64
 	currentState  ChatState
 	state         chan ChatState
+	stateStalled  atomic.Bool
 	cause         string
 	log           *wlog.Logger
 	sync.RWMutex
@@ -75,7 +91,7 @@ func newConversation(cli chat_manager.Chat, domainId int64, id, inviterId, invit
 		variables:     variables,
 		sessions:      []*ChatSession{sess},
 		currentState:  ChatStateIdle,
-		state:         make(chan ChatState, 5), //TODO
+		state:         make(chan ChatState, STATE_BUFFER_SIZE),
 		cli:           cli,
 		lastMessageAt: model.GetMillis(),
 		log: log.With(
@@ -131,7 +147,7 @@ func (c *Conversation) InviteInternal(ctx context.Context, userId int64, timeout
 	sess.InviteAt = model.GetMillis() //todo
 	c.Unlock()
 
-	c.state <- ChatStateInvite
+	c.pushState(ChatStateInvite)
 	return nil
 }
 
@@ -233,13 +249,45 @@ func (c *Conversation) getSessionByChannelId(chanId string) *ChatSession {
 	return nil
 }
 
+// pushState hands a state transition to the queue goroutine driving this conversation.
+// A full buffer means the reader is either slow or gone, and the two are told apart once:
+// the first overflow waits, and if that wait expires the reader is treated as gone and
+// every later state is dropped immediately. That caps the total delay this conversation
+// can ever impose on the shared chat consumer at one STATE_SEND_TIMEOUT.
+func (c *Conversation) pushState(state ChatState) {
+	select {
+	case c.state <- state:
+		return
+	default:
+	}
+
+	if c.stateStalled.Load() {
+		c.log.Error(fmt.Sprintf("conversation %s dropped state %v: queue stopped reading", c.id, state),
+			wlog.String("conversation_id", c.id),
+		)
+		return
+	}
+
+	timer := time.NewTimer(STATE_SEND_TIMEOUT)
+	defer timer.Stop()
+
+	select {
+	case c.state <- state:
+	case <-timer.C:
+		c.stateStalled.Store(true)
+		c.log.Error(fmt.Sprintf("conversation %s dropped state %v: queue did not read it in %s", c.id, state, STATE_SEND_TIMEOUT),
+			wlog.String("conversation_id", c.id),
+		)
+	}
+}
+
 func (c *Conversation) setInvite(inviteId string, timestamp int64) {
 	sess := c.getSessionByInviteId(inviteId)
 	if sess != nil {
 		sess.SetActivity()
 		sess.InviteId = inviteId
 		sess.InviteAt = timestamp
-		c.state <- ChatStateInvite
+		c.pushState(ChatStateInvite)
 	} else {
 		c.log.Warn(fmt.Sprintf("Conversation invite %s not found inviteId %s", c.id, inviteId))
 	}
@@ -263,7 +311,7 @@ func (c *Conversation) setJoined(channelId string, timestamp int64) {
 		sess.AnsweredAt = timestamp
 		sess.SetActivity()
 		c.bridgetAt = timestamp // TODO created from register in queue
-		c.state <- ChatStateBridge
+		c.pushState(ChatStateBridge)
 	} else {
 		c.log.Warn(fmt.Sprintf("Conversation %s not found chanel_id %s", c.id, channelId))
 	}
@@ -291,7 +339,7 @@ func (c *Conversation) setClose(timestamp int64, cause string) {
 		s.cause = cause
 	}
 
-	c.state <- ChatStateClose
+	c.pushState(ChatStateClose)
 }
 
 func (c *Conversation) setDeclined(inviteId string, timestamp int64) {
@@ -301,7 +349,7 @@ func (c *Conversation) setDeclined(inviteId string, timestamp int64) {
 		sess.Lock()
 		sess.stopAt = timestamp
 		sess.Unlock()
-		c.state <- ChatStateDeclined
+		c.pushState(ChatStateDeclined)
 	} else {
 		c.log.Warn(fmt.Sprintf("Conversation decline %s not found inviteId %s", c.id, inviteId))
 	}
