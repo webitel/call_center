@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
@@ -15,7 +16,8 @@ import (
 	"github.com/webitel/webitel-go-kit/infra/health"
 	healthhttp "github.com/webitel/webitel-go-kit/infra/health/http"
 	"github.com/webitel/webitel-go-kit/infra/health/sdnotify"
-	otelsdk "github.com/webitel/webitel-go-kit/otel/sdk"
+	otelhealth "github.com/webitel/webitel-go-kit/infra/otel/instrumentation/health"
+	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
 	"github.com/webitel/wlog"
 
 	"github.com/webitel/call_center/agent_manager"
@@ -32,12 +34,12 @@ import (
 	"github.com/webitel/call_center/store/sqlstore"
 	"github.com/webitel/call_center/trigger"
 	// -------------------- plugin(s) -------------------- //
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/otlp"
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/log/stdout"
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/metric/otlp"
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/metric/stdout"
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/trace/otlp"
-	_ "github.com/webitel/webitel-go-kit/otel/sdk/trace/stdout"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/log/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/log/stdout"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/metric/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/metric/stdout"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/trace/otlp"
+	_ "github.com/webitel/webitel-go-kit/infra/otel/sdk/trace/stdout"
 )
 
 type App struct {
@@ -61,6 +63,7 @@ type App struct {
 
 	ctx              context.Context
 	otelShutdownFunc otelsdk.ShutdownFunc
+	otelHealth       metric.Registration
 	IM               *im.Client
 }
 
@@ -196,6 +199,13 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.health.Informational("postgres", sqlSupplier.Ping)
 	app.health.Informational("rabbitmq", app.MQ.Ping)
 
+	if config.Log.Otel {
+		var err error
+		if app.otelHealth, err = otelhealth.Start(app.health); err != nil {
+			return nil, fmt.Errorf("unable to register health metrics: %w", err)
+		}
+	}
+
 	return app, outErr
 }
 
@@ -276,6 +286,12 @@ func (app *App) Shutdown() {
 
 	if app.otelShutdownFunc != nil {
 		app.otelShutdownFunc(app.ctx)
+	}
+
+	if app.otelHealth != nil {
+		if err := app.otelHealth.Unregister(); err != nil {
+			app.Log.Error(fmt.Sprintf("health metrics unregister: %s", err.Error()), wlog.Err(err))
+		}
 	}
 }
 
