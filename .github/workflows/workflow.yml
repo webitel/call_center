@@ -20,6 +20,7 @@ jobs:
       id-token: write
 
     with:
+      versioning: calver
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.ref_name }}
       arch: ${{ vars.BUILD_ARCH }}
@@ -55,8 +56,8 @@ jobs:
         
 
       version: ${{ needs.prepare.outputs.version }}
-      version-build: ${{ github.run_number }}
-      prerelease: ${{ github.event.repository.default_branch == github.ref_name && 'dev' || '' }}
+      version-build: ${{ needs.prepare.outputs.version-build }}
+      prerelease: ${{ needs.prepare.outputs.prerelease }}
       package-name: webitel-call-center
       package-description: ${{ github.event.repository.description }}
       package-contents: |
@@ -78,7 +79,7 @@ jobs:
     uses: webitel/reusable-workflows/.github/workflows/_deploy.yml@v2
     secrets: inherit
     with:
-      repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || format('{0}-releases', needs.prepare.outputs.version) }}
+      repository-environment: ${{ needs.prepare.outputs.repository-environment }}
       deb-package-pattern: "webitel-call-center*.deb"
 
   publish:
@@ -94,9 +95,9 @@ jobs:
     secrets: inherit
     with:
       arch: ${{ matrix.arch }}
-      repository-environment: ${{ github.event.repository.default_branch == github.ref_name && 'acceptance' || format('{0}-releases', needs.prepare.outputs.version) }}
+      repository-environment: ${{ needs.prepare.outputs.repository-environment }}
       deb-package-pattern: "webitel-call-center*.deb"
-      deb-component: ${{ github.event.repository.default_branch == github.ref_name && 'dev' || format('{0}-releases', needs.prepare.outputs.version) }}
+      deb-component: ${{ needs.prepare.outputs.deb-component }}
       deb-codename: ${{ matrix.codename }}
       deb-s3-bucket-name: ${{ vars.DEB_S3_BUCKET_NAME }}
       deb-s3-bucket-region: ${{ vars.DEB_S3_DEFAULT_REGION }}
@@ -106,9 +107,9 @@ jobs:
   release:
     name: Release
     needs: [ prepare, publish ]
-    if: github.event.repository.default_branch != github.ref_name && needs.publish.result == 'success'
+    if: needs.prepare.outputs.release-tag != '' && needs.publish.result == 'success'
     uses: webitel/reusable-workflows/.github/workflows/_release.yml@v2
     permissions: { contents: write }
     with:
-      tag: ${{ format('{0}-{1}', needs.prepare.outputs.version, github.run_number) }}
+      tag: ${{ needs.prepare.outputs.release-tag }}
       tag-target-commitish: ${{ github.sha }}

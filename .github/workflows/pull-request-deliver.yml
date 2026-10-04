@@ -25,6 +25,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
 
     with:
+      versioning: calver
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.event.workflow_run.head_branch }}
       arch: ${{ vars.BUILD_ARCH }}

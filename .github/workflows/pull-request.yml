@@ -19,6 +19,7 @@ jobs:
       id-token: write
 
     with:
+      versioning: calver
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.event.pull_request.base.ref }}
 
@@ -47,8 +48,8 @@ jobs:
         
 
       version: ${{ needs.prepare.outputs.version }}
-      version-build: ${{ github.run_number }}
-      prerelease: dev~pr${{ github.event.pull_request.number }}
+      version-build: ${{ needs.prepare.outputs.version-build }}
+      prerelease: ${{ needs.prepare.outputs.prerelease }}
       package-name: webitel-call-center
       package-description: ${{ github.event.repository.description }}
       package-contents: |
