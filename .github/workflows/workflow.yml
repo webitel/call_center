@@ -91,6 +91,7 @@ jobs:
     needs: [ prepare, compile, deploy ]
     if: always() && !cancelled() && github.event.repository.private == false && needs.compile.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
     strategy:
+      fail-fast: false
       matrix:
         arch: ${{ fromJSON(needs.prepare.outputs.arch-matrix) }}
         codename: ${{ fromJSON(needs.prepare.outputs.codename-matrix) }}

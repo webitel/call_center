@@ -39,6 +39,7 @@ jobs:
     name: Publish .deb package (${{ matrix.arch }}/${{ matrix.codename }})
     needs: [ version ]
     strategy:
+      fail-fast: false
       matrix:
         arch: ${{ fromJSON(needs.version.outputs.arch-matrix) }}
         codename: ${{ fromJSON(needs.version.outputs.codename-matrix) }}

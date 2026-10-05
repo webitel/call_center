@@ -26,6 +26,8 @@ jobs:
       versioning: calver
       development-branch: ${{ github.event.repository.default_branch }}
       triggered-branch: ${{ github.event.pull_request.base.ref }}
+      arch: ${{ vars.BUILD_ARCH }}
+      codename: ${{ vars.DEB_CODENAME }}
 
   checks:
     name: Checks
@@ -42,8 +44,13 @@ jobs:
   compile:
     name: Build
     needs: [ prepare ]
+    strategy:
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.arch-matrix) }}
+
     uses: webitel/reusable-workflows/.github/workflows/golang-build.yml@v2
     with:
+      arch: ${{ matrix.arch }}
       binary-name: webitel-call-center
       ldflags: >
         -s -w
