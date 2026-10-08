@@ -6,8 +6,8 @@ StartLimitBurst=3
 
 [Service]
 Type=simple
-User=webitel
-Group=webitel
+User=webitel-svc
+Group=webitel-svc
 LogsDirectory=webitel
 
 EnvironmentFile=/etc/default/webitel-call-center

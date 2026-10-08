@@ -13,8 +13,9 @@
 
 set -e
 
-USER_NAME="webitel"
-GROUP_NAME="webitel"
+USER_NAME="webitel-svc"
+GROUP_NAME="webitel-svc"
+HOME_DIR="/var/lib/webitel"
 
 have_systemctl() {
     command -v systemctl >/dev/null 2>&1
@@ -37,12 +38,35 @@ create_user() {
     if ! getent passwd "$USER_NAME" >/dev/null 2>&1; then
         echo "Creating user: $USER_NAME"
         adduser --system --ingroup "$GROUP_NAME" \
-                --home /var/lib/webitel \
+                --home "$HOME_DIR" \
                 --disabled-password --disabled-login \
-                --shell /bin/false \
+                --shell /usr/sbin/nologin \
                 --gecos "Webitel service user" \
                 "$USER_NAME"
     fi
+
+    assert_system_user
+}
+
+assert_system_user() {
+    local uid shell
+    uid=$(id -u "$USER_NAME")
+    shell=$(getent passwd "$USER_NAME" | cut -d: -f7)
+
+    if [ "$uid" -ge 1000 ]; then
+        echo "ERROR: $USER_NAME (uid $uid) is not a system account." >&2
+        echo "Rename or remove it so the package can create a system account." >&2
+        exit 1
+    fi
+
+    case "$shell" in
+        */nologin|*/false) ;;
+        *)
+            echo "ERROR: $USER_NAME has login shell '$shell'." >&2
+            echo "Set it to /usr/sbin/nologin: usermod -s /usr/sbin/nologin $USER_NAME" >&2
+            exit 1
+            ;;
+    esac
 }
 
 # Run service-specific setup shipped by the package, BEFORE any unit is
