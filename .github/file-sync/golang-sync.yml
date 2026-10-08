@@ -4,7 +4,7 @@ version: 1
 source:
   repository: webitel/reusable-configs
   config: golang/sync.yml
-  sha: 39954ade6c8a95ac3e9fc9d349819ae45763157d
+  sha: c6b7f6611fd2df35b7671c0e14a56d77355110d7
 files:
   .editorconfig:
     source: golang/configs/.editorconfig
@@ -65,7 +65,7 @@ files:
     sha256: 2209d8ad37806d64d691f5b3363c3009f07a3050f52bebd31090896f3d23c8ff
   deploy/debian/postinst.sh:
     source: common/deploy/debian/postinst.sh
-    sha256: 16ed996e66be0fc485962df0cdcba6f6b236b31642da569fbaff4e41b2e397c3
+    sha256: 64d78b2c2285ea52a26e63445854f2ae6bee585aa3ab9fb246537bddfb5b353f
   deploy/debian/postrm.sh:
     source: common/deploy/debian/postrm.sh
     sha256: a4f55d995a6e71c5b98518bd95236d9f90475508470e147a669baa9116a5d855
