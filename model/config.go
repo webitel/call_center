@@ -58,6 +58,12 @@ type QueueSettings struct {
 	EnableOmnichannel bool          `json:"enable_omnichannel" flag:"enable_omnichannel|0|Set enabled omnichannel" env:"ENABLE_OMNICHANNEL"`
 	BridgeSleep       time.Duration `json:"before_bridge_sleep" flag:"before_bridge_sleep|200ms|Before bridge sleep time" env:"BEFORE_BRIDGE_SLEEP"`
 	PollingInterval   time.Duration `json:"polling_interval" flag:"polling_interval|500ms|Polling distribute interval (default 500ms)" env:"POLLING_INTERVAL"`
+
+	EmailDistribution                 bool          `json:"email_distribution" flag:"email_distribution|0|Assign Inbound Email Queue attempts to agents" env:"EMAIL_DISTRIBUTION"`
+	EmailDistributionInterval         time.Duration `json:"email_distribution_interval" flag:"email_distribution_interval|1s|Email distribution polling interval" env:"EMAIL_DISTRIBUTION_INTERVAL"`
+	EmailDistributionQueueBatch       int           `json:"email_distribution_queue_batch" flag:"email_distribution_queue_batch|50|Maximum Email assignments per queue in one cycle" env:"EMAIL_DISTRIBUTION_QUEUE_BATCH"`
+	EmailDistributionLockTimeout      time.Duration `json:"email_distribution_lock_timeout" flag:"email_distribution_lock_timeout|1s|Lock timeout of an Email distribution cycle" env:"EMAIL_DISTRIBUTION_LOCK_TIMEOUT"`
+	EmailDistributionStatementTimeout time.Duration `json:"email_distribution_statement_timeout" flag:"email_distribution_statement_timeout|10s|Statement timeout of an Email distribution cycle" env:"EMAIL_DISTRIBUTION_STATEMENT_TIMEOUT"`
 }
 
 type Config struct {
