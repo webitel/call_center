@@ -193,19 +193,19 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 		select {
 		case <-attempt.Cancel():
 			attempt.Log("finalize: attempt cancel (wait-agent)")
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-attempt.Context.Done():
 			attempt.Log("finalize: attempt context done (wait-agent)")
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-sess.Done():
 			// DIAG: member IM-сесію скасовано ще до з'єднання з агентом (найімовірніша
 			// причина abandoned при трансфері — сесію цього плеча погасив listenEvents).
 			attempt.Log(fmt.Sprintf("finalize: session done before bridge (wait-agent) bridged=%v", attempt.bridgedAt > 0))
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-ags:
@@ -248,14 +248,14 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 				task.SetAnswered()
 			}
 
-			if shouldContinue := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout); !shouldContinue {
-				queue.finalizeAttempt(attempt, agent, team, task, sess)
+			if shouldContinue, reason := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout); !shouldContinue {
+				queue.finalizeAttempt(attempt, agent, team, task, sess, reason)
 				return
 			}
 
 		case <-timeout.C:
-			if shouldContinue := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
-				queue.finalizeAttempt(attempt, agent, team, task, sess)
+			if shouldContinue, reason := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
+				queue.finalizeAttempt(attempt, agent, team, task, sess, reason)
 				return
 			}
 		}
@@ -271,13 +271,13 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 	sess *im.Session,
 	timeout *time.Timer,
 	inviteTimeout *time.Timer,
-) bool {
+) (bool, model.IMTimeoutReason) {
 	for {
 		select {
 		case <-sess.Done():
 			// DIAG: сесію скасовано під час взаємодії з агентом (offering/bridged).
 			attempt.Log(fmt.Sprintf("session done during interaction bridged=%v", attempt.bridgedAt > 0))
-			return false
+			return false, model.IMTimeoutReasonNone
 		case state := <-task.stateC:
 			inviteTimeout.Stop()
 
@@ -289,7 +289,7 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, err)
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
-					return true // Continue waiting for another agent
+					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
 				}
 
 				queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
@@ -306,17 +306,17 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
-					return true // Continue waiting for another agent
+					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
 				}
-				return false // End the attempt
+				return false, model.IMTimeoutReasonNone // End the attempt
 			}
 
 		case <-inviteTimeout.C:
 			queue.handleInviteTimeout(attempt, task)
 
 		case <-timeout.C:
-			if shouldContinue := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
-				return false
+			if shouldContinue, reason := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
+				return false, reason
 			}
 		}
 	}
@@ -380,19 +380,19 @@ func (queue *InboundIMQueue) handleTimeoutTick(
 	task *TaskChannel,
 	sess *im.Session,
 	timeout *time.Timer,
-) bool {
-	shouldContinue := queue.checkIdleTimeouts(attempt, task, sess)
+) (bool, model.IMTimeoutReason) {
+	shouldContinue, reason := queue.checkIdleTimeouts(attempt, task, sess)
 	if shouldContinue {
 		timeout.Reset(time.Second * time.Duration(imTimerCheckIdle))
 	}
-	return shouldContinue
+	return shouldContinue, reason
 }
 
 // checkIdleTimeouts checks various idle timeout conditions
-func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChannel, sess *im.Session) bool {
+func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChannel, sess *im.Session) (bool, model.IMTimeoutReason) {
 	if attempt.bridgedAt == 0 {
 		attempt.Log("timeout")
-		return false
+		return false, model.IMTimeoutReasonNone
 	}
 
 	wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d",
@@ -404,24 +404,24 @@ func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChann
 	if !botActive && queue.settings.MaxIdleAgent > 0 && queue.isAgentIdle(task, sess) {
 		attempt.Log("max idle agent")
 		attempt.SetResult(AttemptResultAgentTimeout)
-		return false
+		return false, model.IMTimeoutReasonAgent
 	}
 
 	// Check client idle timeout
 	if !botActive && queue.settings.MaxIdleClient > 0 && queue.isClientIdle(task, sess) {
 		attempt.Log("max idle client")
 		attempt.SetResult(AttemptResultClientTimeout)
-		return false
+		return false, model.IMTimeoutReasonClient
 	}
 
 	// Check dialog idle timeout
 	if queue.settings.MaxIdleDialog > 0 && task != nil && sess.SilentSec() >= queue.settings.MaxIdleDialog {
 		attempt.Log("max idle dialog")
 		attempt.SetResult(AttemptResultDialogTimeout)
-		return false
+		return false, model.IMTimeoutReasonDialog
 	}
 
-	return true
+	return true, model.IMTimeoutReasonNone
 }
 
 // isAgentIdle checks if agent exceeded idle timeout
@@ -468,6 +468,7 @@ func (queue *InboundIMQueue) finalizeAttempt(
 	team *agentTeam,
 	task *TaskChannel,
 	sess *im.Session,
+	endReason model.IMTimeoutReason,
 ) {
 	if agent != nil && team != nil {
 		if task != nil && task.IsDeclined() && task.ReportingAt() == 0 {
@@ -480,15 +481,15 @@ func (queue *InboundIMQueue) finalizeAttempt(
 		queue.queueManager.Abandoned(attempt)
 	}
 
-	go queue.cleanupSession(attempt, agent, sess)
+	go queue.cleanupSession(attempt, agent, sess, endReason)
 }
 
 // cleanupSession performs async cleanup of the session
-func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
+func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, endReason model.IMTimeoutReason) {
 	if agent != nil {
 		queue.removePreview(attempt, agent, sess)
 
-		if err := sess.RemoveMemberUser(context.Background()); err != nil {
+		if err := sess.RemoveMemberUser(context.Background(), endReason); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
 	}
