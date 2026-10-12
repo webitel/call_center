@@ -24,6 +24,7 @@ type Client struct {
 	consulAddr string
 	startOnce  sync.Once
 	*wbt.Client[p.ThreadManagementClient]
+	preview *wbt.Client[p.ThreadPreviewServiceClient]
 	log     *wlog.Logger
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -60,6 +61,12 @@ func (cm *Client) Start() error {
 		}
 
 		cm.Client, err = wbt.NewClient(cm.consulAddr, ServiceName, p.NewThreadManagementClient, opts...)
+		if err != nil {
+			return
+		}
+
+		// Shares the same im-gateway-service connection as the embedded client.
+		cm.preview, err = wbt.NewClient(cm.consulAddr, ServiceName, p.NewThreadPreviewServiceClient, opts...)
 		if err != nil {
 			return
 		}

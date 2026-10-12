@@ -28,3 +28,4 @@ inputs:
   - directory: "../protos/im"
     types:
       - webitel.im.api.gateway.v1.ThreadManagement
+      - webitel.im.api.gateway.v1.ThreadPreviewService

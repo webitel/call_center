@@ -21,7 +21,23 @@ const (
 
 	// imTimerCheckIdle is the interval for checking idle timeouts in seconds
 	imTimerCheckIdle = 30
+
+	// imPreviewGrace is how much longer the thread preview lives than the invite,
+	// so an accept arriving at the last moment can still upgrade the preview
+	imPreviewGrace = 5 * time.Second
+
+	// imPreviewCallTimeout bounds a single preview RPC
+	imPreviewCallTimeout = 5 * time.Second
 )
+
+// imInviteDuration returns the invite lifetime of the team, clamped to the preview limit
+func imInviteDuration(team *agentTeam) time.Duration {
+	d := time.Duration(team.InviteChatTimeout()) * time.Second
+	if d > im.MaxPreviewDuration {
+		d = im.MaxPreviewDuration
+	}
+	return d
+}
 
 // InboundIMQueueSettings contains configuration for inbound instant messaging queue
 type InboundIMQueueSettings struct {
@@ -206,10 +222,31 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 			task = NewTaskChannel(strconv.Itoa(int(attempt.Id())))
 			attempt.channelData = task
 
-			inviteTimeout = time.NewTimer(time.Second * time.Duration(team.InviteChatTimeout()))
+			// The preview must exist before the invite is sent; a failure means the agent is missed.
+			// An agent that is already a thread member is assigned the task without an invite.
+			inviteDur := imInviteDuration(team)
+			alreadyMember := false
+			if perr := queue.givePreview(attempt, agent, sess, inviteDur); perr != nil {
+				if !im.IsAlreadyMember(perr) {
+					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, perr)
+					attempt.SetState(model.MemberStateWaitAgent)
+					attempt.Emit(AttemptHookMissedAgent, agent.Id())
+					continue
+				}
+
+				attempt.Log(fmt.Sprintf("agent [%d] is already a thread member, assign without invite", agent.Id()))
+				alreadyMember = true
+			}
+
+			inviteTimeout = time.NewTimer(inviteDur)
 
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task))
 			team.Offering(attempt, agent, task, sess)
+
+			if alreadyMember {
+				sess.MarkUserJoined(agent.UserId())
+				task.SetAnswered()
+			}
 
 			if shouldContinue := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout); !shouldContinue {
 				queue.finalizeAttempt(attempt, agent, team, task, sess)
@@ -246,8 +283,9 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 
 			switch state {
 			case TaskStateBridged:
-				if err := sess.AddMemberUser(attempt.Context, agent.UserId()); err != nil {
+				if err := queue.joinAgent(attempt, agent, sess); err != nil {
 					attempt.Log(err.Error())
+					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, err)
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
@@ -263,6 +301,8 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 			case TaskStateClosed:
 				if task.IsDeclined() {
 					attempt.Log("conversation declined")
+					// Synchronous: must finish before the next agent gets its own preview.
+					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
@@ -280,6 +320,58 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 			}
 		}
 	}
+}
+
+// givePreview grants the offered agent a read-only preview of the thread for the invite lifetime
+// plus a grace period. A zero invite lifetime means no invite preview is needed.
+func (queue *InboundIMQueue) givePreview(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+
+	previewDur := d + imPreviewGrace
+	if previewDur > im.MaxPreviewDuration {
+		previewDur = im.MaxPreviewDuration
+	}
+
+	ctx, cancel := context.WithTimeout(attempt.Context, imPreviewCallTimeout)
+	defer cancel()
+
+	if err := sess.GivePreviewUser(ctx, agent.UserId(), previewDur); err != nil {
+		attempt.Log(fmt.Sprintf("give preview to agent [%d]: %s", agent.Id(), err.Error()))
+		return err
+	}
+
+	return nil
+}
+
+// removePreview revokes the agent's preview if one is active. It uses a fresh context,
+// because it is also called after the attempt context is cancelled.
+func (queue *InboundIMQueue) removePreview(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
+	if !sess.HasPreview() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), imPreviewCallTimeout)
+	defer cancel()
+
+	if err := sess.RemovePreviewUser(ctx); err != nil {
+		attempt.Log(fmt.Sprintf("failed to remove preview agent [%d]: %s", agent.Id(), err.Error()))
+	}
+}
+
+// joinAgent makes the accepted agent a full thread member: it upgrades the preview when one is active,
+// otherwise it adds the member directly. An agent that is already a thread member needs no gateway call.
+func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) error {
+	if sess.IsUserJoined(agent.UserId()) {
+		return nil
+	}
+
+	if sess.HasPreview() {
+		return sess.UpgradePreviewUser(attempt.Context, agent.UserId())
+	}
+
+	return sess.AddMemberUser(attempt.Context, agent.UserId())
 }
 
 // handleTimeoutTick processes periodic timeout checks
@@ -394,6 +486,8 @@ func (queue *InboundIMQueue) finalizeAttempt(
 // cleanupSession performs async cleanup of the session
 func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
 	if agent != nil {
+		queue.removePreview(attempt, agent, sess)
+
 		if err := sess.RemoveMemberUser(context.Background()); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
