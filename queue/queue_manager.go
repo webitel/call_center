@@ -1607,7 +1607,19 @@ func (qm *Manager) getAgentTaskFromAttemptId(id int64) (*TaskChannel, *model.App
 	return task, nil
 }
 
-func (qm *Manager) AcceptAgentTask(attemptId int64) *model.AppError {
+func (qm *Manager) AcceptAgentTask(ctx context.Context, attemptId int64) *model.AppError {
+	select {
+	case <-ctx.Done():
+		return model.NewAppError(
+			"Queue.AcceptAgentTask",
+			"queue.queue_manager.accept_agent_task_canceled",
+			nil,
+			fmt.Sprintf("canceled due to user request: %+v", ctx.Err()),
+			499,
+		)
+	default:
+	}
+
 	task, err := qm.getAgentTaskFromAttemptId(attemptId)
 	if err != nil {
 		return err

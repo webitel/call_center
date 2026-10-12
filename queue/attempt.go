@@ -119,6 +119,28 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logg
 	return a
 }
 
+func (a *Attempt) IsReservedAgent(agentID, userID int64) bool {
+	if a.Agent() == nil {
+		a.log.Info("attempt with empty agent object")
+
+		return false
+	}
+
+	if a.Agent().Id() != int(agentID) || a.agent.UserId() != userID {
+		a.log.Warn(
+			"received call from agent not assigned to attempt",
+			wlog.Int64("expected_user_id", a.Agent().UserId()),
+			wlog.Int64("received_user_id", userID),
+			wlog.Int("expected_agent_id", a.Agent().Id()),
+			wlog.Int64("received_agent_id", agentID),
+		)
+
+		return false
+	}
+
+	return true
+}
+
 func (a *Attempt) UseDraft(draft *model.AttemptCallback) {
 	a.Lock()
 	a.draft = draft

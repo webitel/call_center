@@ -108,10 +108,16 @@ func (api *agent) WaitingChannel(ctx context.Context, in *cc.WaitingChannelReque
 	}, nil
 }
 
-func (api *agent) AcceptTask(_ context.Context, in *cc.AcceptTaskRequest) (*cc.AcceptTaskResponse, error) {
-	//fixme find server id;
-	err := api.app.AcceptAgentTask(in.Id)
-	if err != nil {
+func (api *agent) AcceptTask(ctx context.Context, in *cc.AcceptTaskRequest) (*cc.AcceptTaskResponse, error) {
+	acceptRequest := &model.AcceptAttemptRequest{
+		ID:       in.GetId(),
+		AppID:    in.GetAppId(),
+		DomainID: in.GetDomainId(),
+		UserID:   in.GetUserId(),
+		AgentID:  in.GetAgentId(),
+	}
+
+	if err := api.app.AcceptAgentTask(ctx, acceptRequest); err != nil { //fixme find server id;
 		return nil, err
 	}
 
