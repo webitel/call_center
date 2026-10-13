@@ -293,9 +293,14 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 	return err
 }
 
-func (s *Session) RemoveMemberUser(ctx context.Context) error {
+func (s *Session) RemoveMemberUser(ctx context.Context, endReason model.IMTimeoutReason) error {
 	if s.agentMemberId == "" {
 		return nil
+	}
+
+	var reason *string
+	if r := endReason.String(); r != "" {
+		reason = &r
 	}
 
 	_, err := s.cli.Api.RemoveMember(
@@ -303,6 +308,7 @@ func (s *Session) RemoveMemberUser(ctx context.Context) error {
 		&thread.RemoveMemberRequest{
 			ThreadId: s.threadId,
 			MemberId: s.agentMemberId,
+			Reason:   reason,
 		})
 
 	return err

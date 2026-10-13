@@ -1,5 +1,16 @@
 package model
 
+type IMTimeoutReason string
+
+func (r IMTimeoutReason) String() string { return string(r) }
+
+const (
+	IMTimeoutReasonNone   IMTimeoutReason = ""
+	IMTimeoutReasonClient IMTimeoutReason = "client_timeout"
+	IMTimeoutReasonAgent  IMTimeoutReason = "agent_timeout"
+	IMTimeoutReasonDialog IMTimeoutReason = "dialog_timeout"
+)
+
 type InboundIMQueue struct {
 	AttemptId           int64             `json:"attempt_id" db:"attempt_id"`
 	QueueId             int               `json:"queue_id" db:"queue_id"`
