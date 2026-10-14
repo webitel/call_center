@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -20,6 +21,12 @@ import (
 const (
 	MAX_ATTEMPTS_CONNECT = 100
 	RECONNECT_SEC        = 5
+
+	// ENQUEUE_TIMEOUT is how long the listener waits for a consumer that stopped draining
+	// its queue. It is paid once per stall, not per message: this runs on the only
+	// goroutine that reads AMQP deliveries, so a repeated wait would stop every stream -
+	// a stuck chat consumer would take call events down with it.
+	ENQUEUE_TIMEOUT = time.Second * 2
 )
 
 const (
@@ -42,6 +49,32 @@ type AMQP struct {
 	imEvent            chan model.IMMessage
 	queueEvent         mq.QueueEvent
 	log                *wlog.Logger
+
+	callStalled atomic.Bool
+	chatStalled atomic.Bool
+	imStalled   atomic.Bool
+}
+
+type BotGrantedMessageAgent struct {
+	MemberId string `json:"member_id"`
+}
+type BotGrantedMessage struct {
+	ThreadId     string                   `json:"thread_id"`
+	DomainId     int64                    `json:"domain_id"`
+	MemberId     string                   `json:"member_id"`
+	Position     int                      `json:"position"`
+	Reason       string                   `json:"reason"`
+	NextMemberId string                   `json:"next_member_id"`
+	Sub          *int64                   `json:"sub"`
+	Agents       []BotGrantedMessageAgent `json:"agents"`
+	OccurredAt   string                   `json:"occurred_at"`
+}
+
+type BotReleasedMessage struct {
+	ThreadId string `json:"thread_id"`
+	DomainId int64  `json:"domain_id"`
+	MemberId string `json:"member_id"`
+	Reason   string `json:"reason"`
 }
 
 func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog.Logger) mq.LayeredMQLayer {
@@ -116,7 +149,7 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 		if ev.Event == "heartbeat" {
 			return // TODO
 		}
-		a.callEvent <- ev
+		enqueue(a, a.callEvent, &a.callStalled, ev, "call")
 
 	case model.ChatExchange:
 		a.readChatEvent(msg.Body, msg.RoutingKey, log)
@@ -161,12 +194,52 @@ func (a *AMQP) readChatEvent(data []byte, rk string, log *wlog.Logger) {
 
 	// fmt.Println(string(data))
 
-	a.chatEvent <- model.ChatEvent{
+	enqueue(a, a.chatEvent, &a.chatStalled, model.ChatEvent{
 		Name:     rks[1],
 		DomainId: int64(domainId),
 		UserId:   int64(userId),
 
 		Data: body,
+	}, "chat")
+}
+
+// enqueue hands a message to an internal consumer queue without ever letting a consumer
+// wedge the listener. The listener is the single reader of AMQP deliveries, so blocking
+// it stops every stream at once - which is strictly worse than losing one message of one
+// stream. A stalled queue is waited on once, then skipped until it starts draining again.
+func enqueue[T any](a *AMQP, ch chan T, stalled *atomic.Bool, msg T, name string) {
+	select {
+	case ch <- msg:
+		if stalled.CompareAndSwap(true, false) {
+			a.log.Info(fmt.Sprintf("%s consumer is reading again", name),
+				wlog.String("buffer", name),
+			)
+		}
+		return
+	default:
+	}
+
+	if stalled.Load() {
+		a.log.Error(fmt.Sprintf("%s event dropped: consumer is still not reading", name),
+			wlog.String("buffer", name),
+		)
+		return
+	}
+
+	a.log.Warn(fmt.Sprintf("%s event buffer is full (%d), waiting for the consumer", name, cap(ch)),
+		wlog.String("buffer", name),
+	)
+
+	timer := time.NewTimer(ENQUEUE_TIMEOUT)
+	defer timer.Stop()
+
+	select {
+	case ch <- msg:
+	case <-timer.C:
+		stalled.Store(true)
+		a.log.Error(fmt.Sprintf("%s event dropped: consumer read nothing in %s, skipping this stream until it recovers", name, ENQUEUE_TIMEOUT),
+			wlog.String("buffer", name),
+		)
 	}
 }
 
@@ -306,6 +379,11 @@ func (a *AMQP) subscribeIM() {
 		os.Exit(1)
 	}
 
+	if err = a.channel.QueueBind(imQueue.Name, "im_thread.*.bot.control.#", "im_message.events", true, nil); err != nil {
+		wlog.Critical("[AMQP] during binding IM queue to message exchange", wlog.String("queue", imQueue.Name), wlog.String("exchange", model.IMExchange), wlog.Err(err))
+		panic("error during binding IM queue to message exchange")
+	}
+
 	go func() {
 		for m := range msgs {
 			switch m.Exchange {
@@ -317,7 +395,58 @@ func (a *AMQP) subscribeIM() {
 					println("skip echo")
 					continue
 				}
-				a.imEvent <- data.Message
+				enqueue(a, a.imEvent, &a.imStalled, data.Message, "im")
+
+			case "im_message.events":
+
+				switch {
+				case strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.granted.v1"):
+					var grm BotGrantedMessage
+					if err := json.Unmarshal(m.Body, &grm); err != nil {
+						wlog.Warn(fmt.Sprintf("unable to parse bot control granted event: %s", err.Error()))
+
+						break
+					}
+
+					if grm.Reason == "transfer" && len(grm.Agents) != 0 {
+						a.imEvent <- model.IMMessage{
+							ThreadID: grm.ThreadId,
+							DomainID: int(grm.DomainId),
+							System: &model.IMSystem{
+								Type: grm.Reason,
+								Metadata: model.IMSystemMetadata{
+									TransferredMemberId: grm.Agents[0].MemberId,
+								},
+							},
+						}
+
+						break
+					}
+
+					msg := model.IMMessage{
+						ThreadID: grm.ThreadId,
+						DomainID: int(grm.DomainId),
+						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlGranted},
+					}
+
+					enqueue(a, a.imEvent, &a.imStalled, msg, "im")
+
+				case strings.HasPrefix(m.RoutingKey, "im_thread.") && strings.HasSuffix(m.RoutingKey, ".bot.control.released.v1"):
+					var rel BotReleasedMessage
+					if err := json.Unmarshal(m.Body, &rel); err != nil {
+						wlog.Warn(fmt.Sprintf("unable to parse bot control released event: %s", err.Error()))
+
+						break
+					}
+
+					msg := model.IMMessage{
+						ThreadID: rel.ThreadId,
+						DomainID: int(rel.DomainId),
+						System:   &model.IMSystem{Type: model.IMSystemTypeBotControlReleased},
+					}
+
+					enqueue(a, a.imEvent, &a.imStalled, msg, "im")
+				}
 
 			default:
 				wlog.Warn(fmt.Sprintf("unable to parse event, not found exchange %s", m.Exchange))

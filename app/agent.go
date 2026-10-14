@@ -161,8 +161,29 @@ func (app *App) WaitingAgentChannel(agentId int, channel string) (int64, *model.
 	}
 }
 
-func (app *App) AcceptAgentTask(attemptId int64) *model.AppError {
-	return app.dialing.Manager().AcceptAgentTask(attemptId)
+func (app *App) AcceptAgentTask(ctx context.Context, request *model.AcceptAttemptRequest) *model.AppError {
+	att, exists := app.dialing.Manager().GetAttempt(request.ID)
+	if !exists {
+		return model.NewAppError(
+			"App.AcceptAgentTask",
+			"app.agent.accept_agent_task.attempt_not_found",
+			nil,
+			"miss attempt in store",
+			404,
+		)
+	}
+
+	if !att.IsReservedAgent(request.AgentID, request.UserID) {
+		return model.NewAppError(
+			"App.AcceptAgentTask",
+			"app.agent.accept_agent_task.forbidden",
+			nil,
+			"agent ID does not match the agent ID assigned to this attempt",
+			403,
+		)
+	}
+
+	return app.dialing.Manager().AcceptAgentTask(ctx, request.ID)
 }
 
 func (app *App) CloseAgentTask(attemptId int64) *model.AppError {

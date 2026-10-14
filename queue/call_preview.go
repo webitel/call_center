@@ -115,7 +115,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 				"sip_h_X-Webitel-Display-Direction": "outbound",
 				"sip_h_X-Webitel-Origin":            "request",
 				"wbt_destination":                   attempt.Destination(),
-				"wbt_from_id":                       fmt.Sprintf("%v", agent.Id()),
+				"wbt_from_id":                       fmt.Sprintf("%d", agent.UserId()),
 				"wbt_from_number":                   agent.CallNumber(),
 				"wbt_from_name":                     agent.Name(),
 				"wbt_from_type":                     "user", // todo agent ?

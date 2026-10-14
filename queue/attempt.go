@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,6 +52,9 @@ const (
 )
 
 type Attempt struct {
+	emitter.Emitter
+	sync.RWMutex
+
 	member          *model.MemberAttempt
 	memberStopCause *string
 	state           string
@@ -61,7 +65,6 @@ type Attempt struct {
 	channel         string
 	channelData     any // for task queue
 
-	emitter.Emitter
 	queue         QueueObject
 	agentChannel  Channel
 	memberChannel Channel
@@ -70,7 +73,6 @@ type Attempt struct {
 
 	Info    AttemptInfo `json:"info"`
 	Context context.Context
-	sync.RWMutex
 
 	cancel   chan struct{}
 	canceled bool
@@ -95,6 +97,8 @@ type Attempt struct {
 	manualDistribution    bool
 	processTransfer       bool
 
+	draft *model.AttemptCallback
+
 	log *wlog.Logger
 }
 
@@ -112,13 +116,57 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logg
 			wlog.String("name", member.Name),
 		),
 	}
+
 	if member.MemberId != nil {
-		a.log = a.log.With(
-			wlog.Int64("member_id", *member.MemberId),
-		)
+		a.log = a.log.With(wlog.Int64("member_id", *member.MemberId))
 	}
 
 	return a
+}
+
+func (a *Attempt) IsReservedAgent(agentID, userID int64) bool {
+	if a.Agent() == nil {
+		a.log.Info("attempt with empty agent object")
+
+		return false
+	}
+
+	if a.Agent().Id() != int(agentID) || a.agent.UserId() != userID {
+		a.log.Warn(
+			"received call from agent not assigned to attempt",
+			wlog.Int64("expected_user_id", a.Agent().UserId()),
+			wlog.Int64("received_user_id", userID),
+			wlog.Int("expected_agent_id", a.Agent().Id()),
+			wlog.Int64("received_agent_id", agentID),
+		)
+
+		return false
+	}
+
+	return true
+}
+
+func (a *Attempt) UseDraft(draft *model.AttemptCallback) {
+	a.Lock()
+	a.draft = draft
+	a.Unlock()
+}
+
+func (a *Attempt) DropDraftResult() {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	a.draft = nil
+	a.Unlock()
+}
+
+func (a *Attempt) Draft() *model.AttemptCallback {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.draft
 }
 
 func (a *Attempt) IsProcessingAutosaveEnabled() bool {
@@ -200,6 +248,10 @@ func (a *Attempt) ProcessingFormStarted() bool {
 }
 
 func (a *Attempt) UpdateProcessingFields(fields map[string]string) {
+	if len(fields) == 0 {
+		return
+	}
+
 	for k, v := range fields {
 		a.processingFields.Store(k, v)
 	}
@@ -308,9 +360,7 @@ func (a *Attempt) TeamUpdatedAt() int64 {
 	return *a.member.TeamUpdatedAt
 }
 
-func (a *Attempt) Id() int64 {
-	return a.member.Id
-}
+func (a *Attempt) Id() int64 { return a.member.Id }
 
 func (a *Attempt) Result() string {
 	a.RLock()
@@ -518,9 +568,7 @@ func (a *Attempt) AddVariables(vars map[string]string) {
 		a.member.Variables = make(map[string]string)
 	}
 
-	for k, v := range vars {
-		a.member.Variables[k] = v
-	}
+	maps.Copy(a.member.Variables, vars)
 
 	a.Unlock()
 }
@@ -567,11 +615,9 @@ func (a *Attempt) SetResult(result string) {
 }
 
 func (a *Attempt) Log(info string) {
-	a.log.Debug(fmt.Sprintf("attempt [%v] > %s", a.Id(), info))
-	//a.Logs = append(a.Logs, LogItem{
-	//	Time: model.GetMillis(),
-	//	Info: info,
-	//})
+	a.log.Debug(
+		fmt.Sprintf("attempt [%v] > %s", a.Id(), info),
+	)
 }
 
 func (a *Attempt) LogIfError(err error) {
@@ -618,9 +664,7 @@ func (a *Attempt) Canceled() bool {
 	return c
 }
 
-func (a *Attempt) Cancel() <-chan struct{} {
-	return a.cancel
-}
+func (a *Attempt) Cancel() <-chan struct{} { return a.cancel }
 
 func (a *Attempt) reserveIMTransfer() bool {
 	a.Lock()
@@ -690,4 +734,41 @@ func (a *Attempt) BlockAllMemberNumbersFromList() bool {
 		return a.member.BlockAllMemberNumbersFromList
 	}
 	return false
+}
+
+type ReportingConfig struct {
+	WaitBetween uint64
+	MaxAttempts uint
+	PerNumbers  bool
+}
+
+func (a *Attempt) ReportingConfig() ReportingConfig {
+	if a == nil {
+		return ReportingConfig{}
+	}
+
+	return ReportingConfig{
+		WaitBetween: a.waitBetween,
+		MaxAttempts: a.maxAttempts,
+		PerNumbers:  a.perNumbers,
+	}
+}
+
+func (a *Attempt) ApplyCallbackRules(result *model.AttemptCallback) {
+	if a == nil {
+		return
+	}
+
+	a.SetCallback(result)
+
+	r, ok := a.AfterDistributeSchema()
+	if !ok {
+		return
+	}
+
+	result.Status = cmp.Or(r.Status, result.Status)
+
+	if r.Variables != nil {
+		result.Variables = model.UnionStringMaps(result.Variables, r.Variables)
+	}
 }

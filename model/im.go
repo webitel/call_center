@@ -1,5 +1,16 @@
 package model
 
+type IMTimeoutReason string
+
+func (r IMTimeoutReason) String() string { return string(r) }
+
+const (
+	IMTimeoutReasonNone   IMTimeoutReason = ""
+	IMTimeoutReasonClient IMTimeoutReason = "client_timeout"
+	IMTimeoutReasonAgent  IMTimeoutReason = "agent_timeout"
+	IMTimeoutReasonDialog IMTimeoutReason = "dialog_timeout"
+)
+
 type InboundIMQueue struct {
 	AttemptId           int64             `json:"attempt_id" db:"attempt_id"`
 	QueueId             int               `json:"queue_id" db:"queue_id"`
@@ -15,17 +26,31 @@ type InboundIMQueue struct {
 	ThreadCreatedAt int64  `json:"thread_created_at" db:"thread_created_at"`
 }
 
+type IMSystemMetadata struct {
+	RemovedMemberId            string `json:"removed_member_id" db:"removed_member_id"`
+	RemovedMemberContactId     string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
+	TransferredMemberId        string `json:"transferred_member_id" db:"transferred_member_id"`
+	TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
+}
+
+const (
+	IMSystemTypeBotControlGranted  = "bot_control_granted"
+	IMSystemTypeBotControlReleased = "bot_control_released"
+)
+
 type IMSystem struct {
-	Type     string `json:"type" db:"type"`
-	Metadata struct {
-		RemovedMemberId            string `json:"removed_member_id" db:"removed_member_id"`
-		RemovedMemberContactId     string `json:"removed_member_contact_id" db:"removed_member_contact_id"`
-		TransferredMemberId        string `json:"transferred_member_id" db:"transferred_member_id"`
-		TransferredMemberContactId string `json:"transferred_member_contact_id" db:"transferred_member_contact_id"`
-	} `json:"metadata" db:"metadata"`
+	Type     string           `json:"type" db:"type"`
+	Metadata IMSystemMetadata `json:"metadata" db:"metadata"`
 }
 
 func (s *IMSystem) AffectsMember(memberID string) bool {
+	// Порожній memberID (напр. сесія ще не з'бриджена → agentMemberId == "")
+	// НЕ має метчити подію з порожнім Removed/Transferred полем: "" == "" давало
+	// хибний cancel і абандонило щойно створене плече при трансфері.
+	if memberID == "" {
+		return false
+	}
+
 	m := s.Metadata
 	return m.RemovedMemberId == memberID || m.TransferredMemberId == memberID
 }

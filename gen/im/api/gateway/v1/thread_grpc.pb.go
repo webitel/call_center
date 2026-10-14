@@ -27,6 +27,8 @@ const (
 	ThreadManagement_AddMember_FullMethodName        = "/webitel.im.api.gateway.v1.ThreadManagement/AddMember"
 	ThreadManagement_RemoveMember_FullMethodName     = "/webitel.im.api.gateway.v1.ThreadManagement/RemoveMember"
 	ThreadManagement_Transfer_FullMethodName         = "/webitel.im.api.gateway.v1.ThreadManagement/Transfer"
+	ThreadManagement_HandBackToBot_FullMethodName    = "/webitel.im.api.gateway.v1.ThreadManagement/HandBackToBot"
+	ThreadManagement_TakeOverFromBot_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/TakeOverFromBot"
 	ThreadManagement_SetVariables_FullMethodName     = "/webitel.im.api.gateway.v1.ThreadManagement/SetVariables"
 	ThreadManagement_SearchVariables_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/SearchVariables"
 	ThreadManagement_LocateVariables_FullMethodName  = "/webitel.im.api.gateway.v1.ThreadManagement/LocateVariables"
@@ -54,6 +56,10 @@ type ThreadManagementClient interface {
 	// Transfer unites add member and remove member.
 	// It adds a new member to the thread and removes the initiator from the thread.
 	Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
+	// Hands the conversation to the thread's bot; the operator stays in the thread.
+	HandBackToBot(ctx context.Context, in *HandBackToBotRequest, opts ...grpc.CallOption) (*HandBackToBotResponse, error)
+	// Takes the conversation from the thread's bot back to the operator.
+	TakeOverFromBot(ctx context.Context, in *TakeOverFromBotRequest, opts ...grpc.CallOption) (*TakeOverFromBotResponse, error)
 	// Sets or updates variables for a specific thread.
 	// Existing variables with the same keys will be overwritten if were setted by the caller.
 	// New variables will be created if they do not exist.
@@ -149,6 +155,24 @@ func (c *threadManagementClient) Transfer(ctx context.Context, in *TransferReque
 	return out, nil
 }
 
+func (c *threadManagementClient) HandBackToBot(ctx context.Context, in *HandBackToBotRequest, opts ...grpc.CallOption) (*HandBackToBotResponse, error) {
+	out := new(HandBackToBotResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_HandBackToBot_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *threadManagementClient) TakeOverFromBot(ctx context.Context, in *TakeOverFromBotRequest, opts ...grpc.CallOption) (*TakeOverFromBotResponse, error) {
+	out := new(TakeOverFromBotResponse)
+	err := c.cc.Invoke(ctx, ThreadManagement_TakeOverFromBot_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *threadManagementClient) SetVariables(ctx context.Context, in *SetVariablesRequest, opts ...grpc.CallOption) (*ThreadVariables, error) {
 	out := new(ThreadVariables)
 	err := c.cc.Invoke(ctx, ThreadManagement_SetVariables_FullMethodName, in, out, opts...)
@@ -206,6 +230,10 @@ type ThreadManagementServer interface {
 	// Transfer unites add member and remove member.
 	// It adds a new member to the thread and removes the initiator from the thread.
 	Transfer(context.Context, *TransferRequest) (*TransferResponse, error)
+	// Hands the conversation to the thread's bot; the operator stays in the thread.
+	HandBackToBot(context.Context, *HandBackToBotRequest) (*HandBackToBotResponse, error)
+	// Takes the conversation from the thread's bot back to the operator.
+	TakeOverFromBot(context.Context, *TakeOverFromBotRequest) (*TakeOverFromBotResponse, error)
 	// Sets or updates variables for a specific thread.
 	// Existing variables with the same keys will be overwritten if were setted by the caller.
 	// New variables will be created if they do not exist.
@@ -249,6 +277,12 @@ func (UnimplementedThreadManagementServer) RemoveMember(context.Context, *Remove
 }
 func (UnimplementedThreadManagementServer) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Transfer not implemented")
+}
+func (UnimplementedThreadManagementServer) HandBackToBot(context.Context, *HandBackToBotRequest) (*HandBackToBotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HandBackToBot not implemented")
+}
+func (UnimplementedThreadManagementServer) TakeOverFromBot(context.Context, *TakeOverFromBotRequest) (*TakeOverFromBotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TakeOverFromBot not implemented")
 }
 func (UnimplementedThreadManagementServer) SetVariables(context.Context, *SetVariablesRequest) (*ThreadVariables, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVariables not implemented")
@@ -419,6 +453,42 @@ func _ThreadManagement_Transfer_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ThreadManagement_HandBackToBot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandBackToBotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).HandBackToBot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_HandBackToBot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).HandBackToBot(ctx, req.(*HandBackToBotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThreadManagement_TakeOverFromBot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TakeOverFromBotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThreadManagementServer).TakeOverFromBot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThreadManagement_TakeOverFromBot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThreadManagementServer).TakeOverFromBot(ctx, req.(*TakeOverFromBotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ThreadManagement_SetVariables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetVariablesRequest)
 	if err := dec(in); err != nil {
@@ -529,6 +599,14 @@ var ThreadManagement_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Transfer",
 			Handler:    _ThreadManagement_Transfer_Handler,
+		},
+		{
+			MethodName: "HandBackToBot",
+			Handler:    _ThreadManagement_HandBackToBot_Handler,
+		},
+		{
+			MethodName: "TakeOverFromBot",
+			Handler:    _ThreadManagement_TakeOverFromBot_Handler,
 		},
 		{
 			MethodName: "SetVariables",

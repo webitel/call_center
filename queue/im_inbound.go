@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -20,7 +21,23 @@ const (
 
 	// imTimerCheckIdle is the interval for checking idle timeouts in seconds
 	imTimerCheckIdle = 30
+
+	// imPreviewGrace is how much longer the thread preview lives than the invite,
+	// so an accept arriving at the last moment can still upgrade the preview
+	imPreviewGrace = 5 * time.Second
+
+	// imPreviewCallTimeout bounds a single preview RPC
+	imPreviewCallTimeout = 5 * time.Second
 )
+
+// imInviteDuration returns the invite lifetime of the team, clamped to the preview limit
+func imInviteDuration(team *agentTeam) time.Duration {
+	d := time.Duration(team.InviteChatTimeout()) * time.Second
+	if d > im.MaxPreviewDuration {
+		d = im.MaxPreviewDuration
+	}
+	return d
+}
 
 // InboundIMQueueSettings contains configuration for inbound instant messaging queue
 type InboundIMQueueSettings struct {
@@ -41,11 +58,49 @@ type IMMemberInfo struct {
 	Role     int    `json:"role,omitempty"`
 }
 
+func (m *IMMemberInfo) IsBot() bool {
+	return m.Iss == "bot" || m.Type == "bot"
+}
+
+func (m *IMMemberInfo) IsInternalUser() bool {
+	return m.Iss == "webitel"
+}
+
 type IMThreadInfo struct {
 	ID          string         `json:"id"`
 	Subject     string         `json:"subject"`
 	Members     []IMMemberInfo `json:"members"`
 	LastMessage string         `json:"last_msg"`
+	Channel     *IMChannel     `json:"channel,omitempty"`
+}
+
+func (i *IMThreadInfo) UseSourceChannelIfExists() {
+	i.Channel = NewIMChannelFromMembers(i.Members)
+}
+
+type IMChannel struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+func NewIMChannelFromMembers(members []IMMemberInfo) *IMChannel {
+	botIdx := slices.IndexFunc(members, func(m IMMemberInfo) bool { return m.IsBot() })
+	if botIdx == -1 {
+		return nil
+	}
+
+	externalIdx := slices.IndexFunc(members, func(m IMMemberInfo) bool {
+		return !m.IsInternalUser() && !m.IsBot()
+	})
+
+	if externalIdx == -1 {
+		return nil
+	}
+
+	return &IMChannel{
+		Name: members[botIdx].Name,
+		Type: members[externalIdx].Type,
+	}
 }
 
 // IMMemberInfo contains information about instant messaging member
@@ -148,15 +203,20 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 	for {
 		select {
 		case <-attempt.Cancel():
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			attempt.Log("finalize: attempt cancel (wait-agent)")
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-attempt.Context.Done():
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			attempt.Log("finalize: attempt context done (wait-agent)")
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-sess.Done():
-			queue.finalizeAttempt(attempt, agent, team, task, sess)
+			// DIAG: member IM-сесію скасовано ще до з'єднання з агентом (найімовірніша
+			// причина abandoned при трансфері — сесію цього плеча погасив listenEvents).
+			attempt.Log(fmt.Sprintf("finalize: session done before bridge (wait-agent) bridged=%v", attempt.bridgedAt > 0))
+			queue.finalizeAttempt(attempt, agent, team, task, sess, model.IMTimeoutReasonNone)
 			return
 
 		case <-ags:
@@ -185,19 +245,44 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 			task = NewTaskChannel(strconv.Itoa(int(attempt.Id())))
 			attempt.channelData = task
 
-			inviteTimeout = time.NewTimer(time.Second * time.Duration(team.InviteChatTimeout()))
+			// The preview must exist before the invite is sent; a failure means the agent is missed.
+			// An agent that is already a thread member is assigned the task without an invite.
+			inviteDur := imInviteDuration(team)
+			alreadyMember := false
+			if perr := queue.givePreview(attempt, agent, sess, inviteDur); perr != nil {
+				if !im.IsAlreadyMember(perr) {
+					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, perr)
+					if imInfo.TransferAgentId != 0 {
+						queue.finalizeAttempt(attempt, nil, team, task, sess, model.IMTimeoutReasonNone)
+						return
+					}
+					attempt.SetState(model.MemberStateWaitAgent)
+					attempt.Emit(AttemptHookMissedAgent, agent.Id())
+					continue
+				}
+
+				attempt.Log(fmt.Sprintf("agent [%d] is already a thread member, assign without invite", agent.Id()))
+				alreadyMember = true
+			}
+
+			inviteTimeout = time.NewTimer(inviteDur)
 
 			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task))
 			team.Offering(attempt, agent, task, sess)
 
-			if shouldContinue := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout, imInfo); !shouldContinue {
-				queue.finalizeAttempt(attempt, agent, team, task, sess)
+			if alreadyMember {
+				sess.MarkUserJoined(agent.UserId())
+				task.SetAnswered()
+			}
+
+			if shouldContinue, reason := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout, imInfo); !shouldContinue {
+				queue.finalizeAttempt(attempt, attempt.Agent(), team, task, sess, reason)
 				return
 			}
 
 		case <-timeout.C:
-			if shouldContinue := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
-				queue.finalizeAttempt(attempt, agent, team, task, sess)
+			if shouldContinue, reason := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
+				queue.finalizeAttempt(attempt, agent, team, task, sess, reason)
 				return
 			}
 		}
@@ -214,7 +299,7 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 	timeout *time.Timer,
 	inviteTimeout *time.Timer,
 	imInfo IMThreadCommunication,
-) bool {
+) (bool, model.IMTimeoutReason) {
 	cancel := attempt.Cancel()
 
 	for {
@@ -225,9 +310,11 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 				task.SetClosed()
 			}
 		case <-attempt.imTransferred:
-			return false
+			return false, model.IMTimeoutReasonNone
 		case <-sess.Done():
-			return false
+			// DIAG: сесію скасовано під час взаємодії з агентом (offering/bridged).
+			attempt.Log(fmt.Sprintf("session done during interaction bridged=%v", attempt.bridgedAt > 0))
+			return false, model.IMTimeoutReasonNone
 		case state := <-task.stateC:
 			inviteTimeout.Stop()
 
@@ -235,13 +322,14 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 			case TaskStateBridged:
 				if err := queue.joinAgent(attempt, agent, sess, imInfo); err != nil {
 					attempt.Log(err.Error())
+					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, err)
 					if imInfo.TransferAgentId != 0 {
-						return false
+						return false, model.IMTimeoutReasonNone
 					}
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
-					return true // Continue waiting for another agent
+					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
 				}
 
 				queue.queueManager.NotificationQueue(model.MemberStateBridged, attempt)
@@ -253,32 +341,90 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 			case TaskStateClosed:
 				if task.IsDeclined() {
 					attempt.Log("conversation declined")
+					// Synchronous: must finish before the next agent gets its own preview.
+					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
 					if imInfo.TransferAgentId != 0 {
-						return false
+						return false, model.IMTimeoutReasonNone
 					}
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
-					return true // Continue waiting for another agent
+					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
 				}
-				return false // End the attempt
+				return false, model.IMTimeoutReasonNone // End the attempt
 			}
 
 		case <-inviteTimeout.C:
 			queue.handleInviteTimeout(attempt, task)
 
 		case <-timeout.C:
-			if shouldContinue := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
-				return false
+			if shouldContinue, reason := queue.handleTimeoutTick(attempt, task, sess, timeout); !shouldContinue {
+				return false, reason
 			}
 		}
 	}
 }
 
-func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
-	if imInfo.TransferFrom == "" {
-		return sess.AddMemberUser(attempt.Context, agent.UserId())
+// givePreview grants the offered agent a read-only preview of the thread for the invite lifetime
+// plus a grace period. A zero invite lifetime means no invite preview is needed.
+func (queue *InboundIMQueue) givePreview(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, d time.Duration) error {
+	if d <= 0 {
+		return nil
 	}
+
+	previewDur := d + imPreviewGrace
+	if previewDur > im.MaxPreviewDuration {
+		previewDur = im.MaxPreviewDuration
+	}
+
+	ctx, cancel := context.WithTimeout(attempt.Context, imPreviewCallTimeout)
+	defer cancel()
+
+	if err := sess.GivePreviewUser(ctx, agent.UserId(), previewDur); err != nil {
+		attempt.Log(fmt.Sprintf("give preview to agent [%d]: %s", agent.Id(), err.Error()))
+		return err
+	}
+
+	return nil
+}
+
+// removePreview revokes the agent's preview if one is active. It uses a fresh context,
+// because it is also called after the attempt context is cancelled.
+func (queue *InboundIMQueue) removePreview(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
+	if !sess.HasPreview() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), imPreviewCallTimeout)
+	defer cancel()
+
+	if err := sess.RemovePreviewUser(ctx); err != nil {
+		attempt.Log(fmt.Sprintf("failed to remove preview agent [%d]: %s", agent.Id(), err.Error()))
+	}
+}
+
+// joinAgent makes the accepted agent a full thread member: it upgrades the preview when one is active,
+// otherwise it adds the member directly. An agent that is already a thread member needs no gateway call.
+func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
+	if imInfo.TransferFrom != "" {
+		return queue.transferAgent(attempt, agent, sess, imInfo)
+	}
+
+	if sess.IsUserJoined(agent.UserId()) {
+		return nil
+	}
+
+	if sess.HasPreview() {
+		return sess.UpgradePreviewUser(attempt.Context, agent.UserId())
+	}
+
+	return sess.AddMemberUser(attempt.Context, agent.UserId())
+}
+
+// transferAgent replaces the transfer initiator with the accepted agent in one gateway call
+// and completes the source attempt.
+func (queue *InboundIMQueue) transferAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
+	queue.removePreview(attempt, agent, sess)
 
 	if err := sess.TransferMemberUser(attempt.Context, agent.UserId(), imInfo.TransferFrom); err != nil {
 		return err
@@ -295,46 +441,48 @@ func (queue *InboundIMQueue) handleTimeoutTick(
 	task *TaskChannel,
 	sess *im.Session,
 	timeout *time.Timer,
-) bool {
-	shouldContinue := queue.checkIdleTimeouts(attempt, task, sess)
+) (bool, model.IMTimeoutReason) {
+	shouldContinue, reason := queue.checkIdleTimeouts(attempt, task, sess)
 	if shouldContinue {
 		timeout.Reset(time.Second * time.Duration(imTimerCheckIdle))
 	}
-	return shouldContinue
+	return shouldContinue, reason
 }
 
 // checkIdleTimeouts checks various idle timeout conditions
-func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChannel, sess *im.Session) bool {
+func (queue *InboundIMQueue) checkIdleTimeouts(attempt *Attempt, task *TaskChannel, sess *im.Session) (bool, model.IMTimeoutReason) {
 	if attempt.bridgedAt == 0 {
 		attempt.Log("timeout")
-		return false
+		return false, model.IMTimeoutReasonNone
 	}
 
 	wlog.Debug(fmt.Sprintf("attempt [%d] agent_idle=%d member_idle=%d dialog=%d",
 		attempt.Id(), sess.OperatorIdleMessage(), sess.MemberIdleMessage(), sess.SilentSec()))
 
+	botActive := sess.BotActive()
+
 	// Check agent idle timeout
-	if queue.settings.MaxIdleAgent > 0 && queue.isAgentIdle(task, sess) {
+	if !botActive && queue.settings.MaxIdleAgent > 0 && queue.isAgentIdle(task, sess) {
 		attempt.Log("max idle agent")
 		attempt.SetResult(AttemptResultAgentTimeout)
-		return false
+		return false, model.IMTimeoutReasonAgent
 	}
 
 	// Check client idle timeout
-	if queue.settings.MaxIdleClient > 0 && queue.isClientIdle(task, sess) {
+	if !botActive && queue.settings.MaxIdleClient > 0 && queue.isClientIdle(task, sess) {
 		attempt.Log("max idle client")
 		attempt.SetResult(AttemptResultClientTimeout)
-		return false
+		return false, model.IMTimeoutReasonClient
 	}
 
 	// Check dialog idle timeout
 	if queue.settings.MaxIdleDialog > 0 && task != nil && sess.SilentSec() >= queue.settings.MaxIdleDialog {
 		attempt.Log("max idle dialog")
 		attempt.SetResult(AttemptResultDialogTimeout)
-		return false
+		return false, model.IMTimeoutReasonDialog
 	}
 
-	return true
+	return true, model.IMTimeoutReasonNone
 }
 
 // isAgentIdle checks if agent exceeded idle timeout
@@ -381,17 +529,12 @@ func (queue *InboundIMQueue) finalizeAttempt(
 	team *agentTeam,
 	task *TaskChannel,
 	sess *im.Session,
+	endReason model.IMTimeoutReason,
 ) {
 	if attempt.IMTransferred() {
 		attempt.SetResult(AttemptResultTransfer)
 	} else if to := attempt.pendingIMTransfer(); to != 0 {
 		queue.queueManager.SetAttemptCancel(to, AttemptResultCancel)
-	}
-
-	if attempt.bridgedAt == 0 {
-		task = nil
-		team = nil
-		agent = nil
 	}
 
 	if agent != nil && team != nil {
@@ -405,20 +548,24 @@ func (queue *InboundIMQueue) finalizeAttempt(
 		queue.queueManager.Abandoned(attempt)
 	}
 
-	go queue.cleanupSession(attempt, agent, sess)
+	go queue.cleanupSession(attempt, agent, sess, endReason)
 }
 
 // cleanupSession performs async cleanup of the session
-func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) {
-	attempt.Emit(AttemptHookLeaving)
-	attempt.Off("*")
+func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, endReason model.IMTimeoutReason) {
+	if agent != nil {
+		queue.removePreview(attempt, agent, sess)
+	}
 
 	if agent != nil && !attempt.IMTransferred() {
-		if err := sess.RemoveMemberUser(context.Background()); err != nil {
+		if err := sess.RemoveMemberUser(context.Background(), endReason); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}
 	}
 
+	attempt.Emit(AttemptHookLeaving)
+	attempt.Off("*")
+
 	queue.queueManager.NotificationQueue(model.MemberStateLeaving, attempt)
-	sess.Close()
+	sess.Close(int(attempt.Id()))
 }
