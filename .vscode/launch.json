@@ -9,7 +9,6 @@
       "program": "${workspaceFolder}",
       "args": [],
       "envFile": "${workspaceFolder}/.env",
-      "console": "integratedTerminal",
       "hideSystemGoroutines": true,
       "presentation": { "group": "1-run" }
     },
@@ -23,7 +22,6 @@
       "envFile": "${workspaceFolder}/.env",
       "env": { "CGO_ENABLED": "1" },
       "buildFlags": "-race",
-      "console": "integratedTerminal",
       "hideSystemGoroutines": true,
       "presentation": { "group": "2-race" }
     },
@@ -34,7 +32,6 @@
       "mode": "test",
       "program": "${fileDirname}",
       "envFile": "${workspaceFolder}/.env",
-      "console": "integratedTerminal",
       "hideSystemGoroutines": true,
       "presentation": { "group": "3-debug" }
     },
