@@ -11,6 +11,7 @@
     "fmt",
     "--stdin"
   ],
+  "go.testEnvFile": "${workspaceFolder}/.env",
   "editor.formatOnSave": true,
   "[go]": {
     "editor.formatOnSave": true,

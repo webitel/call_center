@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run: server",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}",
+      "args": [],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "hideSystemGoroutines": true,
+      "presentation": { "group": "1-run" }
+    },
+    {
+      "name": "Run: server (with race)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}",
+      "args": [],
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "CGO_ENABLED": "1" },
+      "buildFlags": "-race",
+      "console": "integratedTerminal",
+      "hideSystemGoroutines": true,
+      "presentation": { "group": "2-race" }
+    },
+    {
+      "name": "Tests: current package",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "hideSystemGoroutines": true,
+      "presentation": { "group": "3-debug" }
+    },
+    {
+      "name": "Attach: local process",
+      "type": "go",
+      "request": "attach",
+      "mode": "local",
+      "processId": "${command:pickGoProcess}",
+      "hideSystemGoroutines": true,
+      "presentation": { "group": "3-debug" }
+    }
+  ]
+}
