@@ -37,6 +37,11 @@ const (
 	MemberService_Transfer_FullMethodName                  = "/cc.MemberService/Transfer"
 	MemberService_InterceptAttempt_FullMethodName          = "/cc.MemberService/InterceptAttempt"
 	MemberService_ResumeAttempt_FullMethodName             = "/cc.MemberService/ResumeAttempt"
+	MemberService_EmailAttemptTake_FullMethodName          = "/cc.MemberService/EmailAttemptTake"
+	MemberService_EmailAttemptPostpone_FullMethodName      = "/cc.MemberService/EmailAttemptPostpone"
+	MemberService_EmailAttemptReturn_FullMethodName        = "/cc.MemberService/EmailAttemptReturn"
+	MemberService_EmailAttemptComplete_FullMethodName      = "/cc.MemberService/EmailAttemptComplete"
+	MemberService_EmailWakeUp_FullMethodName               = "/cc.MemberService/EmailWakeUp"
 )
 
 // MemberServiceClient is the client API for MemberService service.
@@ -61,6 +66,13 @@ type MemberServiceClient interface {
 	Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
 	InterceptAttempt(ctx context.Context, in *InterceptAttemptRequest, opts ...grpc.CallOption) (*InterceptAttemptResponse, error)
 	ResumeAttempt(ctx context.Context, in *ResumeAttemptRequest, opts ...grpc.CallOption) (*ResumeAttemptResponse, error)
+	// Email attempt lifecycle; the request form tells the caller: an operator or a Flow.
+	EmailAttemptTake(ctx context.Context, in *EmailAttemptTakeRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error)
+	EmailAttemptPostpone(ctx context.Context, in *EmailAttemptPostponeRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error)
+	EmailAttemptReturn(ctx context.Context, in *EmailAttemptReturnRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error)
+	EmailAttemptComplete(ctx context.Context, in *EmailAttemptCompleteRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error)
+	// Wakes the active attempt of the Thread once per inbound Email event, with or without a Flow.
+	EmailWakeUp(ctx context.Context, in *EmailWakeUpRequest, opts ...grpc.CallOption) (*EmailWakeUpResponse, error)
 }
 
 type memberServiceClient struct {
@@ -325,6 +337,51 @@ func (c *memberServiceClient) ResumeAttempt(ctx context.Context, in *ResumeAttem
 	return out, nil
 }
 
+func (c *memberServiceClient) EmailAttemptTake(ctx context.Context, in *EmailAttemptTakeRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error) {
+	out := new(EmailAttemptResponse)
+	err := c.cc.Invoke(ctx, MemberService_EmailAttemptTake_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memberServiceClient) EmailAttemptPostpone(ctx context.Context, in *EmailAttemptPostponeRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error) {
+	out := new(EmailAttemptResponse)
+	err := c.cc.Invoke(ctx, MemberService_EmailAttemptPostpone_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memberServiceClient) EmailAttemptReturn(ctx context.Context, in *EmailAttemptReturnRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error) {
+	out := new(EmailAttemptResponse)
+	err := c.cc.Invoke(ctx, MemberService_EmailAttemptReturn_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memberServiceClient) EmailAttemptComplete(ctx context.Context, in *EmailAttemptCompleteRequest, opts ...grpc.CallOption) (*EmailAttemptResponse, error) {
+	out := new(EmailAttemptResponse)
+	err := c.cc.Invoke(ctx, MemberService_EmailAttemptComplete_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memberServiceClient) EmailWakeUp(ctx context.Context, in *EmailWakeUpRequest, opts ...grpc.CallOption) (*EmailWakeUpResponse, error) {
+	out := new(EmailWakeUpResponse)
+	err := c.cc.Invoke(ctx, MemberService_EmailWakeUp_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemberServiceServer is the server API for MemberService service.
 // All implementations must embed UnimplementedMemberServiceServer
 // for forward compatibility
@@ -347,6 +404,13 @@ type MemberServiceServer interface {
 	Transfer(context.Context, *TransferRequest) (*TransferResponse, error)
 	InterceptAttempt(context.Context, *InterceptAttemptRequest) (*InterceptAttemptResponse, error)
 	ResumeAttempt(context.Context, *ResumeAttemptRequest) (*ResumeAttemptResponse, error)
+	// Email attempt lifecycle; the request form tells the caller: an operator or a Flow.
+	EmailAttemptTake(context.Context, *EmailAttemptTakeRequest) (*EmailAttemptResponse, error)
+	EmailAttemptPostpone(context.Context, *EmailAttemptPostponeRequest) (*EmailAttemptResponse, error)
+	EmailAttemptReturn(context.Context, *EmailAttemptReturnRequest) (*EmailAttemptResponse, error)
+	EmailAttemptComplete(context.Context, *EmailAttemptCompleteRequest) (*EmailAttemptResponse, error)
+	// Wakes the active attempt of the Thread once per inbound Email event, with or without a Flow.
+	EmailWakeUp(context.Context, *EmailWakeUpRequest) (*EmailWakeUpResponse, error)
 	mustEmbedUnimplementedMemberServiceServer()
 }
 
@@ -407,6 +471,21 @@ func (UnimplementedMemberServiceServer) InterceptAttempt(context.Context, *Inter
 }
 func (UnimplementedMemberServiceServer) ResumeAttempt(context.Context, *ResumeAttemptRequest) (*ResumeAttemptResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResumeAttempt not implemented")
+}
+func (UnimplementedMemberServiceServer) EmailAttemptTake(context.Context, *EmailAttemptTakeRequest) (*EmailAttemptResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EmailAttemptTake not implemented")
+}
+func (UnimplementedMemberServiceServer) EmailAttemptPostpone(context.Context, *EmailAttemptPostponeRequest) (*EmailAttemptResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EmailAttemptPostpone not implemented")
+}
+func (UnimplementedMemberServiceServer) EmailAttemptReturn(context.Context, *EmailAttemptReturnRequest) (*EmailAttemptResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EmailAttemptReturn not implemented")
+}
+func (UnimplementedMemberServiceServer) EmailAttemptComplete(context.Context, *EmailAttemptCompleteRequest) (*EmailAttemptResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EmailAttemptComplete not implemented")
+}
+func (UnimplementedMemberServiceServer) EmailWakeUp(context.Context, *EmailWakeUpRequest) (*EmailWakeUpResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EmailWakeUp not implemented")
 }
 func (UnimplementedMemberServiceServer) mustEmbedUnimplementedMemberServiceServer() {}
 
@@ -757,6 +836,96 @@ func _MemberService_ResumeAttempt_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemberService_EmailAttemptTake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmailAttemptTakeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).EmailAttemptTake(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_EmailAttemptTake_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).EmailAttemptTake(ctx, req.(*EmailAttemptTakeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemberService_EmailAttemptPostpone_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmailAttemptPostponeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).EmailAttemptPostpone(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_EmailAttemptPostpone_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).EmailAttemptPostpone(ctx, req.(*EmailAttemptPostponeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemberService_EmailAttemptReturn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmailAttemptReturnRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).EmailAttemptReturn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_EmailAttemptReturn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).EmailAttemptReturn(ctx, req.(*EmailAttemptReturnRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemberService_EmailAttemptComplete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmailAttemptCompleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).EmailAttemptComplete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_EmailAttemptComplete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).EmailAttemptComplete(ctx, req.(*EmailAttemptCompleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemberService_EmailWakeUp_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmailWakeUpRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemberServiceServer).EmailWakeUp(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemberService_EmailWakeUp_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemberServiceServer).EmailWakeUp(ctx, req.(*EmailWakeUpRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemberService_ServiceDesc is the grpc.ServiceDesc for MemberService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -819,6 +988,26 @@ var MemberService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResumeAttempt",
 			Handler:    _MemberService_ResumeAttempt_Handler,
+		},
+		{
+			MethodName: "EmailAttemptTake",
+			Handler:    _MemberService_EmailAttemptTake_Handler,
+		},
+		{
+			MethodName: "EmailAttemptPostpone",
+			Handler:    _MemberService_EmailAttemptPostpone_Handler,
+		},
+		{
+			MethodName: "EmailAttemptReturn",
+			Handler:    _MemberService_EmailAttemptReturn_Handler,
+		},
+		{
+			MethodName: "EmailAttemptComplete",
+			Handler:    _MemberService_EmailAttemptComplete_Handler,
+		},
+		{
+			MethodName: "EmailWakeUp",
+			Handler:    _MemberService_EmailWakeUp_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

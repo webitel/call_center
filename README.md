@@ -117,10 +117,11 @@ parity results describe the snapshot before these two indexes, not this revision
 An Inbound Email Queue (queue type 11) receives email-service Threads through
 `EmailJoinToQueue`, called by the `joinQueue` application of `flow_manager`. The
 call creates a new `waiting` Email attempt (`channel = 'email'`) or returns the
-existing active attempt of the Thread, which may already be assigned
-(`offering`), and returns immediately. Agents are assigned later and
-asynchronously by the Email allocator, which is separate from the generic
-distribution of calls and chats.
+existing active attempt of the Thread, which may already be assigned, and
+returns immediately. Agents are assigned later and asynchronously by the Email
+allocator, which is separate from the generic distribution of calls and chats.
+`call_center` then keeps the lifecycle of the attempt until it leaves to
+`cc_member_attempt_history`.
 
 ### How emails are assigned
 
@@ -204,13 +205,19 @@ An agent can take an email of the queue when the agent is:
   allowed by the online skill preset of the agent, if any;
 - below the base limit `email_count`, or below `extra_email_count` when that
   letter has `email_extra_allowed`. A zero base limit does not disable Extra.
+  Offered, active and post-processing emails count; postponed emails do not.
 
 Base and Extra use separate counts of unfinished assigned Email attempts across
 all queues. Each new assignment chooses base first, otherwise permitted Extra;
 freeing a base slot never promotes an already assigned Extra email. Both limits
 may be lowered without releasing existing assignments. An unclassified active
 assignment makes new capacity checks fail closed rather than disappearing from
-the count. The lifecycle-stage postponed exclusion is adapted with EM-23.
+the count.
+
+With `payload.email_auto_release_sec` of the queue above `0`, the offer gets a
+deadline, read at assignment, so a later change of the queue applies to new
+offers only. An email whose offer expired goes first to another agent and back
+to the same one only when no other agent can take it.
 
 Among eligible agents the fewest total emails wins, then earliest
 `last_offering_at` (NULL first), then agent ID. Assignment locks the agent before
@@ -266,6 +273,111 @@ calendar closure does not pause it. No assignments happen outside the calendar;
 expiry is resolved when the queue next opens. Fallback never restarts candidate
 lookup, and the former candidate may still win normal routing later.
 
+### Email attempt lifecycle
+
+| State | Agent | Slot | Leaves by |
+|---|---|---|---|
+| `waiting` | none | no | assignment |
+| `offering` | assigned | yes | Take, Return, auto-release, logout |
+| `active` | assigned | yes | Postpone, Complete, Return, logout |
+| `postponed` | kept | no | Resume, wake-up, deadline, Return, logout |
+| `processing` | kept | yes | Complete, new email, deadline |
+| `leaving` | kept | no | moved to history by `SaveToHistory` |
+
+Every return to the queue (Return, auto-release, logout or auto-offline, a
+wake-up or deadline without a slot) keeps the attempt and its `joined_at`, so
+FIFO and SLA do not restart, makes it High and drops its agent. Its sticky
+decision is already made; only a postponed email that wakes up without a slot
+waits `payload.sticky_agent_sec` seconds for its agent when the queue is sticky.
+
+Agents and Flows change an attempt through `cc.MemberService`:
+
+- `EmailAttemptTake` — `offering` to `active`;
+- `EmailAttemptPostpone` — `active` to `postponed` until `postponed_until`
+  (Unix ms) or for `postpone_for_sec`, at most `payload.email_postpone_max_sec`
+  ahead (30 days by default) and within `email_postponed_count` of the agent
+  (`0` disables postponing);
+- `ResumeAttempt` with the Email fields — `postponed` to `active` when the agent
+  and its `email` channel are online, it may still take emails of the queue and
+  has a free slot; otherwise nothing changes;
+- `EmailAttemptReturn` — `offering`, `active` or `postponed` back to the queue;
+- `EmailAttemptComplete` — `active` to `processing` when the queue has
+  `processing` (deadline `processing_sec`), otherwise to `leaving` with result
+  `processed`; `processing` to `leaving` with `processed`;
+- `AttemptRenewalResult` with the Email fields — extends the `processing`
+  deadline, within the prolongations of the queue.
+
+An agent sends `attempt_id`, `agent_id`, `expected_version` and `command_id`; a
+Flow sends `email_event_id` only (Postpone and Resume), and `call_center` finds
+the attempt of the Thread. `call_center` tells the form by the fields, keys a
+Flow command by `<email_event_id>:<operation>` and refuses mixed forms. A
+command applies only to the current `version`; a repeated `command_id` returns
+the first response with `replayed`, the same id with other arguments is a
+conflict. A transition takes the agent, its `email` channel and the attempt in
+this order when it may take a slot, so slots and the postponed limit are never
+exceeded.
+
+Every transition writes the full attempt to `cc_email_attempt_outbox` in its
+transaction; `sequence` is the `projection_version` of the Thread. Nothing
+publishes the outbox yet.
+
+| Error id | gRPC code |
+|---|---|
+| `cc.email_attempt.invalid_argument` | `InvalidArgument` |
+| `cc.email_attempt.not_found` | `NotFound` |
+| `cc.email_attempt.wakeup_required`, `owner_mismatch`, `invalid_state`, `agent_offline`, `agent_ineligible` | `FailedPrecondition` |
+| `cc.email_attempt.version_conflict`, `serialization_conflict`, `deadlock` | `Aborted` |
+| `cc.email_attempt.command_id_conflict`, `cc.email_wakeup.event_conflict` | `AlreadyExists` |
+| `cc.email_attempt.slot_exhausted`, `postponed_limit_exhausted`, `prolongation_exhausted` | `ResourceExhausted` |
+| `cc.email_attempt.lock_timeout`, `unavailable` | `Unavailable` |
+| `cc.email_attempt.app_error` | `Internal` |
+
+Command locks wait at most `email_command_lock_timeout`.
+
+### Wake-up by a new email
+
+`flow_manager` calls `EmailWakeUp` for every inbound email event before its
+Flow, also without one. A `postponed` attempt of the Thread goes back to work
+when its agent has a slot, otherwise to the queue (`woken` or `queued`); a
+`processing` one goes back to `active` (`reopened`). Other states give `noop`,
+a Thread without an attempt `not_active`. `cc_email_wakeup` keeps the result of
+every event and is never cleaned, so a repeated event returns it and wakes
+nothing; an event of another Thread is `cc.email_wakeup.event_conflict`. The
+Flow applications `postpone` and `resume` work only after the wake-up of their
+event.
+
+### Deadlines, logout and auto-offline
+
+With `email_lifecycle` enabled, every instance runs a watcher like the
+allocator: one short transaction per cycle on database time, so a restart
+changes no deadline. A cycle returns expired offers to the queue, moves expired
+`processing` to `leaving` with result `processing_timeout` and wakes expired
+postponed emails as a new email would, without `cc_email_wakeup`. It also
+returns the emails of agents whose `status` is `offline` but still hold some,
+for example when another path set the status. Each kind takes at most
+`email_lifecycle_batch` rows, earliest first; a row locked by another
+transaction waits for the next cycle, so several instances do not repeat a
+transition.
+
+Logout and auto-offline call `cc_agent_set_offline` instead of `SetStatus`.
+When the status really changes to `offline`, the `offering`, `active` and
+`postponed` emails of the agent go back to the queue in the same transaction;
+`processing` stays until its result or deadline. An attempt in `wait_agent`
+keeps the status and the emails, as before; this is logged with the outcome
+`status_not_changed_wait_agent`, while the cache and the offline event of the
+agent are still updated, as before. `pause` and `break_out` return nothing.
+
+### Compatibility
+
+Email attempts have no node, member, resource or `agent_call_id`, so
+`GetTimeouts`, `CleanAttempts`, `GetChannelTimeout`, `RenewalProcessing` and
+the reporting of other channels do not touch them, and `SaveToHistory` moves a
+`leaving` Email attempt with the usual columns. `DistributeInfoByUserId` of
+`engine` reports an agent holding an email as distributing, so a call with
+`cancel_distribute` sends `CancelAgentDistribute`, which cancels call attempts
+only. `cc_agent_set_channel_waiting` for `email` refuses while the agent holds
+an unfinished email, as for other channels.
+
 ### Configuration
 
 | Flag | Environment | Default | Meaning |
@@ -275,9 +387,21 @@ lookup, and the former candidate may still win normal routing later.
 | `email_distribution_queue_batch` | `EMAIL_DISTRIBUTION_QUEUE_BATCH` | `50` | Assignments per queue in one cycle |
 | `email_distribution_lock_timeout` | `EMAIL_DISTRIBUTION_LOCK_TIMEOUT` | `1s` | `lock_timeout` of a cycle |
 | `email_distribution_statement_timeout` | `EMAIL_DISTRIBUTION_STATEMENT_TIMEOUT` | `10s` | `statement_timeout` of a cycle |
+| `email_lifecycle` | `EMAIL_LIFECYCLE` | `false` | Run the lifecycle watcher |
+| `email_lifecycle_interval` | `EMAIL_LIFECYCLE_INTERVAL` | `1s` | Pause between watcher cycles |
+| `email_lifecycle_batch` | `EMAIL_LIFECYCLE_BATCH` | `100` | Due attempts of each kind in one cycle |
+| `email_lifecycle_lock_timeout` | `EMAIL_LIFECYCLE_LOCK_TIMEOUT` | `1s` | `lock_timeout` of a watcher cycle |
+| `email_lifecycle_statement_timeout` | `EMAIL_LIFECYCLE_STATEMENT_TIMEOUT` | `10s` | `statement_timeout` of a watcher cycle |
+| `email_command_lock_timeout` | `EMAIL_COMMAND_LOCK_TIMEOUT` | `1s` | `lock_timeout` of an Email command or wake-up |
 
-Startup fails when the queue batch is not positive, a duration is below 1 ms or
-the lock timeout is not below the statement timeout.
+Queue `payload` keys: `email_auto_release_sec` (`0` or unset keeps an offer; an
+invalid value counts as unset and is logged as `payload_invalid`),
+`email_postpone_max_sec` (default 2592000), `sticky_agent_sec` (default 30) and
+`email_sticky_history_sec`; they are whole seconds, and an invalid value of any
+of them counts as unset. Agents have `email_count` and `email_postponed_count`.
+
+Startup fails when a batch is not positive, a duration is below 1 ms or a lock
+timeout is not below its statement timeout.
 
 A cycle with assignments is logged at info level, other cycles at debug level.
 `assigned` counts successful assignments; `no_agent_queues` counts distinct
@@ -295,22 +419,32 @@ if it is longer, less up to 10% at random but never below the interval; it
 returns to the interval after the next successful cycle. A skipped busy cycle
 or a reached time limit is not a failure.
 
+A watcher cycle with transitions is logged at info level, other cycles at debug
+level, with `released`, `processing_timeouts`, `postponed_woken`,
+`postponed_queued`, `offline_returned`, `lock_skipped` and the latency; its
+failures and time limit are logged like those of the allocator.
+
 ### Rollout and limits
 
-1. After implementation 4.3 and separate verification 4.4, apply SQL using the
-   upgrade runbook,
-   including the separate CHECK-validation step. Do not apply only the original
+1. Apply SQL using the upgrade runbook, including the separate CHECK-validation
+   step and `email_last_bridged_indexes.sql`. Do not apply only the original
    `email_agent_distribution.sql`, which would restore the old functions.
-2. Release compatible `engine` Agent API and `flow_manager` JoinQueue support.
-3. Give agents `email` in `allow_channels` and the intended base/Extra limits.
-4. Before any production enablement, pass the mandatory step-7 integration
-   gates and the remaining release prerequisites; component acceptance 4.4
-   alone is not permission to enable `email_distribution` or inbound polling.
+2. Apply `email_attempt_lifecycle.sql` with `psql -v ON_ERROR_STOP=1 -f` outside
+   a transaction after them. It redefines allocator functions, so the earlier
+   routing files must not be repeated after it.
+3. Release `engine` with the base, Extra and postponed Email limits of agents,
+   then `call_center` with the allocator and the watcher off, then
+   `flow_manager` with JoinQueue support and the wake-up.
+4. Give agents `email` in `allow_channels` and the intended base/Extra limits.
+5. Enable `email_distribution` and `email_lifecycle` only after the remaining
+   integration gates and release prerequisites pass.
 
-Keep the allocator off in production for now. An assigned email is not yet
-announced to Workspace, cannot be opened or worked on through an API, and stays
-with its agent after a timeout, logout or auto-offline.
+Keep the allocator and the watcher off in production for now. An assigned email
+is not yet announced to Workspace, Workspace has no read API or commands for it,
+and nothing publishes the outbox.
 
 `cc_member_attempt` is an unlogged table. A restart of `call_center` keeps the
 attempts, but a crash or failover of PostgreSQL loses them, together with the
-`waiting` and assigned emails; `cc_email_join` still refers to the lost attempts.
+`waiting`, assigned and postponed emails and their deadlines. The logged
+`cc_email_join`, `cc_email_wakeup` and `cc_email_attempt_outbox` still refer to
+the lost attempts.
