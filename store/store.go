@@ -50,6 +50,8 @@ type MemberStore interface {
 
 	DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int, extraChatCount bool) (*model.InboundChatQueue, *model.AppError)
 	DistributeIMToQueue(node string, queueId int64, convId string, dest []byte, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError)
+	DistributeIMToAgent(node string, queueId int64, agentId int, threadId string, dest []byte, vars map[string]string, bucketId *int32) (*model.InboundIMQueue, *model.AppError)
+	AttemptWeight(id int64) (int, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
@@ -95,6 +97,7 @@ type MemberStore interface {
 
 	TransferredTo(id, toId int64) *model.AppError
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError
+	TransferredIM(fromId, toId int64, fromAgentId, toAgentId int) *model.AppError
 	CancelAgentDistribute(agentId int) ([]int64, *model.AppError)
 	SetExpired(limit int) ([]*model.ExpiredMember, *model.AppError)
 

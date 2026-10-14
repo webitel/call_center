@@ -405,6 +405,63 @@ as x (
 	return attempt, nil
 }
 
+func (s *SqlMemberStore) DistributeIMToAgent(node string, queueId int64, agentId int, threadId string, dest []byte, vars map[string]string, bucketId *int32) (*model.InboundIMQueue, *model.AppError) {
+	var attempt *model.InboundIMQueue
+
+	var v *string
+	if vars != nil {
+		v = new(string)
+		*v = model.MapToJson(vars)
+	}
+
+	if err := s.GetMaster().SelectOne(&attempt, `
+select *
+		from call_center.cc_distribute_im_to_agent(:AppId::varchar, :QueueId::int8, :AgentId::int, :ThreadId::varchar,
+		:Destination::jsonb, :Variables::jsonb, :BucketId::int)
+as x (
+    attempt_id int8,
+    queue_id int,
+    queue_updated_at int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_updated_at int8,
+
+    thread_id varchar,
+    thread_created_at int8,
+    list_communication_id int8,
+    agent_updated_at int8
+);`,
+		map[string]any{
+			"AppId":       node,
+			"QueueId":     queueId,
+			"AgentId":     agentId,
+			"ThreadId":    threadId,
+			"Destination": dest,
+			"Variables":   v,
+			"BucketId":    bucketId,
+		}); err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeIMToAgent", "store.sql_member.distribute_im_agent.app_error", nil,
+			fmt.Sprintf("QueueId=%v, AgentId=%v, Id=%v %s", queueId, agentId, threadId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return attempt, nil
+}
+
+func (s *SqlMemberStore) AttemptWeight(id int64) (int, *model.AppError) {
+	weight, err := s.GetMaster().SelectInt(`select coalesce(weight, 0)
+from call_center.cc_member_attempt
+where id = :Id`, map[string]any{
+		"Id": id,
+	})
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.AttemptWeight", "store.sql_member.attempt_weight.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return int(weight), nil
+}
+
 func (s *SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
 	var res *model.MemberAttempt
 	err := s.GetMaster().SelectOne(&res, `select * from call_center.cc_distribute_direct_member_to_queue(:AppId, :MemberId, :CommunicationId, :AgentId)`,
@@ -968,6 +1025,27 @@ func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentS
 	if err != nil {
 		return model.NewAppError("SqlMemberStore.TransferredFrom", "store.sql_member.set_attempt_trans_from.app_error", nil,
 			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (s *SqlMemberStore) TransferredIM(fromId, toId int64, fromAgentId, toAgentId int) *model.AppError {
+	_, err := s.GetMaster().Exec(`with a as (
+    update call_center.cc_member_attempt
+    set transferred_attempt_id = :ToId
+    where id = :FromId
+)
+insert into call_center.cc_member_attempt_transferred (from_id, to_id, from_agent_id, to_agent_id)
+values (:FromId, :ToId, :FromAgentId, :ToAgentId)`, map[string]any{
+		"FromId":      fromId,
+		"ToId":        toId,
+		"FromAgentId": fromAgentId,
+		"ToAgentId":   toAgentId,
+	})
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.TransferredIM", "store.sql_member.set_attempt_trans_im.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", fromId, err.Error()), http.StatusInternalServerError)
 	}
 
 	return nil

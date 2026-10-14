@@ -1006,6 +1006,10 @@ func (qm *Manager) distributeIMDestination(queueId int64, threadId string, dest 
 		return nil, err
 	}
 
+	return qm.startIMAttempt(res, nil, bucketId)
+}
+
+func (qm *Manager) startIMAttempt(res *model.InboundIMQueue, agentId *int, bucketId *int32) (*Attempt, *model.AppError) {
 	attempt, _ := qm.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
 		Id:                  res.AttemptId,
 		QueueId:             res.QueueId,
@@ -1018,6 +1022,8 @@ func (qm *Manager) distributeIMDestination(queueId int64, threadId string, dest 
 		BridgedAt:           0,
 		Destination:         res.Destination,
 		ListCommunicationId: res.ListCommunicationId,
+		AgentId:             agentId,
+		AgentUpdatedAt:      res.AgentUpdatedAt,
 		TeamUpdatedAt:       res.TeamUpdatedAt,
 		Variables:           res.Variables,
 		Name:                res.Name,
@@ -1025,7 +1031,7 @@ func (qm *Manager) distributeIMDestination(queueId int64, threadId string, dest 
 		BucketId:            bucketId,
 	})
 
-	if _, err = qm.DistributeAttempt(attempt); err != nil {
+	if _, err := qm.DistributeAttempt(attempt); err != nil {
 		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
 		return nil, err
 	}
@@ -1050,9 +1056,14 @@ func (qm *Manager) TransferIM(domainId, attemptId int64, agentId, queueId int32)
 	}
 
 	agent := att.Agent()
-	if agent == nil {
+	if agent == nil || att.GetState() != model.MemberStateBridged {
+		return model.NewAppError("QM", "qm.transfer_im.valid.state", nil,
+			fmt.Sprintf("attempt %d is not bridged to an agent", attemptId), http.StatusConflict)
+	}
+
+	if agentId != 0 && int(agentId) == agent.Id() {
 		return model.NewAppError("QM", "qm.transfer_im.valid.agent", nil,
-			fmt.Sprintf("attempt %d has no agent to transfer from", attemptId), http.StatusBadRequest)
+			fmt.Sprintf("attempt %d is already handled by agent %d", attemptId, agentId), http.StatusBadRequest)
 	}
 
 	var dest IMThreadCommunication
@@ -1060,23 +1071,82 @@ func (qm *Manager) TransferIM(domainId, attemptId int64, agentId, queueId int32)
 		return model.NewAppError("QM", "qm.transfer_im.destination", nil, err.Error(), http.StatusInternalServerError)
 	}
 
-	dest.TransferFrom = strconv.FormatInt(agent.UserId(), 10)
-
-	targetQueue := int64(queueId)
-	var stickyAgentId *int
-	if queueId == 0 {
-		targetQueue = int64(att.QueueId())
-		stickyAgentId = model.NewInt(int(agentId))
+	if !att.reserveIMTransfer() {
+		return model.NewAppError("QM", "qm.transfer_im.valid.pending", nil,
+			fmt.Sprintf("attempt %d is already being transferred", attemptId), http.StatusConflict)
 	}
 
-	if _, err := qm.distributeIMDestination(targetQueue, *att.MemberCallId(), dest,
-		att.member.Variables, nil, 0, stickyAgentId); err != nil {
+	dest.TransferFrom = strconv.FormatInt(agent.UserId(), 10)
+	dest.TransferAttemptId = attemptId
+	dest.TransferAgentId = int(agentId)
+
+	to, err := qm.distributeIMTransfer(att, dest, agentId, queueId)
+	if err != nil {
+		att.releaseIMTransfer(0)
 		return err
 	}
-
-	qm.SetAttemptCancel(attemptId, AttemptResultTransfer)
+	att.setIMTransferTo(to.Id())
+	att.Log(fmt.Sprintf("transfer to attempt: %d", to.Id()))
 
 	return nil
+}
+
+func (qm *Manager) distributeIMTransfer(att *Attempt, dest IMThreadCommunication, agentId, queueId int32) (*Attempt, *model.AppError) {
+	threadId := *att.MemberCallId()
+
+	if agentId != 0 {
+		res, err := qm.store.Member().DistributeIMToAgent(qm.app.GetInstanceId(), int64(att.QueueId()), int(agentId),
+			threadId, dest.Json(), att.member.Variables, att.member.BucketId)
+		if err != nil {
+			return nil, err
+		}
+
+		return qm.startIMAttempt(res, model.NewInt(int(agentId)), att.member.BucketId)
+	}
+
+	var bucketId *int32
+	if int(queueId) == att.QueueId() {
+		bucketId = att.member.BucketId
+	}
+
+	priority, err := qm.store.Member().AttemptWeight(att.Id())
+	if err != nil {
+		return nil, err
+	}
+
+	return qm.distributeIMDestination(int64(queueId), threadId, dest, att.member.Variables, bucketId, priority, nil)
+}
+
+func (qm *Manager) completeIMTransfer(fromId int64, to *Attempt, toAgent agent_manager.AgentObject) {
+	from, ok := qm.GetAttempt(fromId)
+	if !ok {
+		to.Log(fmt.Sprintf("transfer source attempt %d not found", fromId))
+		return
+	}
+
+	fromAgent := from.Agent()
+	from.completeIMTransfer()
+
+	if fromAgent == nil {
+		return
+	}
+
+	if err := qm.store.Member().TransferredIM(fromId, to.Id(), fromAgent.Id(), toAgent.Id()); err != nil {
+		to.log.Error(err.Error(),
+			wlog.Err(err),
+			wlog.Int64("from_attempt_id", fromId),
+		)
+	}
+}
+
+func (qm *Manager) releaseIMTransfer(fromId, toId int64) {
+	if fromId == 0 {
+		return
+	}
+
+	if from, ok := qm.GetAttempt(fromId); ok {
+		from.releaseIMTransfer(toId)
+	}
 }
 
 func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {

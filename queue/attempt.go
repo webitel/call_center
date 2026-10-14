@@ -75,6 +75,10 @@ type Attempt struct {
 	cancel   chan struct{}
 	canceled bool
 
+	imTransferPending bool
+	imTransferTo      int64
+	imTransferred     chan struct{}
+
 	maxAttempts       uint
 	waitBetween       uint64
 	perNumbers        bool
@@ -100,6 +104,7 @@ func NewAttempt(ctx context.Context, member *model.MemberAttempt, log *wlog.Logg
 		member:        member,
 		Context:       ctx,
 		cancel:        make(chan struct{}),
+		imTransferred: make(chan struct{}),
 		communication: model.MemberDestinationFromBytes(member.Destination),
 		log: log.With(
 			wlog.Int64("attempt_id", member.Id),
@@ -615,6 +620,60 @@ func (a *Attempt) Canceled() bool {
 
 func (a *Attempt) Cancel() <-chan struct{} {
 	return a.cancel
+}
+
+func (a *Attempt) reserveIMTransfer() bool {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.imTransferPending || a.IMTransferred() {
+		return false
+	}
+	a.imTransferPending = true
+
+	return true
+}
+
+func (a *Attempt) setIMTransferTo(toId int64) {
+	a.Lock()
+	a.imTransferTo = toId
+	a.Unlock()
+}
+
+func (a *Attempt) releaseIMTransfer(toId int64) {
+	a.Lock()
+	if a.imTransferTo == 0 || a.imTransferTo == toId {
+		a.imTransferPending = false
+		a.imTransferTo = 0
+	}
+	a.Unlock()
+}
+
+func (a *Attempt) pendingIMTransfer() int64 {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.imTransferTo
+}
+
+func (a *Attempt) completeIMTransfer() {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.IMTransferred() {
+		return
+	}
+	a.imTransferPending = false
+	close(a.imTransferred)
+}
+
+func (a *Attempt) IMTransferred() bool {
+	select {
+	case <-a.imTransferred:
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *Attempt) Close() {

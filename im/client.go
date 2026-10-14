@@ -28,7 +28,7 @@ type Client struct {
 	cancel  context.CancelFunc
 	tls     *tls.Config
 	events  <-chan model.IMMessage
-	threads map[string]*Session
+	threads map[string][]*Session
 	sync.RWMutex
 }
 
@@ -38,7 +38,7 @@ func NewClient(consulAddr string, events <-chan model.IMMessage, log *wlog.Logge
 		log:        log,
 		tls:        t,
 		events:     events,
-		threads:    make(map[string]*Session),
+		threads:    make(map[string][]*Session),
 	}
 
 	cli.ctx, cli.cancel = context.WithCancel(context.Background()) // todo
@@ -79,18 +79,13 @@ func (cm *Client) listenEvents() {
 		case <-cm.ctx.Done():
 			return
 		case msg := <-cm.events:
-			if sess, ok := cm.GetSession(msg.ThreadID); ok {
+			for _, sess := range cm.sessions(msg.ThreadID) {
 				if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transferred") {
-					// Only the client leaving ends the conversation. An agent being removed is
-					// normal transfer churn: control passes to the next operator and the session
-					// must keep running. Cancelling here on the outgoing agent aborted the next
-					// transfer's attempt for the same thread, so the invite never reached it. The
-					// agent's own attempt is torn down separately via finalizeAttempt/cleanupSession.
-					if msg.System.AffectsMember(sess.clientMemberId) {
-						wlog.Debug("closing session: client left thread", wlog.String("thread_id", msg.ThreadID))
+					if sess.affectedBy(msg.System) {
+						wlog.Debug("removing member from session", wlog.String("thread_id", msg.ThreadID))
 						sess.cancel()
 					} else {
-						wlog.Debug("member left thread, session kept", wlog.String("thread_id", msg.ThreadID))
+						wlog.Debug("removing other member from session", wlog.String("thread_id", msg.ThreadID))
 					}
 				} else {
 					sess.onMessage(Message{
@@ -123,24 +118,35 @@ func (cm *Client) NewSession(ctx context.Context, domainID int64, threadID, subB
 	return sess
 }
 
-func (cm *Client) GetSession(threadID string) (*Session, bool) {
+func (cm *Client) sessions(threadID string) []*Session {
 	cm.RLock()
-	sess, ok := cm.threads[threadID]
+	list := cm.threads[threadID]
 	cm.RUnlock()
 
-	return sess, ok
+	return list
 }
 
 func (cm *Client) closeSession(sess *Session) {
 	cm.Lock()
-	if cm.threads[sess.threadId] == sess {
-		delete(cm.threads, sess.threadId)
+	defer cm.Unlock()
+
+	list := cm.threads[sess.threadId]
+	for i, v := range list {
+		if v == sess {
+			list = append(list[:i:i], list[i+1:]...)
+			break
+		}
 	}
-	cm.Unlock()
+
+	if len(list) == 0 {
+		delete(cm.threads, sess.threadId)
+	} else {
+		cm.threads[sess.threadId] = list
+	}
 }
 
 func (cm *Client) addSession(sess *Session) {
 	cm.Lock()
-	cm.threads[sess.threadId] = sess
+	cm.threads[sess.threadId] = append(cm.threads[sess.threadId], sess)
 	cm.Unlock()
 }

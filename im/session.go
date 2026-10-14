@@ -118,55 +118,59 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 		metadata.NewOutgoingContext(ctx, s.hdrs),
 		&thread.AddMemberRequest{
 			ThreadId: s.threadId,
-			Contact: &thread.PeerIdentity{
-				Sub: strconv.Itoa(int(userId)),
-				Iss: "webitel",
-			},
-			Role: thread.ThreadRole_ROLE_MEMBER,
+			Contact:  webitelPeer(strconv.FormatInt(userId, 10)),
+			Role:     thread.ThreadRole_ROLE_MEMBER,
 		})
 	if err != nil {
 		return err
 	}
 
-	if res.GetMember().GetId() != "" {
-		s.agentMemberId = res.GetMember().GetId()
-	}
+	s.setAgent(res.GetMember().GetId(), userId)
 
-	s.Lock()
-	s.userId = strconv.Itoa(int(userId))
-	s.Unlock()
-
-	return err
+	return nil
 }
 
 func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUserId string) error {
 	res, err := s.cli.Api.Transfer(
 		metadata.NewOutgoingContext(ctx, s.hdrs),
 		&thread.TransferRequest{
-			ThreadId: s.threadId,
-			Contact: &thread.PeerIdentity{
-				Sub: strconv.Itoa(int(userId)),
-				Iss: "webitel",
-			},
-			Initiator: &thread.PeerIdentity{
-				Sub: fromUserId,
-				Iss: "webitel",
-			},
-			Role: thread.ThreadRole_ROLE_MEMBER,
+			ThreadId:  s.threadId,
+			Contact:   webitelPeer(strconv.FormatInt(userId, 10)),
+			Initiator: webitelPeer(fromUserId),
+			Role:      thread.ThreadRole_ROLE_MEMBER,
 		})
 	if err != nil {
 		return err
 	}
 
-	if res.GetMember().GetId() != "" {
-		s.agentMemberId = res.GetMember().GetId()
-	}
-
-	s.Lock()
-	s.userId = strconv.Itoa(int(userId))
-	s.Unlock()
+	s.setAgent(res.GetMember().GetId(), userId)
 
 	return nil
+}
+
+func (s *Session) setAgent(memberId string, userId int64) {
+	s.Lock()
+	if memberId != "" {
+		s.agentMemberId = memberId
+	}
+	s.userId = strconv.FormatInt(userId, 10)
+	s.Unlock()
+}
+
+func (s *Session) affectedBy(sys *model.IMSystem) bool {
+	s.RLock()
+	agentMemberId := s.agentMemberId
+	s.RUnlock()
+
+	return (s.clientMemberId != "" && sys.AffectsMember(s.clientMemberId)) ||
+		(agentMemberId != "" && sys.AffectsMember(agentMemberId))
+}
+
+func webitelPeer(sub string) *thread.PeerIdentity {
+	return &thread.PeerIdentity{
+		Sub: sub,
+		Iss: "webitel",
+	}
 }
 
 func (s *Session) RemoveMemberUser(ctx context.Context) error {
