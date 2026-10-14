@@ -111,6 +111,10 @@ type IMThreadCommunication struct {
 	ApiSub    string `json:"api_sub"`    // Chat subscription identifier
 	MemberSub string `json:"member_sub"` // Target subscription identifier
 	MemberId  string `json:"member_id"`
+
+	TransferFrom      string `json:"transfer_from,omitempty"`
+	TransferAttemptId int64  `json:"transfer_attempt_id,omitempty"`
+	TransferAgentId   int    `json:"transfer_agent_id,omitempty"`
 }
 
 func (t *IMThreadCommunication) Json() []byte {
@@ -160,20 +164,27 @@ func (queue *InboundIMQueue) DistributeAttempt(attempt *Attempt) *model.AppError
 
 func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMThreadCommunication) {
 	defer attempt.Log("stopped queue")
+	defer queue.queueManager.releaseIMTransfer(imInfo.TransferAttemptId, attempt.Id())
 
 	queue.Hook(HookJoined, attempt)
 	attempt.Log("wait agent")
 
-	if err := queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
-		attempt.log.Error("failed to set find agent state",
-			wlog.Err(err),
-		)
-		return
+	if imInfo.TransferAgentId == 0 {
+		if err := queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
+			attempt.log.Error("failed to set find agent state",
+				wlog.Err(err),
+			)
+			return
+		}
 	}
 
 	attempt.SetState(model.MemberStateWaitAgent)
 	ags := attempt.On(AttemptHookDistributeAgent)
 	attempt.memberChannel = sess
+
+	if imInfo.TransferAgentId != 0 {
+		attempt.DistributeAgent(attempt.Agent())
+	}
 
 	timeout := time.NewTimer(time.Second * time.Duration(queue.settings.MaxWaitTime))
 	defer timeout.Stop()
@@ -217,6 +228,18 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 				return
 			}
 
+			if imInfo.TransferFrom == strconv.FormatInt(agent.UserId(), 10) {
+				attempt.Log(fmt.Sprintf("skip transfer initiator %s [%d]", agent.Name(), agent.Id()))
+				if err := queue.queueManager.SetFindAgentState(attempt.Id()); err != nil {
+					attempt.log.Error("failed to set find agent state",
+						wlog.Err(err),
+					)
+				}
+				attempt.SetAgent(nil)
+				attempt.SetState(model.MemberStateWaitAgent)
+				continue
+			}
+
 			attempt.Log(fmt.Sprintf("distribute agent %s [%d]", agent.Name(), agent.Id()))
 
 			task = NewTaskChannel(strconv.Itoa(int(attempt.Id())))
@@ -229,6 +252,10 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 			if perr := queue.givePreview(attempt, agent, sess, inviteDur); perr != nil {
 				if !im.IsAlreadyMember(perr) {
 					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, perr)
+					if imInfo.TransferAgentId != 0 {
+						queue.finalizeAttempt(attempt, nil, team, task, sess, model.IMTimeoutReasonNone)
+						return
+					}
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
 					continue
@@ -248,8 +275,8 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 				task.SetAnswered()
 			}
 
-			if shouldContinue, reason := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout); !shouldContinue {
-				queue.finalizeAttempt(attempt, agent, team, task, sess, reason)
+			if shouldContinue, reason := queue.handleAgentInteraction(attempt, agent, team, task, sess, timeout, inviteTimeout, imInfo); !shouldContinue {
+				queue.finalizeAttempt(attempt, attempt.Agent(), team, task, sess, reason)
 				return
 			}
 
@@ -271,9 +298,19 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 	sess *im.Session,
 	timeout *time.Timer,
 	inviteTimeout *time.Timer,
+	imInfo IMThreadCommunication,
 ) (bool, model.IMTimeoutReason) {
+	cancel := attempt.Cancel()
+
 	for {
 		select {
+		case <-cancel:
+			cancel = nil
+			if task.bridgedAt == 0 {
+				task.SetClosed()
+			}
+		case <-attempt.imTransferred:
+			return false, model.IMTimeoutReasonNone
 		case <-sess.Done():
 			// DIAG: сесію скасовано під час взаємодії з агентом (offering/bridged).
 			attempt.Log(fmt.Sprintf("session done during interaction bridged=%v", attempt.bridgedAt > 0))
@@ -283,10 +320,13 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 
 			switch state {
 			case TaskStateBridged:
-				if err := queue.joinAgent(attempt, agent, sess); err != nil {
+				if err := queue.joinAgent(attempt, agent, sess, imInfo); err != nil {
 					attempt.Log(err.Error())
 					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttemptWithError(attempt, agent, err)
+					if imInfo.TransferAgentId != 0 {
+						return false, model.IMTimeoutReasonNone
+					}
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
 					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
@@ -304,6 +344,9 @@ func (queue *InboundIMQueue) handleAgentInteraction(
 					// Synchronous: must finish before the next agent gets its own preview.
 					queue.removePreview(attempt, agent, sess)
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
+					if imInfo.TransferAgentId != 0 {
+						return false, model.IMTimeoutReasonNone
+					}
 					attempt.SetState(model.MemberStateWaitAgent)
 					attempt.Emit(AttemptHookMissedAgent, agent.Id())
 					return true, model.IMTimeoutReasonNone // Continue waiting for another agent
@@ -362,7 +405,11 @@ func (queue *InboundIMQueue) removePreview(attempt *Attempt, agent agent_manager
 
 // joinAgent makes the accepted agent a full thread member: it upgrades the preview when one is active,
 // otherwise it adds the member directly. An agent that is already a thread member needs no gateway call.
-func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session) error {
+func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
+	if imInfo.TransferFrom != "" {
+		return queue.transferAgent(attempt, agent, sess, imInfo)
+	}
+
 	if sess.IsUserJoined(agent.UserId()) {
 		return nil
 	}
@@ -372,6 +419,20 @@ func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.Age
 	}
 
 	return sess.AddMemberUser(attempt.Context, agent.UserId())
+}
+
+// transferAgent replaces the transfer initiator with the accepted agent in one gateway call
+// and completes the source attempt.
+func (queue *InboundIMQueue) transferAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
+	queue.removePreview(attempt, agent, sess)
+
+	if err := sess.TransferMemberUser(attempt.Context, agent.UserId(), imInfo.TransferFrom); err != nil {
+		return err
+	}
+
+	queue.queueManager.completeIMTransfer(imInfo.TransferAttemptId, attempt, agent)
+
+	return nil
 }
 
 // handleTimeoutTick processes periodic timeout checks
@@ -470,12 +531,18 @@ func (queue *InboundIMQueue) finalizeAttempt(
 	sess *im.Session,
 	endReason model.IMTimeoutReason,
 ) {
+	if attempt.IMTransferred() {
+		attempt.SetResult(AttemptResultTransfer)
+	} else if to := attempt.pendingIMTransfer(); to != 0 {
+		queue.queueManager.SetAttemptCancel(to, AttemptResultCancel)
+	}
+
 	if agent != nil && team != nil {
 		if task != nil && task.IsDeclined() && task.ReportingAt() == 0 {
 			team.Missed(attempt, agent)
 			queue.queueManager.LeavingMember(attempt)
 		} else {
-			team.Reporting(queue, attempt, agent, task != nil && task.ReportingAt() > 0, false)
+			team.Reporting(queue, attempt, agent, task != nil && task.ReportingAt() > 0, attempt.IMTransferred())
 		}
 	} else {
 		queue.queueManager.Abandoned(attempt)
@@ -488,7 +555,9 @@ func (queue *InboundIMQueue) finalizeAttempt(
 func (queue *InboundIMQueue) cleanupSession(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, endReason model.IMTimeoutReason) {
 	if agent != nil {
 		queue.removePreview(attempt, agent, sess)
+	}
 
+	if agent != nil && !attempt.IMTransferred() {
 		if err := sess.RemoveMemberUser(context.Background(), endReason); err != nil {
 			attempt.Log(fmt.Sprintf("failed to remove agent [%d]: %s", agent.Id(), err.Error()))
 		}

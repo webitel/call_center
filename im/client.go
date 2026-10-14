@@ -87,8 +87,8 @@ func (cm *Client) listenEvents() {
 		case <-cm.ctx.Done():
 			return
 		case msg := <-cm.events:
-			sess, ok := cm.GetSession(msg.ThreadID)
-			if !ok {
+			list := cm.threadSessions(msg.ThreadID)
+			if len(list) == 0 {
 				// DIAG: подія для треду без активної сесії (усі плечі вже закрито/ще не створено).
 				if msg.System != nil {
 					cm.log.Debug("im event: no session for thread",
@@ -102,65 +102,71 @@ func (cm *Client) listenEvents() {
 				continue
 			}
 
-			if msg.System != nil {
-				switch msg.System.Type {
-				case model.IMSystemTypeBotControlGranted:
-					sess.SetBotActive(true)
-
-					continue
-				case model.IMSystemTypeBotControlReleased:
-					sess.SetBotActive(false)
-
-					continue
-				}
-			}
-
-			if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transfer") {
-				affectsClient := msg.System.AffectsMember(sess.clientMemberId)
-				affectsAgent := msg.System.AffectsMember(sess.agentMemberId)
-
-				// DIAG: повний контекст рішення cancel — який саме tagID повернув GetSession,
-				// скільки плечей на треді (перекриття A/B при трансфері) і що метчить. Дає
-				// змогу зловити на проді, чиє плече (старе A чи нове B) гаситься transfer-подією.
-				cm.log.Debug("im system event decision",
-					wlog.String("thread_id", msg.ThreadID),
-					wlog.String("system_type", msg.System.Type),
-					wlog.String("removed_member_id", msg.System.Metadata.RemovedMemberId),
-					wlog.String("transferred_member_id", msg.System.Metadata.TransferredMemberId),
-					wlog.Int("picked_tag_id", sess.tagID),
-					wlog.String("sess_client_member_id", sess.clientMemberId),
-					wlog.String("sess_agent_member_id", sess.agentMemberId),
-					wlog.Any("affects_client", affectsClient),
-					wlog.Any("affects_agent", affectsAgent),
-					wlog.Int("thread_sessions", cm.countThreadSessions(msg.ThreadID)),
-				)
-
-				// Only the client leaving ends the conversation. An agent being removed is
-				// normal transfer churn: control passes to the next operator and the session
-				// must keep running. Cancelling here on the outgoing agent aborted the next
-				// transfer's attempt for the same thread, so the invite never reached it. The
-				// agent's own attempt is torn down separately via finalizeAttempt/cleanupSession.
-				if affectsClient || affectsAgent {
-					cm.log.Debug("closing session: client left thread",
-						wlog.String("thread_id", msg.ThreadID),
-						wlog.Int("tag_id", sess.tagID),
-						wlog.String("system_type", msg.System.Type),
-						wlog.Any("via_client", affectsClient),
-						wlog.Any("via_agent", affectsAgent),
-					)
-					sess.cancel()
-				} else {
-					cm.log.Debug("member left thread, session kept",
-						wlog.String("thread_id", msg.ThreadID),
-						wlog.Int("tag_id", sess.tagID),
-					)
-				}
-			} else {
-				sess.onMessage(Message{
-					FromSub: msg.From.Sub,
-				})
+			for _, sess := range list {
+				cm.handleEvent(sess, msg)
 			}
 		}
+	}
+}
+
+func (cm *Client) handleEvent(sess *Session, msg model.IMMessage) {
+	if msg.System != nil {
+		switch msg.System.Type {
+		case model.IMSystemTypeBotControlGranted:
+			sess.SetBotActive(true)
+
+			return
+		case model.IMSystemTypeBotControlReleased:
+			sess.SetBotActive(false)
+
+			return
+		}
+	}
+
+	if msg.System != nil && (msg.System.Type == "member_removed" || msg.System.Type == "transfer") {
+		affectsClient := msg.System.AffectsMember(sess.clientMemberId)
+		affectsAgent := msg.System.AffectsMember(sess.agentMemberId)
+
+		// DIAG: повний контекст рішення cancel — який саме tagID повернув GetSession,
+		// скільки плечей на треді (перекриття A/B при трансфері) і що метчить. Дає
+		// змогу зловити на проді, чиє плече (старе A чи нове B) гаситься transfer-подією.
+		cm.log.Debug("im system event decision",
+			wlog.String("thread_id", msg.ThreadID),
+			wlog.String("system_type", msg.System.Type),
+			wlog.String("removed_member_id", msg.System.Metadata.RemovedMemberId),
+			wlog.String("transferred_member_id", msg.System.Metadata.TransferredMemberId),
+			wlog.Int("picked_tag_id", sess.tagID),
+			wlog.String("sess_client_member_id", sess.clientMemberId),
+			wlog.String("sess_agent_member_id", sess.agentMemberId),
+			wlog.Any("affects_client", affectsClient),
+			wlog.Any("affects_agent", affectsAgent),
+			wlog.Int("thread_sessions", cm.countThreadSessions(msg.ThreadID)),
+		)
+
+		// Only the client leaving ends the conversation. An agent being removed is
+		// normal transfer churn: control passes to the next operator and the session
+		// must keep running. Cancelling here on the outgoing agent aborted the next
+		// transfer's attempt for the same thread, so the invite never reached it. The
+		// agent's own attempt is torn down separately via finalizeAttempt/cleanupSession.
+		if affectsClient || affectsAgent {
+			cm.log.Debug("closing session: client left thread",
+				wlog.String("thread_id", msg.ThreadID),
+				wlog.Int("tag_id", sess.tagID),
+				wlog.String("system_type", msg.System.Type),
+				wlog.Any("via_client", affectsClient),
+				wlog.Any("via_agent", affectsAgent),
+			)
+			sess.cancel()
+		} else {
+			cm.log.Debug("member left thread, session kept",
+				wlog.String("thread_id", msg.ThreadID),
+				wlog.Int("tag_id", sess.tagID),
+			)
+		}
+	} else {
+		sess.onMessage(Message{
+			FromSub: msg.From.Sub,
+		})
 	}
 }
 
@@ -211,6 +217,20 @@ func (cm *Client) countThreadSessions(threadID string) int {
 	}
 
 	return n
+}
+
+func (cm *Client) threadSessions(threadID string) []*Session {
+	cm.RLock()
+	defer cm.RUnlock()
+
+	var list []*Session
+	for _, sess := range cm.threads {
+		if sess != nil && sess.threadId == threadID {
+			list = append(list, sess)
+		}
+	}
+
+	return list
 }
 
 func (cm *Client) GetSession(threadID string) (*Session, bool) {

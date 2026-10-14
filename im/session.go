@@ -282,15 +282,39 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 		return err
 	}
 
-	if res.GetMember().GetId() != "" {
-		s.agentMemberId = res.GetMember().GetId()
+	s.setAgent(res.GetMember().GetId(), userId)
+
+	return nil
+}
+
+func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUserId string) error {
+	res, err := s.cli.Api.Transfer(
+		metadata.NewOutgoingContext(ctx, s.hdrs),
+		&thread.TransferRequest{
+			ThreadId: s.threadId,
+			Contact:  userPeer(userId),
+			Initiator: &thread.PeerIdentity{
+				Sub: fromUserId,
+				Iss: "webitel",
+			},
+			Role: thread.ThreadRole_ROLE_MEMBER,
+		})
+	if err != nil {
+		return err
 	}
 
-	s.Lock()
-	s.userId = strconv.Itoa(int(userId))
-	s.Unlock()
+	s.setAgent(res.GetMember().GetId(), userId)
 
-	return err
+	return nil
+}
+
+func (s *Session) setAgent(memberId string, userId int64) {
+	s.Lock()
+	if memberId != "" {
+		s.agentMemberId = memberId
+	}
+	s.userId = strconv.FormatInt(userId, 10)
+	s.Unlock()
 }
 
 func (s *Session) RemoveMemberUser(ctx context.Context, endReason model.IMTimeoutReason) error {
