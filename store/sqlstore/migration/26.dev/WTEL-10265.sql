@@ -185,3 +185,75 @@ begin
         end loop;
 end;
 $$;
+
+create or replace function call_center.cc_skill_in_agent_manual_takeover_tg()
+    returns trigger
+    language plpgsql
+as
+$$
+begin
+    if new.skill_group_id is null then
+        delete
+        from call_center.cc_skill_in_agent sia
+        where sia.agent_id = new.agent_id
+          and sia.skill_id = new.skill_id
+          and sia.skill_group_id is not null;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists cc_skill_in_agent_manual_takeover_tg on call_center.cc_skill_in_agent;
+create trigger cc_skill_in_agent_manual_takeover_tg
+    before insert
+    on call_center.cc_skill_in_agent
+    for each row
+execute function call_center.cc_skill_in_agent_manual_takeover_tg();
+
+create or replace function call_center.cc_skill_in_agent_manual_deleted_tg()
+    returns trigger
+    language plpgsql
+as
+$$
+begin
+    perform call_center.cc_skill_group_reconcile_agent(d.agent_id)
+    from (select distinct o.agent_id
+          from old_rows o
+          where o.skill_group_id is null) d;
+    return null;
+end;
+$$;
+
+drop trigger if exists cc_skill_in_agent_manual_deleted_tg on call_center.cc_skill_in_agent;
+create trigger cc_skill_in_agent_manual_deleted_tg
+    after delete
+    on call_center.cc_skill_in_agent
+    referencing old table as old_rows
+    for each statement
+execute function call_center.cc_skill_in_agent_manual_deleted_tg();
+
+create or replace view call_center.cc_skill_in_agent_view as
+select sa.id,
+       call_center.cc_get_lookup(c.id, (c.name)::character varying)                                          as created_by,
+       sa.created_at,
+       call_center.cc_get_lookup(u.id, (u.name)::character varying)                                          as updated_by,
+       sa.updated_at,
+       call_center.cc_get_lookup((cs.id)::bigint, cs.name)                                                   as skill,
+       call_center.cc_get_lookup((ca.id)::bigint, (coalesce(uu.name, (uu.username)::text))::character varying) as agent,
+       call_center.cc_get_lookup(t.id, t.name)                                                               as team,
+       sa.capacity,
+       sa.enabled,
+       ca.domain_id,
+       sa.skill_id,
+       cs.name                                                                                               as skill_name,
+       sa.agent_id,
+       coalesce(((uu.name)::character varying)::name, (uu.username collate "default"))                       as agent_name,
+       call_center.cc_get_lookup(sg.id, sg.name)                                                             as skill_group
+from call_center.cc_skill_in_agent sa
+         left join call_center.cc_agent ca on sa.agent_id = ca.id
+         left join call_center.cc_team t on t.id = ca.team_id
+         left join directory.wbt_user uu on uu.id = ca.user_id
+         left join call_center.cc_skill cs on sa.skill_id = cs.id
+         left join directory.wbt_user c on c.id = sa.created_by
+         left join directory.wbt_user u on u.id = sa.updated_by
+         left join call_center.cc_skill_group sg on sg.id = sa.skill_group_id;
