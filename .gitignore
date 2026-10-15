@@ -73,7 +73,6 @@ go.work.sum
 # Build output
 build
 dist/
-/pkg/
 artifacts/
 work/
 out/
