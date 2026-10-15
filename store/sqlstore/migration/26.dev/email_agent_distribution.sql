@@ -290,6 +290,20 @@ CREATE OR REPLACE VIEW call_center.cc_agent_in_queue_view
            WHERE a_1.domain_id = q.domain_id AND (q.team_id IS NULL OR a_1.team_id = q.team_id) AND qs.skill_id = sia.skill_id AND sia.capacity >= qs.min_capacity AND sia.capacity <= qs.max_capacity
            GROUP BY ROLLUP(q.queue_id)) a ON true;
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute
+        WHERE attrelid = 'call_center.cc_agent_list'::regclass
+          AND attname = 'activity_type'
+          AND NOT attisdropped
+    ) THEN
+        ALTER VIEW call_center.cc_agent_list RENAME COLUMN activity_type TO status_type;
+    END IF;
+END
+$$;
+
 CREATE OR REPLACE VIEW call_center.cc_agent_list
        AS
        SELECT a.domain_id,
@@ -344,7 +358,7 @@ CREATE OR REPLACE VIEW call_center.cc_agent_list
                         WHERE stt.user_id = a.user_id AND stt.status IS NOT NULL AND stt.open > 0
                         ORDER BY stt.prior, stt.status)) status(open)), '{}'::name[]) AS user_presence_status,
           a.extra_chat_count,
-	coalesce(a.status_payload, os.name, '') as activity_type,
+	coalesce(a.status_payload, os.name, '') as status_type,
           a.email_count
          FROM call_center.cc_agent a
            LEFT JOIN directory.wbt_user ct ON ct.id = a.user_id

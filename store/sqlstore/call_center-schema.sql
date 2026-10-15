@@ -8761,7 +8761,7 @@ CREATE VIEW call_center.cc_agent_list AS
                   WHERE ((stt.user_id = a.user_id) AND (stt.status IS NOT NULL) AND (stt.open > 0))
                   ORDER BY stt.prior, stt.status)) status(open)), '{}'::name[]) AS user_presence_status,
     a.extra_chat_count,
-    COALESCE(a.status_payload, (os.name)::character varying, ''::character varying) AS activity_type,
+    COALESCE(a.status_payload, (os.name)::character varying, ''::character varying) AS status_type,
     a.email_count
    FROM ((((((call_center.cc_agent a
      LEFT JOIN directory.wbt_user ct ON ((ct.id = a.user_id)))
