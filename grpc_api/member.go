@@ -325,10 +325,6 @@ func (api *member) DirectAgentToMember(_ context.Context, in *cc.DirectAgentToMe
 	}, nil
 }
 
-func (api *member) EmailJoinToQueue(_ context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
-	return nil, nil
-}
-
 func (api *member) AttemptRenewalResult(_ context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
 	err := api.app.Queue().Manager().RenewalAttempt(in.DomainId, in.AttemptId, in.Renewal)
 	if err != nil {

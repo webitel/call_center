@@ -18,6 +18,7 @@ const (
 	QueueTypeOutboundTask
 	QueueTypeInboundIM
 	QueueTypeOutboundCall
+	QueueTypeInboundEmail
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 	QueueChannelTask    = "task"
 	QueueChannelOutCall = "out_call"
 	QueueChannelIM      = "im"
+	QueueChannelEmail   = "email"
 )
 
 const (
@@ -158,6 +160,8 @@ func (q *Queue) Channel() string {
 		return QueueChannelOutCall
 	case QueueTypeInboundIM:
 		return QueueChannelIM
+	case QueueTypeInboundEmail:
+		return QueueChannelEmail
 	default:
 		return QueueChannelCall
 	}
