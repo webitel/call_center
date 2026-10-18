@@ -2,12 +2,14 @@ package queue
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/wlog"
-	"sync"
-	"time"
 )
 
 const (

@@ -318,19 +318,23 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 		predictAgentId = attempt.agent.Id()
 	}
 
+	// Підписка і стан мають бути виставлені ДО оновлення в БД: з моменту коміту
+	// спроба вже видима для ReservedForAttemptByNode (опит кожні 400 мс), і якщо
+	// диспетчер встигне раніше, DistributeAgent відсіє агента перевіркою стану,
+	// а Emit не знайде слухача. В обох випадках подія губиться мовчки.
+	ags := attempt.On(AttemptHookDistributeAgent)
+	attempt.SetState(model.MemberStateWaitAgent)
+
 	attempt.Log("answer & wait agent")
 	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
 		attempt.LogIfError(err)
 		time.Sleep(time.Second * 3)
 		return
 	}
-	attempt.SetState(model.MemberStateWaitAgent)
 
 	attempts := 0
 
 	calling := mCall.HangupAt() == 0
-
-	ags := attempt.On(AttemptHookDistributeAgent)
 
 	// TODO
 	timeout := time.NewTimer(time.Second * time.Duration(queue.MaxWaitTime))
