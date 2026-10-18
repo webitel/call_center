@@ -84,11 +84,36 @@ func (s *SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 }
 
 func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
-			set state = :State,
-				agent_id = null,
-				answered_at = now()
-			where id = :Id and state != :CancelState and result isnull`, map[string]any{
+	if _, err := s.GetMaster().Exec(`  update call_center.cc_member_attempt m
+     set state       = :State,
+         answered_at = now(),
+         agent_id    = case
+             when exists (
+                 select 1
+                   from call_center.cc_agent_channel ch
+                        join call_center.cc_agent ag on ag.id = ch.agent_id
+                  where ch.agent_id = m.agent_id
+                    and ch.channel  = 'call'
+                    and ch.state    = 'waiting'
+                    and ag.status   = 'online'
+                    and not exists (select 1
+                                      from call_center.cc_calls c
+                                     where c.user_id = ag.user_id
+                                       and c.hangup_at isnull)
+                    and not exists (select 1
+                                      from call_center.cc_agent_channel ch2
+                                     where ch2.agent_id = ch.agent_id
+                                       and ch2.channel <> 'call'
+                                       and ch2.state not in ('waiting', 'idle'))
+                    and not exists (select 1
+                                      from call_center.cc_member_attempt m2
+                                     where m2.agent_id = m.agent_id
+                                       and m2.id      <> m.id
+                                       and m2.state in ('wait_agent', 'active', 'offering'))
+             ) then m.agent_id
+             else null
+         end
+   where m.id = :Id and m.state != :CancelState and m.result isnull`, map[string]any{
 		"Id":          id,
 		"State":       model.MemberStateWaitAgent,
 		"CancelState": model.MemberStateCancel,
