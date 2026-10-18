@@ -83,12 +83,14 @@ func (s *SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
+func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64, holdAgent bool) *model.AppError {
 	if _, err := s.GetMaster().Exec(`  update call_center.cc_member_attempt m
      set state       = :State,
          answered_at = now(),
          agent_id    = case
-             when exists (
+             -- прапорець черги payload.hold_reserved_agent. Вимкнено -> агент
+             -- звільняється як раніше, гард навіть не виконується.
+             when :HoldAgent::bool and exists (
                  select 1
                    from call_center.cc_agent_channel ch
                         join call_center.cc_agent ag on ag.id = ch.agent_id
@@ -130,6 +132,7 @@ func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
 		"Id":          id,
 		"State":       model.MemberStateWaitAgent,
 		"CancelState": model.MemberStateCancel,
+		"HoldAgent":   holdAgent,
 	}); err != nil {
 		return model.NewAppError("SqlMemberStore.AnswerPredictAndFindAgent", "store.sql_member.set_attempt_answer_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)

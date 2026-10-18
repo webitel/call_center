@@ -8,6 +8,6 @@ func (qm *Manager) SetFindAgentState(attemptId int64) *model.AppError {
 	return qm.store.Member().SetAttemptFindAgent(attemptId)
 }
 
-func (qm *Manager) AnswerPredictAndFindAgent(attemptId int64) *model.AppError {
-	return qm.store.Member().AnswerPredictAndFindAgent(attemptId)
+func (qm *Manager) AnswerPredictAndFindAgent(attemptId int64, holdAgent bool) *model.AppError {
+	return qm.store.Member().AnswerPredictAndFindAgent(attemptId, holdAgent)
 }
