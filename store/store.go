@@ -63,7 +63,7 @@ type MemberStore interface {
 	SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError
 
 	SetAttemptFindAgent(id int64) *model.AppError
-	AnswerPredictAndFindAgent(id int64) *model.AppError
+	AnswerPredictAndFindAgent(id int64, holdAgent bool) *model.AppError
 
 	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId *string, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
