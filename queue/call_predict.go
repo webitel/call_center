@@ -30,6 +30,11 @@ type PredictCallQueueSettings struct {
 	AllowGreetingAgent     bool                    `json:"allow_greeting_agent"`
 	Amd                    *model.QueueAmdSettings `json:"amd"`
 
+	// HoldReservedAgent: не звільняти зарезервованого агента на відповіді
+	// абонента, якщо він на цей момент справді вільний. Вимкнено -> поведінка
+	// повністю як до правки. Вмикається per-queue: payload.hold_reserved_agent
+	HoldReservedAgent bool `json:"hold_reserved_agent"`
+
 	MinAttempts      uint    `json:"min_attempts"`
 	MaxAbandonedRate uint    `json:"max_abandoned_rate"`
 	MaxAgentLine     uint    `json:"max_agent_line"`
@@ -326,7 +331,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 	attempt.SetState(model.MemberStateWaitAgent)
 
 	attempt.Log("answer & wait agent")
-	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id()); err != nil {
+	if err = queue.queueManager.AnswerPredictAndFindAgent(attempt.Id(), queue.HoldReservedAgent); err != nil {
 		attempt.LogIfError(err)
 		time.Sleep(time.Second * 3)
 		return
