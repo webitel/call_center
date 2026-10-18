@@ -96,6 +96,19 @@ func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
                     and ch.channel  = 'call'
                     and ch.state    = 'waiting'
                     and ag.status   = 'online'
+                    -- пристрій зареєстрований: та сама перевірка, що в циклі
+                    -- розподілу (cc_sql.c:1852-1855). Без неї можна зберегти
+                    -- агента з відвалленим софтфоном, плече не додзвониться,
+                    -- і він отримає no_answer аж до примусового break_out.
+                    and exists (select 1
+                                  from directory.wbt_user u
+                                       inner join directory.wbt_user_presence pr
+                                               on pr.user_id = u.id
+                                 where u.id = ag.user_id
+                                   and u.device_id notnull
+                                   and pr.status = 'sip'
+                                   and pr.open > 0
+                                   and length(coalesce(u.extension, '')) > 0)
                     and not exists (select 1
                                       from call_center.cc_calls c
                                      where c.user_id = ag.user_id
