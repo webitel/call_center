@@ -132,9 +132,10 @@ func (s SqlQueueStore) RecordAllCalls(domainID int64) (bool, *model.AppError) {
 	err := s.GetReplica().SelectOne(&res, `select coalesce((select s.value::bool
                  from call_center.system_settings s
                  where s.domain_id = :DomainId
-                   and s.name = 'record_all_calls'
+                   and s.name = :Name
                    and jsonb_typeof(s.value) = 'boolean'), false)`, map[string]any{
 		"DomainId": domainID,
+		"Name":     model.SysNameRecordAllCalls,
 	})
 	if err != nil {
 		return false, model.NewAppError("SqlQueueStore.RecordAllCalls", "store.sql_queue.record_all_calls.app_error", nil,

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/webitel/wlog"
 
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/utils"
@@ -28,7 +29,7 @@ func (a *App) RecordAllCalls(domainID int64) bool {
 		}
 	}
 
-	v, err, _ := queueGroup.Do(fmt.Sprintf("record-all-calls-%d", domainID), func() (any, error) {
+	v, err, _ := queueGroup.Do(recordAllCallsKey(domainID), func() (any, error) {
 		res, err := a.Store.Queue().RecordAllCalls(domainID)
 		if err != nil {
 			return nil, err
@@ -53,6 +54,21 @@ func (a *App) RecordAllCalls(domainID int64) bool {
 	recordAllCallsCache.AddWithDefaultExpires(domainID, res)
 
 	return res
+}
+
+func (a *App) listenSystemSettingEvents(events <-chan model.SystemSettingEvent) {
+	for e := range events {
+		if e.Name != model.SysNameRecordAllCalls {
+			continue
+		}
+
+		recordAllCallsCache.Remove(e.DomainID)
+		queueGroup.Forget(recordAllCallsKey(e.DomainID))
+	}
+}
+
+func recordAllCallsKey(domainID int64) string {
+	return fmt.Sprintf("record-all-calls-%d", domainID)
 }
 
 func (a *App) queueUserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError) {
