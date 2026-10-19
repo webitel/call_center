@@ -28,6 +28,6 @@ jobs:
 
     with:
       languages: '[{"language":"go","build-mode":"autobuild"},{"language":"actions","build-mode":"none"}]'
-      analysis-key: .github/workflows/golang-checks.yml:analyze
+      analysis-key: .github/workflows/workflow.yml:analyze
       runs-on: arc-backend-runner-set
       max-age-days: ${{ fromJSON(inputs.force && '0' || '7') }}

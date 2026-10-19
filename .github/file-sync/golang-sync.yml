@@ -4,7 +4,7 @@ version: 1
 source:
   repository: webitel/reusable-configs
   config: golang/sync.yml
-  sha: f8efdd23859604dc32d765efc993c7118955627e
+  sha: dfbdf1fa6ebaa294eb5501ec8fa7de630ce029eb
 files:
   .editorconfig:
     source: golang/configs/.editorconfig
@@ -26,7 +26,7 @@ files:
     sha256: c23ab5c2fec1713ce637e0c697b94aee74e41c408411dd3413ff8297b8c58d2b
   .github/workflows/codeql-scheduled.yml:
     source: common/workflows/codeql-scheduled.yml.njk
-    sha256: de6d6019bdbb33a6f42de3be76d5c0bfd95565434b9ff49a939250461538e098
+    sha256: 336ed2d57019add663a6a2f56a82b7d7eb27ba9e7b03bc8154735363f0e2f017
   .github/workflows/dependabot-auto-merge.yml:
     source: common/workflows/dependabot-auto-merge.yml
     sha256: 3f9a2526900d4505d509e45ee406c6cccfaaca7e1661f7919863019e74fdcdc2
