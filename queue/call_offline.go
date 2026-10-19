@@ -153,23 +153,21 @@ func (queue *OfflineCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 
 	queue.SetHoldMusic(callRequest)
 
-	recordAllCalls := queue.RecordAllCalls()
-	recordings, recordMono, recordAll := bridgeRecordings(recordAllCalls, queue.Recordings, queue.RecordMono, queue.RecordAll)
+	recordings, recordMono, recordAll := bridgeRecordings(queue.RecordAllCalls(), queue.Recordings, queue.RecordMono, queue.RecordAll)
 
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
 		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
-			Id:             attempt.MemberCallId(),
-			GranteeId:      queue.GranteeId(),
-			ParentId:       call.Id(),
-			Name:           attempt.Name(),
-			Destination:    attempt.Destination(),
-			Display:        callerIdNumber,
-			Timeout:        queue.OriginateTimeout,
-			Recordings:     recordings,
-			RecordMono:     recordMono,
-			RecordAll:      recordAll,
-			RecordAllCalls: recordAllCalls,
+			Id:          attempt.MemberCallId(),
+			GranteeId:   queue.GranteeId(),
+			ParentId:    call.Id(),
+			Name:        attempt.Name(),
+			Destination: attempt.Destination(),
+			Display:     callerIdNumber,
+			Timeout:     queue.OriginateTimeout,
+			Recordings:  recordings,
+			RecordMono:  recordMono,
+			RecordAll:   recordAll,
 		}),
 	})
 

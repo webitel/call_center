@@ -139,14 +139,9 @@ func (queue *IVRQueue) run(attempt *Attempt) {
 		return
 	}
 
-	recordAllCalls := queue.RecordAllCalls()
-	if recordAllCalls {
-		callRequest.Variables[model.CallVariableRecordAllCalls] = "true"
-	}
-
 	if queue.Recordings {
 		queue.SetRecordings(call, true, queue.RecordMono)
-	} else if recordAllCalls {
+	} else if queue.RecordAllCalls() {
 		queue.SetRecordings(call, true, false)
 	}
 

@@ -43,8 +43,6 @@ const (
 	CallVariableDomainName = "domain_name"
 	CallVariableGrantee    = "wbt_grantee_id"
 	CallVarTransferAfter   = "transfer_after_bridge"
-
-	CallVariableRecordAllCalls = "wbt_record_all_calls"
 )
 
 const (
