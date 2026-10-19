@@ -54,6 +54,9 @@ func (qm *Manager) EmailWakeUp(ctx context.Context, in model.EmailWakeUp) (*mode
 	if res.AttemptId != nil {
 		fields = append(fields, wlog.Int64("attempt_id", *res.AttemptId))
 	}
+	if res.FallbackQueueId != nil {
+		fields = append(fields, wlog.Int("fallback_queue_id", int(*res.FallbackQueueId)))
+	}
 	if res.Result == model.EmailWakeupNoop || res.Result == model.EmailWakeupNotActive {
 		log.Debug("email wake-up", fields...)
 	} else {

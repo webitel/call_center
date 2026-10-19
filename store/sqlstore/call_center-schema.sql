@@ -4516,6 +4516,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email join: invalid arguments';
     END IF;
 
+    -- Thread lock shared with the wake-up (class 'EMAT'), taken before the event is reserved.
+    PERFORM pg_advisory_xact_lock(1162690900, hashtext(_domain_id::text || ':' || _thread_id::text));
+
     -- Missing or malformed initial From never creates an address lookup key.
     IF _address !~ '^[^[:space:]@<>(),;:"]+@[^[:space:]@<>(),;:"]+$' THEN
         _address := '';
@@ -7779,9 +7782,10 @@ DECLARE
     _result   text := CASE WHEN _a.state = 'leaving' THEN _a.result END;
 BEGIN
     INSERT INTO call_center.cc_email_attempt_outbox (domain_id, thread_id, attempt_id, attempt_version, attempt_state, result,
-                                                     queue_id, agent_id, postponed_until, transition, source, command_id,
-                                                     fingerprint, response, causation_id)
+                                                     queue_id, agent_id, agent_user_id, postponed_until, transition, source,
+                                                     command_id, fingerprint, response, causation_id)
     VALUES (_a.domain_id, _a.member_call_id::bigint, _a.id, _a.version, _a.state, _result, _a.queue_id, _a.agent_id,
+            (SELECT ag.user_id FROM call_center.cc_agent ag WHERE ag.id = _a.agent_id),
             _a.postponed_until, _transition, _source, _command_id, _fingerprint,
             CASE WHEN _command_id IS NOT NULL THEN jsonb_build_object('attempt_id', _a.id, 'state', _a.state,
                 'attempt_version', _a.version, 'result', _result, 'agent_id', _a.agent_id, 'postponed_until', _a.postponed_until) END,
@@ -7871,20 +7875,24 @@ $$;
 -- Name: cc_email_wakeup_thread(uuid, bigint, bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
-CREATE FUNCTION call_center.cc_email_wakeup_thread(_event_id uuid, _domain_id bigint, _thread_id bigint) RETURNS TABLE(wakeup_result text, wakeup_attempt_id bigint, wakeup_attempt_state text, wakeup_attempt_version bigint, wakeup_replayed boolean)
+CREATE FUNCTION call_center.cc_email_wakeup_thread(_event_id uuid, _domain_id bigint, _thread_id bigint) RETURNS TABLE(wakeup_result text, wakeup_attempt_id bigint, wakeup_attempt_state text, wakeup_attempt_version bigint, wakeup_replayed boolean, wakeup_fallback_queue_id integer)
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    _w      call_center.cc_email_wakeup;
-    _id     bigint;
-    _owner  integer;
-    _state  text;
-    _a      call_center.cc_member_attempt;
-    _result text;
+    _w        call_center.cc_email_wakeup;
+    _id       bigint;
+    _owner    integer;
+    _state    text;
+    _a        call_center.cc_member_attempt;
+    _result   text;
+    _fallback integer;
 BEGIN
     IF _event_id IS NULL OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMAAR', MESSAGE = 'email wake-up: invalid arguments';
     END IF;
+
+    -- Thread lock (class 0x454D4154 'EMAT') shared with the join: the marker and a new attempt never interleave.
+    PERFORM pg_advisory_xact_lock(1162690900, hashtext(_domain_id::text || ':' || _thread_id::text));
 
     -- Reserve the event first: a concurrent replay waits for this transaction.
     INSERT INTO call_center.cc_email_wakeup (event_id, domain_id, thread_id)
@@ -7896,7 +7904,7 @@ BEGIN
         IF _w.domain_id <> _domain_id OR _w.thread_id <> _thread_id THEN
             RAISE EXCEPTION USING ERRCODE = 'EMWKY', MESSAGE = format('email wake-up: event %s belongs to another thread', _event_id);
         END IF;
-        RETURN QUERY SELECT _w.result, _w.attempt_id, _w.attempt_state, _w.attempt_version, true;
+        RETURN QUERY SELECT _w.result, _w.attempt_id, _w.attempt_state, _w.attempt_version, true, _w.fallback_queue_id;
         RETURN;
     END IF;
 
@@ -7916,6 +7924,24 @@ BEGIN
     IF _a.id IS NULL OR _a.state = 'leaving' THEN
         _result := 'not_active';
         _a := NULL;
+
+        -- Queue of the last finished attempt, whether SaveToHistory has moved it or not.
+        SELECT x.queue_id INTO _fallback
+        FROM (SELECT a.queue_id, a.leaving_at, a.id
+              FROM call_center.cc_member_attempt a
+              WHERE a.domain_id = _domain_id AND a.member_call_id = _thread_id::text AND a.channel = 'email'
+                AND a.leaving_at IS NOT NULL AND a.queue_id IS NOT NULL
+              UNION ALL
+              SELECT h.queue_id, h.leaving_at, h.id
+              FROM call_center.cc_member_attempt_history h
+              WHERE h.domain_id = _domain_id AND h.member_call_id = _thread_id::text AND h.channel = 'email'
+                AND h.queue_id IS NOT NULL) x
+        ORDER BY x.leaving_at DESC NULLS LAST, x.id DESC
+        LIMIT 1;
+
+        -- Opens the Thread as New without an attempt; its sequence follows the last snapshot of the old attempt.
+        INSERT INTO call_center.cc_email_attempt_outbox (domain_id, thread_id, queue_id, transition, source, causation_id)
+        VALUES (_domain_id, _thread_id, _fallback, 'inbound_reopened', 'system', _event_id::text);
     ELSIF _a.state = 'postponed' THEN
         IF _a.agent_id IS DISTINCT FROM _owner OR _state <> 'postponed' THEN
             RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email wake-up: attempt changed while locking';
@@ -7934,10 +7960,11 @@ BEGIN
     END IF;
 
     UPDATE call_center.cc_email_wakeup w
-    SET state = 'applied', result = _result, attempt_id = _a.id, attempt_state = _a.state, attempt_version = _a.version
+    SET state = 'applied', result = _result, attempt_id = _a.id, attempt_state = _a.state, attempt_version = _a.version,
+        fallback_queue_id = _fallback
     WHERE w.event_id = _event_id;
 
-    RETURN QUERY SELECT _result, _a.id, _a.state::text, _a.version, false;
+    RETURN QUERY SELECT _result, _a.id, _a.state::text, _a.version, false, _fallback;
 END;
 $$;
 
@@ -8881,11 +8908,11 @@ CREATE TABLE call_center.cc_email_attempt_outbox (
     sequence bigint NOT NULL,
     domain_id bigint NOT NULL,
     thread_id bigint NOT NULL,
-    attempt_id bigint NOT NULL,
-    attempt_version bigint NOT NULL,
-    attempt_state text NOT NULL,
+    attempt_id bigint,
+    attempt_version bigint,
+    attempt_state text,
     result text,
-    queue_id integer NOT NULL,
+    queue_id integer,
     agent_id integer,
     postponed_until timestamp with time zone,
     transition text NOT NULL,
@@ -8896,16 +8923,25 @@ CREATE TABLE call_center.cc_email_attempt_outbox (
     causation_id text,
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
     published_at timestamp with time zone,
+    agent_user_id bigint,
+    locked_by text,
+    locked_until timestamp with time zone,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    last_error text,
+    CONSTRAINT cc_email_attempt_outbox_agent_user_valid CHECK (((agent_id IS NULL) = (agent_user_id IS NULL))),
     CONSTRAINT cc_email_attempt_outbox_agent_valid CHECK ((((attempt_state = 'waiting'::text) = (agent_id IS NULL)) OR (attempt_state = 'leaving'::text))),
     CONSTRAINT cc_email_attempt_outbox_command_complete CHECK ((((command_id IS NULL) AND (fingerprint IS NULL) AND (response IS NULL)) OR ((command_id IS NOT NULL) AND (source <> 'system'::text) AND (fingerprint IS NOT NULL) AND (response IS NOT NULL)))),
     CONSTRAINT cc_email_attempt_outbox_command_valid CHECK (((command_id IS NULL) OR ((char_length(command_id) >= 1) AND (char_length(command_id) <= 128)))),
     CONSTRAINT cc_email_attempt_outbox_ids_valid CHECK (((domain_id > 0) AND (thread_id > 0) AND (attempt_id > 0) AND (attempt_version >= 0) AND (queue_id > 0))),
+    CONSTRAINT cc_email_attempt_outbox_lease_valid CHECK ((((locked_by IS NULL) = (locked_until IS NULL)) AND ((published_at IS NULL) OR (locked_by IS NULL)) AND (attempts >= 0) AND ((last_error IS NULL) OR (char_length(last_error) <= 1024)))),
+    CONSTRAINT cc_email_attempt_outbox_marker_valid CHECK ((((transition = 'inbound_reopened'::text) AND (attempt_id IS NULL) AND (attempt_version IS NULL) AND (attempt_state IS NULL) AND (result IS NULL) AND (agent_id IS NULL) AND (agent_user_id IS NULL) AND (postponed_until IS NULL) AND (command_id IS NULL) AND (source = 'system'::text)) OR ((transition <> 'inbound_reopened'::text) AND (attempt_id IS NOT NULL) AND (attempt_version IS NOT NULL) AND (attempt_state IS NOT NULL) AND (queue_id IS NOT NULL)))),
     CONSTRAINT cc_email_attempt_outbox_postponed_valid CHECK (((attempt_state = 'postponed'::text) = (postponed_until IS NOT NULL))),
     CONSTRAINT cc_email_attempt_outbox_response_size CHECK (((response IS NULL) OR (pg_column_size(response) <= 4096))),
     CONSTRAINT cc_email_attempt_outbox_result_valid CHECK (((result IS NULL) OR (result = ANY (ARRAY['processed'::text, 'processing_timeout'::text])))),
     CONSTRAINT cc_email_attempt_outbox_source_valid CHECK ((source = ANY (ARRAY['engine'::text, 'flow'::text, 'system'::text]))),
     CONSTRAINT cc_email_attempt_outbox_state_valid CHECK ((attempt_state = ANY (ARRAY['waiting'::text, 'offering'::text, 'active'::text, 'postponed'::text, 'processing'::text, 'leaving'::text]))),
-    CONSTRAINT cc_email_attempt_outbox_transition_valid CHECK ((transition = ANY (ARRAY['created'::text, 'assigned'::text, 'taken'::text, 'postponed'::text, 'resumed'::text, 'woken'::text, 'queued'::text, 'reopened'::text, 'deadline_woken'::text, 'deadline_queued'::text, 'returned'::text, 'auto_released'::text, 'logged_out'::text, 'processing_started'::text, 'renewed'::text, 'completed'::text, 'processing_timeout'::text])))
+    CONSTRAINT cc_email_attempt_outbox_transition_valid CHECK ((transition = ANY (ARRAY['created'::text, 'assigned'::text, 'taken'::text, 'postponed'::text, 'resumed'::text, 'woken'::text, 'queued'::text, 'reopened'::text, 'deadline_woken'::text, 'deadline_queued'::text, 'returned'::text, 'auto_released'::text, 'logged_out'::text, 'processing_started'::text, 'renewed'::text, 'completed'::text, 'processing_timeout'::text, 'inbound_reopened'::text])))
 );
 
 
@@ -9143,9 +9179,10 @@ CREATE TABLE call_center.cc_email_wakeup (
     state text DEFAULT 'reserved'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     resume_response jsonb,
+    fallback_queue_id integer,
     CONSTRAINT cc_email_wakeup_ids_valid CHECK (((domain_id > 0) AND (thread_id > 0) AND ((attempt_id IS NULL) OR (attempt_id > 0)))),
     CONSTRAINT cc_email_wakeup_result_valid CHECK (((result IS NULL) OR (result = ANY (ARRAY['woken'::text, 'queued'::text, 'reopened'::text, 'noop'::text, 'not_active'::text])))),
-    CONSTRAINT cc_email_wakeup_state_complete CHECK ((((state = 'reserved'::text) AND (result IS NULL) AND (attempt_id IS NULL) AND (attempt_state IS NULL) AND (attempt_version IS NULL)) OR ((state = 'applied'::text) AND (NOT (result IS DISTINCT FROM 'not_active'::text)) AND (attempt_id IS NULL) AND (attempt_state IS NULL) AND (attempt_version IS NULL)) OR ((state = 'applied'::text) AND (result IS NOT NULL) AND (result IS DISTINCT FROM 'not_active'::text) AND (attempt_id IS NOT NULL) AND (attempt_state IS NOT NULL) AND (attempt_version IS NOT NULL)))),
+    CONSTRAINT cc_email_wakeup_state_complete CHECK ((((state = 'reserved'::text) AND (result IS NULL) AND (attempt_id IS NULL) AND (attempt_state IS NULL) AND (attempt_version IS NULL) AND (fallback_queue_id IS NULL)) OR ((state = 'applied'::text) AND (NOT (result IS DISTINCT FROM 'not_active'::text)) AND (attempt_id IS NULL) AND (attempt_state IS NULL) AND (attempt_version IS NULL) AND ((fallback_queue_id IS NULL) OR (fallback_queue_id > 0))) OR ((state = 'applied'::text) AND (result IS NOT NULL) AND (result IS DISTINCT FROM 'not_active'::text) AND (attempt_id IS NOT NULL) AND (attempt_state IS NOT NULL) AND (attempt_version IS NOT NULL) AND (fallback_queue_id IS NULL)))),
     CONSTRAINT cc_email_wakeup_state_valid CHECK ((state = ANY (ARRAY['reserved'::text, 'applied'::text])))
 );
 
@@ -12642,10 +12679,17 @@ CREATE UNIQUE INDEX cc_email_attempt_outbox_command_uidx ON call_center.cc_email
 
 
 --
--- Name: cc_email_attempt_outbox_pending_idx; Type: INDEX; Schema: call_center; Owner: -
+-- Name: cc_email_attempt_outbox_published_idx; Type: INDEX; Schema: call_center; Owner: -
 --
 
-CREATE INDEX cc_email_attempt_outbox_pending_idx ON call_center.cc_email_attempt_outbox USING btree (sequence) WHERE (published_at IS NULL);
+CREATE INDEX cc_email_attempt_outbox_published_idx ON call_center.cc_email_attempt_outbox USING btree (published_at) WHERE ((published_at IS NOT NULL) AND (command_id IS NULL));
+
+
+--
+-- Name: cc_email_attempt_outbox_ready_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_email_attempt_outbox_ready_idx ON call_center.cc_email_attempt_outbox USING btree (next_attempt_at, sequence) WHERE (published_at IS NULL);
 
 
 --

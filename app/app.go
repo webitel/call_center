@@ -49,6 +49,7 @@ type App struct {
 	engine         engine.Engine
 	emailDist      *engine.EmailDistributor
 	emailLifecycle *engine.EmailLifecycleWatcher
+	emailPublisher *engine.EmailPublisher
 	dialing        queue.Dialing
 	GrpcServer     *GrpcServer
 	agentManager   agent_manager.AgentManager
@@ -184,6 +185,22 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.emailLifecycle = engine.NewEmailLifecycleWatcher(app.Store.Member(), settings, app.Log)
 		app.emailLifecycle.Start()
 	}
+	// Sends Email attempt snapshots to email-service; off until its consumer queue exists.
+	if qs := app.Config().QueueSettings; qs.EmailAttemptPublisher {
+		settings := engine.EmailPublisherSettings{
+			Interval:       qs.EmailAttemptPublisherInterval,
+			Batch:          qs.EmailAttemptPublisherBatch,
+			Lease:          qs.EmailAttemptPublisherLease,
+			ConfirmTimeout: qs.EmailAttemptPublisherConfirmTimeout,
+			Retention:      qs.EmailAttemptOutboxRetention,
+		}
+		if err := settings.Validate(); err != nil {
+			return nil, err
+		}
+		app.emailPublisher = engine.NewEmailPublisher(app.Store.Member(),
+			rabbit.NewEmailSnapshotPublisher(app.Config().MessageQueueSettings.Url, settings.ConfirmTimeout), settings, app.GetInstanceId(), app.Log)
+		app.emailPublisher.Start()
+	}
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ, app.Log)
 	app.agentManager.SetHookAutoOfflineAgent(app.hookAutoOfflineAgent)
@@ -243,6 +260,9 @@ func (app *App) Shutdown() {
 	}
 	if app.emailLifecycle != nil {
 		app.emailLifecycle.Stop()
+	}
+	if app.emailPublisher != nil {
+		app.emailPublisher.Stop()
 	}
 
 	if app.engine != nil {

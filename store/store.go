@@ -60,7 +60,7 @@ type MemberStore interface {
 	DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError)
 	DistributeOutboundCall(node, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 	// EmailJoinToQueue puts an email-service Thread into an Inbound Email Queue once per event.
-	EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError)
+	EmailJoinToQueue(ctx context.Context, in model.EmailJoin, lockTimeout time.Duration) (*model.EmailJoinResult, *model.AppError)
 	// EmailDistribute runs one Email distribution cycle in its own transaction; the cycle stops
 	// itself after maxDuration and keeps its assignments.
 	EmailDistribute(ctx context.Context, queueBatch int, maxDuration, lockTimeout, statementTimeout time.Duration) ([]*model.EmailDistributeResult, *model.AppError)
@@ -72,6 +72,17 @@ type MemberStore interface {
 	EmailWakeUp(ctx context.Context, in model.EmailWakeUp, lockTimeout time.Duration) (*model.EmailWakeUpResult, *model.AppError)
 	// IsEmailAttempt tells whether an active attempt of the domain is an Email one.
 	IsEmailAttempt(ctx context.Context, domainId, attemptId int64) (bool, *model.AppError)
+	// EmailOutboxClaim leases ready rows of cc_email_attempt_outbox to the snapshot publisher owner.
+	EmailOutboxClaim(ctx context.Context, owner string, batch int, lease time.Duration) ([]*model.EmailOutboxRow, *model.AppError)
+	// EmailOutboxPublished marks leased rows published after the broker confirmed them and returns how
+	// many it marked; rows owner no longer holds are not.
+	EmailOutboxPublished(ctx context.Context, owner string, sequences []int64) (int64, *model.AppError)
+	// EmailOutboxRelease gives leased rows back for a retry at next.
+	EmailOutboxRelease(ctx context.Context, owner string, sequences []int64, next time.Time, reason string, failed bool) *model.AppError
+	// EmailOutboxCleanup deletes published rows without a command older than before.
+	EmailOutboxCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError)
+	// EmailOutboxBacklog counts unpublished rows.
+	EmailOutboxBacklog(ctx context.Context) (*model.EmailOutboxBacklog, *model.AppError)
 
 	/*
 		Flow control

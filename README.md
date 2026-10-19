@@ -323,8 +323,8 @@ this order when it may take a slot, so slots and the postponed limit are never
 exceeded.
 
 Every transition writes the full attempt to `cc_email_attempt_outbox` in its
-transaction; `sequence` is the `projection_version` of the Thread. Nothing
-publishes the outbox yet.
+transaction; `sequence` is the `projection_version` of the Thread. The publisher
+sends the rows to email-service (see below).
 
 | Error id | gRPC code |
 |---|---|
@@ -337,7 +337,30 @@ publishes the outbox yet.
 | `cc.email_attempt.lock_timeout`, `unavailable` | `Unavailable` |
 | `cc.email_attempt.app_error` | `Internal` |
 
-Command locks wait at most `email_command_lock_timeout`.
+Command, wake-up and join locks wait at most `email_command_lock_timeout`.
+
+### Snapshots for email-service
+
+email-service keeps the status, queue, agent and `postponed_until` of a Thread
+as a projection of these rows. The publisher sends every row of
+`cc_email_attempt_outbox` as a `cc.email.attempt.snapshot` event to the
+`cc.email.events` exchange with the routing key `cc.email.attempt.snapshot.v1`;
+the contract and the topology are described in `docs/events.md` of
+webitel-emails. A wake-up that finds no active attempt writes the
+`inbound_reopened` marker, a row without an attempt.
+
+The publisher runs on every node when `email_attempt_publisher` is on, which is
+off by default. A node claims ready rows with a lease, publishes them outside
+the transaction with persistent messages, `mandatory` and broker confirms, and
+marks them published only after the confirm. A broker or topology failure
+gives the claimed rows back without spending attempts and pauses the
+publisher. A row may be sent twice; email-service ignores a snapshot that is
+not newer than its projection, so publishing order does not matter.
+
+Published rows without `command_id` are deleted after
+`email_attempt_outbox_retention`. Rows of operator and Flow commands are kept,
+since a repeated command returns their response; unpublished rows are never
+deleted.
 
 ### Wake-up by a new email
 
@@ -354,6 +377,15 @@ changes nothing when that wake-up left the attempt `active` and no `postpone` of
 the event followed (`projection_version` 0); `cc_email_wakeup` keeps this
 response, so a repeat returns it with `replayed`. If the attempt changed after
 the wake-up before the first such `resume`, it is `invalid_state`.
+
+For `not_active` the wake-up also returns `fallback_queue_id`, the queue of the
+last finished Email attempt of the Thread, found among `leaving` attempts and in
+`cc_member_attempt_history`, and writes the `inbound_reopened` marker that opens
+the Thread as New in email-service. Both are kept with the result, so a repeated
+event returns the same queue and writes no second marker. `call_center` does not
+join the queue itself; `flow_manager` decides. The wake-up and `EmailJoinToQueue`
+take one lock per Thread first, so a marker never follows the snapshot of an
+attempt created at the same time.
 
 ### Deadlines, logout and auto-offline
 
@@ -401,7 +433,13 @@ an unfinished email, as for other channels.
 | `email_lifecycle_batch` | `EMAIL_LIFECYCLE_BATCH` | `100` | Due attempts of each kind in one cycle |
 | `email_lifecycle_lock_timeout` | `EMAIL_LIFECYCLE_LOCK_TIMEOUT` | `1s` | `lock_timeout` of a watcher cycle |
 | `email_lifecycle_statement_timeout` | `EMAIL_LIFECYCLE_STATEMENT_TIMEOUT` | `10s` | `statement_timeout` of a watcher cycle |
-| `email_command_lock_timeout` | `EMAIL_COMMAND_LOCK_TIMEOUT` | `1s` | `lock_timeout` of an Email command or wake-up |
+| `email_command_lock_timeout` | `EMAIL_COMMAND_LOCK_TIMEOUT` | `1s` | `lock_timeout` of an Email command, wake-up or join |
+| `email_attempt_publisher` | `EMAIL_ATTEMPT_PUBLISHER` | `false` | Publish `cc_email_attempt_outbox` to email-service |
+| `email_attempt_publisher_interval` | `EMAIL_ATTEMPT_PUBLISHER_INTERVAL` | `1s` | Pause between publisher cycles |
+| `email_attempt_publisher_batch` | `EMAIL_ATTEMPT_PUBLISHER_BATCH` | `100` | Rows claimed in one cycle |
+| `email_attempt_publisher_lease` | `EMAIL_ATTEMPT_PUBLISHER_LEASE` | `30s` | Lease of claimed rows |
+| `email_attempt_publisher_confirm_timeout` | `EMAIL_ATTEMPT_PUBLISHER_CONFIRM_TIMEOUT` | `5s` | Bounds connecting, each network write and the broker confirm of one row |
+| `email_attempt_outbox_retention` | `EMAIL_ATTEMPT_OUTBOX_RETENTION` | `168h` | Age of published rows without `command_id` to delete |
 
 Queue `payload` keys: `email_auto_release_sec` (`0` or unset keeps an offer; an
 invalid value counts as unset and is logged as `payload_invalid`),
@@ -409,8 +447,9 @@ invalid value counts as unset and is logged as `payload_invalid`),
 `email_sticky_history_sec`; they are whole seconds, and an invalid value of any
 of them counts as unset. Agents have `email_count` and `email_postponed_count`.
 
-Startup fails when a batch is not positive, a duration is below 1 ms or a lock
-timeout is not below its statement timeout.
+Startup fails when a batch is not positive, a duration is below 1 ms, a lock
+timeout is not below its statement timeout or the publisher lease is not longer
+than its confirm timeout.
 
 A cycle with assignments is logged at info level, other cycles at debug level.
 `assigned` counts successful assignments; `no_agent_queues` counts distinct
@@ -433,6 +472,15 @@ level, with `released`, `processing_timeouts`, `postponed_woken`,
 `postponed_queued`, `offline_returned`, `lock_skipped` and the latency; its
 failures and time limit are logged like those of the allocator.
 
+A publisher cycle that published rows is logged at info level with `claimed`,
+`confirmed` (by the broker), `published` (marked in the database) and the
+latency, other cycles at debug level. Once a minute it deletes old rows and logs
+`deleted`, `backlog` and `oldest_pending_age`. A broker failure gives the rest
+of the batch back for 5 seconds and backs off like a failed allocator cycle;
+rows the broker confirmed but the database did not mark are sent again after
+their lease, and that cycle backs off too. Failures are logged as warnings at
+most once in 5 minutes each.
+
 ### Rollout and limits
 
 1. Apply SQL using the upgrade runbook, including the separate CHECK-validation
@@ -440,17 +488,31 @@ failures and time limit are logged like those of the allocator.
    `email_agent_distribution.sql`, which would restore the old functions.
 2. Apply `email_attempt_lifecycle.sql` with `psql -v ON_ERROR_STOP=1 -f` outside
    a transaction after them. It redefines allocator functions, so the earlier
-   routing files must not be repeated after it.
+   routing files must not be repeated after it. Then apply
+   `email_status_sync.sql` the same way; it redefines the wake-up, join and
+   snapshot functions of `email_attempt_lifecycle.sql`, which must not be
+   repeated after it. Apply `email_route.sql` the same way after
+   `email_service_inbox.sql`; it adds the route of an event to the Inbox of
+   `flow_manager`.
 3. Release `engine` with the base, Extra and postponed Email limits of agents,
-   then `call_center` with the allocator and the watcher off, then
-   `flow_manager` with JoinQueue support and the wake-up.
+   then every `call_center` node with the allocator, the watcher and the
+   snapshot publisher off, then `flow_manager` once no node runs the old
+   `call_center`.
 4. Give agents `email` in `allow_channels` and the intended base/Extra limits.
 5. Enable `email_distribution` and `email_lifecycle` only after the remaining
    integration gates and release prerequisites pass.
+6. Enable `email_attempt_publisher` only after email-service with its consumer
+   is deployed and the stage 12 concurrency check has passed; turning it off
+   rolls back, unpublished rows wait in the outbox.
+
+Run the migrations with `PGOPTIONS='-c lock_timeout=5s'` and repeat them on a
+lock timeout, and keep heartbeats on in the AMQP URL.
 
 Keep the allocator and the watcher off in production for now. An assigned email
 is not yet announced to Workspace, Workspace has no read API or commands for it,
-and nothing publishes the outbox.
+and the snapshot publisher (`email_attempt_publisher`) is off by default: enable
+it only after email-service with its consumer is deployed and the rollout checks
+pass.
 
 `cc_member_attempt` is an unlogged table. A restart of `call_center` keeps the
 attempts, but a crash or failover of PostgreSQL loses them, together with the

@@ -271,6 +271,7 @@ func (api *member) EmailWakeUp(ctx context.Context, in *cc.EmailWakeUpRequest) (
 	if res.AttemptVersion != nil {
 		out.AttemptVersion = *res.AttemptVersion
 	}
+	out.FallbackQueueId = res.FallbackQueueId
 
 	return out, nil
 }

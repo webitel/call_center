@@ -8,7 +8,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 
+	"github.com/go-gorp/gorp"
 	"github.com/lib/pq"
 
 	"github.com/webitel/call_center/model"
@@ -22,26 +24,29 @@ const (
 	emailJoinPriorityInvalid   = pq.ErrorCode("EMPRI")
 )
 
-func (s *SqlMemberStore) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError) {
+// EmailJoinToQueue runs in a short transaction; lockTimeout bounds the wait for the Thread lock shared with the wake-up.
+func (s *SqlMemberStore) EmailJoinToQueue(ctx context.Context, in model.EmailJoin, lockTimeout time.Duration) (*model.EmailJoinResult, *model.AppError) {
 	if in.Priority < 0 || in.Priority > 100 {
 		return nil, model.NewAppError("SqlMemberStore.EmailJoinToQueue", model.EmailJoinInvalidPriority, nil,
 			"Email priority must be between 0 and 100", http.StatusBadRequest)
 	}
 	var res model.EmailJoinResult
 
-	err := s.GetMaster().WithContext(ctx).SelectOne(&res, `select x.join_result, x.join_attempt_id, x.join_queue_id, x.join_requested_queue_id
+	err := s.inEmailTx(ctx, lockTimeout, func(ex gorp.SqlExecutor) error {
+		return ex.SelectOne(&res, `select x.join_result, x.join_attempt_id, x.join_queue_id, x.join_requested_queue_id
 from call_center.cc_email_join_to_queue(:EventId::uuid, :DomainId::int8, :ThreadId::int8, :QueueId::int4,
     :Priority::int4, :StickyAgentId::int4, :ExtraEmailCount::bool, :FromAddress::text) x`,
-		map[string]any{
-			"EventId":         in.EventId,
-			"DomainId":        in.DomainId,
-			"ThreadId":        in.ThreadId,
-			"QueueId":         in.QueueId,
-			"Priority":        in.Priority,
-			"StickyAgentId":   in.StickyAgentId,
-			"ExtraEmailCount": in.ExtraEmailCount,
-			"FromAddress":     in.FromAddress,
-		})
+			map[string]any{
+				"EventId":         in.EventId,
+				"DomainId":        in.DomainId,
+				"ThreadId":        in.ThreadId,
+				"QueueId":         in.QueueId,
+				"Priority":        in.Priority,
+				"StickyAgentId":   in.StickyAgentId,
+				"ExtraEmailCount": in.ExtraEmailCount,
+				"FromAddress":     in.FromAddress,
+			})
+	})
 	if err != nil {
 		id, code := emailJoinError(err)
 		return nil, model.NewAppError("SqlMemberStore.EmailJoinToQueue", id, nil,
@@ -69,7 +74,7 @@ func emailJoinError(err error) (string, int) {
 			return prefix + "event_conflict", http.StatusConflict
 		case pqErr.Code == "22023" || pqErr.Code == "22P02":
 			return model.EmailJoinInvalidArguments, http.StatusBadRequest
-		case pqErr.Code == "40001" || pqErr.Code == "40P01" || pqErr.Code == "53300" ||
+		case pqErr.Code == "40001" || pqErr.Code == "40P01" || pqErr.Code == "53300" || pqErr.Code == "55P03" ||
 			pqErr.Code.Class() == "08" || pqErr.Code == "57P01" || pqErr.Code == "57P02" || pqErr.Code == "57P03":
 			return prefix + "unavailable", http.StatusServiceUnavailable
 		}
