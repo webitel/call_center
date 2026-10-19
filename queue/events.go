@@ -41,6 +41,7 @@ type Distribute struct {
 	Variables        map[string]string         `json:"variables"`
 	HasReporting     bool                      `json:"has_reporting"`
 	HasForm          bool                      `json:"has_form,omitempty"`
+	Autosave         bool                      `json:"autosave,omitempty"`
 }
 
 type Offering struct {
@@ -161,6 +162,7 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			MemberJoinedAt: a.JoinedAt(),
 			HasReporting:   hasReporting && !a.processTransfer,
 			HasForm:        queue.HasForm(),
+			Autosave:       queue.ProcessingAutosave(),
 		},
 	}
 

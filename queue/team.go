@@ -1,9 +1,11 @@
 package queue
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"golang.org/x/sync/singleflight"
@@ -239,14 +241,20 @@ func (tm *agentTeam) SetWrap(queue QueueObject, attempt *Attempt, agent agent_ma
 func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_manager.AgentObject, agentSendReporting, transfer bool) {
 	if queue.Manager().waitChannelClose && attempt.Callback() != nil {
 		if err := queue.Manager().ReportingAttempt(attempt.Id(), *attempt.Callback(), true, false); err != nil {
-			attempt.Log(err.Error())
+			attempt.log.Error("reporting", wlog.Err(err))
 		}
 		return
 	}
 
-	attempt.Log(fmt.Sprintf("reporting %v", agentSendReporting))
+	useDraft := attempt != nil && attempt.Draft() != nil
 
-	if agentSendReporting {
+	attempt.log.Info(
+		"starting reporting",
+		wlog.String("already_reported", strconv.FormatBool(agentSendReporting)),
+		wlog.String("used_draft", strconv.FormatBool(useDraft)),
+	)
+
+	if agentSendReporting && !useDraft {
 		if attempt.Result() == "" {
 			attempt.SetResult(AttemptResultSuccess)
 		}
@@ -263,7 +271,7 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 	}
 
 	if !queue.Processing() || transfer || attempt.processTransfer {
-		s := attempt.Result()
+		s := cmp.Or(attempt.Result(), AttemptResultSuccess)
 
 		if transfer {
 			s = AttemptResultTransfer
@@ -271,24 +279,20 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 			s = AttemptResultCancel
 		}
 
-		if s == "" {
-			s = AttemptResultSuccess
-		}
-
 		tm.SetWrap(queue, attempt, agent, s)
+
 		return
 	}
-
-	timeoutSec := queue.ProcessingSec()
 
 	if attempt.Result() == "" {
 		attempt.SetResult(AttemptResultPostProcessing)
 	}
+
+	timeoutSec := queue.ProcessingSec()
 	timestamp, err := tm.teamManager.store.Member().SetAttemptReporting(attempt.Id(), timeoutSec)
+
 	if err != nil {
-		attempt.log.Error(err.Error(),
-			wlog.Err(err),
-		)
+		attempt.log.Error("setting attempt reporting", wlog.Err(err))
 		return
 	}
 
@@ -299,14 +303,22 @@ func (tm *agentTeam) Reporting(queue QueueObject, attempt *Attempt, agent agent_
 		prolongation = NewProcessingProlongation(queue.ProlongationSteps(), queue.ProlongationSec())
 	}
 
-	e := NewProcessingEventEvent(attempt, agent.UserId(), timestamp, timeoutSec, queue.ProcessingRenewalSec(), prolongation, queue.ProcessingAutosave())
-	err = tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e)
-	if err != nil {
-		attempt.Log(err.Error())
+	e := NewProcessingEventEvent(
+		attempt,
+		agent.UserId(),
+		timestamp,
+		timeoutSec,
+		queue.ProcessingRenewalSec(),
+		prolongation,
+		queue.ProcessingAutosave(),
+	)
+
+	if err := tm.teamManager.mq.AgentChannelEvent(attempt.channel, attempt.domainId, attempt.QueueId(), agent.UserId(), e); err != nil {
+		attempt.log.Error("publishin agent channel event", wlog.Err(err))
 		return
 	}
 
-	attempt.log.Debug(fmt.Sprintf("attempt [%d] wait callback result for agent \"%s\", timeout=%d", attempt.Id(), agent.Name(), timeoutSec))
+	attempt.log.Debug("waiting callback result", wlog.Int64("attempt_id", attempt.Id()), wlog.String("agent", agent.Name()), wlog.Int64("timeout", int64(timeoutSec)))
 }
 
 func (tm *agentTeam) Missed(attempt *Attempt, agent agent_manager.AgentObject) {
