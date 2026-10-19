@@ -15,6 +15,7 @@ type App interface {
 	GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError)
 	GetGateway(id int64) (*model.SipGateway, *model.AppError)
 	GetQueueById(id int64) (*model.Queue, *model.AppError)
+	RecordAllCalls(domainID int64) bool
 	FlowManager() flow.FlowManager
 	ChatManager() *chat.ChatManager
 	GetCall(id string) (*model.Call, *model.AppError)

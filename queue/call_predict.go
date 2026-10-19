@@ -204,8 +204,15 @@ retry_:
 
 	if allowCall {
 
+		recordAllCalls := queue.RecordAllCalls()
+		if recordAllCalls {
+			callRequest.Variables[model.CallVariableRecordAllCalls] = "true"
+		}
+
 		if queue.Recordings {
 			queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
+		} else if recordAllCalls {
+			queue.SetRecordings(mCall, false, false)
 		}
 
 		if !queue.SetAmdCall(callRequest, queue.Amd, "park") {

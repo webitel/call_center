@@ -153,8 +153,15 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	var agentCall call_manager.Call
 
+	recordAllCalls := queue.RecordAllCalls()
+	if recordAllCalls {
+		callRequest.Variables[model.CallVariableRecordAllCalls] = "true"
+	}
+
 	if queue.Recordings {
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
+	} else if recordAllCalls {
+		queue.SetRecordings(mCall, false, false)
 	}
 
 	if attempt.communication.Dtmf != nil {

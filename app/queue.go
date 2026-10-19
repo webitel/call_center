@@ -5,15 +5,54 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/webitel/wlog"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/call_center/utils"
 )
 
-var queueGroup singleflight.Group
+var (
+	queueGroup          singleflight.Group
+	recordAllCallsCache = utils.NewLruWithParams(1000, "RecordAllCalls", 60, "")
+)
 
 func (a *App) GetQueueById(id int64) (*model.Queue, *model.AppError) {
 	return a.Store.Queue().GetById(id)
+}
+
+func (a *App) RecordAllCalls(domainID int64) bool {
+	if v, ok := recordAllCallsCache.Get(domainID); ok {
+		if res, valid := v.(bool); valid {
+			return res
+		}
+	}
+
+	v, err, _ := queueGroup.Do(fmt.Sprintf("record-all-calls-%d", domainID), func() (any, error) {
+		res, err := a.Store.Queue().RecordAllCalls(domainID)
+		if err != nil {
+			return nil, err
+		}
+
+		return res, nil
+	})
+	if err != nil {
+		a.Log.Error(err.Error(),
+			wlog.Err(err),
+			wlog.Int64("domain_id", domainID),
+		)
+
+		return false
+	}
+
+	res, valid := v.(bool)
+	if !valid {
+		return false
+	}
+
+	recordAllCallsCache.AddWithDefaultExpires(domainID, res)
+
+	return res
 }
 
 func (a *App) queueUserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError) {

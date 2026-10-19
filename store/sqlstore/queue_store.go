@@ -125,3 +125,21 @@ where q.id = :QueueId
 
 	return model.Int64Array(res), nil
 }
+
+func (s SqlQueueStore) RecordAllCalls(domainID int64) (bool, *model.AppError) {
+	var res bool
+
+	err := s.GetReplica().SelectOne(&res, `select coalesce((select s.value::bool
+                 from call_center.system_settings s
+                 where s.domain_id = :DomainId
+                   and s.name = 'record_all_calls'
+                   and jsonb_typeof(s.value) = 'boolean'), false)`, map[string]any{
+		"DomainId": domainID,
+	})
+	if err != nil {
+		return false, model.NewAppError("SqlQueueStore.RecordAllCalls", "store.sql_queue.record_all_calls.app_error", nil,
+			fmt.Sprintf("domain_id=%v, %s", domainID, err.Error()), http.StatusInternalServerError)
+	}
+
+	return res, nil
+}

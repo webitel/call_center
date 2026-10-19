@@ -40,6 +40,7 @@ type OutboundResourceStore interface {
 type QueueStore interface {
 	GetById(id int64) (*model.Queue, *model.AppError)
 	UserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError)
+	RecordAllCalls(domainID int64) (bool, *model.AppError)
 }
 
 type MemberStore interface {

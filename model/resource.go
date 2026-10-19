@@ -99,9 +99,10 @@ type BridgeRequest struct {
 	Display     string
 	Timeout     uint16
 
-	Recordings bool
-	RecordMono bool
-	RecordAll  bool
+	Recordings     bool
+	RecordMono     bool
+	RecordAll      bool
+	RecordAllCalls bool
 }
 
 func (g *SipGateway) Bridge(params BridgeRequest) string {
@@ -143,6 +144,10 @@ func (g *SipGateway) Bridge(params BridgeRequest) string {
 		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=record_session http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s&.%s",
 			params.RecordAll, params.RecordAll, !params.RecordMono,
 			g.DomainId, params.ParentId, CallRecordFileTemplate, "mp3"))
+	}
+
+	if params.RecordAllCalls {
+		res = append(res, fmt.Sprintf("%s=true", CallVariableRecordAllCalls))
 	}
 
 	vars := g.Variables()
