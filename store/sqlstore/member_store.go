@@ -127,7 +127,7 @@ func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64, holdAgent bool) *mo
                                       from call_center.cc_member_attempt m2
                                      where m2.agent_id = m.agent_id
                                        and m2.id      <> m.id
-                                       and m2.state in ('wait_agent', 'active', 'offering'))
+                                       and m2.state in ('idle', 'wait_agent', 'active', 'offering'))
              ) then m.agent_id
              else null
          end

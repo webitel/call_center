@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	STATISTICS_WATCHER_POLLING_INTERVAL = 1 * 1000 * 30
+	STATISTICS_WATCHER_POLLING_INTERVAL = 1 * 1000 * 10
 )
 
 type StatisticsManager struct {
