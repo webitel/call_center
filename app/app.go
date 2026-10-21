@@ -179,6 +179,8 @@ func New(options ...string) (outApp *App, outErr error) {
 	return app, outErr
 }
 
+func (app *App) Context() context.Context { return app.ctx }
+
 func (app *App) IsReady() bool {
 	// TODO check connect to db, rabbit, grpc
 	return app.callManager.CountConnection() > 0

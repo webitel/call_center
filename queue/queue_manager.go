@@ -34,6 +34,8 @@ const (
 )
 
 type Manager struct {
+	sync.Mutex
+
 	wg               sync.WaitGroup
 	app              App
 	attemptCount     int64
@@ -51,15 +53,20 @@ type Manager struct {
 	waitChannelClose bool
 	bridgeSleep      time.Duration
 	log              *wlog.Logger
-	sync.Mutex
 }
 
 var errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
 
 var queueGroup singleflight.Group
 
-func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager,
-	agentManager agent_manager.AgentManager, bridgeSleep time.Duration,
+func NewQueueManager(
+	app App,
+	s store.Store,
+	m mq.MQ,
+	callManager call_manager.CallManager,
+	resourceManager *ResourceManager,
+	agentManager agent_manager.AgentManager,
+	bridgeSleep time.Duration,
 ) *Manager {
 	return &Manager{
 		store:            s,
