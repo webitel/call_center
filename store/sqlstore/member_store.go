@@ -1313,13 +1313,21 @@ where id = :Id;`, map[string]any{
 	return nil
 }
 
-func (s *SqlMemberStore) WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError) {
+func (s *SqlMemberStore) WaitingList(ctx context.Context) ([]*model.MemberWaitingByUsers, *model.AppError) {
 	var list []*model.MemberWaitingByUsers
-	_, err := s.GetMaster().Select(&list, `select domain_id, users, chats, calls
-from call_center.cc_manual_queue_list`)
+	_, err := s.GetMaster().WithContext(ctx).Select(
+		&list,
+		`select domain_id, users, chats, calls from call_center.cc_manual_queue_list`,
+	)
+
 	if err != nil {
-		return nil, model.NewAppError("SqlMemberStore.WaitingList", "store.sql_member.waiting_list.app_error", nil,
-			err.Error(), extractCodeFromErr(err))
+		return nil, model.NewAppError(
+			"SqlMemberStore.WaitingList",
+			"store.sql_member.waiting_list.app_error",
+			nil,
+			err.Error(),
+			extractCodeFromErr(err),
+		)
 	}
 
 	return list, nil

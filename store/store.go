@@ -108,7 +108,7 @@ type MemberStore interface {
 	FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError)
 
 	Intercept(ctx context.Context, domainId, attemptId int64, agentId int32) (int, *model.AppError)
-	WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError)
+	WaitingList(ctx context.Context) ([]*model.MemberWaitingByUsers, *model.AppError)
 	UpdateProcessingFormAtHistory(ctx context.Context, id int64, formFields map[string]string) *model.AppError
 }
 

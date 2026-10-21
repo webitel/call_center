@@ -1,6 +1,8 @@
 package queue
 
 import (
+	"context"
+
 	"github.com/webitel/engine/pkg/wbt/flow"
 
 	"github.com/webitel/call_center/agent_manager"
@@ -10,6 +12,7 @@ import (
 )
 
 type App interface {
+	Context() context.Context
 	GetInstanceId() string
 	IsReady() bool
 	GetOutboundResourceById(id int64) (*model.OutboundResource, *model.AppError)

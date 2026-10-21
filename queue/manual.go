@@ -1,9 +1,10 @@
 package queue
 
 import (
+	"sync"
+
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"sync"
 )
 
 const (
@@ -29,20 +30,16 @@ func (qm *Manager) stopWaitingList() {
 }
 
 func (qm *Manager) listWaiting() {
-	list, err := qm.store.Member().WaitingList()
+	list, err := qm.store.Member().WaitingList(qm.app.Context())
 	if err != nil {
-		qm.log.Error(err.Error(),
-			wlog.Err(err),
-		)
+		qm.log.Error("getting waiting list", wlog.Err(err))
+
 		return
 	}
 
 	for _, v := range list {
-		err = qm.app.NotificationWaitingList(v)
-		if err != nil {
-			qm.log.Error(err.Error(),
-				wlog.Err(err),
-			)
+		if err = qm.app.NotificationWaitingList(v); err != nil {
+			qm.log.Error("notifying waiting list", wlog.Err(err))
 		}
 	}
 }
