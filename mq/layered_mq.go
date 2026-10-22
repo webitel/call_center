@@ -46,6 +46,10 @@ func (l *LayeredMQ) ConsumeIMEvent() <-chan model.IMMessage {
 	return l.MQLayer.ConsumeIMEvent()
 }
 
+func (l *LayeredMQ) ConsumeSystemSettingEvent() <-chan model.SystemSettingEvent {
+	return l.MQLayer.ConsumeSystemSettingEvent()
+}
+
 func (l *LayeredMQ) AgentChangeStatus(domainId, userId int64, e E) *model.AppError {
 	return l.MQLayer.AgentChangeStatus(domainId, userId, e)
 }

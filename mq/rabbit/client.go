@@ -47,12 +47,14 @@ type AMQP struct {
 	callEvent          chan model.CallActionData
 	chatEvent          chan model.ChatEvent
 	imEvent            chan model.IMMessage
+	systemSettingEvent chan model.SystemSettingEvent
 	queueEvent         mq.QueueEvent
 	log                *wlog.Logger
 
-	callStalled atomic.Bool
-	chatStalled atomic.Bool
-	imStalled   atomic.Bool
+	callStalled          atomic.Bool
+	chatStalled          atomic.Bool
+	imStalled            atomic.Bool
+	systemSettingStalled atomic.Bool
 }
 
 type BotGrantedMessageAgent struct {
@@ -87,6 +89,8 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog
 		chatEvent: make(chan model.ChatEvent, 100),
 		imEvent:   make(chan model.IMMessage, 100),
 		nodeName:  nodeName,
+
+		systemSettingEvent: make(chan model.SystemSettingEvent, 100),
 		log: log.With(
 			wlog.Namespace("context"),
 			wlog.String("protocol", "amqp"),
@@ -153,6 +157,16 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 
 	case model.ChatExchange:
 		a.readChatEvent(msg.Body, msg.RoutingKey, log)
+
+	case model.EventExchange:
+		ev, err := model.NewSystemSettingEventFromRoutingKey(msg.RoutingKey)
+		if err != nil {
+			log.Error(err.Error(), wlog.Err(err))
+
+			return
+		}
+
+		enqueue(a, a.systemSettingEvent, &a.systemSettingStalled, ev, "system_setting")
 
 	default:
 		log.Error(fmt.Sprintf("no handler for message %s", string(msg.Body)))
@@ -314,6 +328,12 @@ func (a *AMQP) connect() error {
 		return err
 	}
 
+	err = a.channel.QueueBind(a.queue.Name, fmt.Sprintf("%s.%s.#", model.SystemSettingsObjectName, model.SysNameRecordAllCalls),
+		model.EventExchange, true, nil)
+	if err != nil {
+		return err
+	}
+
 	return a.channel.QueueBind(a.queue.Name, fmt.Sprintf(model.CallRoutingTemplate, a.nodeName), model.CallExchange, true, nil)
 }
 
@@ -327,6 +347,18 @@ func (a *AMQP) initExchange() {
 		false,
 		nil,
 	)
+	if err == nil {
+		err = a.channel.ExchangeDeclare(
+			model.EventExchange,
+			"topic",
+			true,
+			false,
+			false,
+			false,
+			nil,
+		)
+	}
+
 	if err != nil {
 		a.log.Critical(fmt.Sprintf("Failed to declare AMQP exchange to err:%v", err.Error()),
 			wlog.Err(err),
@@ -502,6 +534,10 @@ func (a *AMQP) ConsumeCallEvent() <-chan model.CallActionData {
 
 func (a *AMQP) ConsumeChatEvent() <-chan model.ChatEvent {
 	return a.chatEvent
+}
+
+func (a *AMQP) ConsumeSystemSettingEvent() <-chan model.SystemSettingEvent {
+	return a.systemSettingEvent
 }
 
 func (a *AMQP) ConsumeIMEvent() <-chan model.IMMessage {

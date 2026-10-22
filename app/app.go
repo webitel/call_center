@@ -123,6 +123,7 @@ func New(options ...string) (outApp *App, outErr error) {
 
 	app.Store = app.newStore()
 	app.MQ = mq.NewMQ(rabbit.NewRabbitMQ(app.Config().MessageQueueSettings, app.GetInstanceId(), app.Log))
+	go app.listenSystemSettingEvents(app.MQ.ConsumeSystemSettingEvent())
 
 	if cl, err := cluster.NewCluster(*app.id, app.Config().DiscoverySettings.Url, app.Store.Cluster(), app.Log); err != nil {
 		return nil, err

@@ -47,6 +47,18 @@ func (queue *CallingQueue) SetRecordings(call call_manager.Call, all, mono bool)
 	call.SetRecordings(queue.domainId, all, mono)
 }
 
+func (queue *CallingQueue) RecordAllCalls() bool {
+	return queue.queueManager.app.RecordAllCalls(queue.domainId)
+}
+
+func bridgeRecordings(recordAllCalls, recordings, mono, all bool) (bool, bool, bool) {
+	if !recordings && recordAllCalls {
+		return true, false, true
+	}
+
+	return recordings, mono, all
+}
+
 func (queue *CallingQueue) HasRingtone() bool {
 	return queue.ringtoneUri != nil
 }

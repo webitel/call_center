@@ -262,7 +262,7 @@ func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
 	}
 
 	call.callRequest.Applications = append(call.callRequest.Applications, &model.CallRequestApplication{
-		AppName: "record_session",
+		AppName: "wbt_record_session",
 		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s&.%s", domainId,
 			call.Id(), model.CallRecordFileTemplate, "mp3"),
 	})

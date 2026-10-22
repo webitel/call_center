@@ -206,6 +206,8 @@ retry_:
 
 		if queue.Recordings {
 			queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
+		} else if queue.RecordAllCalls() {
+			queue.SetRecordings(mCall, false, false)
 		}
 
 		if !queue.SetAmdCall(callRequest, queue.Amd, "park") {

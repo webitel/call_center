@@ -155,6 +155,8 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 
 	if queue.Recordings {
 		queue.SetRecordings(mCall, queue.RecordAll, queue.RecordMono)
+	} else if queue.RecordAllCalls() {
+		queue.SetRecordings(mCall, false, false)
 	}
 
 	if attempt.communication.Dtmf != nil {
