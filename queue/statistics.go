@@ -2,16 +2,18 @@ package queue
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/model"
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
-	"github.com/webitel/wlog"
-	"sync"
-	"time"
 )
 
 const (
-	STATISTICS_WATCHER_POLLING_INTERVAL = 1 * 1000 * 30
+	STATISTICS_WATCHER_POLLING_INTERVAL = 1 * 1000 * 10
 )
 
 type StatisticsManager struct {

@@ -5,10 +5,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/webitel/wlog"
+
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
-	"github.com/webitel/wlog"
 )
 
 /*
@@ -57,9 +58,11 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 		attempt.log.Error(err.Error(),
 			wlog.Err(err),
 		)
-		//todo
+		// todo
 		return
 	}
+
+	ags := attempt.On(AttemptHookDistributeAgent)
 
 	attempt.SetState(model.MemberStateWaitAgent)
 
@@ -69,11 +72,9 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 	var agentCall call_manager.Call
 	var team *agentTeam
 
-	var calling = mCall.HangupAt() == 0
+	calling := mCall.HangupAt() == 0
 
-	ags := attempt.On(AttemptHookDistributeAgent)
-
-	//TODO
+	// TODO
 	timeout := time.NewTimer(time.Second * time.Duration(queue.props.MaxWaitTime))
 
 	for calling {
@@ -90,8 +91,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 					team.MissedAgentAndWaitingAttempt(attempt, agent)
 					attempt.SetState(model.MemberStateWaitAgent)
 					if agentCall.HangupAt() == 0 {
-						//TODO WaitForHangup
-						//panic(agentCall.Id())
+						// TODO WaitForHangup
+						// panic(agentCall.Id())
 					}
 					agent = nil
 					agentCall = nil
@@ -167,7 +168,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 
 					case call_manager.CALL_STATE_ACCEPT:
 						attempt.Emit(AttemptHookBridgedAgent, agentCall.Id())
-						//FIXME
+						// FIXME
 						result := AttemptResultSuccess
 						if queue.Processing() {
 							result = AttemptResultPostProcessing
@@ -191,7 +192,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 							team.Bridged(attempt, agent)
 						}
 
-						//fixme refactor
+						// fixme refactor
 						if queue.props.AllowGreetingAgent && agent.GreetingMedia() != nil {
 							mCall.BroadcastPlaybackFile(agent.DomainId(), agent.GreetingMedia(), "both")
 						} else if queue.AutoAnswer() {
@@ -270,8 +271,8 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 				team.MissedAgentAndWaitingAttempt(attempt, agent)
 				attempt.SetState(model.MemberStateWaitAgent)
 				if agentCall != nil && agentCall.HangupAt() == 0 {
-					//TODO WaitForHangup
-					//panic(agentCall.Id())
+					// TODO WaitForHangup
+					// panic(agentCall.Id())
 				}
 				agent = nil
 				agentCall = nil

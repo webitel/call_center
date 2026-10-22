@@ -83,15 +83,56 @@ func (s *SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
-			set state = :State,
-				agent_id = null,
-				answered_at = now()
-			where id = :Id and state != :CancelState and result isnull`, map[string]any{
+func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64, holdAgent bool) *model.AppError {
+	if _, err := s.GetMaster().Exec(`  update call_center.cc_member_attempt m
+     set state       = :State,
+         answered_at = now(),
+         agent_id    = case
+             -- прапорець черги payload.hold_reserved_agent. Вимкнено -> агент
+             -- звільняється як раніше, гард навіть не виконується.
+             when :HoldAgent::bool and exists (
+                 select 1
+                   from call_center.cc_agent_channel ch
+                        join call_center.cc_agent ag on ag.id = ch.agent_id
+                  where ch.agent_id = m.agent_id
+                    and ch.channel  = 'call'
+                    and ch.state    = 'waiting'
+                    and ag.status   = 'online'
+                    -- пристрій зареєстрований: та сама перевірка, що в циклі
+                    -- розподілу (cc_sql.c:1852-1855). Без неї можна зберегти
+                    -- агента з відвалленим софтфоном, плече не додзвониться,
+                    -- і він отримає no_answer аж до примусового break_out.
+                    and exists (select 1
+                                  from directory.wbt_user u
+                                       inner join directory.wbt_user_presence pr
+                                               on pr.user_id = u.id
+                                 where u.id = ag.user_id
+                                   and u.device_id notnull
+                                   and pr.status = 'sip'
+                                   and pr.open > 0
+                                   and length(coalesce(u.extension, '')) > 0)
+                    and not exists (select 1
+                                      from call_center.cc_calls c
+                                     where c.user_id = ag.user_id
+                                       and c.hangup_at isnull)
+                    and not exists (select 1
+                                      from call_center.cc_agent_channel ch2
+                                     where ch2.agent_id = ch.agent_id
+                                       and ch2.channel <> 'call'
+                                       and ch2.state not in ('waiting', 'idle'))
+                    and not exists (select 1
+                                      from call_center.cc_member_attempt m2
+                                     where m2.agent_id = m.agent_id
+                                       and m2.id      <> m.id
+                                       and m2.state in ('idle', 'wait_agent', 'active', 'offering'))
+             ) then m.agent_id
+             else null
+         end
+   where m.id = :Id and m.state != :CancelState and m.result isnull`, map[string]any{
 		"Id":          id,
 		"State":       model.MemberStateWaitAgent,
 		"CancelState": model.MemberStateCancel,
+		"HoldAgent":   holdAgent,
 	}); err != nil {
 		return model.NewAppError("SqlMemberStore.AnswerPredictAndFindAgent", "store.sql_member.set_attempt_answer_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
