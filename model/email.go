@@ -12,11 +12,20 @@ const (
 // EmailJoin asks to put an email-service Thread into an Inbound Email Queue;
 // EventId is the idempotency key of the call.
 type EmailJoin struct {
-	EventId  string
-	DomainId int64
-	ThreadId int64
-	QueueId  int32
+	EventId         string
+	DomainId        int64
+	ThreadId        int64
+	QueueId         int32
+	Priority        int32
+	StickyAgentId   int32
+	ExtraEmailCount bool
+	FromAddress     string
 }
+
+const (
+	EmailJoinInvalidPriority  = "store.sql_member.email_join.invalid_priority"
+	EmailJoinInvalidArguments = "store.sql_member.email_join.invalid"
+)
 
 // EmailJoinResult is the attempt the Thread ended up in. RequestedQueueId is the
 // queue of the first call with this event, which a replay may not repeat.

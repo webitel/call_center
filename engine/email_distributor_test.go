@@ -30,6 +30,61 @@ func TestSummarizeEmailCycle(t *testing.T) {
 	}
 }
 
+func TestSummarizeEmailCycleCountsUniqueNoAgentQueues(t *testing.T) {
+	q := func(id int32) *int32 { return &id }
+	cases := []struct {
+		name     string
+		rows     []*model.EmailDistributeResult
+		queues   int
+		assigned int
+	}{
+		{
+			name: "repeated queue",
+			rows: []*model.EmailDistributeResult{
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+			},
+			queues: 1,
+		},
+		{
+			name: "different queues",
+			rows: []*model.EmailDistributeResult{
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(2)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(2)},
+			},
+			queues: 2,
+		},
+		{
+			name: "assigned and no-agent in the same queue",
+			rows: []*model.EmailDistributeResult{
+				{Result: model.EmailDistributeAssigned, QueueId: q(1)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(1)},
+			},
+			queues: 1, assigned: 1,
+		},
+		{
+			name: "missing or invalid queue",
+			rows: []*model.EmailDistributeResult{
+				{Result: model.EmailDistributeNoAgent},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(0)},
+				{Result: model.EmailDistributeNoAgent, QueueId: q(-1)},
+			},
+		},
+		{name: "empty cycle"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := SummarizeEmailCycle(tc.rows)
+			if c.NoAgentQueues != tc.queues || c.Assigned != tc.assigned {
+				t.Fatalf("unexpected summary %+v", c)
+			}
+		})
+	}
+}
+
 func TestEmailDistributorWarnsOncePerPeriod(t *testing.T) {
 	d := &EmailDistributor{warned: make(map[string]time.Time)}
 	now := time.Now()

@@ -118,7 +118,7 @@ func nextEmailBackoff(prev, interval time.Duration) time.Duration {
 	return min(2*prev, max(emailMaxBackoff, interval))
 }
 
-// EmailCycle counts the rows of one cycle.
+// EmailCycle summarizes assignments and queue outcomes of one cycle.
 type EmailCycle struct {
 	Busy            bool
 	TimeLimited     bool
@@ -131,6 +131,7 @@ type EmailCycle struct {
 
 func SummarizeEmailCycle(rows []*model.EmailDistributeResult) EmailCycle {
 	var c EmailCycle
+	noAgentQueues := make(map[int32]struct{})
 	for _, r := range rows {
 		switch r.Result {
 		case model.EmailDistributeBusy:
@@ -140,7 +141,9 @@ func SummarizeEmailCycle(rows []*model.EmailDistributeResult) EmailCycle {
 		case model.EmailDistributeAssigned:
 			c.Assigned++
 		case model.EmailDistributeNoAgent:
-			c.NoAgentQueues++
+			if r.QueueId != nil && *r.QueueId > 0 {
+				noAgentQueues[*r.QueueId] = struct{}{}
+			}
 		case model.EmailDistributeCalendarClosed:
 			c.ClosedQueues++
 		case model.EmailDistributeNoSkills:
@@ -149,6 +152,7 @@ func SummarizeEmailCycle(rows []*model.EmailDistributeResult) EmailCycle {
 			c.InvalidCalendar = append(c.InvalidCalendar, queueOf(r))
 		}
 	}
+	c.NoAgentQueues = len(noAgentQueues)
 	return c
 }
 
