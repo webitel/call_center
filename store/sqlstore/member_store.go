@@ -270,7 +270,7 @@ as x (
     team_updated_at int8,
     agent_updated_at int8
 )
-where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' for update )`, map[string]any{
+where :Force::bool or not exists(select 1 from call_center.cc_member_attempt a where a.agent_id = :AgentId and a.state != 'leaving' and a.channel != 'email' for update )`, map[string]any{
 		"Node":      node,
 		"DomainId":  domainId,
 		"Dest":      dest,

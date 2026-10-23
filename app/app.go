@@ -47,6 +47,7 @@ type App struct {
 	newStore       func() store.Store
 	cluster        cluster.Cluster
 	engine         engine.Engine
+	emailDist      *engine.EmailDistributor
 	dialing        queue.Dialing
 	GrpcServer     *GrpcServer
 	agentManager   agent_manager.AgentManager
@@ -154,6 +155,21 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.Config().QueueSettings.PollingInterval, app.Log)
 	app.engine.Start()
 
+	// Email has its own allocator; it stays off until Email lifecycle and events are deployed.
+	if qs := app.Config().QueueSettings; qs.EmailDistribution {
+		settings := engine.EmailDistributorSettings{
+			Interval:         qs.EmailDistributionInterval,
+			QueueBatch:       qs.EmailDistributionQueueBatch,
+			LockTimeout:      qs.EmailDistributionLockTimeout,
+			StatementTimeout: qs.EmailDistributionStatementTimeout,
+		}
+		if err := settings.Validate(); err != nil {
+			return nil, err
+		}
+		app.emailDist = engine.NewEmailDistributor(app.Store.Member(), settings, app.Log)
+		app.emailDist.Start()
+	}
+
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ, app.Log)
 	app.agentManager.SetHookAutoOfflineAgent(app.hookAutoOfflineAgent)
 	app.agentManager.Start()
@@ -205,6 +221,10 @@ func (app *App) Shutdown() {
 
 	if app.cluster != nil {
 		app.cluster.Stop()
+	}
+
+	if app.emailDist != nil {
+		app.emailDist.Stop()
 	}
 
 	if app.engine != nil {
