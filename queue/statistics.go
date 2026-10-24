@@ -35,8 +35,8 @@ func NewStatisticsManager(store store.Store) *StatisticsManager {
 
 func (s *StatisticsManager) Start() {
 	s.log.Debug("starting statistics service")
-	s.watcher = utils.MakeWatcher("Statistics", STATISTICS_WATCHER_POLLING_INTERVAL, s.refresh)
 	s.startOnce.Do(func() {
+		s.watcher = utils.MakeWatcher("Statistics", STATISTICS_WATCHER_POLLING_INTERVAL, s.refresh)
 		ver, err := s.store.Statistic().LibVersion()
 		if err != nil {
 			s.log.Error(err.Error(),

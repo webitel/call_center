@@ -1,6 +1,8 @@
 package mq
 
 import (
+	"context"
+
 	"github.com/webitel/call_center/model"
 )
 
@@ -11,6 +13,7 @@ type E interface {
 type MQ interface {
 	SendJSON(name string, data []byte) *model.AppError
 	Close()
+	Ping(ctx context.Context) error
 
 	ConsumeCallEvent() <-chan model.CallActionData
 	ConsumeChatEvent() <-chan model.ChatEvent

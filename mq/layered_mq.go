@@ -30,6 +30,10 @@ func (l *LayeredMQ) Close() {
 	l.MQLayer.Close()
 }
 
+func (l *LayeredMQ) Ping(ctx context.Context) error {
+	return l.MQLayer.Ping(ctx)
+}
+
 func (l *LayeredMQ) ConsumeCallEvent() <-chan model.CallActionData {
 	return l.MQLayer.ConsumeCallEvent()
 }

@@ -1,11 +1,12 @@
 package engine
 
 import (
+	"sync"
+	"time"
+
 	"github.com/webitel/call_center/store"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/wlog"
-	"sync"
-	"time"
 )
 
 type App interface {
@@ -39,10 +40,10 @@ func NewEngine(app App, id string, s store.Store, enableOmnichannel bool, pollin
 
 func (e *EngineImp) Start() {
 	e.log.Info("starting engine service")
-	e.watcher = utils.MakeWatcher("Engine", int(e.pollingInterval.Milliseconds()), e.ReserveMembers)
 	e.UnReserveMembers()
 	//e.CleanAllAttempts()
 	e.startOnce.Do(func() {
+		e.watcher = utils.MakeWatcher("Engine", int(e.pollingInterval.Milliseconds()), e.ReserveMembers)
 		go e.watcher.Start()
 	})
 }

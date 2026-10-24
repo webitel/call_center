@@ -18,7 +18,7 @@ func (a *AMQP) AgentChannelEvent(channel string, domainId int64, queueId int, us
 }
 
 func (a *AMQP) SendNotification(domainId int64, event *model.Notification) *model.AppError {
-	err := a.channel.Publish(model.EngineExchange, fmt.Sprintf("notification.%d", domainId), false, false, amqp.Publishing{
+	err := a.channel.Load().Publish(model.EngineExchange, fmt.Sprintf("notification.%d", domainId), false, false, amqp.Publishing{
 		ContentType: "text/json",
 		Body:        []byte(event.ToJson()),
 	})
