@@ -18,6 +18,7 @@ type MQ interface {
 	ConsumeCallEvent() <-chan model.CallActionData
 	ConsumeChatEvent() <-chan model.ChatEvent
 	ConsumeIMEvent() <-chan model.IMMessage
+	ConsumeSystemSettingEvent() <-chan model.SystemSettingEvent
 
 	AgentChangeStatus(domainId, userId int64, e E) *model.AppError
 	AgentChannelEvent(channel string, domainId int64, queueId int, userId int64, e E) *model.AppError

@@ -107,7 +107,7 @@ func (api *member) AttemptResult(_ context.Context, in *cc.AttemptResultRequest)
 		}
 	}
 
-	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false)
+	err := api.app.Queue().Manager().ReportingAttempt(in.AttemptId, result, false, in.GetDraft())
 	if err != nil {
 		return nil, err
 	}
@@ -492,6 +492,15 @@ func (api *member) ProcessingFormSave(ctx context.Context, in *cc.ProcessingForm
 	return &cc.ProcessingFormSaveResponse{}, nil
 }
 
-func (api *member) Transfer(context.Context, *cc.TransferRequest) (*cc.TransferResponse, error) {
-	return nil, errors.New("TODO")
+func (api *member) Transfer(_ context.Context, in *cc.TransferRequest) (*cc.TransferResponse, error) {
+	if (in.GetAgentId() == 0) == (in.GetQueueId() == 0) {
+		return nil, errors.New("exactly one of agent_id or queue_id is required")
+	}
+
+	err := api.app.Queue().Manager().TransferIM(in.GetDomainId(), in.GetAttemptId(), in.GetAgentId(), in.GetQueueId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &cc.TransferResponse{}, nil
 }

@@ -1,10 +1,12 @@
 package queue
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,6 +34,8 @@ const (
 )
 
 type Manager struct {
+	sync.Mutex
+
 	wg               sync.WaitGroup
 	app              App
 	attemptCount     int64
@@ -49,15 +53,20 @@ type Manager struct {
 	waitChannelClose bool
 	bridgeSleep      time.Duration
 	log              *wlog.Logger
-	sync.Mutex
 }
 
 var errNotFoundConnection = model.NewAppError("QM", "qm.connection.not_found", nil, "Not found", http.StatusNotFound)
 
 var queueGroup singleflight.Group
 
-func NewQueueManager(app App, s store.Store, m mq.MQ, callManager call_manager.CallManager, resourceManager *ResourceManager,
-	agentManager agent_manager.AgentManager, bridgeSleep time.Duration,
+func NewQueueManager(
+	app App,
+	s store.Store,
+	m mq.MQ,
+	callManager call_manager.CallManager,
+	resourceManager *ResourceManager,
+	agentManager agent_manager.AgentManager,
+	bridgeSleep time.Duration,
 ) *Manager {
 	return &Manager{
 		store:            s,
@@ -118,7 +127,7 @@ func (qm *Manager) closeAttempts() {
 
 		err = qm.ReportingAttempt(id, model.AttemptCallback{
 			Status: "shutdown", // TODO
-		}, false)
+		}, false, false)
 		if err != nil {
 			qm.log.Error(err.Error(),
 				wlog.Err(err),
@@ -993,23 +1002,35 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 	dest.Thread.UseSourceChannelIfExists()
 
 	// FIXME add domain
+	attempt, err := qm.distributeIMDestination(int64(in.GetQueue().GetId()), in.GetThreadId(), dest,
+		in.GetVariables(), bucketId, int(in.GetPriority()), stickyAgentId)
+
+	return attempt, false, err
+}
+
+func (qm *Manager) distributeIMDestination(queueId int64, threadId string, dest IMThreadCommunication,
+	vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*Attempt, *model.AppError) {
 	res, err := qm.store.Member().DistributeIMToQueue(
 		qm.app.GetInstanceId(),
-		int64(in.GetQueue().GetId()),
-		in.GetThreadId(),
+		queueId,
+		threadId,
 		dest.Json(),
-		in.GetVariables(),
+		vars,
 		bucketId,
-		int(in.GetPriority()),
+		priority,
 		stickyAgentId,
 	)
 	if err != nil {
 		qm.log.Error(err.Error(),
 			wlog.Err(err),
 		)
-		return nil, false, err
+		return nil, err
 	}
 
+	return qm.startIMAttempt(res, nil, bucketId)
+}
+
+func (qm *Manager) startIMAttempt(res *model.InboundIMQueue, agentId *int, bucketId *int32) (*Attempt, *model.AppError) {
 	attempt, _ := qm.CreateAttemptIfNotExists(context.Background(), &model.MemberAttempt{
 		Id:                  res.AttemptId,
 		QueueId:             res.QueueId,
@@ -1022,6 +1043,8 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		BridgedAt:           0,
 		Destination:         res.Destination,
 		ListCommunicationId: res.ListCommunicationId,
+		AgentId:             agentId,
+		AgentUpdatedAt:      res.AgentUpdatedAt,
 		TeamUpdatedAt:       res.TeamUpdatedAt,
 		Variables:           res.Variables,
 		Name:                res.Name,
@@ -1029,12 +1052,122 @@ func (qm *Manager) DistributeIMToQueue(_ context.Context, in *cc.IMJoinToQueueRe
 		BucketId:            bucketId,
 	})
 
-	if _, err = qm.DistributeAttempt(attempt); err != nil {
+	if _, err := qm.DistributeAttempt(attempt); err != nil {
 		printfIfErr(qm.store.Member().DistributeCallToQueueCancel(res.AttemptId))
-		return nil, false, err
+		return nil, err
 	}
 
-	return attempt, false, nil
+	return attempt, nil
+}
+
+func (qm *Manager) TransferIM(domainId, attemptId int64, agentId, queueId int32) *model.AppError {
+	att, ok := qm.GetAttempt(attemptId)
+	if !ok || att.domainId != domainId {
+		return model.NewAppError("QM", "qm.transfer_im.valid.attempt", nil, "Not found", http.StatusNotFound)
+	}
+
+	if att.channel != model.QueueChannelIM {
+		return model.NewAppError("QM", "qm.transfer_im.valid.channel", nil,
+			fmt.Sprintf("attempt %d is not an im conversation", attemptId), http.StatusBadRequest)
+	}
+
+	if att.MemberCallId() == nil {
+		return model.NewAppError("QM", "qm.transfer_im.valid.thread", nil,
+			fmt.Sprintf("attempt %d has no thread", attemptId), http.StatusBadRequest)
+	}
+
+	agent := att.Agent()
+	if agent == nil || att.GetState() != model.MemberStateBridged {
+		return model.NewAppError("QM", "qm.transfer_im.valid.state", nil,
+			fmt.Sprintf("attempt %d is not bridged to an agent", attemptId), http.StatusConflict)
+	}
+
+	if agentId != 0 && int(agentId) == agent.Id() {
+		return model.NewAppError("QM", "qm.transfer_im.valid.agent", nil,
+			fmt.Sprintf("attempt %d is already handled by agent %d", attemptId, agentId), http.StatusBadRequest)
+	}
+
+	var dest IMThreadCommunication
+	if err := json.Unmarshal(att.member.Destination, &dest); err != nil {
+		return model.NewAppError("QM", "qm.transfer_im.destination", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	if !att.reserveIMTransfer() {
+		return model.NewAppError("QM", "qm.transfer_im.valid.pending", nil,
+			fmt.Sprintf("attempt %d is already being transferred", attemptId), http.StatusConflict)
+	}
+
+	dest.TransferFrom = strconv.FormatInt(agent.UserId(), 10)
+	dest.TransferAttemptId = attemptId
+	dest.TransferAgentId = int(agentId)
+
+	to, err := qm.distributeIMTransfer(att, dest, agentId, queueId)
+	if err != nil {
+		att.releaseIMTransfer(0)
+		return err
+	}
+	att.setIMTransferTo(to.Id())
+	att.Log(fmt.Sprintf("transfer to attempt: %d", to.Id()))
+
+	return nil
+}
+
+func (qm *Manager) distributeIMTransfer(att *Attempt, dest IMThreadCommunication, agentId, queueId int32) (*Attempt, *model.AppError) {
+	threadId := *att.MemberCallId()
+
+	if agentId != 0 {
+		res, err := qm.store.Member().DistributeIMToAgent(qm.app.GetInstanceId(), int64(att.QueueId()), int(agentId),
+			threadId, dest.Json(), att.member.Variables, att.member.BucketId)
+		if err != nil {
+			return nil, err
+		}
+
+		return qm.startIMAttempt(res, model.NewInt(int(agentId)), att.member.BucketId)
+	}
+
+	var bucketId *int32
+	if int(queueId) == att.QueueId() {
+		bucketId = att.member.BucketId
+	}
+
+	priority, err := qm.store.Member().AttemptWeight(att.Id())
+	if err != nil {
+		return nil, err
+	}
+
+	return qm.distributeIMDestination(int64(queueId), threadId, dest, att.member.Variables, bucketId, priority, nil)
+}
+
+func (qm *Manager) completeIMTransfer(fromId int64, to *Attempt, toAgent agent_manager.AgentObject) {
+	from, ok := qm.GetAttempt(fromId)
+	if !ok {
+		to.Log(fmt.Sprintf("transfer source attempt %d not found", fromId))
+		return
+	}
+
+	fromAgent := from.Agent()
+	from.completeIMTransfer()
+
+	if fromAgent == nil {
+		return
+	}
+
+	if err := qm.store.Member().TransferredIM(fromId, to.Id(), fromAgent.Id(), toAgent.Id()); err != nil {
+		to.log.Error(err.Error(),
+			wlog.Err(err),
+			wlog.Int64("from_attempt_id", fromId),
+		)
+	}
+}
+
+func (qm *Manager) releaseIMTransfer(fromId, toId int64) {
+	if fromId == 0 {
+		return
+	}
+
+	if from, ok := qm.GetAttempt(fromId); ok {
+		from.releaseIMTransfer(toId)
+	}
 }
 
 func (qm *Manager) NewIMSession(att *Attempt, subBot, subMember, memberId string) *im.Session {
@@ -1091,58 +1224,58 @@ func (qm *Manager) InterceptAttempt(ctx context.Context, domainId, attemptId int
 
 func (qm *Manager) TimeoutLeavingMember(attempt *Attempt) {
 	queue := attempt.queue
-	if queue != nil {
-		var waitBetween uint64
-		var maxAttempts uint
-		var perNumbers bool
+	if queue == nil {
+		return
+	}
 
-		result := model.AttemptCallback{
-			Status: "timeout",
+	result := model.AttemptCallback{Status: "timeout"}
+	if !queue.IsProlongationTimeoutRetry() {
+		result.Status = AttemptResultCancelledByTimeout
+	}
+
+	if callback, ok := attempt.AfterDistributeSchema(); ok {
+		result = model.AttemptCallback{
+			Status:        callback.Status,
+			Description:   callback.Description,
+			Display:       callback.Display,
+			Variables:     callback.Variables,
+			StickyAgentId: nil,
+			NextCallAt:    nil,
+			ExpireAt:      nil,
 		}
 
-		if !queue.IsProlongationTimeoutRetry() {
-			result.Status = AttemptResultCancelledByTimeout
+		if callback.AgentId > 0 {
+			result.StickyAgentId = model.NewInt(int(callback.AgentId))
 		}
 
-		if callback, ok := attempt.AfterDistributeSchema(); ok {
-			result = model.AttemptCallback{
-				Status:        callback.Status,
-				Description:   callback.Description,
-				Display:       callback.Display,
-				Variables:     callback.Variables,
-				StickyAgentId: nil,
-				NextCallAt:    nil,
-				ExpireAt:      nil,
-			}
+		attempt.DropDraftResult()
+	}
 
-			waitBetween = attempt.waitBetween
-			maxAttempts = attempt.maxAttempts
-			perNumbers = attempt.perNumbers
+	if attempt.Draft() == nil {
+		cfg := attempt.ReportingConfig()
+		res, err := qm.store.Member().SchemaResult(
+			attempt.Id(),
+			&result,
+			cfg.MaxAttempts,
+			cfg.WaitBetween,
+			cfg.PerNumbers,
+		)
 
-			if callback.AgentId > 0 {
-				result.StickyAgentId = model.NewInt(int(callback.AgentId))
-			}
-		}
-
-		res, err := qm.store.Member().SchemaResult(attempt.Id(), &result, maxAttempts, waitBetween, perNumbers)
 		if err != nil {
-			attempt.log.Error(err.Error(),
-				wlog.Err(err),
-			)
-
+			attempt.log.Error("saving member schema result", wlog.Err(err))
 			return
 		}
+
 		if res.MemberStopCause != nil {
 			attempt.SetMemberStopCause(res.MemberStopCause)
 		}
 
-		if res.Result != nil {
-			attempt.SetResult(*res.Result)
-		} else {
-			attempt.SetResult(AttemptResultAbandoned)
-		}
-		qm.LeavingMember(attempt)
+		attempt.SetResult(
+			*cmp.Or(res.Result, model.NewString(AttemptResultAbandoned)),
+		)
 	}
+
+	qm.LeavingMember(attempt)
 }
 
 func (qm *Manager) LeavingMember(attempt *Attempt) {
@@ -1152,24 +1285,51 @@ func (qm *Manager) LeavingMember(attempt *Attempt) {
 
 	if attempt.manualDistribution && attempt.bridgedAt == 0 {
 		if err := qm.app.NotificationInterceptAttempt(attempt.domainId, attempt.QueueId(), attempt.channel, attempt.Id(), 0); err != nil {
-			attempt.log.Error(fmt.Sprintf("intercept attempt %d notification, error : %s", attempt.Id(), err.Error()),
+			attempt.log.Error(
+				fmt.Sprintf("intercept attempt %d notification, error : %s", attempt.Id(), err.Error()),
 				wlog.Err(err),
 			)
 		}
 	}
 
-	// todo fixme: bug if offering && reporting
-	if _, ok := qm.membersCache.Get(attempt.Id()); !ok {
-		attempt.log.Error(fmt.Sprintf("[%d] not found", attempt.Id()))
+	if _, exists := qm.membersCache.Get(attempt.Id()); !exists { // todo fixme: bug if offering && reporting
+		attempt.log.Error("not exists in member cache")
 		return
 	}
+
+	if attempt.IsProcessingAutosaveEnabled() {
+		qm.FlushAttemptFields(context.Background(), attempt)
+
+		if draft := attempt.Draft(); draft != nil {
+			cfg := attempt.ReportingConfig()
+			_, err := qm.store.Member().SchemaResult(
+				attempt.Id(),
+				draft,
+				cfg.MaxAttempts,
+				cfg.WaitBetween,
+				cfg.PerNumbers,
+			)
+
+			if err != nil {
+				attempt.log.Error("saving draft reporting into history", wlog.Err(err))
+			}
+		}
+	}
+
 	attempt.SetState(HookLeaving)
 	attempt.Close()
 	qm.membersCache.Remove(attempt.Id())
 	qm.wg.Done()
 
-	attempt.log.Info(fmt.Sprintf("[%s] leaving member %s[%v] AttemptId=%d  from queue \"%s\" [%d]", attempt.queue.TypeName(), attempt.Name(),
-		attempt.MemberId(), attempt.Id(), attempt.queue.Name(), qm.membersCache.Len()))
+	attempt.log.Info(fmt.Sprintf(
+		"[%s] leaving member %s[%v] AttemptId=%d  from queue \"%s\" [%d]",
+		attempt.queue.TypeName(),
+		attempt.Name(),
+		attempt.MemberId(),
+		attempt.Id(),
+		attempt.queue.Name(),
+		qm.membersCache.Len(),
+	))
 }
 
 func (qm *Manager) GetAttemptResource(attempt *Attempt) ResourceObject {
@@ -1255,23 +1415,34 @@ func (qm *Manager) SaveFormFields(ctx context.Context, domainId, id int64, field
 		att.processingForm.Update(form, fields)
 	}
 
-	// store db ?
-	if att.IsProcessingAutosaveEnabled() {
-		if err := qm.store.Member().UpdateProcessingFormAtHistory(ctx, id, fields); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
+func (qm *Manager) FlushAttemptFields(ctx context.Context, att *Attempt) {
+	if len(att.ProcessingFields()) == 0 {
+		return
+	}
+
+	if err := qm.store.Member().UpdateProcessingFormAtHistory(ctx, att.Id(), att.ProcessingFields()); err != nil {
+		att.log.Error("flushing form fields into history", wlog.Err(err))
+	}
+}
+
 func (qm *Manager) Abandoned(attempt *Attempt) {
-	res, err := qm.store.Member().SetAttemptAbandonedWithParams(attempt.Id(), 0, 0, nil,
-		attempt.perNumbers, attempt.excludeCurrNumber, attempt.redial, attempt.description, attempt.stickyAgentId)
+	res, err := qm.store.Member().SetAttemptAbandonedWithParams(
+		attempt.Id(),
+		0,
+		0,
+		nil,
+		attempt.perNumbers,
+		attempt.excludeCurrNumber,
+		attempt.redial,
+		attempt.description,
+		attempt.stickyAgentId,
+	)
+
 	if err != nil {
-		attempt.log.Error(err.Error(),
-			wlog.Err(err),
-		)
+		attempt.log.Error(err.Error(), wlog.Err(err))
 	} else if res.MemberStopCause != nil {
 		attempt.SetMemberStopCause(res.MemberStopCause)
 	}
@@ -1428,56 +1599,75 @@ func (qm *Manager) RenewalAttempt(domainId, attemptId int64, renewal uint32) (er
 	return qm.mq.AgentChannelEvent(data.Channel, data.DomainId, data.QueueId, data.UserId, ev)
 }
 
-func (qm *Manager) ReportingAttempt(attemptId int64, result model.AttemptCallback, system bool) *model.AppError {
-	if result.Status == "" {
-		result.Status = "abandoned"
+func (qm *Manager) processAttemptCallback(a *Attempt, result *model.AttemptCallback, system bool) *model.AppError {
+	if a == nil {
+		return nil
 	}
 
-	qm.log.Debug(fmt.Sprintf("attempt[%d] callback: %v", attemptId, result),
+	a.SetCallback(result)
+	if qm.waitChannelClose && !system {
+		if err := qm.setChannelReporting(a, result.Status, true); err != nil {
+			a.log.Error("setting channel reporting", wlog.Err(err))
+
+			if err != errNotFoundConnection && a.state != model.MemberStateProcessing {
+				return err
+			}
+		}
+	}
+
+	a.ApplyCallbackRules(result)
+
+	return nil
+}
+
+func (qm *Manager) ReportingAttempt(attemptId int64, result model.AttemptCallback, system, draft bool) *model.AppError {
+	result.Status = cmp.Or(result.Status, "abandoned")
+	qm.log.Debug("processing attempt callback",
 		wlog.Int64("attempt_id", attemptId),
-		wlog.Any("result", result),
+		wlog.String("status", result.Status),
+		wlog.String("system", strconv.FormatBool(system)),
+		wlog.Int("variables_count", len(result.Variables)),
 	)
 
 	attempt, _ := qm.GetAttempt(attemptId)
 
-	var waitBetween uint64 = 0
-	var maxAttempts uint = 0
-	perNumbers := false
+	if attempt != nil && draft {
+		attempt.UseDraft(&result)
 
-	if attempt != nil {
-		// TODO [biz]
-		if qm.waitChannelClose && !system {
-			attempt.SetCallback(&result)
-			err := qm.setChannelReporting(attempt, result.Status, true)
-			if err != nil {
-				attempt.Log(err.Error())
-			}
-			if err != errNotFoundConnection && attempt.state != model.MemberStateProcessing {
-				return err
-			}
+		if err := qm.setChannelReporting(attempt, result.Status, false); err != nil {
+			attempt.log.Error("setting channel reporting on draft", wlog.Err(err))
 		}
 
-		attempt.SetCallback(&result)
-		if r, ok := attempt.AfterDistributeSchema(); ok {
-			if r.Status != "" {
-				result.Status = r.Status
-			}
-			if r.Variables != nil {
-				result.Variables = model.UnionStringMaps(result.Variables, r.Variables)
-			}
-		}
-		waitBetween = attempt.waitBetween
-		maxAttempts = attempt.maxAttempts
-		perNumbers = attempt.perNumbers
+		return nil
 	}
 
-	res, err := qm.store.Member().CallbackReporting(attemptId, &result, maxAttempts, waitBetween, perNumbers)
+	attempt.DropDraftResult()
+
+	if err := qm.processAttemptCallback(attempt, &result, system); err != nil {
+		return err
+	}
+
+	cfg := attempt.ReportingConfig()
+	res, err := qm.store.Member().CallbackReporting(
+		attemptId,
+		&result,
+		cfg.MaxAttempts,
+		cfg.WaitBetween,
+		cfg.PerNumbers,
+	)
+
 	if err != nil {
 		return err
 	}
 
 	if !system {
-		err = qm.closeBeforeReporting(attemptId, res, result.Status, attempt)
+		if closeErr := qm.closeBeforeReporting(attemptId, res, result.Status, attempt); closeErr != nil {
+			qm.log.Warn(
+				"closing channel before reporting",
+				wlog.Int64("attempt_id", attemptId),
+				wlog.Err(closeErr),
+			)
+		}
 	}
 
 	return qm.doLeavingReporting(attemptId, attempt, res, &result)
@@ -1496,7 +1686,6 @@ func (qm *Manager) doLeavingReporting(attemptId int64, attempt *Attempt, res *mo
 		if res.AgentTimeout != nil && *res.AgentTimeout > 0 {
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, *res.AgentTimeout)
 		} else {
-			// ev = NewWaitingChannelEvent(ch, *res.UserId, &attemptId, res.Timestamp)
 			ev = NewWrapTimeEventEvent(ch, &attemptId, *res.UserId, res.Timestamp, 0)
 		}
 		q := 0
@@ -1549,7 +1738,19 @@ func (qm *Manager) getAgentTaskFromAttemptId(id int64) (*TaskChannel, *model.App
 	return task, nil
 }
 
-func (qm *Manager) AcceptAgentTask(attemptId int64) *model.AppError {
+func (qm *Manager) AcceptAgentTask(ctx context.Context, attemptId int64) *model.AppError {
+	select {
+	case <-ctx.Done():
+		return model.NewAppError(
+			"Queue.AcceptAgentTask",
+			"queue.queue_manager.accept_agent_task_canceled",
+			nil,
+			fmt.Sprintf("canceled due to user request: %+v", ctx.Err()),
+			499,
+		)
+	default:
+	}
+
 	task, err := qm.getAgentTaskFromAttemptId(attemptId)
 	if err != nil {
 		return err

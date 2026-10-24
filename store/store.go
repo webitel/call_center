@@ -40,6 +40,7 @@ type OutboundResourceStore interface {
 type QueueStore interface {
 	GetById(id int64) (*model.Queue, *model.AppError)
 	UserIds(queueId, skipAgentId int) (model.Int64Array, *model.AppError)
+	RecordAllCalls(domainID int64) (bool, *model.AppError)
 }
 
 type MemberStore interface {
@@ -50,6 +51,8 @@ type MemberStore interface {
 
 	DistributeChatToQueue(node string, queueId int64, convId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int, extraChatCount bool) (*model.InboundChatQueue, *model.AppError)
 	DistributeIMToQueue(node string, queueId int64, convId string, dest []byte, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundIMQueue, *model.AppError)
+	DistributeIMToAgent(node string, queueId int64, agentId int, threadId string, dest []byte, vars map[string]string, bucketId *int32) (*model.InboundIMQueue, *model.AppError)
+	AttemptWeight(id int64) (int, *model.AppError)
 	DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError)
 	DistributeCallToQueue(node string, queueId int64, callId string, vars map[string]string, bucketId *int32, priority int, stickyAgentId *int) (*model.InboundCallQueue, *model.AppError)
 	DistributeCallToQueueCancel(id int64) *model.AppError
@@ -65,7 +68,7 @@ type MemberStore interface {
 	SetDistributeCancel(id int64, description string, nextDistributeSec uint32, stop bool, vars map[string]string) *model.AppError
 
 	SetAttemptFindAgent(id int64) *model.AppError
-	AnswerPredictAndFindAgent(id int64) *model.AppError
+	AnswerPredictAndFindAgent(id int64, holdAgent bool) *model.AppError
 
 	SetAttemptOffering(attemptId int64, agentId *int, agentCallId, memberCallId, destination, display *string) (int64, *model.AppError)
 	SetAttemptBridged(attemptId int64) (int64, *model.AppError)
@@ -95,6 +98,7 @@ type MemberStore interface {
 
 	TransferredTo(id, toId int64) *model.AppError
 	TransferredFrom(id, toId int64, toAgentId int, toAgentSessId string) *model.AppError
+	TransferredIM(fromId, toId int64, fromAgentId, toAgentId int) *model.AppError
 	CancelAgentDistribute(agentId int) ([]int64, *model.AppError)
 	SetExpired(limit int) ([]*model.ExpiredMember, *model.AppError)
 
@@ -105,7 +109,7 @@ type MemberStore interface {
 	FlipResource(attemptId int64, skippResources []int) (*model.AttemptFlipResource, *model.AppError)
 
 	Intercept(ctx context.Context, domainId, attemptId int64, agentId int32) (int, *model.AppError)
-	WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError)
+	WaitingList(ctx context.Context) ([]*model.MemberWaitingByUsers, *model.AppError)
 	UpdateProcessingFormAtHistory(ctx context.Context, id int64, formFields map[string]string) *model.AppError
 }
 

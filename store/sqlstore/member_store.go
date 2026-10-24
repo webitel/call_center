@@ -83,15 +83,56 @@ func (s *SqlMemberStore) SetAttemptFindAgent(id int64) *model.AppError {
 	return nil
 }
 
-func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64) *model.AppError {
-	if _, err := s.GetMaster().Exec(`update call_center.cc_member_attempt
-			set state = :State,
-				agent_id = null,
-				answered_at = now()
-			where id = :Id and state != :CancelState and result isnull`, map[string]any{
+func (s *SqlMemberStore) AnswerPredictAndFindAgent(id int64, holdAgent bool) *model.AppError {
+	if _, err := s.GetMaster().Exec(`  update call_center.cc_member_attempt m
+     set state       = :State,
+         answered_at = now(),
+         agent_id    = case
+             -- прапорець черги payload.hold_reserved_agent. Вимкнено -> агент
+             -- звільняється як раніше, гард навіть не виконується.
+             when :HoldAgent::bool and exists (
+                 select 1
+                   from call_center.cc_agent_channel ch
+                        join call_center.cc_agent ag on ag.id = ch.agent_id
+                  where ch.agent_id = m.agent_id
+                    and ch.channel  = 'call'
+                    and ch.state    = 'waiting'
+                    and ag.status   = 'online'
+                    -- пристрій зареєстрований: та сама перевірка, що в циклі
+                    -- розподілу (cc_sql.c:1852-1855). Без неї можна зберегти
+                    -- агента з відвалленим софтфоном, плече не додзвониться,
+                    -- і він отримає no_answer аж до примусового break_out.
+                    and exists (select 1
+                                  from directory.wbt_user u
+                                       inner join directory.wbt_user_presence pr
+                                               on pr.user_id = u.id
+                                 where u.id = ag.user_id
+                                   and u.device_id notnull
+                                   and pr.status = 'sip'
+                                   and pr.open > 0
+                                   and length(coalesce(u.extension, '')) > 0)
+                    and not exists (select 1
+                                      from call_center.cc_calls c
+                                     where c.user_id = ag.user_id
+                                       and c.hangup_at isnull)
+                    and not exists (select 1
+                                      from call_center.cc_agent_channel ch2
+                                     where ch2.agent_id = ch.agent_id
+                                       and ch2.channel <> 'call'
+                                       and ch2.state not in ('waiting', 'idle'))
+                    and not exists (select 1
+                                      from call_center.cc_member_attempt m2
+                                     where m2.agent_id = m.agent_id
+                                       and m2.id      <> m.id
+                                       and m2.state in ('wait_agent', 'active', 'offering'))
+             ) then m.agent_id
+             else null
+         end
+   where m.id = :Id and m.state != :CancelState and m.result isnull`, map[string]any{
 		"Id":          id,
 		"State":       model.MemberStateWaitAgent,
 		"CancelState": model.MemberStateCancel,
+		"HoldAgent":   holdAgent,
 	}); err != nil {
 		return model.NewAppError("SqlMemberStore.AnswerPredictAndFindAgent", "store.sql_member.set_attempt_answer_find_agent.app_error", nil,
 			fmt.Sprintf("Id=%v, %s", id, err.Error()), http.StatusInternalServerError)
@@ -403,6 +444,63 @@ as x (
 	}
 
 	return attempt, nil
+}
+
+func (s *SqlMemberStore) DistributeIMToAgent(node string, queueId int64, agentId int, threadId string, dest []byte, vars map[string]string, bucketId *int32) (*model.InboundIMQueue, *model.AppError) {
+	var attempt *model.InboundIMQueue
+
+	var v *string
+	if vars != nil {
+		v = new(string)
+		*v = model.MapToJson(vars)
+	}
+
+	if err := s.GetMaster().SelectOne(&attempt, `
+select *
+		from call_center.cc_distribute_im_to_agent(:AppId::varchar, :QueueId::int8, :AgentId::int, :ThreadId::varchar,
+		:Destination::jsonb, :Variables::jsonb, :BucketId::int)
+as x (
+    attempt_id int8,
+    queue_id int,
+    queue_updated_at int8,
+    destination jsonb,
+    variables jsonb,
+    name varchar,
+    team_updated_at int8,
+
+    thread_id varchar,
+    thread_created_at int8,
+    list_communication_id int8,
+    agent_updated_at int8
+);`,
+		map[string]any{
+			"AppId":       node,
+			"QueueId":     queueId,
+			"AgentId":     agentId,
+			"ThreadId":    threadId,
+			"Destination": dest,
+			"Variables":   v,
+			"BucketId":    bucketId,
+		}); err != nil {
+		return nil, model.NewAppError("SqlMemberStore.DistributeIMToAgent", "store.sql_member.distribute_im_agent.app_error", nil,
+			fmt.Sprintf("QueueId=%v, AgentId=%v, Id=%v %s", queueId, agentId, threadId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return attempt, nil
+}
+
+func (s *SqlMemberStore) AttemptWeight(id int64) (int, *model.AppError) {
+	weight, err := s.GetMaster().SelectInt(`select coalesce(weight, 0)
+from call_center.cc_member_attempt
+where id = :Id`, map[string]any{
+		"Id": id,
+	})
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.AttemptWeight", "store.sql_member.attempt_weight.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", id, err.Error()), http.StatusInternalServerError)
+	}
+
+	return int(weight), nil
 }
 
 func (s *SqlMemberStore) DistributeDirect(node string, memberId int64, communicationId, agentId int) (*model.MemberAttempt, *model.AppError) {
@@ -973,6 +1071,27 @@ func (s *SqlMemberStore) TransferredFrom(id, toId int64, toAgentId int, toAgentS
 	return nil
 }
 
+func (s *SqlMemberStore) TransferredIM(fromId, toId int64, fromAgentId, toAgentId int) *model.AppError {
+	_, err := s.GetMaster().Exec(`with a as (
+    update call_center.cc_member_attempt
+    set transferred_attempt_id = :ToId
+    where id = :FromId
+)
+insert into call_center.cc_member_attempt_transferred (from_id, to_id, from_agent_id, to_agent_id)
+values (:FromId, :ToId, :FromAgentId, :ToAgentId)`, map[string]any{
+		"FromId":      fromId,
+		"ToId":        toId,
+		"FromAgentId": fromAgentId,
+		"ToAgentId":   toAgentId,
+	})
+	if err != nil {
+		return model.NewAppError("SqlMemberStore.TransferredIM", "store.sql_member.set_attempt_trans_im.app_error", nil,
+			fmt.Sprintf("AttemptId=%v %s", fromId, err.Error()), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
 func (s *SqlMemberStore) CancelAgentDistribute(agentId int) ([]int64, *model.AppError) {
 	var res []int64
 	_, err := s.GetMaster().Select(&res, `
@@ -1194,13 +1313,21 @@ where id = :Id;`, map[string]any{
 	return nil
 }
 
-func (s *SqlMemberStore) WaitingList() ([]*model.MemberWaitingByUsers, *model.AppError) {
+func (s *SqlMemberStore) WaitingList(ctx context.Context) ([]*model.MemberWaitingByUsers, *model.AppError) {
 	var list []*model.MemberWaitingByUsers
-	_, err := s.GetMaster().Select(&list, `select domain_id, users, chats, calls
-from call_center.cc_manual_queue_list`)
+	_, err := s.GetMaster().WithContext(ctx).Select(
+		&list,
+		`select domain_id, users, chats, calls from call_center.cc_manual_queue_list`,
+	)
+
 	if err != nil {
-		return nil, model.NewAppError("SqlMemberStore.WaitingList", "store.sql_member.waiting_list.app_error", nil,
-			err.Error(), extractCodeFromErr(err))
+		return nil, model.NewAppError(
+			"SqlMemberStore.WaitingList",
+			"store.sql_member.waiting_list.app_error",
+			nil,
+			err.Error(),
+			extractCodeFromErr(err),
+		)
 	}
 
 	return list, nil

@@ -259,3 +259,11 @@ type SetOnlineAtomicResponse struct {
 	Timestamp    int64          `json:"login_timestamp" db:"login_timestamp"`
 	StatusPreset Lookup         `json:"status_preset" db:"status_preset"`
 }
+
+type AcceptAttemptRequest struct {
+	ID       int64
+	AppID    string
+	DomainID int64
+	UserID   int64
+	AgentID  int64
+}

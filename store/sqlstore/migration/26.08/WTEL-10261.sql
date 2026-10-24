@@ -3,6 +3,9 @@ drop VIEW if exists flow.acr_routing_outbound_call_view;
 alter table flow.acr_routing_outbound_call
     add column allow_transfer boolean DEFAULT false NOT NULL;
 
+update flow.acr_routing_outbound_call
+set allow_transfer = true;
+
 --
 -- Name: acr_routing_outbound_call_view; Type: VIEW; Schema: flow; Owner: -
 --

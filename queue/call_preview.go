@@ -181,6 +181,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		})
 	}
 
+	recordings, recordMono, recordAll := bridgeRecordings(queue.RecordAllCalls(), queue.Recordings, queue.RecordMono, queue.RecordAll)
+
 	callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 		AppName: "bridge",
 		Args: attempt.resource.Gateway().Bridge(model.BridgeRequest{
@@ -191,9 +193,9 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			Destination: attempt.Destination(),
 			Display:     callerIdNumber,
 			Timeout:     queue.OriginateTimeout,
-			Recordings:  queue.Recordings,
-			RecordMono:  queue.RecordMono,
-			RecordAll:   queue.RecordAll,
+			Recordings:  recordings,
+			RecordMono:  recordMono,
+			RecordAll:   recordAll,
 		}),
 	})
 

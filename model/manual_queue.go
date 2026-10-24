@@ -11,6 +11,7 @@ type MemberWaiting struct {
 	Deadline      int             `json:"deadline" db:"deadline"`
 	Channel       string          `json:"channel" db:"channel"`
 	SessionId     string          `json:"session_id,omitempty" db:"session_id,omitempty"`
+	Contact       *Lookup         `json:"contact,omitempty" db:"contact"`
 }
 
 type MemberWaitingByUsers struct {
