@@ -60,8 +60,8 @@ func (am *agentManager) SetHookAutoOfflineAgent(hook HookAutoOfflineAgent) {
 
 func (am *agentManager) Start() {
 	am.log.Debug("starting agent service")
-	am.watcher = utils.MakeWatcher("AgentManager", watcherPollingInterval, am.changeDeadlineState)
 	am.startOnce.Do(func() {
+		am.watcher = utils.MakeWatcher("AgentManager", watcherPollingInterval, am.changeDeadlineState)
 		go am.watcher.Start()
 	})
 }
