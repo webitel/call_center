@@ -415,10 +415,10 @@ func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.Age
 	}
 
 	if sess.HasPreview() {
-		return sess.UpgradePreviewUser(attempt.Context, agent.UserId())
+		return sess.UpgradePreviewUser(attempt.Context, agent.UserId(), queue.imQueue())
 	}
 
-	return sess.AddMemberUser(attempt.Context, agent.UserId())
+	return sess.AddMemberUser(attempt.Context, agent.UserId(), queue.imQueue())
 }
 
 // transferAgent replaces the transfer initiator with the accepted agent in one gateway call
@@ -426,13 +426,18 @@ func (queue *InboundIMQueue) joinAgent(attempt *Attempt, agent agent_manager.Age
 func (queue *InboundIMQueue) transferAgent(attempt *Attempt, agent agent_manager.AgentObject, sess *im.Session, imInfo IMThreadCommunication) error {
 	queue.removePreview(attempt, agent, sess)
 
-	if err := sess.TransferMemberUser(attempt.Context, agent.UserId(), imInfo.TransferFrom); err != nil {
+	if err := sess.TransferMemberUser(attempt.Context, agent.UserId(), imInfo.TransferFrom, queue.imQueue()); err != nil {
 		return err
 	}
 
 	queue.queueManager.completeIMTransfer(imInfo.TransferAttemptId, attempt, agent)
 
 	return nil
+}
+
+// imQueue is the queue reported to im-gateway as the one through which the agent receives the thread.
+func (queue *InboundIMQueue) imQueue() im.Queue {
+	return im.Queue{Id: int64(queue.Id()), Name: queue.Name()}
 }
 
 // handleTimeoutTick processes periodic timeout checks

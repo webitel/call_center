@@ -18,6 +18,20 @@ import (
 // MaxPreviewDuration is the upper bound accepted by im-gateway GivePreview (duration_ms <= 3600000).
 const MaxPreviewDuration = time.Hour
 
+const (
+	// queueIDHeader carries the call_center queue id on member calls; im-gateway stores it as the thread queue.
+	queueIDHeader = "x-webitel-queue-id"
+	// queueNameHeader carries the queue display name. Binary (-bin) metadata: gRPC base64-encodes it on the wire,
+	// so non-ASCII names are safe.
+	queueNameHeader = "x-webitel-queue-name-bin"
+)
+
+// Queue is the call_center queue through which an agent receives the thread.
+type Queue struct {
+	Id   int64
+	Name string
+}
+
 // IsAlreadyMember reports whether err is gRPC AlreadyExists (the contact is already a thread member).
 func IsAlreadyMember(err error) bool {
 	return status.Code(err) == codes.AlreadyExists
@@ -221,9 +235,9 @@ func (s *Session) RemovePreviewUser(ctx context.Context) error {
 
 // UpgradePreviewUser atomically turns the active preview into a full ROLE_MEMBER, the same role AddMemberUser uses.
 // On error the preview state is kept so RemovePreviewUser can still revoke it.
-func (s *Session) UpgradePreviewUser(ctx context.Context, userId int64) error {
+func (s *Session) UpgradePreviewUser(ctx context.Context, userId int64, queue Queue) error {
 	res, err := s.cli.preview.Api.UpgradePreviewToFullMember(
-		metadata.NewOutgoingContext(ctx, s.hdrs),
+		s.queueContext(ctx, queue),
 		&thread.UpgradePreviewToFullMemberRequest{
 			ThreadId: s.threadId,
 			Contact:  userPeer(userId),
@@ -270,9 +284,9 @@ func (s *Session) IsUserJoined(userId int64) bool {
 	return s.userId != "" && s.userId == strconv.FormatInt(userId, 10)
 }
 
-func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
+func (s *Session) AddMemberUser(ctx context.Context, userId int64, queue Queue) error {
 	res, err := s.cli.Api.AddMember(
-		metadata.NewOutgoingContext(ctx, s.hdrs),
+		s.queueContext(ctx, queue),
 		&thread.AddMemberRequest{
 			ThreadId: s.threadId,
 			Contact:  userPeer(userId),
@@ -287,9 +301,10 @@ func (s *Session) AddMemberUser(ctx context.Context, userId int64) error {
 	return nil
 }
 
-func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUserId string) error {
+// TransferMemberUser passes the queue through which the new agent receives the thread; the initiator's queue is not inherited.
+func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUserId string, queue Queue) error {
 	res, err := s.cli.Api.Transfer(
-		metadata.NewOutgoingContext(ctx, s.hdrs),
+		s.queueContext(ctx, queue),
 		&thread.TransferRequest{
 			ThreadId: s.threadId,
 			Contact:  userPeer(userId),
@@ -306,6 +321,18 @@ func (s *Session) TransferMemberUser(ctx context.Context, userId int64, fromUser
 	s.setAgent(res.GetMember().GetId(), userId)
 
 	return nil
+}
+
+// queueContext returns an outgoing context with the session headers plus the queue headers.
+// A queue without a positive id is not sent: im-gateway then leaves the member without a queue.
+func (s *Session) queueContext(ctx context.Context, queue Queue) context.Context {
+	md := s.hdrs.Copy()
+	if queue.Id > 0 {
+		md.Set(queueIDHeader, strconv.FormatInt(queue.Id, 10))
+		md.Set(queueNameHeader, queue.Name)
+	}
+
+	return metadata.NewOutgoingContext(ctx, md)
 }
 
 func (s *Session) setAgent(memberId string, userId int64) {
