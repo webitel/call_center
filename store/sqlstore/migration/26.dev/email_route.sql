@@ -21,7 +21,21 @@ ALTER TABLE flow.email_event
     -- Failed joins of the route watcher.
     ADD COLUMN IF NOT EXISTS route_attempts     integer NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS route_last_error   text,
-    ADD COLUMN IF NOT EXISTS route_reason       text;
+    ADD COLUMN IF NOT EXISTS route_reason       text,
+    -- JoinQueue values the watcher repeats without a new lookup: the fallback defaults until the
+    -- Flow writes its intent.
+    ADD COLUMN IF NOT EXISTS route_priority          integer,
+    ADD COLUMN IF NOT EXISTS route_sticky_agent_id   integer,
+    ADD COLUMN IF NOT EXISTS route_extra_email_count boolean,
+    -- Normalized initial From of the event, set at wake-up; '' when it has none.
+    ADD COLUMN IF NOT EXISTS route_from_address      text;
+
+-- Routes waiting for the Flow or the fallback keep the fallback defaults; the check is added again below.
+ALTER TABLE flow.email_event DROP CONSTRAINT IF EXISTS email_event_route_params_valid;
+UPDATE flow.email_event
+SET route_priority = 0, route_sticky_agent_id = 0, route_extra_email_count = false
+WHERE route_state IN ('pending', 'resolving')
+  AND (route_priority, route_sticky_agent_id, route_extra_email_count) IS DISTINCT FROM (0, 0, false);
 
 ALTER TABLE flow.email_event
     DROP CONSTRAINT IF EXISTS email_event_route_state_valid,
@@ -59,7 +73,16 @@ ALTER TABLE flow.email_event
         CHECK ((route_queue_id IS NULL OR route_queue_id > 0)
             AND (fallback_queue_id IS NULL OR fallback_queue_id > 0)
             AND route_attempts >= 0
-            AND (route_last_error IS NULL OR char_length(route_last_error) <= 1024));
+            AND (route_last_error IS NULL OR char_length(route_last_error) <= 1024)),
+    DROP CONSTRAINT IF EXISTS email_event_route_params_valid,
+    ADD CONSTRAINT email_event_route_params_valid
+        CHECK ((route_priority IS NULL) = (route_sticky_agent_id IS NULL)
+            AND (route_priority IS NULL) = (route_extra_email_count IS NULL)
+            AND (coalesce(route_state, '') NOT IN ('pending', 'resolving')
+                OR (route_priority, route_sticky_agent_id, route_extra_email_count) IS NOT DISTINCT FROM (0, 0, false))
+            AND (route_priority IS NULL OR route_priority BETWEEN 0 AND 100)
+            AND (route_sticky_agent_id IS NULL OR route_sticky_agent_id >= 0)
+            AND (route_from_address IS NULL OR char_length(route_from_address) <= 320));
 
 -- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip; it is dropped
 -- CONCURRENTLY too, so a repeated run does not lock the Inbox.

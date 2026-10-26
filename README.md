@@ -493,7 +493,7 @@ most once in 5 minutes each.
    snapshot functions of `email_attempt_lifecycle.sql`, which must not be
    repeated after it. Apply `email_route.sql` the same way after
    `email_service_inbox.sql`; it adds the route of an event to the Inbox of
-   `flow_manager`.
+   `flow_manager`, with the JoinQueue values and the initial From it repeats.
 3. Release `engine` with the base, Extra and postponed Email limits of agents,
    then every `call_center` node with the allocator, the watcher and the
    snapshot publisher off, then `flow_manager` once no node runs the old
