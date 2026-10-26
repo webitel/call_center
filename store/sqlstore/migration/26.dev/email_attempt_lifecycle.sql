@@ -221,6 +221,10 @@ CREATE TABLE IF NOT EXISTS call_center.cc_email_wakeup
         )
 );
 
+-- Response of a Flow resume that found nothing to resume after this wake-up; a repeat returns it.
+ALTER TABLE call_center.cc_email_wakeup
+    ADD COLUMN IF NOT EXISTS resume_response jsonb;
+
 -- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip.
 DO $$
 DECLARE
@@ -249,6 +253,35 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_timeout_idx
 CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_postponed_idx
     ON call_center.cc_member_attempt (postponed_until, id)
     WHERE channel = 'email' AND state = 'postponed' AND leaving_at IS NULL;
+
+-- Email load of the agent as in stage 10; a postponed Email holds no slot.
+CREATE OR REPLACE FUNCTION call_center.cc_email_agent_capacity(_agent_id integer, _extra_allowed boolean DEFAULT false)
+    RETURNS TABLE (used_base integer, used_extra integer, used_slots integer, base_limit integer, extra_limit integer,
+                   has_slot_type boolean, slot_type text)
+    LANGUAGE sql
+    STABLE
+AS $$
+    SELECT u.used_base::integer, u.used_extra::integer, u.used_slots::integer,
+           a.email_count::integer, a.extra_email_count::integer,
+           a.email_count > 0 OR (_extra_allowed AND a.extra_email_count > 0),
+           CASE
+               -- A partial/unsupported upgrade must not make unclassified assignments invisible.
+               WHEN u.unknown_slots > 0 THEN NULL::text
+               WHEN u.used_base < a.email_count THEN 'base'
+               WHEN _extra_allowed AND u.used_extra < a.extra_email_count THEN 'extra'
+           END
+    FROM call_center.cc_agent a
+             CROSS JOIN LATERAL (
+                 SELECT count(*) FILTER (WHERE ea.email_slot_type = 'base') AS used_base,
+                        count(*) FILTER (WHERE ea.email_slot_type = 'extra') AS used_extra,
+                        count(*) AS used_slots,
+                        count(*) FILTER (WHERE ea.email_slot_type IS NULL OR ea.email_slot_type NOT IN ('base', 'extra')) AS unknown_slots
+                 FROM call_center.cc_member_attempt ea
+                 WHERE ea.agent_id = a.id AND ea.channel = 'email'
+                   AND ea.leaving_at IS NULL AND ea.state NOT IN ('leaving', 'postponed')
+             ) u
+    WHERE a.id = _agent_id
+$$;
 
 -- Fingerprint of a command: its operation, caller form and normalized arguments; NULL is kept apart.
 CREATE OR REPLACE FUNCTION call_center.cc_email_command_fingerprint(VARIADIC _parts text[])
@@ -332,6 +365,11 @@ DECLARE
     _limit       integer;
     _used        integer;
     _online      boolean;
+    _slot        text;
+    _w_id        bigint;
+    _w_state     text;
+    _w_version   bigint;
+    _w_response  jsonb;
     _transition  text;
     _sequence    bigint;
 BEGIN
@@ -372,6 +410,17 @@ BEGIN
         WHERE w.event_id = _email_event_id AND w.domain_id = _domain_id AND w.thread_id = _thread_id AND w.state = 'applied';
         IF NOT FOUND THEN
             RAISE EXCEPTION USING ERRCODE = 'EMAWK', MESSAGE = format('email attempt: event %s did not wake thread %s', _email_event_id, _thread_id);
+        END IF;
+        -- A repeated Flow resume that was a no-op returns its first response, whatever happened since.
+        IF _op = 'resume' THEN
+            SELECT w.resume_response INTO _w_response FROM call_center.cc_email_wakeup w WHERE w.event_id = _email_event_id;
+            IF _w_response IS NOT NULL THEN
+                RETURN QUERY SELECT true, (_w_response ->> 'attempt_id')::bigint, (_w_response ->> 'thread_id')::bigint,
+                                    _w_response ->> 'state', (_w_response ->> 'attempt_version')::bigint, 0::bigint, NULL::text,
+                                    (_w_response ->> 'queue_id')::integer, (_w_response ->> 'agent_id')::integer,
+                                    NULL::timestamp with time zone;
+                RETURN;
+            END IF;
         END IF;
     END IF;
 
@@ -439,35 +488,57 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = 'EMAPL', MESSAGE = format('email attempt: agent %s has %s of %s postponed', _a.agent_id, _used, coalesce(_limit, 0));
         END IF;
         UPDATE call_center.cc_member_attempt a
-        SET state = 'postponed', postponed_until = _deadline, timeout = NULL, last_state_change = now(), version = a.version + 1
+        SET state = 'postponed', email_slot_type = NULL, postponed_until = _deadline, timeout = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
         _transition := 'postponed';
 
     ELSIF _op = 'resume' THEN
+        -- The wake-up of its event left the email active and no Flow postpone of the event followed: nothing to
+        -- resume. Unchanged since, a no-op kept for repeats (projection_version 0); changed, too late to apply.
+        IF _source = 'flow' THEN
+            SELECT w.attempt_id, w.attempt_state, w.attempt_version INTO _w_id, _w_state, _w_version
+            FROM call_center.cc_email_wakeup w
+            WHERE w.event_id = _email_event_id;
+            IF _w_state = 'active' AND NOT EXISTS (
+                SELECT 1 FROM call_center.cc_email_attempt_outbox o
+                WHERE o.domain_id = _domain_id AND o.source = 'flow' AND o.command_id = _email_event_id::text || ':postpone') THEN
+                IF _a.id IS DISTINCT FROM _w_id OR _a.version <> _w_version THEN
+                    RAISE EXCEPTION USING ERRCODE = 'EMAST', MESSAGE = format('email attempt: attempt %s changed after the wake-up of event %s', _a.id, _email_event_id);
+                END IF;
+                UPDATE call_center.cc_email_wakeup w
+                SET resume_response = jsonb_build_object('attempt_id', _a.id, 'thread_id', _a.member_call_id::bigint,
+                    'state', _a.state, 'attempt_version', _a.version, 'queue_id', _a.queue_id, 'agent_id', _a.agent_id)
+                WHERE w.event_id = _email_event_id;
+                RETURN QUERY SELECT false, _a.id, _a.member_call_id::bigint, _a.state::text, _a.version, 0::bigint,
+                                    NULL::text, _a.queue_id, _a.agent_id, _a.postponed_until;
+                RETURN;
+            END IF;
+        END IF;
         IF _a.state <> 'postponed' THEN
             RAISE EXCEPTION USING ERRCODE = 'EMAST', MESSAGE = format('email attempt: cannot resume in state %s', _a.state);
         END IF;
-        SELECT ag.status = 'online' AND coalesce(ch.online, false), ag.email_count INTO _online, _limit
+        SELECT ag.status = 'online' AND coalesce(ch.online, false) INTO _online
         FROM call_center.cc_agent ag
                  LEFT JOIN call_center.cc_agent_channel ch ON ch.agent_id = ag.id AND ch.channel = 'email'
         WHERE ag.id = _a.agent_id;
         IF NOT coalesce(_online, false) THEN
             RAISE EXCEPTION USING ERRCODE = 'EMAOF', MESSAGE = format('email attempt: agent %s or its Email channel is not online', _a.agent_id);
         END IF;
-        IF NOT call_center.cc_email_agent_assignable(_a.queue_id, _a.agent_id) THEN
+        -- Under the channel lock, as the allocator: eligibility with the online preset, base first, Extra if allowed.
+        SELECT c.slot_type INTO _slot
+        FROM call_center.cc_email_queue_candidates(_a.queue_id, _a.agent_id, _a.email_extra_allowed) c;
+        IF _slot IS NULL THEN
+            SELECT c.slot_type, c.used_slots, c.base_limit + CASE WHEN _a.email_extra_allowed THEN c.extra_limit ELSE 0 END
+            INTO _slot, _used, _limit
+            FROM call_center.cc_email_agent_capacity(_a.agent_id, _a.email_extra_allowed) c;
+            IF _slot IS NULL THEN
+                RAISE EXCEPTION USING ERRCODE = 'EMASL', MESSAGE = format('email attempt: agent %s has %s of %s emails', _a.agent_id, _used, _limit);
+            END IF;
             RAISE EXCEPTION USING ERRCODE = 'EMAEL', MESSAGE = format('email attempt: agent %s can no longer take emails of queue %s', _a.agent_id, _a.queue_id);
         END IF;
-        -- Used slots under the channel lock; a postponed attempt does not hold one.
-        SELECT count(*) INTO _used
-        FROM call_center.cc_member_attempt u
-        WHERE u.agent_id = _a.agent_id AND u.channel = 'email' AND u.leaving_at IS NULL
-          AND u.state NOT IN ('leaving', 'postponed');
-        IF _used >= _limit THEN
-            RAISE EXCEPTION USING ERRCODE = 'EMASL', MESSAGE = format('email attempt: agent %s has %s of %s emails', _a.agent_id, _used, _limit);
-        END IF;
         UPDATE call_center.cc_member_attempt a
-        SET state = 'active', postponed_until = NULL, last_state_change = now(), version = a.version + 1
+        SET state = 'active', email_slot_type = _slot, postponed_until = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
         _transition := 'resumed';
@@ -478,7 +549,7 @@ BEGIN
         END IF;
         -- High in the general order with the original joined_at; the sticky decision is already made.
         UPDATE call_center.cc_member_attempt a
-        SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = 1,
+        SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, 10),
             sticky_agent_id = NULL, sticky_until = now(), last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
@@ -634,8 +705,8 @@ BEGIN
 END;
 $$;
 
--- Postponed attempt locked with its agent and Email channel: back to work when the agent is online,
--- may take emails of the Queue and has a slot, otherwise to the queue as High, sticky when the Queue is.
+-- Postponed attempt locked with its agent and Email channel: back to work when the allocator could give it to the
+-- agent now, else to the queue as High, the agent kept as Sticky candidate by the rules of stage 10.
 CREATE OR REPLACE FUNCTION call_center.cc_email_wake_postponed(_a call_center.cc_member_attempt, _woken text, _queued text,
                                                                _causation_id text)
     RETURNS call_center.cc_member_attempt
@@ -643,24 +714,18 @@ CREATE OR REPLACE FUNCTION call_center.cc_email_wake_postponed(_a call_center.cc
 AS $$
 DECLARE
     _online boolean;
-    _limit  integer;
-    _used   integer;
+    _slot   text;
     _q      call_center.cc_queue;
     _wait   integer;
+    _ignore boolean;
+    _sticky boolean;
 BEGIN
-    SELECT ag.status = 'online' AND coalesce(ch.online, false), ag.email_count INTO _online, _limit
-    FROM call_center.cc_agent ag
-             LEFT JOIN call_center.cc_agent_channel ch ON ch.agent_id = ag.id AND ch.channel = 'email'
-    WHERE ag.id = _a.agent_id;
-    SELECT count(*) INTO _used
-    FROM call_center.cc_member_attempt u
-    WHERE u.agent_id = _a.agent_id AND u.channel = 'email' AND u.leaving_at IS NULL
-      AND u.state NOT IN ('leaving', 'postponed');
+    SELECT c.slot_type INTO _slot
+    FROM call_center.cc_email_queue_candidates(_a.queue_id, _a.agent_id, _a.email_extra_allowed) c;
 
-    IF coalesce(_online, false) AND _used < coalesce(_limit, 0)
-        AND call_center.cc_email_agent_assignable(_a.queue_id, _a.agent_id) THEN
+    IF _slot IS NOT NULL THEN
         UPDATE call_center.cc_member_attempt a
-        SET state = 'active', postponed_until = NULL, last_state_change = now(), version = a.version + 1
+        SET state = 'active', email_slot_type = _slot, postponed_until = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
         PERFORM call_center.cc_email_attempt_snapshot(_a, _woken, 'system', NULL, NULL, _causation_id);
@@ -669,10 +734,23 @@ BEGIN
 
     SELECT * INTO _q FROM call_center.cc_queue q WHERE q.id = _a.queue_id;
     _wait := call_center.cc_email_sticky_wait_sec(_q.payload);
+    _ignore := CASE WHEN jsonb_typeof(_q.payload -> 'sticky_ignore_status') = 'boolean'
+                    THEN (_q.payload ->> 'sticky_ignore_status')::boolean ELSE false END;
+    SELECT ag.status = 'online' AND coalesce(ch.online, false) INTO _online
+    FROM call_center.cc_agent ag
+             LEFT JOIN call_center.cc_agent_channel ch ON ch.agent_id = ag.id AND ch.channel = 'email'
+    WHERE ag.id = _a.agent_id;
+    -- As cc_email_sticky_prepare: a candidate only if eligible, with a slot type for this email and online or
+    -- ignored as offline; its timer starts there, in an open calendar.
+    _sticky := coalesce(_q.sticky_agent, false) AND _wait > 0
+        AND call_center.cc_email_agent_assignable(_a.queue_id, _a.agent_id)
+        AND coalesce((SELECT c.has_slot_type FROM call_center.cc_email_agent_capacity(_a.agent_id, _a.email_extra_allowed) c), false)
+        AND (coalesce(_online, false) OR _ignore);
     UPDATE call_center.cc_member_attempt a
-    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = 1,
-        sticky_agent_id = CASE WHEN _q.sticky_agent AND _wait > 0 THEN _a.agent_id END,
-        sticky_until = CASE WHEN _q.sticky_agent AND _wait > 0 THEN now() + make_interval(secs => _wait) ELSE now() END,
+    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL,
+        weight = greatest(a.weight, 10),
+        sticky_agent_id = CASE WHEN _sticky THEN _a.agent_id END,
+        sticky_until = CASE WHEN _sticky THEN NULL ELSE now() END,
         last_state_change = now(), version = a.version + 1
     WHERE a.id = _a.id
     RETURNING * INTO _a;
@@ -1115,7 +1193,7 @@ BEGIN
 
         IF _a.state = 'offering' THEN
             UPDATE call_center.cc_member_attempt a
-            SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, weight = 1, sticky_agent_id = NULL,
+            SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, weight = greatest(a.weight, 10), sticky_agent_id = NULL,
                 sticky_until = now(), last_released_agent_id = _a.agent_id, last_state_change = now(),
                 version = a.version + 1
             WHERE a.id = _a.id
@@ -1247,7 +1325,7 @@ CREATE OR REPLACE FUNCTION call_center.cc_email_return_to_queue(_a call_center.c
 AS $$
 BEGIN
     UPDATE call_center.cc_member_attempt a
-    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = 1,
+    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, 10),
         sticky_agent_id = NULL, sticky_until = now(), last_state_change = now(), version = a.version + 1
     WHERE a.id = _a.id
     RETURNING * INTO _a;

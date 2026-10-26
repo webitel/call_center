@@ -286,9 +286,12 @@ lookup, and the former candidate may still win normal routing later.
 
 Every return to the queue (Return, auto-release, logout or auto-offline, a
 wake-up or deadline without a slot) keeps the attempt and its `joined_at`, so
-FIFO and SLA do not restart, makes it High and drops its agent. Its sticky
-decision is already made; only a postponed email that wakes up without a slot
-waits `payload.sticky_agent_sec` seconds for its agent when the queue is sticky.
+FIFO and SLA do not restart, makes it High (`greatest(priority, 10)`) and drops
+its agent. Its sticky decision is already made. Only a postponed email that
+cannot go back to its agent keeps it as Sticky candidate, by the rules above:
+the queue is sticky, the agent is eligible, has a slot type for the email and
+is online or `sticky_ignore_status` is set. The email is High in either case;
+the Sticky timer starts once in an open calendar.
 
 Agents and Flows change an attempt through `cc.MemberService`:
 
@@ -298,8 +301,10 @@ Agents and Flows change an attempt through `cc.MemberService`:
   ahead (30 days by default) and within `email_postponed_count` of the agent
   (`0` disables postponing);
 - `ResumeAttempt` with the Email fields — `postponed` to `active` when the agent
-  and its `email` channel are online, it may still take emails of the queue and
-  has a free slot; otherwise nothing changes;
+  and its `email` channel are online, it may take emails of the queue as for
+  the allocator (skills of its online preset included) and has a free slot (base
+  first, Extra only with the email's Extra permission); otherwise nothing
+  changes;
 - `EmailAttemptReturn` — `offering`, `active` or `postponed` back to the queue;
 - `EmailAttemptComplete` — `active` to `processing` when the queue has
   `processing` (deadline `processing_sec`), otherwise to `leaving` with result
@@ -338,13 +343,17 @@ Command locks wait at most `email_command_lock_timeout`.
 
 `flow_manager` calls `EmailWakeUp` for every inbound email event before its
 Flow, also without one. A `postponed` attempt of the Thread goes back to work
-when its agent has a slot, otherwise to the queue (`woken` or `queued`); a
-`processing` one goes back to `active` (`reopened`). Other states give `noop`,
-a Thread without an attempt `not_active`. `cc_email_wakeup` keeps the result of
-every event and is never cleaned, so a repeated event returns it and wakes
-nothing; an event of another Thread is `cc.email_wakeup.event_conflict`. The
-Flow applications `postpone` and `resume` work only after the wake-up of their
-event.
+when the allocator could give it to its agent, with the slot chosen as on
+Resume, otherwise to the queue (`woken` or `queued`); a `processing` one goes
+back to `active` (`reopened`). Other states give `noop`, a Thread without an
+attempt `not_active`. `cc_email_wakeup` keeps the result of every event and is
+never cleaned, so a repeated event returns it and wakes nothing; an event of
+another Thread is `cc.email_wakeup.event_conflict`. The Flow applications
+`postpone` and `resume` work only after the wake-up of their event. `resume`
+changes nothing when that wake-up left the attempt `active` and no `postpone` of
+the event followed (`projection_version` 0); `cc_email_wakeup` keeps this
+response, so a repeat returns it with `replayed`. If the attempt changed after
+the wake-up before the first such `resume`, it is `invalid_state`.
 
 ### Deadlines, logout and auto-offline
 
