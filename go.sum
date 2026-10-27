@@ -276,8 +276,8 @@ github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqri
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/webitel/engine/pkg/discovery v0.0.0-20260826062815-ac09649ed0d9 h1:k2iwLa8Hko6zO4PlykGK/DjQ4NanXCUY4TBwg1w67Ck=
 github.com/webitel/engine/pkg/discovery v0.0.0-20260826062815-ac09649ed0d9/go.mod h1:SYOLV0TUj7A8ZfCLdNgI08twGMXAlPzqkQ68XL5ePzo=
-github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3 h1:GFFql4qrxFDvz7XjP3aSdFbgIb7FHDGwWs9qtU9+ydw=
-github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3/go.mod h1:15PVfPhimD18i+1ARcWq5ZZ8P5ugjpriGIT1+5/bDEw=
+github.com/webitel/engine/pkg/wbt v0.0.0-20261027095731-a9df619bd3f4 h1:8ZZvijaxmBUs6CrQhV2F0ijKL8YCL4fKSzyy13K2+2w=
+github.com/webitel/engine/pkg/wbt v0.0.0-20261027095731-a9df619bd3f4/go.mod h1:y0Gn1/nB0PfCpsD9LDUg3sB0ApUZfVMwEXoTSQVvTTA=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156 h1:5NBITWBnAudSbngT6k2XKHSyj3j4TtuHIgqHd0S4zGk=
 github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156/go.mod h1:WiYIYDrowZPBYSSQ12gDT6ErfNGCu3g5hU+ZHpyN9zs=
 github.com/webitel/webitel-go-kit/infra/health v0.3.0 h1:CkmPHLHAFjWYgMtsjPY2Yig8SsWTtW3EX0BeFpVWUBA=
@@ -300,6 +300,8 @@ go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 h1:/CdgE52i1OEPHhsGUqrggYNR
 go.opentelemetry.io/contrib/bridges/otelslog v0.21.0/go.mod h1:9pBdbVbuehIDzxN4accnzzxEUPT8Nq7grbZMo+J1VN4=
 go.opentelemetry.io/contrib/bridges/otelzap v0.21.0 h1:p23nklcy3VVRcfZ2ce5AXQa6RHQPQvIMM+fW3GzXCU0=
 go.opentelemetry.io/contrib/bridges/otelzap v0.21.0/go.mod h1:7NPD4VToURMipQu1xgz6seTz8aXmbCqQNZs7bQADEjU=
+go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 h1:B2h3uqicet1CT2N5TOFhS+Gq++9i0/CLmaxvhmhtP5s=
+go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0/go.mod h1:dylvB+ZiiwMvsDij9O84Uy7SijLgHMX4mbkncds+4Sw=
 go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0 h1:rv8t3kKjyC2/9D99L1MZt4tJSZO4aYUmHus7L//iKKg=
 go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0/go.mod h1:ZzG+JmzLLvKzx6tMeLrw2l7F8ik2GeRZJALoPBqnM0c=
 go.opentelemetry.io/contrib/processors/baggagecopy v0.17.0 h1:ReIcidxGZxFw8VqLY3Wx0ya+/C4TkNxrnAQMU+/QRPk=

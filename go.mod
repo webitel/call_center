@@ -12,7 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/webitel/engine/pkg/discovery v0.0.0-20260826062815-ac09649ed0d9
-	github.com/webitel/engine/pkg/wbt v0.0.0-20260406083603-d898238a7fe3
+	github.com/webitel/engine/pkg/wbt v0.0.0-20261027095731-a9df619bd3f4
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156
 	github.com/webitel/webitel-go-kit/infra/health v0.3.0
 	github.com/webitel/webitel-go-kit/infra/otel v0.6.0
@@ -67,6 +67,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
 	go.opentelemetry.io/contrib/bridges/otelzap v0.21.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0 // indirect
 	go.opentelemetry.io/contrib/processors/baggagecopy v0.17.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.23.0 // indirect
