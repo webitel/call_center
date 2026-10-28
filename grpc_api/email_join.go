@@ -18,7 +18,7 @@ var emailEventIdRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA
 // EmailJoinToQueue returns gRPC statuses itself: the shared AppError mapping
 // turns 404, 409 and 503 into Internal.
 func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
-	if in.GetPriority() < 0 || in.GetPriority() > 100 {
+	if in.GetPriority() < 0 {
 		return nil, status.Error(codes.InvalidArgument, model.EmailJoinInvalidPriority)
 	}
 	if in.GetDomainId() <= 0 || in.GetThreadId() <= 0 || in.GetQueueId() <= 0 || !emailEventIdRe.MatchString(in.GetEmailEventId()) {

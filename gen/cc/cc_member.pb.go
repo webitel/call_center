@@ -2356,7 +2356,7 @@ type EmailJoinToQueueRequest struct {
 	// Idempotency key: the email.message.inbound event that started the Flow.
 	// Valid replays return the stored result without changing routing parameters.
 	EmailEventId string `protobuf:"bytes,4,opt,name=email_event_id,json=emailEventId,proto3" json:"email_event_id,omitempty"`
-	// Priority in [0, 100]; default 0. Invalid values return InvalidArgument
+	// Priority in [0, 2147483647]; default 0. Invalid values return InvalidArgument
 	// with ID store.sql_member.email_join.invalid_priority.
 	Priority int32 `protobuf:"varint,5,opt,name=priority,proto3" json:"priority,omitempty"`
 	// Explicit Sticky candidate; 0 means no candidate.

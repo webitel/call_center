@@ -1,6 +1,54 @@
 -- Email attempt lifecycle: postponed limit and deadlines, version, transition outbox, wake-up journal.
--- After email_routing_update.sql, email_routing_validate.sql and email_last_bridged_indexes.sql.
+-- After this release's shared prepare, validate and runtime with cc_sql 1.5; stop Email writers on all nodes.
 -- Run with psql -v ON_ERROR_STOP=1 -f outside a transaction: the indexes are built CONCURRENTLY.
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_attribute
+        WHERE attrelid = to_regclass('call_center.cc_email_attempt_outbox')
+          AND attname = 'agent_user_id' AND NOT attisdropped) THEN
+        RAISE EXCEPTION 'email lifecycle: EM-24 requires the adapted status-sync upgrade';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_extension e
+        JOIN pg_depend d ON d.refclassid = 'pg_extension'::regclass AND d.refobjid = e.oid AND d.deptype = 'e'
+        JOIN pg_proc p ON d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+        WHERE e.extname = 'cc_sql' AND e.extversion = '1.5'
+          AND e.extnamespace = 'call_center'::regnamespace
+          AND p.oid = to_regprocedure('call_center.cc_sys_distribute_email(integer[],integer[],bigint[],bigint[],integer[])')
+          AND p.prosrc = 'cc_sys_distribute_email' AND p.proretset
+          AND NOT p.proisstrict AND p.provolatile = 'v' AND p.proparallel = 'u'
+    ) THEN
+        RAISE EXCEPTION 'email lifecycle: extension-owned cc_sql 1.5 Email entry is required';
+    END IF;
+    IF to_regclass('call_center.cc_email_distribute_stage_1') IS NULL
+       OR to_regclass('call_center.cc_email_distribution_cursor') IS NULL
+       OR to_regprocedure('call_center.cc_email_high_priority()') IS NULL
+       OR to_regprocedure('call_center.cc_email_sticky_prepare(call_center.cc_queue,integer[],integer,bigint)') IS NULL
+       OR to_regprocedure('call_center.cc_email_sticky_route(call_center.cc_queue,integer,boolean,timestamp with time zone,integer)') IS NULL
+       OR to_regprocedure('call_center.cc_email_distribute_queue_status(bigint,integer,integer)') IS NULL
+       OR to_regprocedure('call_center.cc_email_agent_strategy_refresh(integer,timestamp with time zone)') IS NULL
+       OR to_regprocedure('call_center.cc_email_pair_available(call_center.cc_member_attempt,integer,integer,bigint[],integer[])') IS NULL
+       OR (to_regprocedure('call_center.cc_email_apply_distributed(bigint,integer,integer)') IS NULL
+           AND to_regprocedure('call_center.cc_email_apply_distributed(bigint,integer,integer,bigint[],integer[])') IS NULL)
+       OR NOT EXISTS (
+           SELECT 1 FROM pg_attribute
+           WHERE attrelid = to_regclass('call_center.cc_agent_channel')
+             AND attname = 'email_idle_since' AND atttypid = 'timestamptz'::regtype AND NOT attisdropped
+       ) OR NOT EXISTS (
+           SELECT 1 FROM pg_constraint
+           WHERE conrelid = to_regclass('call_center.cc_email_join')
+             AND conname = 'cc_email_join_priority_c' AND contype = 'c' AND convalidated
+       ) OR to_regprocedure('call_center.cc_email_agent_head(integer,bigint[])') IS NOT NULL
+         OR EXISTS (
+           SELECT 1 FROM pg_attribute
+           WHERE attrelid = to_regclass('call_center.cc_email_distribution_cursor')
+             AND attname = 'last_agent_id' AND NOT attisdropped
+       ) THEN
+        RAISE EXCEPTION 'email lifecycle: apply matching shared prepare, validate and runtime before lifecycle';
+    END IF;
+END
+$$;
 
 -- Maximum of postponed Email attempts of the agent; 0 disables postponing.
 ALTER TABLE call_center.cc_agent
@@ -283,6 +331,69 @@ AS $$
     WHERE a.id = _agent_id
 $$;
 
+CREATE OR REPLACE FUNCTION call_center.cc_email_failed_pairs_valid(_attempt_ids bigint[], _agent_ids integer[])
+    RETURNS boolean
+    LANGUAGE sql
+    IMMUTABLE
+AS $$
+    SELECT _attempt_ids IS NOT NULL AND _agent_ids IS NOT NULL
+        AND coalesce(array_ndims(_attempt_ids), 0) <= 1 AND coalesce(array_ndims(_agent_ids), 0) <= 1
+        AND cardinality(_attempt_ids) = cardinality(_agent_ids)
+        AND NOT EXISTS (SELECT 1 FROM unnest(_attempt_ids, _agent_ids) f(attempt_id, agent_id)
+            WHERE coalesce(f.attempt_id, 0) <= 0 OR coalesce(f.agent_id, 0) <= 0)
+$$;
+
+CREATE OR REPLACE FUNCTION call_center.cc_email_pair_available(
+    _attempt call_center.cc_member_attempt, _agent_id integer, _candidate_id integer,
+    _failed_attempt_ids bigint[], _failed_agent_ids integer[])
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+AS $$
+    SELECT (_candidate_id IS NULL OR _candidate_id = _agent_id)
+        AND NOT EXISTS (SELECT 1 FROM unnest(_failed_attempt_ids, _failed_agent_ids) f(attempt_id, agent_id)
+            WHERE f.attempt_id = (_attempt).id AND f.agent_id = _agent_id)
+        AND ((_attempt).last_released_agent_id IS DISTINCT FROM _agent_id OR NOT EXISTS (
+            SELECT 1 FROM call_center.cc_email_queue_candidates(
+                (_attempt).queue_id, _candidate_id, (_attempt).email_extra_allowed) c
+            WHERE c.agent_id <> _agent_id
+              AND NOT EXISTS (SELECT 1 FROM unnest(_failed_attempt_ids, _failed_agent_ids) f(attempt_id, agent_id)
+                  WHERE f.attempt_id = (_attempt).id AND f.agent_id = c.agent_id)))
+$$;
+
+-- Replace each entry point atomically; omitted pair arrays stay valid.
+BEGIN;
+DROP FUNCTION IF EXISTS call_center.cc_email_apply_distributed(bigint, integer, integer);
+
+CREATE OR REPLACE FUNCTION call_center.cc_email_apply_distributed(
+    _attempt_id bigint, _queue_id integer, _agent_id integer,
+    _failed_attempt_ids bigint[] DEFAULT '{}'::bigint[], _failed_agent_ids integer[] DEFAULT '{}'::integer[])
+    RETURNS TABLE (result text, queue_id integer, attempt_id bigint, agent_id integer)
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT call_center.cc_email_failed_pairs_valid(_failed_attempt_ids, _failed_agent_ids) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email apply: invalid failed-pair arrays';
+    END IF;
+    IF coalesce(_attempt_id, 0) <= 0 OR coalesce(_queue_id, 0) <= 0 OR coalesce(_agent_id, 0) <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email distribution: positive attempt, queue and agent IDs are required';
+    END IF;
+    IF NOT pg_try_advisory_xact_lock(1162690889, 1) THEN
+        RETURN QUERY SELECT 'busy'::text, NULL::integer, NULL::bigint, NULL::integer;
+        RETURN;
+    END IF;
+
+    IF call_center.cc_email_try_assign(_attempt_id, _queue_id, _agent_id, _failed_attempt_ids, _failed_agent_ids) THEN
+        PERFORM call_center.cc_email_agent_strategy_refresh(_agent_id);
+        RETURN QUERY SELECT 'assigned'::text, _queue_id, _attempt_id, _agent_id;
+    ELSE
+        RETURN QUERY SELECT 'no_agent'::text, _queue_id, _attempt_id, NULL::integer;
+    END IF;
+END;
+$$;
+COMMIT;
+
+
 -- Fingerprint of a command: its operation, caller form and normalized arguments; NULL is kept apart.
 CREATE OR REPLACE FUNCTION call_center.cc_email_command_fingerprint(VARIADIC _parts text[])
     RETURNS text
@@ -435,8 +546,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'EMANF', MESSAGE = 'email attempt: active attempt not found';
     END IF;
 
-    -- Postpone and Resume take capacity of the agent: agent, then its Email channel, then the attempt.
-    IF _op IN ('postpone', 'resume') AND _owner IS NOT NULL THEN
+    -- Metric and slot transitions: agent, Email channel, attempt.
+    IF _op IN ('take', 'postpone', 'resume', 'return', 'complete') AND _owner IS NOT NULL THEN
         PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _owner FOR SHARE;
         PERFORM 1 FROM call_center.cc_agent_channel ch WHERE ch.agent_id = _owner AND ch.channel = 'email' FOR UPDATE;
     END IF;
@@ -455,7 +566,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'EMAVR', MESSAGE = format('email attempt: version %s, expected %s', _a.version, _expected_version);
     END IF;
     -- Returned to the queue meanwhile: the state check answers. Another agent was not locked: retry.
-    IF _op IN ('postpone', 'resume') AND _a.agent_id IS NOT NULL AND _a.agent_id IS DISTINCT FROM _owner THEN
+    IF _op IN ('take', 'postpone', 'resume', 'return', 'complete') AND _a.agent_id IS NOT NULL AND _a.agent_id IS DISTINCT FROM _owner THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email attempt: agent changed while locking';
     END IF;
 
@@ -549,7 +660,7 @@ BEGIN
         END IF;
         -- High in the general order with the original joined_at; the sticky decision is already made.
         UPDATE call_center.cc_member_attempt a
-        SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, 10),
+        SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, call_center.cc_email_high_priority()),
             sticky_agent_id = NULL, sticky_until = now(), last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
@@ -594,6 +705,11 @@ BEGIN
         _transition := 'renewed';
     END IF;
 
+    IF _owner IS NOT NULL AND _op IN ('take', 'postpone', 'resume', 'return', 'complete') THEN
+        PERFORM call_center.cc_email_agent_strategy_refresh(_owner,
+            CASE WHEN _op = 'take' THEN _a.bridged_at END);
+    END IF;
+
     _sequence := call_center.cc_email_attempt_snapshot(_a, _transition, _source, _command_id, _fingerprint, _email_event_id::text);
 
     RETURN QUERY SELECT false, _a.id, _a.member_call_id::bigint, _a.state::text, _a.version, _sequence,
@@ -620,7 +736,7 @@ DECLARE
     _result        text;
     _att           call_center.cc_member_attempt;
 BEGIN
-    IF _priority IS NULL OR _priority < 0 OR _priority > 100 THEN
+    IF _priority IS NULL OR _priority < 0 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMPRI', MESSAGE = 'store.sql_member.email_join.invalid_priority';
     END IF;
     IF _event_id IS NULL OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0
@@ -713,6 +829,7 @@ CREATE OR REPLACE FUNCTION call_center.cc_email_wake_postponed(_a call_center.cc
     LANGUAGE plpgsql
 AS $$
 DECLARE
+    _owner  integer := _a.agent_id;
     _online boolean;
     _slot   text;
     _q      call_center.cc_queue;
@@ -728,6 +845,7 @@ BEGIN
         SET state = 'active', email_slot_type = _slot, postponed_until = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
+        PERFORM call_center.cc_email_agent_strategy_refresh(_owner);
         PERFORM call_center.cc_email_attempt_snapshot(_a, _woken, 'system', NULL, NULL, _causation_id);
         RETURN _a;
     END IF;
@@ -748,12 +866,13 @@ BEGIN
         AND (coalesce(_online, false) OR _ignore);
     UPDATE call_center.cc_member_attempt a
     SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL,
-        weight = greatest(a.weight, 10),
+        weight = greatest(a.weight, call_center.cc_email_high_priority()),
         sticky_agent_id = CASE WHEN _sticky THEN _a.agent_id END,
         sticky_until = CASE WHEN _sticky THEN NULL ELSE now() END,
         last_state_change = now(), version = a.version + 1
     WHERE a.id = _a.id
     RETURNING * INTO _a;
+    PERFORM call_center.cc_email_agent_strategy_refresh(_owner);
     PERFORM call_center.cc_email_attempt_snapshot(_a, _queued, 'system', NULL, NULL, _causation_id);
     RETURN _a;
 END;
@@ -797,8 +916,8 @@ BEGIN
     WHERE a.domain_id = _domain_id AND a.member_call_id = _thread_id::text AND a.channel = 'email' AND a.leaving_at IS NULL;
 
     IF FOUND THEN
-        -- A postponed attempt may take a slot: agent, then its Email channel, then the attempt.
-        IF _state = 'postponed' AND _owner IS NOT NULL THEN
+        -- Wake-up metrics and slots: agent, Email channel, attempt.
+        IF _state IN ('postponed', 'processing') AND _owner IS NOT NULL THEN
             PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _owner FOR SHARE;
             PERFORM 1 FROM call_center.cc_agent_channel ch WHERE ch.agent_id = _owner AND ch.channel = 'email' FOR UPDATE;
         END IF;
@@ -815,10 +934,14 @@ BEGIN
         _a := call_center.cc_email_wake_postponed(_a, 'woken', 'queued', _event_id::text);
         _result := CASE WHEN _a.state = 'active' THEN 'woken' ELSE 'queued' END;
     ELSIF _a.state = 'processing' THEN
+        IF _a.agent_id IS DISTINCT FROM _owner OR _state <> 'processing' THEN
+            RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email wake-up: attempt changed while locking';
+        END IF;
         UPDATE call_center.cc_member_attempt a
         SET state = 'active', timeout = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
+        PERFORM call_center.cc_email_agent_strategy_refresh(_owner);
         PERFORM call_center.cc_email_attempt_snapshot(_a, 'reopened', 'system', NULL, NULL, _event_id::text);
         _result := 'reopened';
     ELSE
@@ -835,7 +958,11 @@ $$;
 
 -- As in stage 10, and the offer gets the auto-release deadline of the Queue, a new version and its snapshot.
 -- False leaves the attempt and the agent unchanged and writes no snapshot.
-CREATE OR REPLACE FUNCTION call_center.cc_email_try_assign(_attempt_id bigint, _queue_id integer, _agent_id integer)
+BEGIN;
+DROP FUNCTION IF EXISTS call_center.cc_email_try_assign(bigint, integer, integer);
+
+CREATE OR REPLACE FUNCTION call_center.cc_email_try_assign(_attempt_id bigint, _queue_id integer, _agent_id integer,
+    _failed_attempt_ids bigint[] DEFAULT '{}'::bigint[], _failed_agent_ids integer[] DEFAULT '{}'::integer[])
     RETURNS boolean
     LANGUAGE plpgsql
 AS $$
@@ -849,6 +976,9 @@ DECLARE
     _wait      integer;
     _release   integer;
 BEGIN
+    IF NOT call_center.cc_email_failed_pairs_valid(_failed_attempt_ids, _failed_agent_ids) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email assign: invalid failed-pair arrays';
+    END IF;
     SELECT q.* INTO _q FROM call_center.cc_queue q
     WHERE q.id = _queue_id AND q.type = 11 AND q.enabled FOR SHARE SKIP LOCKED;
     IF NOT FOUND THEN
@@ -856,6 +986,18 @@ BEGIN
     END IF;
     PERFORM 1 FROM flow.calendar c WHERE c.id = _q.calendar_id FOR SHARE SKIP LOCKED;
     IF NOT FOUND OR call_center.cc_email_queue_calendar(_q.domain_id, _q.calendar_id) <> 'open' THEN
+        RETURN false;
+    END IF;
+
+    -- Serialize all assignments of this agent: agent before Email channel.
+    SELECT a.status_id INTO _status_id FROM call_center.cc_agent a
+    WHERE a.id = _agent_id FOR SHARE SKIP LOCKED;
+    IF NOT FOUND THEN
+        RETURN false;
+    END IF;
+    PERFORM 1 FROM call_center.cc_agent_channel ch
+    WHERE ch.agent_id = _agent_id AND ch.channel = 'email' FOR UPDATE SKIP LOCKED;
+    IF NOT FOUND THEN
         RETURN false;
     END IF;
 
@@ -874,18 +1016,6 @@ BEGIN
         OR (_wait > 0 AND _att.sticky_until <= clock_timestamp())
         OR (_wait = 0 AND _att.sticky_until < transaction_timestamp())
     ) THEN
-        RETURN false;
-    END IF;
-
-    -- Serialize all assignments of this agent: agent before Email channel.
-    SELECT a.status_id INTO _status_id FROM call_center.cc_agent a
-    WHERE a.id = _agent_id FOR SHARE SKIP LOCKED;
-    IF NOT FOUND THEN
-        RETURN false;
-    END IF;
-    PERFORM 1 FROM call_center.cc_agent_channel ch
-    WHERE ch.agent_id = _agent_id AND ch.channel = 'email' FOR UPDATE SKIP LOCKED;
-    IF NOT FOUND THEN
         RETURN false;
     END IF;
 
@@ -926,6 +1056,11 @@ BEGIN
         RETURN false;
     END IF;
 
+    IF NOT call_center.cc_email_pair_available(_att, _agent_id, _att.sticky_agent_id,
+        _failed_attempt_ids, _failed_agent_ids) THEN
+        RETURN false;
+    END IF;
+
     -- Read now, so a later change of the Queue applies to new offers only; 0, unset or invalid keeps the offer.
     _release := coalesce(call_center.cc_email_payload_sec(_q.payload, 'email_auto_release_sec'), 0);
 
@@ -955,9 +1090,10 @@ BEGIN
     RETURN true;
 END;
 $$;
+COMMIT;
 
--- Email distribution of stage 10; an attempt whose offer expired goes to its previous agent
--- only when no other candidate takes it.
+
+-- Shared Email cycle; failed pairs keep other recipients and the released-agent fallback available.
 CREATE OR REPLACE FUNCTION call_center.cc_email_distribute(_queue_batch integer, _max_duration interval)
     RETURNS TABLE (result text, queue_id integer, attempt_id bigint, agent_id integer)
     LANGUAGE plpgsql
@@ -966,26 +1102,31 @@ DECLARE
     _deadline timestamp with time zone := clock_timestamp() + _max_duration;
     _prep_deadline timestamp with time zone := clock_timestamp() + _max_duration / 4;
     _last_queue integer;
-    _last_agent integer;
     _queue_start integer;
-    _agent_start integer;
     _queue_id integer;
-    _agent_id integer;
+    _status record;
+    _pair record;
+    _applied record;
     _q call_center.cc_queue;
-    _calendar text;
-    _head record;
-    _other_head record;
-    _candidate record;
+    _before call_center.cc_member_attempt;
+    _after call_center.cc_member_attempt;
+    _queue_ids integer[];
+    _queue_limits integer[];
+    _assigned_queues integer[] := '{}';
+    _assigned_counts integer[] := '{}';
     _skip bigint[] := '{}';
-    _queues integer[] := '{}';
-    _counts integer[] := '{}';
+    _failed_attempts bigint[] := '{}';
+    _failed_agents integer[] := '{}';
+    _prepared bigint[] := '{}';
+    _batch_agents integer[];
+    _batch_attempts bigint[];
     _pos integer;
-    _tries integer;
-    _head_id bigint;
-    _done boolean;
+    _count_pos integer;
+    _failed boolean;
+    _selected boolean;
+    _reselect boolean;
     _progress boolean;
     _timed_out boolean := false;
-    _released integer;
 BEGIN
     IF coalesce(_queue_batch, 0) <= 0 OR _max_duration IS NULL OR _max_duration <= interval '0' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email distribute: positive batch and duration are required';
@@ -995,7 +1136,7 @@ BEGIN
         RETURN;
     END IF;
     INSERT INTO call_center.cc_email_distribution_cursor(singleton) VALUES (true) ON CONFLICT DO NOTHING;
-    SELECT c.last_queue_id, c.last_agent_id INTO _last_queue, _last_agent
+    SELECT c.last_queue_id INTO _last_queue
     FROM call_center.cc_email_distribution_cursor c WHERE c.singleton FOR UPDATE SKIP LOCKED;
     IF NOT FOUND THEN
         RETURN QUERY SELECT 'busy'::text, NULL::integer, NULL::bigint, NULL::integer;
@@ -1004,133 +1145,167 @@ BEGIN
 
     <<work>>
     BEGIN
-        -- Fair upkeep also advances offline candidates when no online agent can take work.
+        -- Diagnostics do not depend on the bounded maintenance cursor.
+        FOR _status IN
+            SELECT s.id, s.result FROM call_center.cc_email_distribute_stage_1 s
+            WHERE s.result IS NOT NULL ORDER BY s.id
+        LOOP
+            IF clock_timestamp() >= _deadline THEN
+                _timed_out := true;
+                EXIT work;
+            END IF;
+            RETURN QUERY SELECT _status.result::text, _status.id::integer, NULL::bigint, NULL::integer;
+        END LOOP;
+
+        FOR _status IN
+            SELECT s.id FROM call_center.cc_email_distribute_stage_1 s
+            JOIN call_center.cc_queue q ON q.id = s.id
+            WHERE s.can_prepare_sticky
+              AND jsonb_typeof(q.payload -> 'email_auto_release_sec') <> 'null'
+              AND call_center.cc_email_payload_sec(q.payload, 'email_auto_release_sec') IS NULL
+            ORDER BY s.id
+        LOOP
+            IF clock_timestamp() >= _deadline THEN
+                _timed_out := true;
+                EXIT work;
+            END IF;
+            RETURN QUERY SELECT 'payload_invalid'::text, _status.id::integer, NULL::bigint, NULL::integer;
+        END LOOP;
+
         _queue_start := _last_queue;
         FOR _queue_id IN
-            SELECT q.id FROM call_center.cc_queue q
-            WHERE q.type = 11 AND q.enabled
-              AND ((SELECT a.id FROM call_center.cc_member_attempt a
-                    WHERE a.queue_id = q.id AND a.channel = 'email' AND a.state = 'waiting'
-                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NULL
-                    ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1) IS NOT NULL
-                OR (SELECT a.id FROM call_center.cc_member_attempt a
-                    WHERE a.queue_id = q.id AND a.channel = 'email' AND a.state = 'waiting'
-                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NOT NULL
-                    ORDER BY a.sticky_until LIMIT 1) IS NOT NULL)
-            ORDER BY (q.id <= _queue_start), q.id
+            SELECT s.id FROM call_center.cc_email_distribute_stage_1 s
+            WHERE s.can_prepare_sticky ORDER BY (s.id <= _queue_start), s.id
         LOOP
             EXIT WHEN clock_timestamp() >= _prep_deadline;
             _last_queue := _queue_id;
             SELECT q.* INTO _q FROM call_center.cc_queue q
-            WHERE q.id = _queue_id AND q.type = 11 AND q.enabled FOR SHARE SKIP LOCKED;
+            WHERE q.id = _queue_id AND q.type = 11 AND q.enabled;
             CONTINUE WHEN NOT FOUND;
-            PERFORM 1 FROM flow.calendar c WHERE c.id = _q.calendar_id FOR SHARE SKIP LOCKED;
-            CONTINUE WHEN NOT FOUND AND EXISTS (SELECT 1 FROM flow.calendar c WHERE c.id = _q.calendar_id);
-            _calendar := call_center.cc_email_queue_calendar(_q.domain_id, _q.calendar_id);
-            IF _calendar <> 'open' THEN
-                RETURN QUERY SELECT 'calendar_' || _calendar, _q.id, NULL::bigint, NULL::integer;
-                CONTINUE;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM call_center.cc_queue_skill qs WHERE qs.queue_id = _q.id AND qs.enabled) THEN
-                RETURN QUERY SELECT 'no_skills'::text, _q.id, NULL::bigint, NULL::integer;
-                CONTINUE;
-            END IF;
-            -- An invalid auto-release counts as unset; the row only reports it, the Queue is still served.
-            IF jsonb_typeof(_q.payload -> 'email_auto_release_sec') <> 'null'
-                AND call_center.cc_email_payload_sec(_q.payload, 'email_auto_release_sec') IS NULL THEN
-                RETURN QUERY SELECT 'payload_invalid'::text, _q.id, NULL::bigint, NULL::integer;
-            END IF;
             PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[]::integer[], least(_queue_batch, 128), NULL);
-            IF NOT EXISTS (SELECT 1 FROM call_center.cc_email_queue_candidates(_q.id, NULL, true)) THEN
-                RETURN QUERY SELECT 'no_agent'::text, _q.id, NULL::bigint, NULL::integer;
-            END IF;
         END LOOP;
 
         LOOP
             _progress := false;
-            _agent_start := _last_agent;
-            FOR _agent_id IN
-                SELECT a.id FROM call_center.cc_agent a
-                         JOIN call_center.cc_agent_channel ch ON ch.agent_id = a.id AND ch.channel = 'email'
-                WHERE a.status = 'online' AND ch.online AND 'email' = ANY (a.allow_channels)
-                  AND (a.email_count > 0 OR a.extra_email_count > 0)
-                ORDER BY (a.id <= _agent_start), a.id
+            <<selection>>
             LOOP
                 IF clock_timestamp() >= _deadline THEN
                     _timed_out := true;
                     EXIT work;
                 END IF;
-                _last_agent := _agent_id;
-                _tries := 0;
+                SELECT coalesce(array_agg(s.id ORDER BY s.id), '{}'::integer[]),
+                       coalesce(array_agg(_queue_batch - coalesce(_assigned_counts[
+                           array_position(_assigned_queues, s.id)], 0) ORDER BY s.id), '{}'::integer[])
+                INTO _queue_ids, _queue_limits
+                FROM call_center.cc_email_distribute_stage_1 s
+                WHERE s.can_distribute
+                  AND coalesce(_assigned_counts[array_position(_assigned_queues, s.id)], 0) < _queue_batch;
+                EXIT work WHEN cardinality(_queue_ids) = 0;
+
+                _selected := false;
+                _reselect := false;
+                _batch_agents := '{}';
+                _batch_attempts := '{}';
+                FOR _pair IN
+                    SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip, _failed_attempts, _failed_agents) c
                 LOOP
                     IF clock_timestamp() >= _deadline THEN
                         _timed_out := true;
                         EXIT work;
                     END IF;
-                    EXIT WHEN _tries >= _queue_batch;
-                    SELECT h.* INTO _head FROM call_center.cc_email_agent_head(_agent_id, _skip) h;
-                    EXIT WHEN NOT FOUND;
-                    _tries := _tries + 1;
-                    _pos := array_position(_queues, _head.queue_id);
-                    IF _pos IS NOT NULL AND _counts[_pos] >= _queue_batch THEN
-                        -- Do not demote this agent to lower-priority work because of a queue batch cap.
-                        EXIT;
+                    _selected := true;
+                    _pos := array_position(_queue_ids, _pair.queue_id);
+                    IF coalesce(_pair.agent_id, 0) <= 0 OR coalesce(_pair.id, 0) <= 0 OR _pos IS NULL
+                       OR _pair.ins IS DISTINCT FROM false OR _pair.bucket_id IS NOT NULL
+                       OR _pair.resource_id IS NOT NULL OR _pair.resource_group_id IS NOT NULL OR _pair.comm_idx IS NOT NULL
+                       OR _pair.agent_id = ANY (_batch_agents) OR _pair.id = ANY (_batch_attempts)
+                       OR _pair.id = ANY (_skip) OR _queue_limits[_pos] <= 0
+                       OR EXISTS (SELECT 1 FROM unnest(_failed_attempts, _failed_agents) f(attempt_id, agent_id)
+                           WHERE f.attempt_id = _pair.id AND f.agent_id = _pair.agent_id) THEN
+                        RAISE EXCEPTION USING ERRCODE = 'XX000', MESSAGE = 'email distribute: invalid shared distributor result';
                     END IF;
+                    _batch_agents := array_append(_batch_agents, _pair.agent_id);
+                    _batch_attempts := array_append(_batch_attempts, _pair.id);
+                    _queue_limits[_pos] := _queue_limits[_pos] - 1;
 
-                    IF _head.sticky_agent_id IS NOT NULL THEN
-                        _head_id := _head.attempt_id;
-                        SELECT q.* INTO _q FROM call_center.cc_queue q WHERE q.id = _head.queue_id;
-                        PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[_agent_id], 1, _head.attempt_id);
-                        -- A fallback may have changed priority/owner restriction; select again.
-                        SELECT h.* INTO _head FROM call_center.cc_email_agent_head(_agent_id, _skip) h;
-                        EXIT WHEN NOT FOUND;
-                        CONTINUE WHEN _head.attempt_id <> _head_id;
-                        _pos := array_position(_queues, _head.queue_id);
-                        EXIT WHEN _pos IS NOT NULL AND _counts[_pos] >= _queue_batch;
-                    END IF;
-
-                    _done := false;
-                    -- The agent whose offer expired gets the email back only when no other candidate takes it.
-                    SELECT a.last_released_agent_id INTO _released
-                    FROM call_center.cc_member_attempt a WHERE a.id = _head.attempt_id;
-                    FOR _candidate IN
-                        SELECT c.agent_id FROM call_center.cc_email_queue_candidates(_head.queue_id, NULL, _head.extra_allowed) c
-                        ORDER BY c.agent_id IS NOT DISTINCT FROM _released, c.used_slots, c.last_offering_at NULLS FIRST, c.agent_id
-                    LOOP
-                        IF clock_timestamp() >= _deadline THEN
-                            _timed_out := true;
-                            EXIT work;
-                        END IF;
-                        IF _candidate.agent_id <> _agent_id THEN
-                            SELECT h.* INTO _other_head FROM call_center.cc_email_agent_head(_candidate.agent_id, _skip) h;
-                            CONTINUE WHEN NOT FOUND OR _other_head.attempt_id <> _head.attempt_id;
-                        END IF;
-                        IF call_center.cc_email_try_assign(_head.attempt_id, _head.queue_id, _candidate.agent_id) THEN
-                            _done := true;
-                            _progress := true;
-                            IF _pos IS NULL THEN
-                                _queues := array_append(_queues, _head.queue_id);
-                                _counts := array_append(_counts, 1);
-                            ELSE
-                                _counts[_pos] := _counts[_pos] + 1;
+                    SELECT a.* INTO _before
+                    FROM call_center.cc_member_attempt a
+                    JOIN call_center.cc_queue q ON q.id = a.queue_id AND q.domain_id = a.domain_id
+                    WHERE a.id = _pair.id AND a.queue_id = _pair.queue_id AND q.type = 11 AND q.enabled
+                      AND a.queue_type = 11 AND a.channel = 'email' AND a.state = 'waiting'
+                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.email_slot_type IS NULL;
+                    _failed := NOT FOUND;
+                    IF NOT _failed AND _before.sticky_agent_id IS NOT NULL THEN
+                        SELECT q.* INTO _q FROM call_center.cc_queue q
+                        WHERE q.id = _before.queue_id AND q.domain_id = _before.domain_id AND q.type = 11 AND q.enabled;
+                        _failed := NOT FOUND;
+                        IF NOT _failed THEN
+                            PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[_pair.agent_id], 1, _pair.id);
+                            SELECT a.* INTO _after FROM call_center.cc_member_attempt a
+                            WHERE a.id = _before.id AND a.queue_id = _before.queue_id AND a.domain_id = _before.domain_id
+                              AND a.queue_type = 11 AND a.channel = 'email' AND a.state = 'waiting'
+                              AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.email_slot_type IS NULL;
+                            _failed := NOT FOUND;
+                            -- The helper's boolean is not a mutation flag.
+                            IF NOT _failed AND ROW(_before.sticky_agent_id, _before.sticky_until, _before.weight)
+                                IS DISTINCT FROM ROW(_after.sticky_agent_id, _after.sticky_until, _after.weight) THEN
+                                IF NOT _pair.id = ANY (_prepared) THEN
+                                    _prepared := array_append(_prepared, _pair.id);
+                                    _reselect := true;
+                                    EXIT;
+                                END IF;
+                                _failed := true;
                             END IF;
-                            RETURN QUERY SELECT 'assigned'::text, _head.queue_id, _head.attempt_id, _candidate.agent_id;
-                            EXIT;
                         END IF;
-                    END LOOP;
-                    IF _done THEN
-                        EXIT; -- One assignment per visitor/round; actual winner remains deterministic.
                     END IF;
-                    _skip := array_append(_skip, _head.attempt_id);
-                    RETURN QUERY SELECT 'no_agent'::text, _head.queue_id, _head.attempt_id, NULL::integer;
+
+                    IF NOT _failed THEN
+                        SELECT a.* INTO STRICT _applied
+                        FROM call_center.cc_email_apply_distributed(_pair.id, _pair.queue_id, _pair.agent_id, _failed_attempts, _failed_agents) a;
+                        IF _applied.result = 'assigned' AND _applied.queue_id = _pair.queue_id
+                           AND _applied.attempt_id = _pair.id AND _applied.agent_id = _pair.agent_id THEN
+                            _count_pos := array_position(_assigned_queues, _pair.queue_id);
+                            IF _count_pos IS NULL THEN
+                                _assigned_queues := array_append(_assigned_queues, _pair.queue_id);
+                                _assigned_counts := array_append(_assigned_counts, 1);
+                            ELSE
+                                _assigned_counts[_count_pos] := _assigned_counts[_count_pos] + 1;
+                            END IF;
+                            _progress := true;
+                            RETURN QUERY SELECT 'assigned'::text, _pair.queue_id::integer, _pair.id::bigint, _pair.agent_id::integer;
+                            CONTINUE;
+                        ELSIF _applied.result IS DISTINCT FROM 'no_agent'
+                           OR _applied.queue_id IS DISTINCT FROM _pair.queue_id
+                           OR _applied.attempt_id IS DISTINCT FROM _pair.id OR _applied.agent_id IS NOT NULL THEN
+                            RAISE EXCEPTION USING ERRCODE = 'XX000', MESSAGE = 'email distribute: invalid assignment adapter result';
+                        END IF;
+                    END IF;
+                    IF _failed THEN
+                        IF NOT _pair.id = ANY (_skip) THEN
+                            _skip := array_append(_skip, _pair.id);
+                            _progress := true;
+                        END IF;
+                    ELSIF NOT EXISTS (SELECT 1 FROM unnest(_failed_attempts, _failed_agents) f(attempt_id, agent_id)
+                        WHERE f.attempt_id = _pair.id AND f.agent_id = _pair.agent_id) THEN
+                        _failed_attempts := array_append(_failed_attempts, _pair.id);
+                        _failed_agents := array_append(_failed_agents, _pair.agent_id);
+                        _progress := true;
+                    END IF;
+                    RETURN QUERY SELECT 'no_agent'::text, _pair.queue_id::integer, _pair.id::bigint, NULL::integer;
                 END LOOP;
-            END LOOP;
+                IF NOT _selected THEN
+                    FOREACH _queue_id IN ARRAY _queue_ids LOOP
+                        RETURN QUERY SELECT 'no_agent'::text, _queue_id, NULL::bigint, NULL::integer;
+                    END LOOP;
+                    EXIT work;
+                END IF;
+                EXIT selection WHEN NOT _reselect;
+            END LOOP selection;
             EXIT WHEN NOT _progress;
         END LOOP;
     END work;
 
-    UPDATE call_center.cc_email_distribution_cursor
-    SET last_queue_id = _last_queue, last_agent_id = _last_agent WHERE singleton;
+    UPDATE call_center.cc_email_distribution_cursor c SET last_queue_id = _last_queue WHERE c.singleton;
     IF _timed_out OR clock_timestamp() >= _deadline THEN
         RETURN QUERY SELECT 'time_limit'::text, NULL::integer, NULL::bigint, NULL::integer;
     END IF;
@@ -1164,9 +1339,9 @@ BEGIN
     lock_skipped := 0;
     time_limited := false;
 
-    -- Releasing an offer or ending processing frees a slot: the attempt lock is enough.
+    -- Slot releases use agent, Email channel, attempt locks without waiting.
     FOR _r IN
-        SELECT a.id, a.state, a.timeout, a.version
+        SELECT a.id, a.agent_id, a.state, a.timeout, a.version
         FROM call_center.cc_member_attempt a
         WHERE a.channel = 'email'
           AND a.state IN ('offering', 'processing')
@@ -1182,6 +1357,20 @@ BEGIN
             RETURN;
         END IF;
 
+        IF _r.agent_id IS NOT NULL THEN
+            PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _r.agent_id FOR SHARE SKIP LOCKED;
+            IF NOT FOUND THEN
+                lock_skipped := lock_skipped + 1;
+                CONTINUE;
+            END IF;
+            PERFORM 1 FROM call_center.cc_agent_channel ch
+            WHERE ch.agent_id = _r.agent_id AND ch.channel = 'email' FOR UPDATE SKIP LOCKED;
+            IF NOT FOUND AND EXISTS (SELECT 1 FROM call_center.cc_agent_channel ch
+                WHERE ch.agent_id = _r.agent_id AND ch.channel = 'email') THEN
+                lock_skipped := lock_skipped + 1;
+                CONTINUE;
+            END IF;
+        END IF;
         SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _r.id FOR UPDATE SKIP LOCKED;
         IF NOT FOUND THEN
             lock_skipped := lock_skipped + (SELECT count(*) FROM call_center.cc_member_attempt a WHERE a.id = _r.id)::integer;
@@ -1189,15 +1378,16 @@ BEGIN
         END IF;
         -- Changed since it was read: a command or wake-up came first.
         CONTINUE WHEN _a.leaving_at IS NOT NULL OR _a.state <> _r.state OR _a.timeout IS DISTINCT FROM _r.timeout
-            OR _a.version <> _r.version;
+            OR _a.version <> _r.version OR _a.agent_id IS DISTINCT FROM _r.agent_id;
 
         IF _a.state = 'offering' THEN
             UPDATE call_center.cc_member_attempt a
-            SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, weight = greatest(a.weight, 10), sticky_agent_id = NULL,
+            SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, weight = greatest(a.weight, call_center.cc_email_high_priority()), sticky_agent_id = NULL,
                 sticky_until = now(), last_released_agent_id = _a.agent_id, last_state_change = now(),
                 version = a.version + 1
             WHERE a.id = _a.id
             RETURNING * INTO _a;
+            PERFORM call_center.cc_email_agent_strategy_refresh(_r.agent_id);
             PERFORM call_center.cc_email_attempt_snapshot(_a, 'auto_released', 'system');
             released := released + 1;
         ELSE
@@ -1206,6 +1396,7 @@ BEGIN
                 last_state_change = now(), version = a.version + 1
             WHERE a.id = _a.id
             RETURNING * INTO _a;
+            PERFORM call_center.cc_email_agent_strategy_refresh(_r.agent_id);
             PERFORM call_center.cc_email_attempt_snapshot(_a, 'processing_timeout', 'system');
             processing_timeouts := processing_timeouts + 1;
         END IF;
@@ -1280,6 +1471,13 @@ BEGIN
             CONTINUE;
         END IF;
         CONTINUE WHEN _status <> 'offline';
+        PERFORM 1 FROM call_center.cc_agent_channel ch
+        WHERE ch.agent_id = _r.agent_id AND ch.channel = 'email' FOR UPDATE SKIP LOCKED;
+        IF NOT FOUND AND EXISTS (SELECT 1 FROM call_center.cc_agent_channel ch
+            WHERE ch.agent_id = _r.agent_id AND ch.channel = 'email') THEN
+            lock_skipped := lock_skipped + 1;
+            CONTINUE;
+        END IF;
         SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _r.id FOR UPDATE SKIP LOCKED;
         IF NOT FOUND THEN
             lock_skipped := lock_skipped + (SELECT count(*) FROM call_center.cc_member_attempt a WHERE a.id = _r.id)::integer;
@@ -1323,12 +1521,15 @@ CREATE OR REPLACE FUNCTION call_center.cc_email_return_to_queue(_a call_center.c
     RETURNS call_center.cc_member_attempt
     LANGUAGE plpgsql
 AS $$
+DECLARE
+    _owner integer := _a.agent_id;
 BEGIN
     UPDATE call_center.cc_member_attempt a
-    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, 10),
+    SET state = 'waiting', agent_id = NULL, email_slot_type = NULL, timeout = NULL, postponed_until = NULL, weight = greatest(a.weight, call_center.cc_email_high_priority()),
         sticky_agent_id = NULL, sticky_until = now(), last_state_change = now(), version = a.version + 1
     WHERE a.id = _a.id
     RETURNING * INTO _a;
+    PERFORM call_center.cc_email_agent_strategy_refresh(_owner);
     PERFORM call_center.cc_email_attempt_snapshot(_a, _transition, 'system');
     RETURN _a;
 END;

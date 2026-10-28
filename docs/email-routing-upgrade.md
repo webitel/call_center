@@ -1,28 +1,117 @@
 # Email routing schema upgrade
 
-## Business-rule alignment — 2026-10-23; local verification completed
+## EM-23 shared distributor upgrade
 
-Business answers close the routing questions: default priority 0; accepted
-system High proposal 10 with `greatest(priority, 10)`; preservation of granted
-Extra permission; no implicit Sticky lookup without a Flow candidate. The
-technical range stays 0–100, and priority from Flow is never lowered by a boost.
-The upgrade SQL and full schema now use High 10, including route/head markers
-and effective priority checks. Targeted 7.2.1 verification passed on clean and
-upgrade paths, including repeat update/validation, priority 1 preservation,
-High-10/no-boost/FIFO assertions and parity of 11 Email function definitions
-and 57 routing catalog entries. This is component verification, not a complete
-Webitel installer or production acceptance. Before rollout, complete remaining
-release gates. Do not replace
-validation bounds or bulk-convert existing weight 100; Flow may have assigned
-that value explicitly. Historical 4.4 acceptance verifies the previous threshold
-only. Other release gates remain mandatory.
+For an upgrade from EM-21:
 
-The completed High-10 verification covered four literal sites in the upgrade
-SQL and full schema: `cc_email_sticky_prepare` R5 and timeout (two),
-`cc_email_sticky_route` (one), and the fallback branch of `cc_email_agent_head`
-(one), as well as complete function definitions, not just literal counts;
-retain validation bounds at 0–100. Later lifecycle/Transfer overrides must retain
-the same threshold. No new constant-returning SQL function is needed.
+1. Stop Email writers on all nodes and keep distribution/lifecycle flags off.
+2. Install the matching `cc_sql` 1.5 binary and version SQL atomically, reconnect
+   callers, then update the extension in a fresh connection as described below.
+3. Apply shared prepare, validate and runtime from this EM-23 branch in that
+   order. The original EM-21 files target the previous three-array interface.
+4. Apply `store/sqlstore/migration/26.dev/email_attempt_lifecycle.sql` with
+   `ON_ERROR_STOP` outside an enclosing transaction. It contains CONCURRENTLY
+   indexes and generated gexec commands; on failure keep writers stopped.
+5. Deploy compatible engine/call_center, then Flow. EM-24 adaptation and release
+   verification must finish before enabling the flags.
+
+Lifecycle checks the shared objects, validated priority CHECK and old-allocator
+cleanup before DDL. It adds only EM-23 changes and can be repeated with those
+prerequisites present. It replaces each three-argument apply/try_assign entry
+without CASCADE in its own transaction with one five-argument function; defaults
+preserve calls with three arguments. The lifecycle migration is maintained only
+in call_center.
+
+An older EM-23 database without the shared prerequisites is rejected. Do not
+run EM-21 prepare/runtime over it: use an isolated clean rebuild for development,
+or a separately reviewed upgrade if its data must be kept. Unadapted EM-24 is
+also rejected; do not remove the guard. Never replay EM-21 files after lifecycle.
+
+## Shared distributor upgrade
+
+Order for an existing EM-21 database, using the files from this EM-23 release:
+
+| # | Step | Notes |
+|---|---|---|
+| 1 | Install `cc_sql` 1.5: binary, control file, version SQL | Every PostgreSQL server of the database; see atomic replacement below |
+| 2 | `ALTER EXTENSION cc_sql UPDATE TO '1.5'` | In a fresh connection; registers `cc_sys_distribute_email` |
+| 3 | `email_shared_distributor_prepare.sql` | Own transaction |
+| 4 | `email_shared_distributor_validate.sql` | After step 3 commits, outside a transaction |
+| 5 | `email_shared_distributor_runtime.sql` | Last; own transaction |
+| 6 | Deploy `call_center`, then `flow_manager` | Older SQL and services reject priority above 100 |
+
+- Before step 1 stop Email writers on all nodes and keep `email_distribution`
+  off. The starting schema must contain the release generic SQL and the EM-21
+  prerequisites: routing update, its validation and the address indexes.
+- Files are in `store/sqlstore/migration/26.dev/`; the extension repository keeps
+  identical copies in `webitel/migration/email/`. Apply one copy with
+  `psql -v ON_ERROR_STOP=1 -f`.
+- Prepare and runtime reject a schema with EM-23/EM-24 objects; such a database
+  needs the adapted release.
+- Runtime checks the extension-owned five-array Email signature of `cc_sql` 1.5
+  and the prepared objects, including `cc_email_pair_available`, then replaces
+  `cc_email_distribute`, then drops `cc_email_agent_head(integer, bigint[])` and
+  the cursor column `last_agent_id` without CASCADE. The Sticky-maintenance
+  position `last_queue_id` is kept. An error rolls back only the runtime step.
+- Each file can be repeated on the EM-21 schema. After runtime do not apply
+  prepare again or any historical Email SQL: older files restore the previous
+  priority range and allocator.
+
+An existing 1.5 installation with the old three-argument catalog entry needs a
+reviewed schema conversion or an isolated rebuild; `ALTER EXTENSION ... UPDATE
+TO '1.5'` does not refresh an extension already at 1.5.
+
+### Clean installation
+
+Create the extension `cc_sql` 1.5 and load `call_center-schema.sql` once as part
+of the complete bootstrap with the directory, flow and storage prerequisites.
+The schema already contains the final Email definitions and no old head function
+or agent cursor; do not apply the upgrade files or historical Email SQL over it.
+It contains `CREATE SCHEMA call_center` and uses extension-owned types, so the
+bootstrap must order the schema, the extension and the dump. The extension's
+base dump alone does not install the Email model.
+
+### Atomic library replacement
+
+Stop all callers of the extension, including generic routing. Put the new
+`cc_sql.so` under a temporary name on the same filesystem as the destination,
+check its checksum, owner and permissions, then rename it over the destination.
+Never copy over or truncate a loaded library: in testing this crashed PostgreSQL
+with `Bus error`, and crash recovery cleared the UNLOGGED attempt table. After
+the rename, reconnect the sessions and pools that loaded the old library before
+resuming callers. Repeat on every server that can host the database.
+
+### Rollback
+
+`cc_sql--1.5--1.4.sql` only drops `cc_sys_distribute_email`. It restores neither
+the old binary nor the old `cc_email_distribute`, head function or agent cursor
+column; returning to the old allocator needs a reviewed compatible set of them.
+Do not replay old routing SQL blindly and do not delete attempts or outbox rows
+as a shortcut. Stop callers and reconnect sessions for any binary replacement.
+
+### Known limits
+
+- High is temporarily 10 (`cc_email_high_priority()`); existing priorities are
+  not rewritten.
+- Check the actual `cc_team.strategy` strings: unknown names use the default
+  `last_offering_at` branch; Email also accepts `longest-idle-time`.
+- The extension workflow's package list is generated from
+  `webitel/reusable-configs`; add both 1.4↔1.5 scripts there before the next
+  file-sync.
+- EM-24 adaptation and restart, concurrency, performance and other-channel
+  regression checks remain open.
+
+## Historical alignment — 2026-10-23
+
+The verified snapshot used default priority 0, priority range 0–100 and four
+literal High-10 sites: Sticky R5/timeout (two), effective Sticky route (one)
+and the fallback head branch (one). Targeted 7.2.1 verification covered clean
+and upgrade paths, repeat application, priority preservation and function/catalog
+parity. Historical 4.4 results cover the previous High-100 snapshot. These are
+historical component results, not verification of the preparation above or
+production acceptance. Granted Extra permission and no implicit Sticky lookup
+without a Flow candidate remain unchanged. Existing weight 100 is never
+bulk-converted; Flow may have assigned it explicitly.
 
 Review additions passed in 7.2.1: low-priority no-boost assertions for
 R1/R2, permanent ineligibility, lost skills, unavailable slot type and R3/R6;
@@ -52,7 +141,7 @@ approved checks. Extended performance/fairness, concurrency, environment parity
 and full other-channel regression remain mandatory integration gates in step 7.
 Do not change Call/Chat/IM configuration or data for this upgrade.
 
-## Before upgrading an existing EM-21 installation
+## Historical EM-21 baseline: before upgrading
 
 1. Confirm the actual environment has no production Email workload. Stop inbound
    polling and Flow Email joins, the Email allocator and any later-stage lifecycle
@@ -71,7 +160,7 @@ Do not change Call/Chat/IM configuration or data for this upgrade.
    this EM-21 baseline script over a database already using locally implemented
    EM-23/EM-24 overrides; adapting those overrides belongs to their later steps.
 
-## Apply
+## Historical EM-21 baseline: apply
 
 For a migration-based clean installation, first apply the existing prerequisites
 and `email_queue_join.sql`, then `email_agent_distribution.sql`, using
@@ -180,6 +269,12 @@ view; its counts span all queues. In EM-23/EM-24 adaptations, port all helper,
 assignment, allocator and Sticky overrides, including the postponed exclusion;
 do not restore the base-only signature/logic. The queue view's Email `free`
 counter represents potential base/Extra capacity, never letter authorization.
+
+### Historical allocator details before shared-runtime cutover
+
+The following head/agent-cursor description belongs to the historical routing
+update. The final runtime migration above removes that function/agent column;
+these paragraphs are not instructions to restore them after cutover.
 
 The update also creates `cc_email_distribution_cursor`, a LOGGED single-row table with
 the last visited queue and agent IDs. The first allocator cycle initializes the
