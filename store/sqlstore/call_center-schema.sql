@@ -4153,10 +4153,7 @@ BEGIN
                 FOR _pair IN
                     SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip, _failed_attempts, _failed_agents) c
                 LOOP
-                    IF clock_timestamp() >= _deadline THEN
-                        _timed_out := true;
-                        EXIT work;
-                    END IF;
+                    -- Apply the whole selected batch; the budget is checked before the next C call.
                     _selected := true;
                     _pos := array_position(_queue_ids, _pair.queue_id);
                     IF coalesce(_pair.agent_id, 0) <= 0 OR coalesce(_pair.id, 0) <= 0 OR _pos IS NULL
@@ -12890,6 +12887,13 @@ CREATE INDEX cc_member_attempt_email_sticky_until_idx ON call_center.cc_member_a
 --
 
 CREATE INDEX cc_member_attempt_email_timeout_idx ON call_center.cc_member_attempt USING btree (timeout, id) WHERE (((channel)::text = 'email'::text) AND ((state)::text = ANY ((ARRAY['offering'::character varying, 'processing'::character varying])::text[])) AND (timeout IS NOT NULL) AND (leaving_at IS NULL));
+
+
+--
+-- Name: cc_member_attempt_email_waiting_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_member_attempt_email_waiting_idx ON call_center.cc_member_attempt USING btree (queue_id, joined_at, id) WHERE (((channel)::text = 'email'::text) AND ((state)::text = 'waiting'::text) AND (agent_id IS NULL) AND (leaving_at IS NULL) AND (email_slot_type IS NULL));
 
 
 --
