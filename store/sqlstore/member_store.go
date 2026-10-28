@@ -1240,6 +1240,7 @@ where a.id = :Id::int8
     and a.domain_id = :DomainId
     and a.agent_id isnull
     and ag.id = :AgentId
+    and a.channel is distinct from 'email'
     and a.state = 'wait_agent'
 returning a.queue_id`, map[string]any{
 		"DomainId": domainId,

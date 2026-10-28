@@ -44,7 +44,7 @@ func (s EmailDistributorSettings) Validate() error {
 	return nil
 }
 
-// EmailDistributor assigns waiting Email attempts from the database on every node.
+// EmailDistributor polls database-backed Email cycles on every node.
 // The database serializes cycles, so it keeps no local attempt state.
 type EmailDistributor struct {
 	store    EmailDistributeStore
@@ -73,6 +73,9 @@ func (d *EmailDistributor) Start() {
 	d.log.Info("starting email distribution",
 		wlog.Duration("interval", d.settings.Interval),
 		wlog.Int("queue_batch", d.settings.QueueBatch),
+		wlog.Duration("max_duration", d.settings.StatementTimeout/2),
+		wlog.Duration("lock_timeout", d.settings.LockTimeout),
+		wlog.Duration("statement_timeout", d.settings.StatementTimeout),
 	)
 	d.stop = make(chan struct{})
 	d.stopped = make(chan struct{})

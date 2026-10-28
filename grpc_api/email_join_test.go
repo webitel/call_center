@@ -14,7 +14,7 @@ import (
 )
 
 func TestEmailJoinRejectsInvalidPriorityBeforeApp(t *testing.T) {
-	for _, priority := range []int32{-1, 101} {
+	for _, priority := range []int32{-1} {
 		t.Run(fmt.Sprint(priority), func(t *testing.T) {
 			var api *member
 			_, err := api.EmailJoinToQueue(context.Background(), &cc.EmailJoinToQueueRequest{

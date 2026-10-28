@@ -2626,7 +2626,7 @@ set agent_id = t.agent_id,
                       inner join call_center.cc_agent a on a.id = dis.agent_id
                       left join call_center.cc_queue q on q.id = dis.queue_id
              where not dis.ins is true
-               and (q.type is null or q.type in (6, 7) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at isnull ))
+               and (q.type is null or q.type in (6, 7, 9) or not exists(select 1 from call_center.cc_calls cc where cc.user_id = a.user_id and cc.hangup_at isnull ))
          ) t
 where t.id = a.id
   and a.agent_id isnull;
@@ -3667,116 +3667,6 @@ $$;
 
 
 --
--- Name: cc_email_agent_head(integer, bigint[]); Type: FUNCTION; Schema: call_center; Owner: -
---
-
-CREATE FUNCTION call_center.cc_email_agent_head(_agent_id integer, _skip_attempts bigint[] DEFAULT '{}'::bigint[])
-    RETURNS TABLE (attempt_id bigint, queue_id integer, priority integer, joined_at timestamp with time zone,
-                   sticky_agent_id integer, sticky_until timestamp with time zone, extra_allowed boolean)
-    LANGUAGE sql
-    STABLE
-AS $$
-    WITH agent AS MATERIALIZED (
-        SELECT a.id, a.domain_id, a.status_id, os.is_system, c.slot_type
-        FROM call_center.cc_agent a
-                 JOIN call_center.cc_agent_channel ch ON ch.agent_id = a.id AND ch.channel = 'email'
-                 LEFT JOIN call_center.cc_online_skills os ON os.id = a.status_id
-                 CROSS JOIN LATERAL call_center.cc_email_agent_capacity(a.id, true) c
-        WHERE a.id = _agent_id AND a.status = 'online' AND ch.online
-          AND 'email' = ANY (a.allow_channels) AND c.slot_type IS NOT NULL
-    ), queues AS (
-        SELECT q AS queue_row, q.id, q.sticky_agent, call_center.cc_email_sticky_wait_sec(q.payload) AS wait_sec
-        FROM call_center.cc_queue q JOIN agent ag ON ag.domain_id = q.domain_id
-        WHERE q.type = 11 AND q.enabled AND call_center.cc_email_agent_assignable(q.id, ag.id)
-          AND call_center.cc_email_queue_calendar(q.domain_id, q.calendar_id) = 'open'
-          AND (ag.status_id IS NULL OR ag.is_system IS TRUE OR EXISTS (
-              SELECT 1
-              FROM call_center.cc_queue_skill qs
-                       JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
-                       JOIN call_center.cc_skills_in_online_skills sp
-                            ON sp.online_skill_id = ag.status_id AND sp.skill_id = sia.skill_id
-              WHERE qs.queue_id = q.id AND qs.enabled AND sia.agent_id = ag.id AND sia.enabled
-                AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
-          ))
-    )
-    SELECT w.id, q.id, w.weight, w.joined_at, w.sticky_agent_id, w.sticky_until, w.email_extra_allowed
-    FROM queues q CROSS JOIN agent ag
-             CROSS JOIN LATERAL (
-                 SELECT choices.* FROM (
-                     (SELECT a.id, a.weight, a.joined_at, a.sticky_agent_id, a.sticky_until, a.email_extra_allowed
-                      FROM call_center.cc_member_attempt a
-                      WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                        AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                        AND NOT a.id = ANY (_skip_attempts) AND ag.slot_type = 'base'
-                        AND a.sticky_agent_id IS NULL
-                      ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1)
-                     UNION ALL
-                     (SELECT a.id, a.weight, a.joined_at, a.sticky_agent_id, a.sticky_until, a.email_extra_allowed
-                      FROM call_center.cc_member_attempt a
-                      WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                        AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                        AND NOT a.id = ANY (_skip_attempts) AND ag.slot_type = 'extra'
-                        AND a.email_extra_allowed
-                        AND a.sticky_agent_id IS NULL
-                      ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1)
-                     UNION ALL
-                     (SELECT a.id, a.weight, a.joined_at, a.sticky_agent_id, a.sticky_until, a.email_extra_allowed
-                      FROM call_center.cc_member_attempt a
-                      WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                        AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                        AND NOT a.id = ANY (_skip_attempts) AND ag.slot_type = 'base'
-                        AND q.sticky_agent AND a.sticky_agent_id = ag.id
-                        AND (a.sticky_until IS NULL OR q.wait_sec = 0 OR a.sticky_until > clock_timestamp())
-                      ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1)
-                     UNION ALL
-                     (SELECT a.id, a.weight, a.joined_at, a.sticky_agent_id, a.sticky_until, a.email_extra_allowed
-                      FROM call_center.cc_member_attempt a
-                      WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                        AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                        AND NOT a.id = ANY (_skip_attempts) AND ag.slot_type = 'extra'
-                        AND a.email_extra_allowed
-                        AND q.sticky_agent AND a.sticky_agent_id = ag.id
-                        AND (a.sticky_until IS NULL OR q.wait_sec = 0 OR a.sticky_until > clock_timestamp())
-                      ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1)
-                     UNION ALL
-                     (WITH sticky_routes AS MATERIALIZED (
-                         -- Check each candidate/Extra pair once, without a letter deadline.
-                         SELECT g.sticky_agent_id, g.email_extra_allowed, r.candidate_id, r.priority AS fallback_priority
-                         FROM (
-                             SELECT DISTINCT a.sticky_agent_id, a.email_extra_allowed
-                             FROM call_center.cc_member_attempt a
-                             WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                               AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                               AND a.sticky_agent_id IS NOT NULL AND NOT a.id = ANY (_skip_attempts)
-                               AND (ag.slot_type = 'base' OR a.email_extra_allowed)
-                         ) g
-                                  CROSS JOIN LATERAL call_center.cc_email_sticky_route(
-                                      q.queue_row, g.sticky_agent_id, g.email_extra_allowed, NULL::timestamptz, 0) r
-                     )
-                      SELECT a.id,
-                             -- Cancellation keeps priority; immediate/deadline fallback raises it.
-                             CASE WHEN r.candidate_id IS NULL AND r.fallback_priority = 0 THEN a.weight
-                                  ELSE greatest(a.weight, 10) END AS weight,
-                             a.joined_at, a.sticky_agent_id,
-                             a.sticky_until, a.email_extra_allowed
-                      FROM sticky_routes r
-                               JOIN call_center.cc_member_attempt a
-                                    ON a.sticky_agent_id = r.sticky_agent_id AND a.email_extra_allowed = r.email_extra_allowed
-                      WHERE a.queue_id = q.id AND a.channel = 'email' AND a.queue_type = 11
-                        AND a.state = 'waiting' AND a.agent_id IS NULL AND a.leaving_at IS NULL
-                        AND a.sticky_agent_id IS NOT NULL AND NOT a.id = ANY (_skip_attempts)
-                        AND (ag.slot_type = 'base' OR a.email_extra_allowed)
-                        AND (r.candidate_id IS NULL
-                            OR (q.wait_sec > 0 AND a.sticky_until <= clock_timestamp())
-                            OR (q.wait_sec = 0 AND a.sticky_until < transaction_timestamp()))
-                      ORDER BY weight DESC, a.joined_at, a.id LIMIT 1)
-                 ) choices
-                 ORDER BY choices.weight DESC, choices.joined_at, choices.id LIMIT 1
-             ) w
-    ORDER BY w.weight DESC, w.joined_at, w.id LIMIT 1
-$$;
-
---
 -- Name: cc_email_distribute(integer, interval); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
@@ -3788,23 +3678,27 @@ DECLARE
     _deadline timestamp with time zone := clock_timestamp() + _max_duration;
     _prep_deadline timestamp with time zone := clock_timestamp() + _max_duration / 4;
     _last_queue integer;
-    _last_agent integer;
     _queue_start integer;
-    _agent_start integer;
     _queue_id integer;
-    _agent_id integer;
+    _status record;
+    _pair record;
+    _applied record;
     _q call_center.cc_queue;
-    _calendar text;
-    _head record;
-    _other_head record;
-    _candidate record;
+    _before call_center.cc_member_attempt;
+    _after call_center.cc_member_attempt;
+    _queue_ids integer[];
+    _queue_limits integer[];
+    _assigned_queues integer[] := '{}';
+    _assigned_counts integer[] := '{}';
     _skip bigint[] := '{}';
-    _queues integer[] := '{}';
-    _counts integer[] := '{}';
+    _prepared bigint[] := '{}';
+    _batch_agents integer[];
+    _batch_attempts bigint[];
     _pos integer;
-    _tries integer;
-    _head_id bigint;
-    _done boolean;
+    _count_pos integer;
+    _failed boolean;
+    _selected boolean;
+    _reselect boolean;
     _progress boolean;
     _timed_out boolean := false;
 BEGIN
@@ -3816,7 +3710,7 @@ BEGIN
         RETURN;
     END IF;
     INSERT INTO call_center.cc_email_distribution_cursor(singleton) VALUES (true) ON CONFLICT DO NOTHING;
-    SELECT c.last_queue_id, c.last_agent_id INTO _last_queue, _last_agent
+    SELECT c.last_queue_id INTO _last_queue
     FROM call_center.cc_email_distribution_cursor c WHERE c.singleton FOR UPDATE SKIP LOCKED;
     IF NOT FOUND THEN
         RETURN QUERY SELECT 'busy'::text, NULL::integer, NULL::bigint, NULL::integer;
@@ -3825,129 +3719,160 @@ BEGIN
 
     <<work>>
     BEGIN
-        -- Fair upkeep also advances offline candidates when no online agent can take work.
+        -- Diagnostics do not depend on the bounded maintenance cursor.
+        FOR _status IN
+            SELECT s.id, s.result FROM call_center.cc_email_distribute_stage_1 s
+            WHERE s.result IS NOT NULL ORDER BY s.id
+        LOOP
+            IF clock_timestamp() >= _deadline THEN
+                _timed_out := true;
+                EXIT work;
+            END IF;
+            RETURN QUERY SELECT _status.result::text, _status.id::integer, NULL::bigint, NULL::integer;
+        END LOOP;
+
         _queue_start := _last_queue;
         FOR _queue_id IN
-            SELECT q.id FROM call_center.cc_queue q
-            WHERE q.type = 11 AND q.enabled
-              AND ((SELECT a.id FROM call_center.cc_member_attempt a
-                    WHERE a.queue_id = q.id AND a.channel = 'email' AND a.state = 'waiting'
-                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NULL
-                    ORDER BY a.weight DESC, a.joined_at, a.id LIMIT 1) IS NOT NULL
-                OR (SELECT a.id FROM call_center.cc_member_attempt a
-                    WHERE a.queue_id = q.id AND a.channel = 'email' AND a.state = 'waiting'
-                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NOT NULL
-                    ORDER BY a.sticky_until LIMIT 1) IS NOT NULL)
-            ORDER BY (q.id <= _queue_start), q.id
+            SELECT s.id FROM call_center.cc_email_distribute_stage_1 s
+            WHERE s.can_prepare_sticky ORDER BY (s.id <= _queue_start), s.id
         LOOP
             EXIT WHEN clock_timestamp() >= _prep_deadline;
             _last_queue := _queue_id;
             SELECT q.* INTO _q FROM call_center.cc_queue q
-            WHERE q.id = _queue_id AND q.type = 11 AND q.enabled FOR SHARE SKIP LOCKED;
+            WHERE q.id = _queue_id AND q.type = 11 AND q.enabled;
             CONTINUE WHEN NOT FOUND;
-            PERFORM 1 FROM flow.calendar c WHERE c.id = _q.calendar_id FOR SHARE SKIP LOCKED;
-            CONTINUE WHEN NOT FOUND AND EXISTS (SELECT 1 FROM flow.calendar c WHERE c.id = _q.calendar_id);
-            _calendar := call_center.cc_email_queue_calendar(_q.domain_id, _q.calendar_id);
-            IF _calendar <> 'open' THEN
-                RETURN QUERY SELECT 'calendar_' || _calendar, _q.id, NULL::bigint, NULL::integer;
-                CONTINUE;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM call_center.cc_queue_skill qs WHERE qs.queue_id = _q.id AND qs.enabled) THEN
-                RETURN QUERY SELECT 'no_skills'::text, _q.id, NULL::bigint, NULL::integer;
-                CONTINUE;
-            END IF;
             PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[]::integer[], least(_queue_batch, 128), NULL);
-            IF NOT EXISTS (SELECT 1 FROM call_center.cc_email_queue_candidates(_q.id, NULL, true)) THEN
-                RETURN QUERY SELECT 'no_agent'::text, _q.id, NULL::bigint, NULL::integer;
-            END IF;
         END LOOP;
 
         LOOP
             _progress := false;
-            _agent_start := _last_agent;
-            FOR _agent_id IN
-                SELECT a.id FROM call_center.cc_agent a
-                         JOIN call_center.cc_agent_channel ch ON ch.agent_id = a.id AND ch.channel = 'email'
-                WHERE a.status = 'online' AND ch.online AND 'email' = ANY (a.allow_channels)
-                  AND (a.email_count > 0 OR a.extra_email_count > 0)
-                ORDER BY (a.id <= _agent_start), a.id
+            <<selection>>
             LOOP
                 IF clock_timestamp() >= _deadline THEN
                     _timed_out := true;
                     EXIT work;
                 END IF;
-                _last_agent := _agent_id;
-                _tries := 0;
+                SELECT coalesce(array_agg(s.id ORDER BY s.id), '{}'::integer[]),
+                       coalesce(array_agg(_queue_batch - coalesce(_assigned_counts[
+                           array_position(_assigned_queues, s.id)], 0) ORDER BY s.id), '{}'::integer[])
+                INTO _queue_ids, _queue_limits
+                FROM call_center.cc_email_distribute_stage_1 s
+                WHERE s.can_distribute
+                  AND coalesce(_assigned_counts[array_position(_assigned_queues, s.id)], 0) < _queue_batch;
+                EXIT work WHEN cardinality(_queue_ids) = 0;
+
+                _selected := false;
+                _reselect := false;
+                _batch_agents := '{}';
+                _batch_attempts := '{}';
+                FOR _pair IN
+                    SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip) c
                 LOOP
                     IF clock_timestamp() >= _deadline THEN
                         _timed_out := true;
                         EXIT work;
                     END IF;
-                    EXIT WHEN _tries >= _queue_batch;
-                    SELECT h.* INTO _head FROM call_center.cc_email_agent_head(_agent_id, _skip) h;
-                    EXIT WHEN NOT FOUND;
-                    _tries := _tries + 1;
-                    _pos := array_position(_queues, _head.queue_id);
-                    IF _pos IS NOT NULL AND _counts[_pos] >= _queue_batch THEN
-                        -- Do not demote this agent to lower-priority work because of a queue batch cap.
-                        EXIT;
+                    _selected := true;
+                    _pos := array_position(_queue_ids, _pair.queue_id);
+                    IF coalesce(_pair.agent_id, 0) <= 0 OR coalesce(_pair.id, 0) <= 0 OR _pos IS NULL
+                       OR _pair.ins IS DISTINCT FROM false OR _pair.bucket_id IS NOT NULL
+                       OR _pair.resource_id IS NOT NULL OR _pair.resource_group_id IS NOT NULL OR _pair.comm_idx IS NOT NULL
+                       OR _pair.agent_id = ANY (_batch_agents) OR _pair.id = ANY (_batch_attempts)
+                       OR _pair.id = ANY (_skip) OR _queue_limits[_pos] <= 0 THEN
+                        RAISE EXCEPTION USING ERRCODE = 'XX000', MESSAGE = 'email distribute: invalid shared distributor result';
                     END IF;
+                    _batch_agents := array_append(_batch_agents, _pair.agent_id);
+                    _batch_attempts := array_append(_batch_attempts, _pair.id);
+                    _queue_limits[_pos] := _queue_limits[_pos] - 1;
 
-                    IF _head.sticky_agent_id IS NOT NULL THEN
-                        _head_id := _head.attempt_id;
-                        SELECT q.* INTO _q FROM call_center.cc_queue q WHERE q.id = _head.queue_id;
-                        PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[_agent_id], 1, _head.attempt_id);
-                        -- A fallback may have changed priority/owner restriction; select again.
-                        SELECT h.* INTO _head FROM call_center.cc_email_agent_head(_agent_id, _skip) h;
-                        EXIT WHEN NOT FOUND;
-                        CONTINUE WHEN _head.attempt_id <> _head_id;
-                        _pos := array_position(_queues, _head.queue_id);
-                        EXIT WHEN _pos IS NOT NULL AND _counts[_pos] >= _queue_batch;
-                    END IF;
-
-                    _done := false;
-                    FOR _candidate IN
-                        SELECT c.agent_id FROM call_center.cc_email_queue_candidates(_head.queue_id, NULL, _head.extra_allowed) c
-                        ORDER BY c.used_slots, c.last_offering_at NULLS FIRST, c.agent_id
-                    LOOP
-                        IF clock_timestamp() >= _deadline THEN
-                            _timed_out := true;
-                            EXIT work;
-                        END IF;
-                        IF _candidate.agent_id <> _agent_id THEN
-                            SELECT h.* INTO _other_head FROM call_center.cc_email_agent_head(_candidate.agent_id, _skip) h;
-                            CONTINUE WHEN NOT FOUND OR _other_head.attempt_id <> _head.attempt_id;
-                        END IF;
-                        IF call_center.cc_email_try_assign(_head.attempt_id, _head.queue_id, _candidate.agent_id) THEN
-                            _done := true;
-                            _progress := true;
-                            IF _pos IS NULL THEN
-                                _queues := array_append(_queues, _head.queue_id);
-                                _counts := array_append(_counts, 1);
-                            ELSE
-                                _counts[_pos] := _counts[_pos] + 1;
+                    SELECT a.* INTO _before
+                    FROM call_center.cc_member_attempt a
+                    JOIN call_center.cc_queue q ON q.id = a.queue_id AND q.domain_id = a.domain_id
+                    WHERE a.id = _pair.id AND a.queue_id = _pair.queue_id AND q.type = 11 AND q.enabled
+                      AND a.queue_type = 11 AND a.channel = 'email' AND a.state = 'waiting'
+                      AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.email_slot_type IS NULL;
+                    _failed := NOT FOUND;
+                    IF NOT _failed AND _before.sticky_agent_id IS NOT NULL THEN
+                        SELECT q.* INTO _q FROM call_center.cc_queue q
+                        WHERE q.id = _before.queue_id AND q.domain_id = _before.domain_id AND q.type = 11 AND q.enabled;
+                        _failed := NOT FOUND;
+                        IF NOT _failed THEN
+                            PERFORM call_center.cc_email_sticky_prepare(_q, ARRAY[_pair.agent_id], 1, _pair.id);
+                            SELECT a.* INTO _after FROM call_center.cc_member_attempt a
+                            WHERE a.id = _before.id AND a.queue_id = _before.queue_id AND a.domain_id = _before.domain_id
+                              AND a.queue_type = 11 AND a.channel = 'email' AND a.state = 'waiting'
+                              AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.email_slot_type IS NULL;
+                            _failed := NOT FOUND;
+                            -- The helper's boolean is not a mutation flag.
+                            IF NOT _failed AND ROW(_before.sticky_agent_id, _before.sticky_until, _before.weight)
+                                IS DISTINCT FROM ROW(_after.sticky_agent_id, _after.sticky_until, _after.weight) THEN
+                                IF NOT _pair.id = ANY (_prepared) THEN
+                                    _prepared := array_append(_prepared, _pair.id);
+                                    _reselect := true;
+                                    EXIT;
+                                END IF;
+                                _failed := true;
                             END IF;
-                            RETURN QUERY SELECT 'assigned'::text, _head.queue_id, _head.attempt_id, _candidate.agent_id;
-                            EXIT;
                         END IF;
-                    END LOOP;
-                    IF _done THEN
-                        EXIT; -- One assignment per visitor/round; actual winner remains deterministic.
                     END IF;
-                    _skip := array_append(_skip, _head.attempt_id);
-                    RETURN QUERY SELECT 'no_agent'::text, _head.queue_id, _head.attempt_id, NULL::integer;
+
+                    IF NOT _failed THEN
+                        SELECT a.* INTO STRICT _applied
+                        FROM call_center.cc_email_apply_distributed(_pair.id, _pair.queue_id, _pair.agent_id) a;
+                        IF _applied.result = 'assigned' AND _applied.queue_id = _pair.queue_id
+                           AND _applied.attempt_id = _pair.id AND _applied.agent_id = _pair.agent_id THEN
+                            _count_pos := array_position(_assigned_queues, _pair.queue_id);
+                            IF _count_pos IS NULL THEN
+                                _assigned_queues := array_append(_assigned_queues, _pair.queue_id);
+                                _assigned_counts := array_append(_assigned_counts, 1);
+                            ELSE
+                                _assigned_counts[_count_pos] := _assigned_counts[_count_pos] + 1;
+                            END IF;
+                            _progress := true;
+                            RETURN QUERY SELECT 'assigned'::text, _pair.queue_id::integer, _pair.id::bigint, _pair.agent_id::integer;
+                            CONTINUE;
+                        ELSIF _applied.result IS DISTINCT FROM 'no_agent'
+                           OR _applied.queue_id IS DISTINCT FROM _pair.queue_id
+                           OR _applied.attempt_id IS DISTINCT FROM _pair.id OR _applied.agent_id IS NOT NULL THEN
+                            RAISE EXCEPTION USING ERRCODE = 'XX000', MESSAGE = 'email distribute: invalid assignment adapter result';
+                        END IF;
+                    END IF;
+                    IF NOT _pair.id = ANY (_skip) THEN
+                        _skip := array_append(_skip, _pair.id);
+                        _progress := true;
+                    END IF;
+                    RETURN QUERY SELECT 'no_agent'::text, _pair.queue_id::integer, _pair.id::bigint, NULL::integer;
                 END LOOP;
-            END LOOP;
+                IF NOT _selected THEN
+                    FOREACH _queue_id IN ARRAY _queue_ids LOOP
+                        RETURN QUERY SELECT 'no_agent'::text, _queue_id, NULL::bigint, NULL::integer;
+                    END LOOP;
+                    EXIT work;
+                END IF;
+                EXIT selection WHEN NOT _reselect;
+            END LOOP selection;
             EXIT WHEN NOT _progress;
         END LOOP;
     END work;
 
-    UPDATE call_center.cc_email_distribution_cursor
-    SET last_queue_id = _last_queue, last_agent_id = _last_agent WHERE singleton;
+    UPDATE call_center.cc_email_distribution_cursor c SET last_queue_id = _last_queue WHERE c.singleton;
     IF _timed_out OR clock_timestamp() >= _deadline THEN
         RETURN QUERY SELECT 'time_limit'::text, NULL::integer, NULL::bigint, NULL::integer;
     END IF;
 END;
+$$;
+
+
+--
+-- Name: cc_email_high_priority(); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_email_high_priority()
+    RETURNS integer
+    LANGUAGE sql
+    STABLE
+AS $$
+    SELECT 10
 $$;
 
 
@@ -3972,7 +3897,7 @@ DECLARE
     _address       text := lower(btrim(coalesce(_from_address, '')));
     _result        text;
 BEGIN
-    IF _priority IS NULL OR _priority < 0 OR _priority > 100 THEN
+    IF _priority IS NULL OR _priority < 0 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMPRI', MESSAGE = 'store.sql_member.email_join.invalid_priority';
     END IF;
     IF _event_id IS NULL OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0
@@ -5178,7 +5103,7 @@ AS $$
                WHEN e.cancelled OR e.expired THEN NULL::integer
                ELSE _candidate
            END,
-           CASE WHEN NOT e.cancelled AND e.expired THEN greatest(_priority, 10) ELSE _priority END
+           CASE WHEN NOT e.cancelled AND e.expired THEN greatest(_priority, call_center.cc_email_high_priority()) ELSE _priority END
     FROM (
         SELECT NOT coalesce(_queue.sticky_agent, false) OR _candidate IS NULL
                    OR NOT call_center.cc_email_agent_assignable(_queue.id, _candidate)
@@ -5289,7 +5214,7 @@ BEGIN
             ELSIF NOT _online AND NOT _ignore THEN
                 _candidate := NULL; -- R5.
                 _until := _now;
-                _weight := greatest(_weight, 10);
+                _weight := greatest(_weight, call_center.cc_email_high_priority());
             ELSIF _att.sticky_until IS NULL AND _wait > 0 THEN
                 _until := _now + make_interval(secs => _wait);
             ELSIF (_wait > 0 AND _until <= _now) OR
@@ -5297,7 +5222,7 @@ BEGIN
                                   OR NOT _online OR _slot IS NULL)) THEN
                 _candidate := NULL;
                 _until := _now;
-                _weight := greatest(_weight, 10);
+                _weight := greatest(_weight, call_center.cc_email_high_priority());
             END IF;
         END IF;
 
@@ -6193,6 +6118,7 @@ CREATE TABLE call_center.cc_agent_channel (
     queue_id integer,
     last_offering_at timestamp with time zone,
     last_bridged_at timestamp with time zone,
+    email_idle_since timestamp with time zone,
     last_missed_at timestamp with time zone,
     last_bucket_id integer,
     channel_changed_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -8149,7 +8075,6 @@ ALTER SEQUENCE call_center.cc_email_id_seq OWNED BY call_center.cc_email.id;
 
 CREATE TABLE call_center.cc_email_distribution_cursor (
     singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
-    last_agent_id integer NOT NULL DEFAULT 0 CHECK (last_agent_id >= 0),
     last_queue_id integer NOT NULL DEFAULT 0 CHECK (last_queue_id >= 0)
 );
 
@@ -8171,7 +8096,7 @@ CREATE TABLE call_center.cc_email_join (
     sticky_agent_id integer,
     extra_email_count boolean,
     from_address text,
-    CONSTRAINT cc_email_join_priority_c CHECK (priority BETWEEN 0 AND 100),
+    CONSTRAINT cc_email_join_priority_c CHECK (priority >= 0),
     CONSTRAINT cc_email_join_created_in_requested_queue CHECK (((result IS DISTINCT FROM 'created'::text) OR (queue_id = requested_queue_id))),
     CONSTRAINT cc_email_join_ids_valid CHECK (((domain_id > 0) AND (thread_id > 0) AND (requested_queue_id > 0))),
     CONSTRAINT cc_email_join_result_valid CHECK (((result IS NULL) OR (result = ANY (ARRAY['created'::text, 'already_active'::text])))),
@@ -8497,84 +8422,6 @@ CREATE TABLE call_center.cc_queue_skill (
 
 
 --
--- Name: cc_manual_queue_list; Type: VIEW; Schema: call_center; Owner: -
---
-
-CREATE VIEW call_center.cc_manual_queue_list AS
- WITH manual_queue AS MATERIALIZED (
-         SELECT q.domain_id,
-            q.id,
-            call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
-            q.priority,
-            q.sticky_agent,
-            q.team_id,
-            COALESCE(((q.payload -> 'max_wait_time'::text))::integer, 0) AS max_wait_time,
-            COALESCE(((q.payload -> 'sticky_agent_sec'::text))::integer, 0) AS sticky_agent_sec
-           FROM call_center.cc_queue q
-          WHERE (COALESCE(((q.payload -> 'manual_distribution'::text))::boolean, false) AND q.enabled)
-          ORDER BY q.domain_id
-        ), queues AS MATERIALIZED (
-         SELECT DISTINCT q.domain_id,
-            q.queue,
-            qs.queue_id,
-            q.priority,
-            bq.priority AS bucket_pri,
-            q.max_wait_time,
-            q.sticky_agent_sec,
-            q.sticky_agent,
-            b.b AS bucket_id,
-            csia.agent_id,
-            a.user_id,
-            max(qs.lvl) AS lvl
-           FROM (((((manual_queue q
-             JOIN call_center.cc_queue_skill qs ON ((qs.queue_id = q.id)))
-             JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
-             JOIN call_center.cc_agent a ON (((a.id = csia.agent_id) AND ((q.team_id IS NULL) OR (q.team_id = a.team_id)))))
-             LEFT JOIN LATERAL unnest(qs.bucket_ids) b(b) ON (true))
-             LEFT JOIN call_center.cc_bucket_in_queue bq ON (((bq.queue_id = q.id) AND (bq.bucket_id = b.b))))
-          WHERE (qs.enabled AND csia.enabled AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity) AND (q.domain_id = a.domain_id) AND ((a.status)::text = 'online'::text))
-          GROUP BY q.domain_id, q.queue, qs.queue_id, q.priority, bq.priority, q.max_wait_time, q.sticky_agent_sec, q.sticky_agent, b.b, csia.agent_id, a.user_id
-        ), attempts AS MATERIALIZED (
-         SELECT q.domain_id,
-            q.queue,
-            q.queue_id,
-            q.priority,
-            q.bucket_pri,
-            q.max_wait_time,
-            q.sticky_agent_sec,
-            q.sticky_agent,
-            q.bucket_id,
-            q.agent_id,
-            q.user_id,
-            q.lvl,
-            a.id AS attempt_id,
-            a.joined_at,
-            a.member_call_id AS session_id,
-            (EXTRACT(epoch FROM (now() - a.joined_at)))::integer AS wait,
-            a.destination AS communication,
-            a.sticky_agent_id,
-            a.channel,
-            (((EXTRACT(epoch FROM (now() - a.joined_at)) / COALESCE(NULLIF((q.max_wait_time)::numeric, (0)::numeric), (3600)::numeric)) * (100)::numeric))::integer AS deadline
-           FROM (call_center.cc_member_attempt a
-             JOIN queues q ON ((q.queue_id = a.queue_id)))
-          WHERE ((a.domain_id = q.domain_id) AND (a.agent_id IS NULL) AND ((a.state)::text = 'wait_agent'::text) AND (a.queue_id = q.queue_id) AND (COALESCE(q.bucket_id, 0) = COALESCE(a.bucket_id, (0)::bigint)) AND ((a.sticky_agent_id IS NULL) OR (a.sticky_agent_id = q.agent_id) OR (a.joined_at < (now() - ((q.sticky_agent_sec || ' sec'::text))::interval))))
-         FOR UPDATE OF a SKIP LOCKED
-        )
- SELECT domain_id,
-    array_agg(user_id) AS users,
-    array_to_json(calls[1:10]) AS calls,
-    array_to_json(chats[1:100]) AS chats
-   FROM ( SELECT a.domain_id,
-            a.user_id,
-            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = 'call'::text)) AS calls,
-            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = ANY (ARRAY['chat'::text, 'im'::text]))) AS chats
-           FROM (attempts a
-             LEFT JOIN call_center.cc_bucket b ON ((b.id = a.bucket_id)))
-          GROUP BY a.domain_id, a.user_id) x
-  GROUP BY domain_id, calls[1:10], chats[1:100];
-
-
---
 -- Name: cc_member_attempt_id_seq; Type: SEQUENCE; Schema: call_center; Owner: -
 --
 
@@ -8837,6 +8684,89 @@ CREATE TABLE call_center.cc_skills_in_online_skills (
     online_skill_id bigint CONSTRAINT skills_in_skill_preset_skill_preset_id_not_null NOT NULL,
     skill_id bigint CONSTRAINT skills_in_skill_preset_skill_id_not_null NOT NULL
 );
+
+
+--
+-- Name: cc_manual_queue_list; Type: VIEW; Schema: call_center; Owner: -
+--
+
+CREATE VIEW call_center.cc_manual_queue_list AS
+ WITH manual_queue AS MATERIALIZED (
+         SELECT q.domain_id,
+            q.id,
+            call_center.cc_get_lookup((q.id)::bigint, q.name) AS queue,
+            q.priority,
+            q.sticky_agent,
+            q.team_id,
+            COALESCE(((q.payload -> 'max_wait_time'::text))::integer, 0) AS max_wait_time,
+            COALESCE(((q.payload -> 'sticky_agent_sec'::text))::integer, 0) AS sticky_agent_sec
+           FROM call_center.cc_queue q
+          WHERE (q.enabled AND (((q.payload ->> 'manual_distribution'::text))::boolean IS TRUE))
+          ORDER BY q.domain_id
+        ), queues AS MATERIALIZED (
+         SELECT DISTINCT q.domain_id,
+            q.queue,
+            qs.queue_id,
+            q.priority,
+            bq.priority AS bucket_pri,
+            q.max_wait_time,
+            q.sticky_agent_sec,
+            q.sticky_agent,
+            b.b AS bucket_id,
+            csia.agent_id,
+            a.user_id,
+            max(qs.lvl) AS lvl
+           FROM (((((((manual_queue q
+             JOIN call_center.cc_queue_skill qs ON ((qs.queue_id = q.id)))
+             JOIN call_center.cc_skill_in_agent csia ON ((csia.skill_id = qs.skill_id)))
+             JOIN call_center.cc_agent a ON (((a.id = csia.agent_id) AND ((q.team_id IS NULL) OR (q.team_id = a.team_id)))))
+             LEFT JOIN call_center.cc_online_skills sp ON (((sp.id = a.status_id) AND ((a.status)::text = 'online'::text))))
+             LEFT JOIN call_center.cc_skills_in_online_skills spp ON (((spp.online_skill_id = a.status_id) AND (spp.skill_id = qs.skill_id) AND ((a.status)::text = 'online'::text))))
+             LEFT JOIN LATERAL unnest(qs.bucket_ids) b(b) ON (true))
+             LEFT JOIN call_center.cc_bucket_in_queue bq ON (((bq.queue_id = q.id) AND (bq.bucket_id = b.b))))
+          WHERE (qs.enabled AND csia.enabled AND (csia.capacity >= qs.min_capacity) AND (csia.capacity <= qs.max_capacity) AND (q.domain_id = a.domain_id) AND ((a.status)::text = 'online'::text) AND ((a.status_id IS NULL) OR ((a.status)::text <> 'online'::text) OR (spp.skill_id IS NOT NULL) OR (sp.is_system IS TRUE)))
+          GROUP BY q.domain_id, q.queue, qs.queue_id, q.priority, bq.priority, q.max_wait_time, q.sticky_agent_sec, q.sticky_agent, b.b, csia.agent_id, a.user_id
+        ), attempts AS MATERIALIZED (
+         SELECT q.domain_id,
+            q.queue,
+            q.queue_id,
+            q.priority,
+            q.bucket_pri,
+            q.max_wait_time,
+            q.sticky_agent_sec,
+            q.sticky_agent,
+            q.bucket_id,
+            q.agent_id,
+            q.user_id,
+            q.lvl,
+            a.id AS attempt_id,
+            a.joined_at,
+            a.member_call_id AS session_id,
+            (EXTRACT(epoch FROM (now() - a.joined_at)))::integer AS wait,
+            a.destination AS communication,
+            a.sticky_agent_id,
+            a.channel,
+            (((EXTRACT(epoch FROM (now() - a.joined_at)) / COALESCE(NULLIF((q.max_wait_time)::numeric, (0)::numeric), (3600)::numeric)) * (100)::numeric))::integer AS deadline,
+            call_center.cc_get_lookup(con.id, (con.common_name)::character varying) AS contact
+           FROM (((call_center.cc_member_attempt a
+             JOIN queues q ON ((q.queue_id = a.queue_id)))
+             LEFT JOIN call_center.cc_calls c ON ((((a.channel)::text = 'call'::text) AND (c.id = (a.member_call_id)::uuid))))
+             LEFT JOIN contacts.contact con ON ((con.id = c.contact_id)))
+          WHERE ((a.domain_id = q.domain_id) AND (a.agent_id IS NULL) AND ((a.state)::text = 'wait_agent'::text) AND (a.queue_id = q.queue_id) AND (COALESCE(q.bucket_id, 0) = COALESCE(a.bucket_id, (0)::bigint)) AND ((a.sticky_agent_id IS NULL) OR (a.sticky_agent_id = q.agent_id) OR (a.joined_at < (now() - ((q.sticky_agent_sec || ' sec'::text))::interval))))
+         FOR UPDATE OF a SKIP LOCKED
+        )
+ SELECT domain_id,
+    array_agg(user_id) AS users,
+    array_to_json(calls[1:50]) AS calls,
+    array_to_json(chats[1:100]) AS chats
+   FROM ( SELECT a.domain_id,
+            a.user_id,
+            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id, 'contact', a.contact) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = 'call'::text)) AS calls,
+            array_agg(jsonb_build_object('attempt_id', a.attempt_id, 'wait', a.wait, 'communication', a.communication, 'queue', a.queue, 'bucket', call_center.cc_get_lookup(b.id, ((b.name)::text)::character varying), 'deadline', a.deadline, 'session_id', a.session_id) ORDER BY a.lvl, a.priority DESC, a.bucket_pri DESC NULLS LAST, a.wait DESC) FILTER (WHERE ((a.channel)::text = ANY (ARRAY['chat'::text, 'im'::text]))) AS chats
+           FROM (attempts a
+             LEFT JOIN call_center.cc_bucket b ON ((b.id = a.bucket_id)))
+          GROUP BY a.domain_id, a.user_id) x
+  GROUP BY domain_id, calls[1:50], chats[1:100];
 
 
 --
@@ -13135,7 +13065,7 @@ CREATE OR REPLACE VIEW call_center.cc_distribute_stage_1 AS
      LEFT JOIN LATERAL ( SELECT count(*) AS usage
            FROM call_center.cc_member_attempt a
           WHERE ((a.queue_id = q.id) AND ((a.state)::text <> 'leaving'::text))) l ON ((q.lim > 0)))
-  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
+  WHERE ((q.type = 7) OR ((q.type = ANY (ARRAY[1, 6, 9])) AND ((NOT q.ignore_calendar) OR calend.in_calendar OR (calend.in_calendar IS NULL))) OR ((q.type = 8) AND (GREATEST(((q.lim - COALESCE(l.usage, (0)::bigint)))::integer, 0) > 0)) OR ((q.type = 5) AND (NOT q.op)) OR (q.op AND (q.type = ANY (ARRAY[2, 3, 4, 5])) AND (r.* IS NOT NULL)))
   ORDER BY q.domain_id, q.priority DESC, q.op;
 
 
@@ -14877,6 +14807,105 @@ ALTER TABLE ONLY call_center.socket_session
 
 ALTER TABLE ONLY call_center.system_settings
     ADD CONSTRAINT systemc_settings_wbt_domain_dc_fk FOREIGN KEY (domain_id) REFERENCES directory.wbt_domain(dc) ON DELETE CASCADE;
+
+
+CREATE FUNCTION call_center.cc_email_distribute_queue_status(
+    _domain_id bigint, _calendar_id integer, _queue_id integer)
+    RETURNS TABLE (calendar_state text, result text)
+    LANGUAGE plpgsql
+    STABLE
+AS $$
+BEGIN
+    calendar_state := call_center.cc_email_queue_calendar(_domain_id, _calendar_id);
+    IF calendar_state <> 'open' THEN
+        result := 'calendar_' || calendar_state;
+    ELSIF NOT EXISTS (
+        SELECT 1 FROM call_center.cc_queue_skill qs
+        WHERE qs.queue_id = _queue_id AND qs.enabled
+    ) THEN
+        result := 'no_skills';
+    ELSIF NOT EXISTS (
+        SELECT 1 FROM call_center.cc_email_queue_candidates(_queue_id, NULL, true)
+    ) THEN
+        result := 'no_agent';
+    END IF;
+    RETURN NEXT;
+END;
+$$;
+
+CREATE VIEW call_center.cc_email_distribute_stage_1 AS
+SELECT q.id,
+       q.type,
+       q.domain_id,
+       q.team_id,
+       t.strategy AS team_strategy,
+       q.priority,
+       q.calendar_id,
+       q.sticky_agent,
+       call_center.cc_email_sticky_wait_sec(q.payload) AS sticky_agent_sec,
+       s.calendar_state,
+       s.result,
+       s.calendar_state = 'open' AND s.result IS DISTINCT FROM 'no_skills' AS can_prepare_sticky,
+       s.result IS NULL AS can_distribute
+FROM call_center.cc_queue q
+         LEFT JOIN call_center.cc_team t ON t.id = q.team_id
+         CROSS JOIN LATERAL call_center.cc_email_distribute_queue_status(q.domain_id, q.calendar_id, q.id) s
+WHERE q.type = 11 AND q.enabled
+  AND (EXISTS (
+      SELECT 1 FROM call_center.cc_member_attempt a
+      WHERE a.queue_id = q.id AND a.domain_id = q.domain_id AND a.queue_type = 11
+        AND a.channel = 'email' AND a.state = 'waiting'
+        AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NULL
+  ) OR EXISTS (
+      SELECT 1 FROM call_center.cc_member_attempt a
+      WHERE a.queue_id = q.id AND a.domain_id = q.domain_id AND a.queue_type = 11
+        AND a.channel = 'email' AND a.state = 'waiting'
+        AND a.agent_id IS NULL AND a.leaving_at IS NULL AND a.sticky_agent_id IS NOT NULL
+  ));
+
+
+CREATE FUNCTION call_center.cc_email_agent_strategy_refresh(
+    _agent_id integer, _taken_at timestamp with time zone DEFAULT NULL)
+    RETURNS void
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF coalesce(_agent_id, 0) <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email strategy: positive agent ID is required';
+    END IF;
+    -- Caller holds agent/Email-channel locks before changing the slot ledger.
+    UPDATE call_center.cc_agent_channel ch
+    SET email_idle_since = CASE WHEN c.used_slots > 0 THEN NULL
+                                ELSE coalesce(ch.email_idle_since, now()) END,
+        last_bridged_at = CASE WHEN _taken_at IS NULL THEN ch.last_bridged_at
+                               ELSE greatest(ch.last_bridged_at, _taken_at) END
+    FROM call_center.cc_email_agent_capacity(_agent_id, true) c
+    WHERE ch.agent_id = _agent_id AND ch.channel = 'email';
+END;
+$$;
+
+CREATE FUNCTION call_center.cc_email_apply_distributed(
+    _attempt_id bigint, _queue_id integer, _agent_id integer)
+    RETURNS TABLE (result text, queue_id integer, attempt_id bigint, agent_id integer)
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF coalesce(_attempt_id, 0) <= 0 OR coalesce(_queue_id, 0) <= 0 OR coalesce(_agent_id, 0) <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email distribution: positive attempt, queue and agent IDs are required';
+    END IF;
+    IF NOT pg_try_advisory_xact_lock(1162690889, 1) THEN
+        RETURN QUERY SELECT 'busy'::text, NULL::integer, NULL::bigint, NULL::integer;
+        RETURN;
+    END IF;
+
+    IF call_center.cc_email_try_assign(_attempt_id, _queue_id, _agent_id) THEN
+        PERFORM call_center.cc_email_agent_strategy_refresh(_agent_id);
+        RETURN QUERY SELECT 'assigned'::text, _queue_id, _attempt_id, _agent_id;
+    ELSE
+        RETURN QUERY SELECT 'no_agent'::text, _queue_id, _attempt_id, NULL::integer;
+    END IF;
+END;
+$$;
 
 
 --
