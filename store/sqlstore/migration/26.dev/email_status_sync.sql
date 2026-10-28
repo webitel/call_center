@@ -4,6 +4,40 @@
 -- Run with psql -v ON_ERROR_STOP=1 -f after email_attempt_lifecycle.sql outside a transaction: the
 -- indexes are built CONCURRENTLY, and psql runs the generated \gexec drops. Every step can be repeated.
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_extension e
+        JOIN pg_depend d ON d.refclassid = 'pg_extension'::regclass AND d.refobjid = e.oid AND d.deptype = 'e'
+        JOIN pg_proc p ON d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+        WHERE e.extname = 'cc_sql' AND e.extversion = '1.5'
+          AND e.extnamespace = 'call_center'::regnamespace
+          AND p.oid = to_regprocedure('call_center.cc_sys_distribute_email(integer[],integer[],bigint[],bigint[],integer[])')
+          AND p.prosrc = 'cc_sys_distribute_email' AND p.proretset
+          AND NOT p.proisstrict AND p.provolatile = 'v' AND p.proparallel = 'u'
+    ) OR to_regclass('call_center.cc_email_attempt_outbox') IS NULL
+      OR to_regclass('call_center.cc_email_distribute_stage_1') IS NULL
+      OR to_regprocedure('call_center.cc_email_high_priority()') IS NULL
+      OR to_regprocedure('call_center.cc_email_pair_available(call_center.cc_member_attempt,integer,integer,bigint[],integer[])') IS NULL
+      OR to_regprocedure('call_center.cc_email_agent_strategy_refresh(integer,timestamp with time zone)') IS NULL
+      OR NOT EXISTS (
+          SELECT 1 FROM pg_proc p
+          WHERE p.oid = to_regprocedure('call_center.cc_email_apply_distributed(bigint,integer,integer,bigint[],integer[])')
+            AND p.pronargdefaults = 2
+      ) OR NOT EXISTS (
+          SELECT 1 FROM pg_proc p
+          WHERE p.oid = to_regprocedure('call_center.cc_email_try_assign(bigint,integer,integer,bigint[],integer[])')
+            AND p.pronargdefaults = 2
+      ) OR NOT EXISTS (
+          SELECT 1 FROM pg_attribute
+          WHERE attrelid = to_regclass('call_center.cc_agent_channel')
+            AND attname = 'email_idle_since' AND NOT attisdropped
+      ) THEN
+        RAISE EXCEPTION 'email status sync: matching cc_sql 1.5 and adapted EM-23 lifecycle are required';
+    END IF;
+END
+$$;
+
 -- User of the agent, fixed when the snapshot is written.
 ALTER TABLE call_center.cc_email_attempt_outbox
     ADD COLUMN IF NOT EXISTS agent_user_id bigint;
@@ -190,8 +224,8 @@ BEGIN
     WHERE a.domain_id = _domain_id AND a.member_call_id = _thread_id::text AND a.channel = 'email' AND a.leaving_at IS NULL;
 
     IF FOUND THEN
-        -- A postponed attempt may take a slot: agent, then its Email channel, then the attempt.
-        IF _state = 'postponed' AND _owner IS NOT NULL THEN
+        -- Wake-up metrics and slots: agent, Email channel, attempt.
+        IF _state IN ('postponed', 'processing') AND _owner IS NOT NULL THEN
             PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _owner FOR SHARE;
             PERFORM 1 FROM call_center.cc_agent_channel ch WHERE ch.agent_id = _owner AND ch.channel = 'email' FOR UPDATE;
         END IF;
@@ -226,10 +260,14 @@ BEGIN
         _a := call_center.cc_email_wake_postponed(_a, 'woken', 'queued', _event_id::text);
         _result := CASE WHEN _a.state = 'active' THEN 'woken' ELSE 'queued' END;
     ELSIF _a.state = 'processing' THEN
+        IF _a.agent_id IS DISTINCT FROM _owner OR _state <> 'processing' THEN
+            RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email wake-up: attempt changed while locking';
+        END IF;
         UPDATE call_center.cc_member_attempt a
         SET state = 'active', timeout = NULL, last_state_change = now(), version = a.version + 1
         WHERE a.id = _a.id
         RETURNING * INTO _a;
+        PERFORM call_center.cc_email_agent_strategy_refresh(_owner);
         PERFORM call_center.cc_email_attempt_snapshot(_a, 'reopened', 'system', NULL, NULL, _event_id::text);
         _result := 'reopened';
     ELSE
@@ -266,7 +304,7 @@ DECLARE
     _result        text;
     _att           call_center.cc_member_attempt;
 BEGIN
-    IF _priority IS NULL OR _priority < 0 OR _priority > 100 THEN
+    IF _priority IS NULL OR _priority < 0 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMPRI', MESSAGE = 'store.sql_member.email_join.invalid_priority';
     END IF;
     IF _event_id IS NULL OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0

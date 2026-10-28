@@ -26,9 +26,9 @@ const (
 
 // EmailJoinToQueue runs in a short transaction; lockTimeout bounds the wait for the Thread lock shared with the wake-up.
 func (s *SqlMemberStore) EmailJoinToQueue(ctx context.Context, in model.EmailJoin, lockTimeout time.Duration) (*model.EmailJoinResult, *model.AppError) {
-	if in.Priority < 0 || in.Priority > 100 {
+	if in.Priority < 0 {
 		return nil, model.NewAppError("SqlMemberStore.EmailJoinToQueue", model.EmailJoinInvalidPriority, nil,
-			"Email priority must be between 0 and 100", http.StatusBadRequest)
+			"Email priority must be nonnegative", http.StatusBadRequest)
 	}
 	var res model.EmailJoinResult
 

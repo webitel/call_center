@@ -80,9 +80,12 @@ ALTER TABLE flow.email_event
             AND (route_priority IS NULL) = (route_extra_email_count IS NULL)
             AND (coalesce(route_state, '') NOT IN ('pending', 'resolving')
                 OR (route_priority, route_sticky_agent_id, route_extra_email_count) IS NOT DISTINCT FROM (0, 0, false))
-            AND (route_priority IS NULL OR route_priority BETWEEN 0 AND 100)
+            AND (route_priority IS NULL OR route_priority >= 0)
             AND (route_sticky_agent_id IS NULL OR route_sticky_agent_id >= 0)
-            AND (route_from_address IS NULL OR char_length(route_from_address) <= 320));
+            AND (route_from_address IS NULL OR char_length(route_from_address) <= 320)) NOT VALID;
+
+-- Validate after the DDL statement commits.
+ALTER TABLE flow.email_event VALIDATE CONSTRAINT email_event_route_params_valid;
 
 -- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip; it is dropped
 -- CONCURRENTLY too, so a repeated run does not lock the Inbox.

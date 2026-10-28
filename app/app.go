@@ -157,7 +157,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.Config().QueueSettings.PollingInterval, app.Log)
 	app.engine.Start()
 
-	// Email has its own allocator; it stays off until Email lifecycle and events are deployed.
+	// Email polls in a separate transaction; lifecycle and events are required before enablement.
 	if qs := app.Config().QueueSettings; qs.EmailDistribution {
 		settings := engine.EmailDistributorSettings{
 			Interval:         qs.EmailDistributionInterval,

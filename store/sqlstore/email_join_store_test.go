@@ -12,7 +12,7 @@ import (
 )
 
 func TestEmailJoinRejectsInvalidPriorityBeforeDatabase(t *testing.T) {
-	for _, priority := range []int32{-1, 101} {
+	for _, priority := range []int32{-1} {
 		var store *SqlMemberStore
 		res, err := store.EmailJoinToQueue(context.Background(), model.EmailJoin{Priority: priority}, time.Second)
 		if res != nil || err == nil || err.Id != model.EmailJoinInvalidPriority || err.StatusCode != http.StatusBadRequest {

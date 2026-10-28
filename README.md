@@ -1,28 +1,43 @@
 # call_center
 
-### Email routing update: implementation status
+### Shared Email distributor
 
-Business clarification recorded on 2026-10-23: default priority is 0; the
-accepted proposal for the system High threshold is 10 (`greatest(priority, 10)`),
-without lowering a larger Flow priority. The technical range remains 0–100;
-High is not an absolute maximum. Granted Extra permission is preserved across
-Postpone/Return/Transfer. Missing Flow Sticky candidate means normal routing
-with no implicit Thread-history lookup; that rule is already implemented.
-The upgrade SQL and full schema use High 10 in preparation, effective route
-and head selection. Step 7.2.1 completed the targeted High-10 checks on both
-clean and upgrade paths, including repeat application and full Email-function
-parity. Historical 4.4 results cover the previous High-100 snapshot only;
-7.2.1 is the evidence for the current threshold, not full rollout acceptance.
-Resume/direct transfer use of Extra remains the existing technical policy,
-not a separate business confirmation.
+Email assignment uses the shared C algorithm of `cc_sql` 1.5 through a separate
+Email entry, `cc_sys_distribute_email`, in its own transaction. Generic
+`cc_distribute` does not select Email and shares no reservations with it. The
+public `cc_email_distribute(integer, interval)` signature and four result columns
+remain compatible; see [How emails are assigned](#how-emails-are-assigned) and the
+[SQL contract](docs/email-shared-distributor-contract.md).
+
+Apply shared prepare/validate/runtime and lifecycle from this release before
+`email_status_sync.sql` and the Inbox route migration. Follow the
+[EM-24 runbook](docs/email-routing-upgrade.md#em-24-status-sync-upgrade).
+Status sync keeps the shared selection and metric hooks, adds the Thread lock,
+fallback and snapshot publisher. Clean schema contains the final EM-24 objects.
+
+Priority is a nonnegative int32; High is temporarily 10 until the business value
+is set. Internal and external state stays `waiting`. Generic SQL keeps the
+release definitions; the generic C aggregate no longer counts Email towards the
+busy state of other channels. `Intercept` does not touch Email attempts.
+
+EM-23 and EM-24 use the same five-array C entry. Apply/try_assign each have one
+signature with default empty failed-pair arrays. EM-24 keeps the first durable
+route intent, including priority, Sticky agent, Extra permission and initial From.
+Keep distribution and lifecycle flags off
+until the complete compatible release passes its verification.
+
+### Email routing update: historical verification
+
+The 2026-10-23 snapshot used priority 0–100 and four literal High-10 routing
+sites in both `email_routing_update.sql` and the full schema. Step 7.2.1 checked
+that snapshot on clean and upgrade paths, including repeat application and
+Email-function parity. Historical 4.4 results cover the earlier High-100
+snapshot. Neither result certifies the shared-distributor transition.
+
+Default priority remains 0; boosts never lower a larger Flow priority. Granted
+Extra permission and the no-implicit-Sticky-history rule remain unchanged.
+Resume/direct transfer use of Extra remains the existing technical policy.
 Do not bulk-rewrite weight 100: it may come from Flow.
-
-The system High literal has four routing sites in both `email_routing_update.sql`
-and `call_center-schema.sql`: two in `cc_email_sticky_prepare` (R5/timeout), one
-in `cc_email_sticky_route`, and one in the fallback branch of `cc_email_agent_head`.
-Preserve these sites and the full function definitions verified in 7.2.1
-in later-stage overrides. Do not change priority validation's
-upper bound 100. No additional SQL helper is introduced for this constant.
 
 Implementation steps 4.1–4.3 cover storage, extended JoinQueue, base/Extra
 assignment, explicit-candidate Sticky and cross-queue priority selection.
@@ -72,11 +87,14 @@ and TimescaleDB; record exact versions and any environment differences. PG16
 is optional only if supporting it is a separately confirmed requirement, not
 the acceptance gate or a replacement for PostgreSQL 18.6 verification.
 
-`EmailJoinToQueue` accepts `priority` (0–100, default 0), `sticky_agent_id`
+`EmailJoinToQueue` accepts `priority` (0–2147483647, default 0), `sticky_agent_id`
 (default 0: no candidate), `extra_email_count` (per-letter permission, default
-false) and `from_address` (initial inbound From). An out-of-range priority is
+false) and `from_address` (initial inbound From). Negative priority is
 rejected before writes with gRPC `InvalidArgument` and stable ID
-`store.sql_member.email_join.invalid_priority`; SQL also validates the range.
+`store.sql_member.email_join.invalid_priority`. The
+`int32` field bounds the upper end. Apply the SQL preparation before deploying
+the updated service, then deploy Flow; an older SQL function still rejects
+priority above 100.
 Negative `sticky_agent_id` returns `InvalidArgument` with the existing generic
 ID `store.sql_member.email_join.invalid` (`EmailJoinInvalidArguments`), also
 used by the SQL-store mapping for invalid arguments; no new error ID is added.
@@ -119,83 +137,68 @@ An Inbound Email Queue (queue type 11) receives email-service Threads through
 call creates a new `waiting` Email attempt (`channel = 'email'`) or returns the
 existing active attempt of the Thread, which may already be assigned, and
 returns immediately. Agents are assigned later and asynchronously by the Email
-allocator, which is separate from the generic distribution of calls and chats.
+shared C algorithm through a separate Email transaction.
 `call_center` then keeps the lifecycle of the attempt until it leaves to
 `cc_member_attempt_history`.
 
 ### How emails are assigned
 
-Every instance runs the allocator when `email_distribution` is enabled. Each
-cycle calls `call_center.cc_email_distribute` in one short transaction; a
-transaction-scoped advisory lock lets one instance work at a time, the others
-skip the cycle. The first phase is a round-robin maintenance pass over queues,
-with a soft threshold of one quarter of the cycle work budget and at most
-`min(email_distribution_queue_batch, 128)` actionable Sticky updates per visited
-queue. The threshold is checked between iterations; a single SQL query can
-overrun it. Upkeep may take several cycles, not necessarily just one.
-Assignment then visits online agents in rounds; for each agent,
-`cc_email_agent_head` selects the best permitted letter across all eligible open
-queues. Queue priority and strategy do not rank those letters.
+Every instance runs the Email poller when `email_distribution` is enabled. Each
+cycle calls `call_center.cc_email_distribute` in one short transaction; the
+transaction advisory lock lets one instance work, while others return `busy`.
+Go supplies lock/statement timeouts and a work budget equal to half the statement
+timeout. Disabling Email polling leaves the generic engine unchanged.
 
-`cc_email_distribution_cursor` is a LOGGED single-row table, initialized by the
-first allocator cycle, with the last visited queue and agent IDs and no foreign
-keys. It is updated once in a completed or softly stopped cycle. The next cycle
-starts after those IDs (wrapping by ID), including across process restart.
-The cursor changes visitation order only, never an agent's priority/FIFO order.
-It commits with assignments and rolls back with a failed cycle; it is not an
-attempt or slot ledger and does not make UNLOGGED attempts durable after a
-PostgreSQL crash. No external scheduler or local queue session is used.
+Stage 1 reports calendar/configuration outcomes independently of the maintenance
+cursor. Sticky upkeep visits queues with `can_prepare_sticky`, including
+`no_agent`, using a soft quarter-budget threshold and at most
+`min(email_distribution_queue_batch, 128)` actionable updates per visited queue.
+A single SQL operation may exceed that threshold; the outer statement timeout
+remains authoritative. Upkeep may take several cycles.
 
-Each agent visit produces at most one successful assignment, but its actual
-recipient can be another candidate for that letter. This is not a limit of one
-assignment per actual recipient per round.
+The LOGGED `cc_email_distribution_cursor` retains only the last maintenance
+queue ID (and singleton key). Its position survives call_center restart and is
+updated once with the transaction, including a softly stopped cycle. It neither
+orders assignments nor stores operators, attempts or slots. The runtime migration
+removes the old head function and agent cursor after replacing their caller;
+clean schema omits both. PostgreSQL crash/failover durability of the UNLOGGED
+attempt table is unchanged.
 
-`email_distribution_queue_batch` caps assignments from each queue per cycle
-and failed/reselected head attempts per agent visit. Once an agent's best queue
-reaches that cap, the agent waits for a later cycle instead of taking
-lower-priority work from another queue. If several agents can take the same
-letter, the fewest assigned emails / oldest offer / agent-ID ordering applies
-among candidates for whom that letter is also the current best choice.
+`cc_sys_distribute_email` chooses pairs with private per-call reservations.
+Queue order is domain, queue priority descending, the oldest currently
+assignable waiting letter, then queue ID. Effective Sticky, per-letter slot
+permission and cycle skips determine whether a letter may contribute to queue
+age. Blocked Sticky does not gain queue precedence through age alone. Team
+Strategy orders eligible agents; their letter is selected by waiting seconds
+from persisted `joined_at` plus effective priority, then `joined_at`/attempt ID.
+The score uses numeric arithmetic. Queue FIFO/LIFO/Strict FIFO do not apply.
 
-Locked/changed heads are skipped within the cycle, not permanently reserved or
-removed. A pending Sticky fallback is ranked using its effective priority even
-before the maintenance pass reaches it, then prepared under row lock and
-reselected before assignment. This avoids ranking priority-10 fallback work
-below a lower-priority general letter merely because upkeep was batched.
-An Extra-only agent can skip a base-only head without hiding permitted Extra work.
+The SQL wrapper validates C rows and prepares selected Sticky attempts under
+the existing helper's locks. A routing-field change discards the remainder of
+that C batch and triggers bounded reselection; the helper's boolean is not a
+mutation flag. Only `cc_email_apply_distributed`/`cc_email_try_assign` can apply
+the selected pair, with authoritative eligibility/capacity checks and metric
+refresh in the same transaction. C selection itself does not occupy a slot.
 
-The fallback branch materializes candidate routing once per queue, Sticky agent
-and Extra permission within one head query. It reuses `cc_email_sticky_route`
-without a letter deadline, then applies each letter's deadline and effective
-priority separately. Cancellation still keeps priority; R5/timeout still raises
-it to at least 10 without lowering a larger Flow priority. This is query-local work, not a cache between assignments or
-cycles. Final preparation and eligibility/capacity checks under locks are unchanged.
-Grouping and finding fallback letters can still scan the Sticky backlog; this
-optimization removes repeated candidate checks, not all backlog-dependent work.
+`email_distribution_queue_batch` caps successful assignments from each queue
+across the whole cycle. Failed applications add cycle-local attempt/agent pairs;
+other agents may still take the letter, with the last released agent as fallback.
+Vanished rows or repeated Sticky changes skip the attempt for that cycle. Failures
+do not consume the queue limit. Further C calls permit an agent to fill
+several allowed slots. New assignments, skips or failed pairs permit another round; empty
+selection, no progress or exhausted time stops. Failed cycles roll back and
+back off; `busy` and a soft `time_limit` are not failures. The poller keeps no
+local attempt state, and call_center restart does not reset persisted waiting,
+ownership, slots or Sticky deadlines.
 
-These limits bound selected heads, visits and updates, not all rows the planner
-may scan. Backlog cost, fairness and any additional concurrent indexes require
-component verification in step 4.4 and extended EXPLAIN/load/concurrency gates
-in step 7 before production enablement. In particular, measure
-repeated head selection across candidate agents and queues, and the fifth head
-branch's route/filter/sort over pending Sticky rows. Neither bounded scans nor
-absence of starvation is established by this implementation. Any head cache
-must invalidate all affected agents, not only the assignment recipient; cached
-calendar results cannot replace authoritative checks under assignment locks.
-Removing pending R5/cancelled candidates from effective-priority comparison
-would change behavior and needs separate approval. As a safeguard, a cycle
-stops itself after half of its statement timeout, checked between queues,
-attempts and agent candidates, and commits what it assigned;
-the rest waits for the next cycle. A lock or statement timeout instead rolls the
-whole cycle back. The allocator keeps no local state, so a restarted instance
-only continues with the `waiting` attempts left in the database.
+Candidate/capacity calls, effective Sticky and the assignable-age query can
+still scan substantial backlogs. Bounded outputs do not establish bounded work
+or full fairness. EXPLAIN/load/concurrency checks remain step-6 rollout gates.
 
-A queue assigns only while its calendar is open. A missing or invalid calendar,
-or a queue without enabled skills, keeps its emails waiting and is logged as a
-configuration error. Across all queues available to a particular agent, letters
-rank by numeric priority descending, then `joined_at` and attempt ID ascending.
-An unavailable queue or waiting Sticky candidate does not rank ahead of work
-that is actually eligible for that agent.
+A queue assigns only while its calendar is open. Missing/invalid calendars or
+no enabled skills keep letters waiting and produce configuration diagnostics.
+Queue priority remains ahead of age; the shared score applies within the
+selected agent's eligible letters, without a Sticky-first boost.
 
 An agent can take an email of the queue when the agent is:
 
@@ -219,8 +222,10 @@ deadline, read at assignment, so a later change of the queue applies to new
 offers only. An email whose offer expired goes first to another agent and back
 to the same one only when no other agent can take it.
 
-Among eligible agents the fewest total emails wins, then earliest
-`last_offering_at` (NULL first), then agent ID. Assignment locks the agent before
+Among eligible agents the configured Team Strategy applies, followed by Email
+`last_offering_at` (NULL first) and agent ID. Existing C default semantics for
+strategy names and the Email-only idle-name alias are documented in the shared
+contract. EM-23 Take/release metric hooks still require step 5. Assignment locks the agent before
 its Email channel, retains a matching skill pair/online preset, and rechecks
 presence and per-letter capacity. One conditional update sets `offering`, agent,
 team and `email_slot_type`; only a successful update changes channel
@@ -254,7 +259,8 @@ For an eligible candidate with a configured slot type, R1–R8 apply:
   and capacity until timeout (R8). Timeout falls back with `greatest(priority, 10)`.
 
 R3/R6 identify the permitted Sticky recipient, not a scheduling override.
-Sticky competes with that candidate's other eligible letters by priority/FIFO.
+Sticky competes with that candidate's other eligible letters by waiting seconds
+plus effective priority, with joined_at/ID ties.
 Higher-priority general work can go first, so Sticky may time out even if its
 candidate was previously online with a free slot. Serving Sticky ahead of higher
 priority would require a separate business decision; no such boost is applied.
@@ -286,7 +292,7 @@ lookup, and the former candidate may still win normal routing later.
 
 Every return to the queue (Return, auto-release, logout or auto-offline, a
 wake-up or deadline without a slot) keeps the attempt and its `joined_at`, so
-FIFO and SLA do not restart, makes it High (`greatest(priority, 10)`) and drops
+waiting time and SLA do not restart, makes it High (`greatest(priority, 10)`) and drops
 its agent. Its sticky decision is already made. Only a postponed email that
 cannot go back to its agent keeps it as Sticky candidate, by the rules above:
 the queue is sticky, the agent is eligible, has a slot type for the email and
@@ -423,7 +429,7 @@ an unfinished email, as for other channels.
 
 | Flag | Environment | Default | Meaning |
 |---|---|---|---|
-| `email_distribution` | `EMAIL_DISTRIBUTION` | `false` | Run the Email allocator |
+| `email_distribution` | `EMAIL_DISTRIBUTION` | `false` | Run isolated Email cycles using shared C selection |
 | `email_distribution_interval` | `EMAIL_DISTRIBUTION_INTERVAL` | `1s` | Pause between cycles |
 | `email_distribution_queue_batch` | `EMAIL_DISTRIBUTION_QUEUE_BATCH` | `50` | Assignments per queue in one cycle |
 | `email_distribution_lock_timeout` | `EMAIL_DISTRIBUTION_LOCK_TIMEOUT` | `1s` | `lock_timeout` of a cycle |
@@ -451,7 +457,10 @@ Startup fails when a batch is not positive, a duration is below 1 ms, a lock
 timeout is not below its statement timeout or the publisher lease is not longer
 than its confirm timeout.
 
-A cycle with assignments is logged at info level, other cycles at debug level.
+Startup logs include interval, queue batch, the requested half-statement-timeout
+`max_duration` budget, lock timeout and statement timeout. These are configured
+budgets, not evidence of actual SQL/binary versions. A cycle with assignments
+is logged at info level, other cycles at debug level.
 `assigned` counts successful assignments; `no_agent_queues` counts distinct
 positive queue IDs with at least one `no_agent` outcome in that cycle, not
 failed attempts or queues with no operators at all. A queue can have both
@@ -483,36 +492,19 @@ most once in 5 minutes each.
 
 ### Rollout and limits
 
-1. Apply SQL using the upgrade runbook, including the separate CHECK-validation
-   step and `email_last_bridged_indexes.sql`. Do not apply only the original
-   `email_agent_distribution.sql`, which would restore the old functions.
-2. Apply `email_attempt_lifecycle.sql` with `psql -v ON_ERROR_STOP=1 -f` outside
-   a transaction after them. It redefines allocator functions, so the earlier
-   routing files must not be repeated after it. Then apply
-   `email_status_sync.sql` the same way; it redefines the wake-up, join and
-   snapshot functions of `email_attempt_lifecycle.sql`, which must not be
-   repeated after it. Apply `email_route.sql` the same way after
-   `email_service_inbox.sql`; it adds the route of an event to the Inbox of
-   `flow_manager`, with the JoinQueue values and the initial From it repeats.
-3. Release `engine` with the base, Extra and postponed Email limits of agents,
-   then every `call_center` node with the allocator, the watcher and the
-   snapshot publisher off, then `flow_manager` once no node runs the old
-   `call_center`.
-4. Give agents `email` in `allow_channels` and the intended base/Extra limits.
-5. Enable `email_distribution` and `email_lifecycle` only after the remaining
-   integration gates and release prerequisites pass.
-6. Enable `email_attempt_publisher` only after email-service with its consumer
-   is deployed and the stage 12 concurrency check has passed; turning it off
-   rolls back, unpublished rows wait in the outbox.
+Follow the [EM-24 runbook](docs/email-routing-upgrade.md#em-24-status-sync-upgrade):
+matching extension 1.5, shared prepare/validate/runtime, lifecycle, then status
+sync and Inbox route migrations. Use the files from this release and stop Email
+writers throughout the upgrade; older SQL must not be replayed over the result.
 
-Run the migrations with `PGOPTIONS='-c lock_timeout=5s'` and repeat them on a
-lock timeout, and keep heartbeats on in the AMQP URL.
+Deploy email-service with the compatible snapshot consumer, engine with the
+Email limits, then all call_center nodes with distribution/lifecycle/publisher
+flags off, then Flow. Enable the flags only after the integration checks. Enable
+the publisher last; while it is off, unpublished snapshots wait in the outbox.
 
-Keep the allocator and the watcher off in production for now. An assigned email
-is not yet announced to Workspace, Workspace has no read API or commands for it,
-and the snapshot publisher (`email_attempt_publisher`) is off by default: enable
-it only after email-service with its consumer is deployed and the rollout checks
-pass.
+Run the migrations with `PGOPTIONS='-c lock_timeout=5s'` and keep AMQP heartbeats
+enabled. PostgreSQL and service restarts, concurrency and performance remain
+release checks; the former smoke does not verify the final five-array API.
 
 `cc_member_attempt` is an unlogged table. A restart of `call_center` keeps the
 attempts, but a crash or failover of PostgreSQL loses them, together with the
