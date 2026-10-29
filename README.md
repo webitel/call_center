@@ -26,66 +26,18 @@ route intent, including priority, Sticky agent, Extra permission and initial Fro
 Keep distribution and lifecycle flags off
 until the complete compatible release passes its verification.
 
-### Email routing update: historical verification
-
-The 2026-10-23 snapshot used priority 0–100 and four literal High-10 routing
-sites in both `email_routing_update.sql` and the full schema. Step 7.2.1 checked
-that snapshot on clean and upgrade paths, including repeat application and
-Email-function parity. Historical 4.4 results cover the earlier High-100
-snapshot. Neither result certifies the shared-distributor transition.
+### Rollout prerequisites
 
 Default priority remains 0; boosts never lower a larger Flow priority. Granted
 Extra permission and the no-implicit-Sticky-history rule remain unchanged.
 Resume/direct transfer use of Extra remains the existing technical policy.
-Do not bulk-rewrite weight 100: it may come from Flow.
+Existing priority 100 may come from Flow and must not be bulk-rewritten.
 
-Implementation steps 4.1–4.3 cover storage, extended JoinQueue, base/Extra
-assignment, explicit-candidate Sticky and cross-queue priority selection.
-They are not rollout acceptance. The agreed narrowed component verification
-4.4 was completed on 2026-10-23 using PostgreSQL 18.6: local clean/upgrade,
-routing/Sticky/capacity checks, bounded EXPLAIN measurements and deterministic
-multi-cycle and status/limit races. Extended load/fairness, concurrency and full
-Call/Chat/IM/Task end-to-end regression remain mandatory production gates;
-the local step-7 scope was narrowed as recorded below. Keep inbound polling
-and `email_distribution` off in production until
-those gates and the remaining release prerequisites pass. No production-ready
-performance or starvation guarantee is claimed by the component checks.
-
-### Local verification summary — 2026-10-23
-
-- 7.2.2: actual RabbitMQ → Inbox → Flow → CC gRPC → allocator passed routing,
-  replay and error checks. Online RPC also passed in a separate repeat with
-  two existing `26.08/1.sql` function definitions temporarily applied in the
-  isolated database; the original definitions were restored afterward.
-- Known prerequisite: the full schema still has an old Online login call and
-  `skill_preset` references. It is not aligned with those two migration
-  functions. No repair was made; a successful repeat does not prove the
-  unmodified clean schema supports Online. Resolve before clean rollout.
-- Narrowed 7.3: 20 agents, 8 nonempty queues, 2,000 waiting letters; three
-  cycles made 120 assignments without slot overflow (143–299 ms per cycle,
-  including harness assertions). One-slot concurrent allocator check passed.
-  This is not sustained-load/fairness or production performance acceptance.
-- Local 7.4: 12 Chat/Rabbit tests, actual Agent API and eight Task-store cases
-  passed. Two Email assignments preserved exact non-Email attempts, channel
-  rows and Queue-view rows. Generic `cc_distribute` executed with `cc_sql`.
-  Existing Task assignment explicitly ignores active Email in its busy guard;
-  tested non-Email guards remain unchanged. This is not full channel E2E.
-
-Local stack: PostgreSQL 18.6 / TimescaleDB 2.30.2 / `cc_sql` 1.4, isolated
-fixtures, AMD64 emulation. Production parity is not established. Baseline
-Call-manager limitations and Flow/engine findings remain unresolved; no blanket
-baseline acceptance or rollout/merge approval is implied. Workspace evidence:
-`tmp/Emails_Routing_Step7_2_1_Verification.md`,
-`tmp/Emails_Routing_Step7_2_2_Online_Verification.md`,
-`tmp/Emails_Routing_Step7_3_Verification.md`,
-`tmp/Emails_Routing_Step7_4_Verification.md`; these are workspace artifacts,
-not files shipped with this service repository. The routing update plan lists
-remaining review and production gates. Keep production polling/allocator off.
-
-The primary verification environment must use production-compatible `cc_sql`
-and TimescaleDB; record exact versions and any environment differences. PG16
-is optional only if supporting it is a separately confirmed requirement, not
-the acceptance gate or a replacement for PostgreSQL 18.6 verification.
+The clean schema retains the known legacy Online login/preset discrepancy.
+Resolve it separately before clean rollout; do not apply unrelated generic
+migrations as an Email fix. Historical allocator checks do not verify the final
+five-array C interface, restart, concurrency or performance. Keep production
+Email flags off until the matching release passes those checks.
 
 `EmailJoinToQueue` accepts `priority` (0–2147483647, default 0), `sticky_agent_id`
 (default 0: no candidate), `extra_email_count` (per-letter permission, default
@@ -223,9 +175,10 @@ offers only. An email whose offer expired goes first to another agent and back
 to the same one only when no other agent can take it.
 
 Among eligible agents the configured Team Strategy applies, followed by Email
-`last_offering_at` (NULL first) and agent ID. Existing C default semantics for
-strategy names and the Email-only idle-name alias are documented in the shared
-contract. EM-23 Take/release metric hooks still require step 5. Assignment locks the agent before
+`last_offering_at` (NULL first) and agent ID. Unknown Strategy names use the
+shared C default (`last_offering_at`); Email also accepts `longest-idle-time`.
+Take records `last_bridged_at`, and slot transitions refresh idle metrics in the
+same transaction. Assignment locks the agent before
 its Email channel, retains a matching skill pair/online preset, and rechecks
 presence and per-letter capacity. One conditional update sets `offering`, agent,
 team and `email_slot_type`; only a successful update changes channel
