@@ -19,18 +19,28 @@ const (
 	emailJoinQueueNotFound     = pq.ErrorCode("EMQNF")
 	emailJoinQueuePrecondition = pq.ErrorCode("EMQFP")
 	emailJoinEventConflict     = pq.ErrorCode("EMKEY")
+	emailJoinPriorityInvalid   = pq.ErrorCode("EMPRI")
 )
 
 func (s *SqlMemberStore) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError) {
+	if in.Priority < 0 {
+		return nil, model.NewAppError("SqlMemberStore.EmailJoinToQueue", model.EmailJoinInvalidPriority, nil,
+			"Email priority must be nonnegative", http.StatusBadRequest)
+	}
 	var res model.EmailJoinResult
 
 	err := s.GetMaster().WithContext(ctx).SelectOne(&res, `select x.join_result, x.join_attempt_id, x.join_queue_id, x.join_requested_queue_id
-from call_center.cc_email_join_to_queue(:EventId::uuid, :DomainId::int8, :ThreadId::int8, :QueueId::int4) x`,
+from call_center.cc_email_join_to_queue(:EventId::uuid, :DomainId::int8, :ThreadId::int8, :QueueId::int4,
+    :Priority::int4, :StickyAgentId::int4, :ExtraEmailCount::bool, :FromAddress::text) x`,
 		map[string]any{
-			"EventId":  in.EventId,
-			"DomainId": in.DomainId,
-			"ThreadId": in.ThreadId,
-			"QueueId":  in.QueueId,
+			"EventId":         in.EventId,
+			"DomainId":        in.DomainId,
+			"ThreadId":        in.ThreadId,
+			"QueueId":         in.QueueId,
+			"Priority":        in.Priority,
+			"StickyAgentId":   in.StickyAgentId,
+			"ExtraEmailCount": in.ExtraEmailCount,
+			"FromAddress":     in.FromAddress,
 		})
 	if err != nil {
 		id, code := emailJoinError(err)
@@ -49,6 +59,8 @@ func emailJoinError(err error) (string, int) {
 	var pqErr *pq.Error
 	if errors.As(err, &pqErr) {
 		switch {
+		case pqErr.Code == emailJoinPriorityInvalid:
+			return model.EmailJoinInvalidPriority, http.StatusBadRequest
 		case pqErr.Code == emailJoinQueueNotFound:
 			return prefix + "queue_not_found", http.StatusNotFound
 		case pqErr.Code == emailJoinQueuePrecondition:
@@ -56,7 +68,7 @@ func emailJoinError(err error) (string, int) {
 		case pqErr.Code == emailJoinEventConflict:
 			return prefix + "event_conflict", http.StatusConflict
 		case pqErr.Code == "22023" || pqErr.Code == "22P02":
-			return prefix + "invalid", http.StatusBadRequest
+			return model.EmailJoinInvalidArguments, http.StatusBadRequest
 		case pqErr.Code == "40001" || pqErr.Code == "40P01" || pqErr.Code == "53300" ||
 			pqErr.Code.Class() == "08" || pqErr.Code == "57P01" || pqErr.Code == "57P02" || pqErr.Code == "57P03":
 			return prefix + "unavailable", http.StatusServiceUnavailable
