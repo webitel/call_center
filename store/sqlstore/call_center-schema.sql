@@ -3866,8 +3866,9 @@ BEGIN
         SELECT count(*) INTO _used
         FROM call_center.cc_member_attempt p
         WHERE p.agent_id = _a.agent_id AND p.channel = 'email' AND p.leaving_at IS NULL AND p.state = 'postponed';
-        IF _used >= coalesce(_limit, 0) THEN
-            RAISE EXCEPTION USING ERRCODE = 'EMAPL', MESSAGE = format('email attempt: agent %s has %s of %s postponed', _a.agent_id, _used, coalesce(_limit, 0));
+        -- NULL: no limit; 0 disables postponing.
+        IF _limit IS NOT NULL AND _used >= _limit THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAPL', MESSAGE = format('email attempt: agent %s has %s of %s postponed', _a.agent_id, _used, _limit);
         END IF;
         UPDATE call_center.cc_member_attempt a
         SET state = 'postponed', email_slot_type = NULL, postponed_until = _deadline, timeout = NULL, last_state_change = now(), version = a.version + 1
@@ -6674,7 +6675,7 @@ CREATE TABLE call_center.cc_agent (
     status_id bigint,
     email_count smallint DEFAULT 1 NOT NULL,
     extra_email_count smallint DEFAULT 0 NOT NULL,
-    email_postponed_count smallint DEFAULT 0 NOT NULL,
+    email_postponed_count smallint,
     CONSTRAINT cc_agent_chat_count_c CHECK ((chat_count > '-1'::integer)),
     CONSTRAINT cc_agent_email_count_c CHECK ((email_count >= 0)),
     CONSTRAINT cc_agent_email_postponed_count_c CHECK ((email_postponed_count >= 0)),

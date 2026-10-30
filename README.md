@@ -307,7 +307,7 @@ Agents and Flows change an attempt through `cc.MemberService`:
 - `EmailAttemptPostpone` — `active` to `postponed` until `postponed_until`
   (Unix ms) or for `postpone_for_sec`, at most `payload.email_postpone_max_sec`
   ahead (30 days by default) and within `email_postponed_count` of the agent
-  (`0` disables postponing);
+  (unset means no limit, `0` disables postponing);
 - `ResumeAttempt` with the Email fields — `postponed` to `active` when the agent
   and its `email` channel are online, it may take emails of the queue as for
   the allocator (skills of its online preset included) and has a free slot (base
