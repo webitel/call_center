@@ -1,8 +1,35 @@
 # Email routing schema upgrade
 
+## EM-23 shared distributor upgrade
+
+For an upgrade from EM-21:
+
+1. Stop Email writers on all nodes and keep distribution/lifecycle flags off.
+2. Install the matching `cc_sql` 1.5 binary and version SQL atomically, reconnect
+   callers, then update the extension in a fresh connection as described below.
+3. Apply shared prepare, validate and runtime from this EM-23 branch in that
+   order. The original EM-21 files target the previous three-array interface.
+4. Apply `store/sqlstore/migration/26.dev/email_attempt_lifecycle.sql` with
+   `ON_ERROR_STOP` outside an enclosing transaction. It contains CONCURRENTLY
+   indexes and generated gexec commands; on failure keep writers stopped.
+5. Deploy compatible engine/call_center, then Flow. EM-24 adaptation and release
+   verification must finish before enabling the flags.
+
+Lifecycle checks the shared objects, validated priority CHECK and old-allocator
+cleanup before DDL. It adds only EM-23 changes and can be repeated with those
+prerequisites present. It replaces each three-argument apply/try_assign entry
+without CASCADE in its own transaction with one five-argument function; defaults
+preserve calls with three arguments. The lifecycle migration is maintained only
+in call_center.
+
+An older EM-23 database without the shared prerequisites is rejected. Do not
+run EM-21 prepare/runtime over it: use an isolated clean rebuild for development,
+or a separately reviewed upgrade if its data must be kept. Unadapted EM-24 is
+also rejected; do not remove the guard. Never replay EM-21 files after lifecycle.
+
 ## Shared distributor upgrade
 
-Order for an existing EM-21 database:
+Order for an existing EM-21 database, using the files from this EM-23 release:
 
 | # | Step | Notes |
 |---|---|---|
@@ -21,13 +48,18 @@ Order for an existing EM-21 database:
   `psql -v ON_ERROR_STOP=1 -f`.
 - Prepare and runtime reject a schema with EM-23/EM-24 objects; such a database
   needs the adapted release.
-- Runtime checks that `cc_sql` 1.5 and the prepared objects exist, replaces
+- Runtime checks the extension-owned five-array Email signature of `cc_sql` 1.5
+  and the prepared objects, including `cc_email_pair_available`, then replaces
   `cc_email_distribute`, then drops `cc_email_agent_head(integer, bigint[])` and
   the cursor column `last_agent_id` without CASCADE. The Sticky-maintenance
   position `last_queue_id` is kept. An error rolls back only the runtime step.
 - Each file can be repeated on the EM-21 schema. After runtime do not apply
   prepare again or any historical Email SQL: older files restore the previous
   priority range and allocator.
+
+An existing 1.5 installation with the old three-argument catalog entry needs a
+reviewed schema conversion or an isolated rebuild; `ALTER EXTENSION ... UPDATE
+TO '1.5'` does not refresh an extension already at 1.5.
 
 ### Clean installation
 
@@ -66,8 +98,8 @@ as a shortcut. Stop callers and reconnect sessions for any binary replacement.
 - The extension workflow's package list is generated from
   `webitel/reusable-configs`; add both 1.4↔1.5 scripts there before the next
   file-sync.
-- The EM-21 changes do not include the EM-23/EM-24 adaptation. Restart,
-  concurrency, performance and other-channel regression checks remain open.
+- EM-24 adaptation and restart, concurrency, performance and other-channel
+  regression checks remain open.
 
 ## Historical alignment — 2026-10-23
 

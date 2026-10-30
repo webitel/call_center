@@ -64,6 +64,14 @@ type MemberStore interface {
 	// EmailDistribute runs one Email distribution cycle in its own transaction; the cycle stops
 	// itself after maxDuration and keeps its assignments.
 	EmailDistribute(ctx context.Context, queueBatch int, maxDuration, lockTimeout, statementTimeout time.Duration) ([]*model.EmailDistributeResult, *model.AppError)
+	// EmailLifecycleWatch runs one lifecycle watcher cycle of due Email deadlines in its own transaction.
+	EmailLifecycleWatch(ctx context.Context, batch int, maxDuration, lockTimeout, statementTimeout time.Duration) (*model.EmailLifecycleResult, *model.AppError)
+	// EmailAttemptCommand runs one Email attempt command in its own transaction under lockTimeout.
+	EmailAttemptCommand(ctx context.Context, cmd model.EmailAttemptCommand, lockTimeout time.Duration) (*model.EmailAttemptResult, *model.AppError)
+	// EmailWakeUp wakes the active attempt of a Thread once per inbound Email event.
+	EmailWakeUp(ctx context.Context, in model.EmailWakeUp, lockTimeout time.Duration) (*model.EmailWakeUpResult, *model.AppError)
+	// IsEmailAttempt tells whether an active attempt of the domain is an Email one.
+	IsEmailAttempt(ctx context.Context, domainId, attemptId int64) (bool, *model.AppError)
 
 	/*
 		Flow control
@@ -130,6 +138,8 @@ type AgentStore interface {
 	SetOnBreak(agentId int) *model.AppError
 
 	SetStatus(agentId int, status string, payload, statusComment *string) *model.AppError
+	// SetOffline is SetStatus to offline that also returns the unfinished Email attempts of the agent.
+	SetOffline(agentId int, payload, statusComment *string) (*model.AgentOfflineResult, *model.AppError)
 
 	CreateMissed(missed *model.MissedAgentAttempt) *model.AppError
 

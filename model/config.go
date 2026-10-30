@@ -64,6 +64,12 @@ type QueueSettings struct {
 	EmailDistributionQueueBatch       int           `json:"email_distribution_queue_batch" flag:"email_distribution_queue_batch|50|Maximum Email assignments per queue in one cycle" env:"EMAIL_DISTRIBUTION_QUEUE_BATCH"`
 	EmailDistributionLockTimeout      time.Duration `json:"email_distribution_lock_timeout" flag:"email_distribution_lock_timeout|1s|Lock timeout of an Email distribution cycle" env:"EMAIL_DISTRIBUTION_LOCK_TIMEOUT"`
 	EmailDistributionStatementTimeout time.Duration `json:"email_distribution_statement_timeout" flag:"email_distribution_statement_timeout|10s|Statement timeout of an Email distribution cycle" env:"EMAIL_DISTRIBUTION_STATEMENT_TIMEOUT"`
+	EmailLifecycle                    bool          `json:"email_lifecycle" flag:"email_lifecycle|0|Run the Email lifecycle watcher of auto-release and deadlines" env:"EMAIL_LIFECYCLE"`
+	EmailLifecycleInterval            time.Duration `json:"email_lifecycle_interval" flag:"email_lifecycle_interval|1s|Email lifecycle watcher polling interval" env:"EMAIL_LIFECYCLE_INTERVAL"`
+	EmailLifecycleBatch               int           `json:"email_lifecycle_batch" flag:"email_lifecycle_batch|100|Maximum due Email attempts of each kind in one cycle" env:"EMAIL_LIFECYCLE_BATCH"`
+	EmailLifecycleLockTimeout         time.Duration `json:"email_lifecycle_lock_timeout" flag:"email_lifecycle_lock_timeout|1s|Lock timeout of an Email lifecycle cycle" env:"EMAIL_LIFECYCLE_LOCK_TIMEOUT"`
+	EmailLifecycleStatementTimeout    time.Duration `json:"email_lifecycle_statement_timeout" flag:"email_lifecycle_statement_timeout|10s|Statement timeout of an Email lifecycle cycle" env:"EMAIL_LIFECYCLE_STATEMENT_TIMEOUT"`
+	EmailCommandLockTimeout           time.Duration `json:"email_command_lock_timeout" flag:"email_command_lock_timeout|1s|Lock timeout of an Email attempt command" env:"EMAIL_COMMAND_LOCK_TIMEOUT"`
 }
 
 type Config struct {

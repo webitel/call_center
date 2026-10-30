@@ -33,6 +33,19 @@ const (
 	AgentStatusBreakOut = "break_out"
 )
 
+// Outcomes of cc_agent_set_offline; Email attempts return to the queue only on AgentOfflineChanged.
+const (
+	AgentOfflineChanged   = "offline"
+	AgentOfflineAlready   = "already_offline"
+	AgentOfflineWaitAgent = "status_not_changed_wait_agent"
+	AgentOfflineNotFound  = "not_found"
+)
+
+type AgentOfflineResult struct {
+	Outcome        string `db:"outcome"`
+	EmailsReturned int    `db:"emails_returned"`
+}
+
 const (
 	AGENT_STATE_LOGOUT    = "offline" // offline
 	AGENT_STATE_WAITING   = "waiting"

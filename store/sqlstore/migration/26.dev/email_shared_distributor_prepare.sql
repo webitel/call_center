@@ -369,4 +369,16 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION call_center.cc_email_pair_available(
+    _attempt call_center.cc_member_attempt, _agent_id integer, _candidate_id integer,
+    _failed_attempt_ids bigint[], _failed_agent_ids integer[])
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE
+AS $$
+    SELECT (_candidate_id IS NULL OR _candidate_id = _agent_id)
+        AND NOT EXISTS (SELECT 1 FROM unnest(_failed_attempt_ids, _failed_agent_ids) f(attempt_id, agent_id)
+            WHERE f.attempt_id = (_attempt).id AND f.agent_id = _agent_id)
+$$;
+
 COMMIT;

@@ -86,7 +86,7 @@ func TestSummarizeEmailCycleCountsUniqueNoAgentQueues(t *testing.T) {
 }
 
 func TestEmailDistributorWarnsOncePerPeriod(t *testing.T) {
-	d := &EmailDistributor{warned: make(map[string]time.Time)}
+	d := &EmailDistributor{}
 	now := time.Now()
 	if !d.shouldWarn("no_skills:3", now) || d.shouldWarn("no_skills:3", now.Add(time.Minute)) {
 		t.Fatal("repeated warning within the period")

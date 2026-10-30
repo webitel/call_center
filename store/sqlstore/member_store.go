@@ -651,6 +651,7 @@ func (s *SqlMemberStore) RenewalProcessing(domainId, attId int64, renewalSec uin
 			where a.id = :Id::int8
 				and ca.domain_id = :DomainId::int8
 				and a.state = 'processing'
+				and a.channel <> 'email'
 		)
 		update call_center.cc_member_attempt a
 		set

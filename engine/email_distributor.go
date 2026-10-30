@@ -35,11 +35,15 @@ func (s EmailDistributorSettings) Validate() error {
 	if s.QueueBatch <= 0 {
 		return errors.New("email distribution: queue batch must be positive")
 	}
-	if s.Interval < time.Millisecond || s.LockTimeout < time.Millisecond || s.StatementTimeout < time.Millisecond {
-		return errors.New("email distribution: interval and timeouts must be at least 1ms")
+	return validateEmailCycle("email distribution", s.Interval, s.LockTimeout, s.StatementTimeout)
+}
+
+func validateEmailCycle(name string, interval, lockTimeout, statementTimeout time.Duration) error {
+	if interval < time.Millisecond || lockTimeout < time.Millisecond || statementTimeout < time.Millisecond {
+		return errors.New(name + ": interval and timeouts must be at least 1ms")
 	}
-	if s.LockTimeout >= s.StatementTimeout {
-		return errors.New("email distribution: lock timeout must be less than statement timeout")
+	if lockTimeout >= statementTimeout {
+		return errors.New(name + ": lock timeout must be less than statement timeout")
 	}
 	return nil
 }
@@ -52,7 +56,11 @@ type EmailDistributor struct {
 	stop     chan struct{}
 	stopped  chan struct{}
 	log      *wlog.Logger
+	emailWarner
+}
 
+// emailWarner rate-limits repeated warnings by key.
+type emailWarner struct {
 	mu     sync.Mutex
 	warned map[string]time.Time
 }
@@ -61,7 +69,6 @@ func NewEmailDistributor(s EmailDistributeStore, settings EmailDistributorSettin
 	return &EmailDistributor{
 		store:    s,
 		settings: settings,
-		warned:   make(map[string]time.Time),
 		log: log.With(
 			wlog.Namespace("context"),
 			wlog.String("name", "email_distributor"),
@@ -79,7 +86,10 @@ func (d *EmailDistributor) Start() {
 	)
 	d.stop = make(chan struct{})
 	d.stopped = make(chan struct{})
-	go d.run()
+	go func() {
+		defer close(d.stopped)
+		runEmailCycles(d.stop, d.settings.Interval, d.Distribute)
+	}()
 }
 
 // Stop interrupts the pause and waits for a running cycle; assignments it committed stay.
@@ -90,27 +100,26 @@ func (d *EmailDistributor) Stop() {
 	}
 }
 
-// run keeps its own loop instead of utils.Watcher to back off after failed cycles only.
-func (d *EmailDistributor) run() {
-	defer close(d.stopped)
+// runEmailCycles keeps its own loop instead of utils.Watcher to back off after failed cycles only.
+func runEmailCycles(stop <-chan struct{}, interval time.Duration, cycle func() bool) {
 	var backoff time.Duration
-	delay := d.settings.Interval
+	delay := interval
 	for {
 		t := time.NewTimer(delay)
 		select {
-		case <-d.stop:
+		case <-stop:
 			t.Stop()
 			return
 		case <-t.C:
 		}
 
-		if d.Distribute() {
-			backoff, delay = 0, d.settings.Interval
+		if cycle() {
+			backoff, delay = 0, interval
 			continue
 		}
 		// Up to 10% less at random, so the nodes do not retry together; never below the interval.
-		backoff = nextEmailBackoff(backoff, d.settings.Interval)
-		delay = max(backoff-time.Duration(rand.Int63n(int64(backoff)/10+1)), d.settings.Interval)
+		backoff = nextEmailBackoff(backoff, interval)
+		delay = max(backoff-time.Duration(rand.Int63n(int64(backoff)/10+1)), interval)
 	}
 }
 
@@ -130,6 +139,7 @@ type EmailCycle struct {
 	ClosedQueues    int
 	NoSkillsQueues  []int32
 	InvalidCalendar []int32
+	InvalidPayload  []int32
 }
 
 func SummarizeEmailCycle(rows []*model.EmailDistributeResult) EmailCycle {
@@ -153,6 +163,8 @@ func SummarizeEmailCycle(rows []*model.EmailDistributeResult) EmailCycle {
 			c.NoSkillsQueues = append(c.NoSkillsQueues, queueOf(r))
 		case model.EmailDistributeCalendarInvalid:
 			c.InvalidCalendar = append(c.InvalidCalendar, queueOf(r))
+		case model.EmailDistributePayloadInvalid:
+			c.InvalidPayload = append(c.InvalidPayload, queueOf(r))
 		}
 	}
 	c.NoAgentQueues = len(noAgentQueues)
@@ -191,6 +203,13 @@ func (d *EmailDistributor) Distribute() bool {
 			d.log.Warn("inbound email queue has a missing or invalid calendar; its emails wait", wlog.Int("queue_id", int(q)))
 		}
 	}
+	for _, q := range c.InvalidPayload {
+		if d.shouldWarn(fmt.Sprintf("payload_invalid:%d", q), now) {
+			d.log.Warn("inbound email queue has an invalid payload value; its emails get no auto-release deadline",
+				wlog.Int("queue_id", int(q)), wlog.String("key", "email_auto_release_sec"),
+				wlog.String("reason", "must be an integer from 0 to 2147483647"))
+		}
+	}
 
 	if c.TimeLimited && d.shouldWarn("time_limit", now) {
 		d.log.Warn("email distribution cycle reached its time limit; the rest waits for the next cycle",
@@ -202,7 +221,7 @@ func (d *EmailDistributor) Distribute() bool {
 		wlog.Int("assigned", c.Assigned),
 		wlog.Int("no_agent_queues", c.NoAgentQueues),
 		wlog.Int("calendar_closed_queues", c.ClosedQueues),
-		wlog.Int("config_error_queues", len(c.NoSkillsQueues)+len(c.InvalidCalendar)),
+		wlog.Int("config_error_queues", len(c.NoSkillsQueues)+len(c.InvalidCalendar)+len(c.InvalidPayload)),
 		wlog.Duration("latency", latency),
 	}
 	if c.Assigned > 0 {
@@ -213,13 +232,16 @@ func (d *EmailDistributor) Distribute() bool {
 	return true
 }
 
-func (d *EmailDistributor) shouldWarn(key string, now time.Time) bool {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if last, ok := d.warned[key]; ok && now.Sub(last) < emailWarnEvery {
+func (w *emailWarner) shouldWarn(key string, now time.Time) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if last, ok := w.warned[key]; ok && now.Sub(last) < emailWarnEvery {
 		return false
 	}
-	d.warned[key] = now
+	if w.warned == nil {
+		w.warned = make(map[string]time.Time)
+	}
+	w.warned[key] = now
 	return true
 }
 

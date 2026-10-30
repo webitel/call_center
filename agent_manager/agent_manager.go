@@ -182,11 +182,22 @@ func (am *agentManager) SetOffline(agent AgentObject, sys *string) *model.AppErr
 		event.AgentStatus.StatusPayload = sys
 	}
 
-	err := am.setAgentStatus(agent, &event.AgentStatus)
+	res, err := am.store.Agent().SetOffline(agent.Id(), event.AgentStatus.StatusPayload, event.AgentStatus.StatusComment)
 	if err != nil {
+		agent.Log().Error("changing agent status", wlog.String("agent_name", agent.Name()), wlog.Int("agent_id", agent.Id()),
+			wlog.String("new_status", model.AgentStatusOffline), wlog.Err(err))
 		return err
 	}
+	switch {
+	case res.Outcome == model.AgentOfflineWaitAgent:
+		agent.Log().Warn("agent status not changed: an attempt waits for the agent; its emails stay",
+			wlog.Int("agent_id", agent.Id()), wlog.String("outcome", res.Outcome))
+	case res.EmailsReturned > 0:
+		agent.Log().Info("agent emails returned to the queue on offline", wlog.Int("agent_id", agent.Id()),
+			wlog.String("outcome", res.Outcome), wlog.Int("emails_returned", res.EmailsReturned))
+	}
 
+	// As before, the cache and the event follow the request even when the status did not change.
 	agent.StoreStatus(event.AgentStatus)
 	//add channel queue
 	return am.mq.AgentChangeStatus(agent.DomainId(), agent.UserId(), NewAgentEventStatus(agent, event))
