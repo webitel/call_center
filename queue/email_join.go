@@ -18,7 +18,7 @@ func (qm *Manager) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*m
 		wlog.Int("requested_queue_id", int(in.QueueId)),
 	)
 
-	res, err := qm.store.Member().EmailJoinToQueue(ctx, in)
+	res, err := qm.store.Member().EmailJoinToQueue(ctx, in, qm.app.QueueSettings().EmailCommandLockTimeout)
 	if err != nil {
 		log.Error("email join failed", wlog.Err(err), wlog.String("error_id", err.Id))
 		return nil, err

@@ -9,85 +9,35 @@ public `cc_email_distribute(integer, interval)` signature and four result column
 remain compatible; see [How emails are assigned](#how-emails-are-assigned) and the
 [SQL contract](docs/email-shared-distributor-contract.md).
 
-Apply shared prepare, validate and runtime from this EM-23 branch with the
-matching `cc_sql` 1.5 interface before
-`email_attempt_lifecycle.sql`. Lifecycle adds version/outbox, Strategy metric
-hooks and last-released-agent fallback without reinstalling the shared objects.
-Follow the [EM-23 runbook](docs/email-routing-upgrade.md#em-23-shared-distributor-upgrade).
-Do not apply EM-21 files over an existing EM-23 schema. Clean schema already
-contains the final EM-23 objects.
+Apply shared prepare/validate/runtime and lifecycle from this release before
+`email_status_sync.sql` and the Inbox route migration. Follow the
+[EM-24 runbook](docs/email-routing-upgrade.md#em-24-status-sync-upgrade).
+Status sync keeps the shared selection and metric hooks, adds the Thread lock,
+fallback and snapshot publisher. Clean schema contains the final EM-24 objects.
 
 Priority is a nonnegative int32; High is temporarily 10 until the business value
 is set. Internal and external state stays `waiting`. Generic SQL keeps the
 release definitions; the generic C aggregate no longer counts Email towards the
 busy state of other channels. `Intercept` does not touch Email attempts.
 
-The five-array C entry stays the same in EM-21 and EM-23. Each of the EM-23
-apply/try_assign functions has one signature with default empty failed-pair arrays.
-EM-24 publisher/synchronization and durable route/replay remain pending.
+EM-23 and EM-24 use the same five-array C entry. Apply/try_assign each have one
+signature with default empty failed-pair arrays. EM-24 keeps the first durable
+route intent, including priority, Sticky agent, Extra permission and initial From.
 Keep distribution and lifecycle flags off
 until the complete compatible release passes its verification.
 
-### Email routing update: historical verification
-
-The 2026-10-23 snapshot used priority 0–100 and four literal High-10 routing
-sites in both `email_routing_update.sql` and the full schema. Step 7.2.1 checked
-that snapshot on clean and upgrade paths, including repeat application and
-Email-function parity. Historical 4.4 results cover the earlier High-100
-snapshot. Neither result certifies the shared-distributor transition.
+### Rollout prerequisites
 
 Default priority remains 0; boosts never lower a larger Flow priority. Granted
 Extra permission and the no-implicit-Sticky-history rule remain unchanged.
 Resume/direct transfer use of Extra remains the existing technical policy.
-Do not bulk-rewrite weight 100: it may come from Flow.
+Existing priority 100 may come from Flow and must not be bulk-rewritten.
 
-Implementation steps 4.1–4.3 cover storage, extended JoinQueue, base/Extra
-assignment, explicit-candidate Sticky and cross-queue priority selection.
-They are not rollout acceptance. The agreed narrowed component verification
-4.4 was completed on 2026-10-23 using PostgreSQL 18.6: local clean/upgrade,
-routing/Sticky/capacity checks, bounded EXPLAIN measurements and deterministic
-multi-cycle and status/limit races. Extended load/fairness, concurrency and full
-Call/Chat/IM/Task end-to-end regression remain mandatory production gates;
-the local step-7 scope was narrowed as recorded below. Keep inbound polling
-and `email_distribution` off in production until
-those gates and the remaining release prerequisites pass. No production-ready
-performance or starvation guarantee is claimed by the component checks.
-
-### Local verification summary — 2026-10-23
-
-- 7.2.2: actual RabbitMQ → Inbox → Flow → CC gRPC → allocator passed routing,
-  replay and error checks. Online RPC also passed in a separate repeat with
-  two existing `26.08/1.sql` function definitions temporarily applied in the
-  isolated database; the original definitions were restored afterward.
-- Known prerequisite: the full schema still has an old Online login call and
-  `skill_preset` references. It is not aligned with those two migration
-  functions. No repair was made; a successful repeat does not prove the
-  unmodified clean schema supports Online. Resolve before clean rollout.
-- Narrowed 7.3: 20 agents, 8 nonempty queues, 2,000 waiting letters; three
-  cycles made 120 assignments without slot overflow (143–299 ms per cycle,
-  including harness assertions). One-slot concurrent allocator check passed.
-  This is not sustained-load/fairness or production performance acceptance.
-- Local 7.4: 12 Chat/Rabbit tests, actual Agent API and eight Task-store cases
-  passed. Two Email assignments preserved exact non-Email attempts, channel
-  rows and Queue-view rows. Generic `cc_distribute` executed with `cc_sql`.
-  Existing Task assignment explicitly ignores active Email in its busy guard;
-  tested non-Email guards remain unchanged. This is not full channel E2E.
-
-Local stack: PostgreSQL 18.6 / TimescaleDB 2.30.2 / `cc_sql` 1.4, isolated
-fixtures, AMD64 emulation. Production parity is not established. Baseline
-Call-manager limitations and Flow/engine findings remain unresolved; no blanket
-baseline acceptance or rollout/merge approval is implied. Workspace evidence:
-`tmp/Emails_Routing_Step7_2_1_Verification.md`,
-`tmp/Emails_Routing_Step7_2_2_Online_Verification.md`,
-`tmp/Emails_Routing_Step7_3_Verification.md`,
-`tmp/Emails_Routing_Step7_4_Verification.md`; these are workspace artifacts,
-not files shipped with this service repository. The routing update plan lists
-remaining review and production gates. Keep production polling/allocator off.
-
-The primary verification environment must use production-compatible `cc_sql`
-and TimescaleDB; record exact versions and any environment differences. PG16
-is optional only if supporting it is a separately confirmed requirement, not
-the acceptance gate or a replacement for PostgreSQL 18.6 verification.
+The clean schema retains the known legacy Online login/preset discrepancy.
+Resolve it separately before clean rollout; do not apply unrelated generic
+migrations as an Email fix. Historical allocator checks do not verify the final
+five-array C interface, restart, concurrency or performance. Keep production
+Email flags off until the matching release passes those checks.
 
 `EmailJoinToQueue` accepts `priority` (0–2147483647, default 0), `sticky_agent_id`
 (default 0: no candidate), `extra_email_count` (per-letter permission, default
@@ -225,9 +175,10 @@ offers only. An email whose offer expired goes first to another agent and back
 to the same one only when no other agent can take it.
 
 Among eligible agents the configured Team Strategy applies, followed by Email
-`last_offering_at` (NULL first) and agent ID. Existing C default semantics for
-strategy names and the Email-only idle-name alias are documented in the shared
-contract. EM-23 Take/release metric hooks still require step 5. Assignment locks the agent before
+`last_offering_at` (NULL first) and agent ID. Unknown Strategy names use the
+shared C default (`last_offering_at`); Email also accepts `longest-idle-time`.
+Take records `last_bridged_at`, and slot transitions refresh idle metrics in the
+same transaction. Assignment locks the agent before
 its Email channel, retains a matching skill pair/online preset, and rechecks
 presence and per-letter capacity. One conditional update sets `offering`, agent,
 team and `email_slot_type`; only a successful update changes channel
@@ -331,8 +282,8 @@ this order when it may take a slot, so slots and the postponed limit are never
 exceeded.
 
 Every transition writes the full attempt to `cc_email_attempt_outbox` in its
-transaction; `sequence` is the `projection_version` of the Thread. Nothing
-publishes the outbox yet.
+transaction; `sequence` is the `projection_version` of the Thread. The publisher
+sends the rows to email-service (see below).
 
 | Error id | gRPC code |
 |---|---|
@@ -345,7 +296,30 @@ publishes the outbox yet.
 | `cc.email_attempt.lock_timeout`, `unavailable` | `Unavailable` |
 | `cc.email_attempt.app_error` | `Internal` |
 
-Command locks wait at most `email_command_lock_timeout`.
+Command, wake-up and join locks wait at most `email_command_lock_timeout`.
+
+### Snapshots for email-service
+
+email-service keeps the status, queue, agent and `postponed_until` of a Thread
+as a projection of these rows. The publisher sends every row of
+`cc_email_attempt_outbox` as a `cc.email.attempt.snapshot` event to the
+`cc.email.events` exchange with the routing key `cc.email.attempt.snapshot.v1`;
+the contract and the topology are described in `docs/events.md` of
+webitel-emails. A wake-up that finds no active attempt writes the
+`inbound_reopened` marker, a row without an attempt.
+
+The publisher runs on every node when `email_attempt_publisher` is on, which is
+off by default. A node claims ready rows with a lease, publishes them outside
+the transaction with persistent messages, `mandatory` and broker confirms, and
+marks them published only after the confirm. A broker or topology failure
+gives the claimed rows back without spending attempts and pauses the
+publisher. A row may be sent twice; email-service ignores a snapshot that is
+not newer than its projection, so publishing order does not matter.
+
+Published rows without `command_id` are deleted after
+`email_attempt_outbox_retention`. Rows of operator and Flow commands are kept,
+since a repeated command returns their response; unpublished rows are never
+deleted.
 
 ### Wake-up by a new email
 
@@ -362,6 +336,15 @@ changes nothing when that wake-up left the attempt `active` and no `postpone` of
 the event followed (`projection_version` 0); `cc_email_wakeup` keeps this
 response, so a repeat returns it with `replayed`. If the attempt changed after
 the wake-up before the first such `resume`, it is `invalid_state`.
+
+For `not_active` the wake-up also returns `fallback_queue_id`, the queue of the
+last finished Email attempt of the Thread, found among `leaving` attempts and in
+`cc_member_attempt_history`, and writes the `inbound_reopened` marker that opens
+the Thread as New in email-service. Both are kept with the result, so a repeated
+event returns the same queue and writes no second marker. `call_center` does not
+join the queue itself; `flow_manager` decides. The wake-up and `EmailJoinToQueue`
+take one lock per Thread first, so a marker never follows the snapshot of an
+attempt created at the same time.
 
 ### Deadlines, logout and auto-offline
 
@@ -409,7 +392,13 @@ an unfinished email, as for other channels.
 | `email_lifecycle_batch` | `EMAIL_LIFECYCLE_BATCH` | `100` | Due attempts of each kind in one cycle |
 | `email_lifecycle_lock_timeout` | `EMAIL_LIFECYCLE_LOCK_TIMEOUT` | `1s` | `lock_timeout` of a watcher cycle |
 | `email_lifecycle_statement_timeout` | `EMAIL_LIFECYCLE_STATEMENT_TIMEOUT` | `10s` | `statement_timeout` of a watcher cycle |
-| `email_command_lock_timeout` | `EMAIL_COMMAND_LOCK_TIMEOUT` | `1s` | `lock_timeout` of an Email command or wake-up |
+| `email_command_lock_timeout` | `EMAIL_COMMAND_LOCK_TIMEOUT` | `1s` | `lock_timeout` of an Email command, wake-up or join |
+| `email_attempt_publisher` | `EMAIL_ATTEMPT_PUBLISHER` | `false` | Publish `cc_email_attempt_outbox` to email-service |
+| `email_attempt_publisher_interval` | `EMAIL_ATTEMPT_PUBLISHER_INTERVAL` | `1s` | Pause between publisher cycles |
+| `email_attempt_publisher_batch` | `EMAIL_ATTEMPT_PUBLISHER_BATCH` | `100` | Rows claimed in one cycle |
+| `email_attempt_publisher_lease` | `EMAIL_ATTEMPT_PUBLISHER_LEASE` | `30s` | Lease of claimed rows |
+| `email_attempt_publisher_confirm_timeout` | `EMAIL_ATTEMPT_PUBLISHER_CONFIRM_TIMEOUT` | `5s` | Bounds connecting, each network write and the broker confirm of one row |
+| `email_attempt_outbox_retention` | `EMAIL_ATTEMPT_OUTBOX_RETENTION` | `168h` | Age of published rows without `command_id` to delete |
 
 Queue `payload` keys: `email_auto_release_sec` (`0` or unset keeps an offer; an
 invalid value counts as unset and is logged as `payload_invalid`),
@@ -417,8 +406,9 @@ invalid value counts as unset and is logged as `payload_invalid`),
 `email_sticky_history_sec`; they are whole seconds, and an invalid value of any
 of them counts as unset. Agents have `email_count` and `email_postponed_count`.
 
-Startup fails when a batch is not positive, a duration is below 1 ms or a lock
-timeout is not below its statement timeout.
+Startup fails when a batch is not positive, a duration is below 1 ms, a lock
+timeout is not below its statement timeout or the publisher lease is not longer
+than its confirm timeout.
 
 Startup logs include interval, queue batch, the requested half-statement-timeout
 `max_duration` budget, lock timeout and statement timeout. These are configured
@@ -444,14 +434,30 @@ level, with `released`, `processing_timeouts`, `postponed_woken`,
 `postponed_queued`, `offline_returned`, `lock_skipped` and the latency; its
 failures and time limit are logged like those of the allocator.
 
+A publisher cycle that published rows is logged at info level with `claimed`,
+`confirmed` (by the broker), `published` (marked in the database) and the
+latency, other cycles at debug level. Once a minute it deletes old rows and logs
+`deleted`, `backlog` and `oldest_pending_age`. A broker failure gives the rest
+of the batch back for 5 seconds and backs off like a failed allocator cycle;
+rows the broker confirmed but the database did not mark are sent again after
+their lease, and that cycle backs off too. Failures are logged as warnings at
+most once in 5 minutes each.
+
 ### Rollout and limits
 
-Follow the EM-23 path in the [runbook](docs/email-routing-upgrade.md): binary and
-extension 1.5, EM-21 shared prepare/validate/runtime, then lifecycle and compatible
-engine/call_center/Flow. Lifecycle contains metric hooks, pair-scoped retries and
-the EM-23 C cycle; its guard requires the shared prerequisites. Do not replay
-EM-21 files afterward. EM-24 integration is still pending; flags remain off until
-the complete compatible release and approved verification.
+Follow the [EM-24 runbook](docs/email-routing-upgrade.md#em-24-status-sync-upgrade):
+matching extension 1.5, shared prepare/validate/runtime, lifecycle, then status
+sync and Inbox route migrations. Use the files from this release and stop Email
+writers throughout the upgrade; older SQL must not be replayed over the result.
+
+Deploy email-service with the compatible snapshot consumer, engine with the
+Email limits, then all call_center nodes with distribution/lifecycle/publisher
+flags off, then Flow. Enable the flags only after the integration checks. Enable
+the publisher last; while it is off, unpublished snapshots wait in the outbox.
+
+Run the migrations with `PGOPTIONS='-c lock_timeout=5s'` and keep AMQP heartbeats
+enabled. PostgreSQL and service restarts, concurrency and performance remain
+release checks; the former smoke does not verify the final five-array API.
 
 `cc_member_attempt` is an unlogged table. A restart of `call_center` keeps the
 attempts, but a crash or failover of PostgreSQL loses them, together with the

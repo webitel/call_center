@@ -7,7 +7,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_attribute
         WHERE attrelid = to_regclass('call_center.cc_email_attempt_outbox')
           AND attname = 'agent_user_id' AND NOT attisdropped) THEN
-        RAISE EXCEPTION 'email lifecycle: EM-24 requires the adapted status-sync upgrade';
+        RAISE EXCEPTION 'email lifecycle: EM-24 schema detected; do not reapply lifecycle after status sync';
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_extension e
@@ -1227,10 +1227,7 @@ BEGIN
                 FOR _pair IN
                     SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip, _failed_attempts, _failed_agents) c
                 LOOP
-                    IF clock_timestamp() >= _deadline THEN
-                        _timed_out := true;
-                        EXIT work;
-                    END IF;
+                    -- Apply the whole selected batch; the budget is checked before the next C call.
                     _selected := true;
                     _pos := array_position(_queue_ids, _pair.queue_id);
                     IF coalesce(_pair.agent_id, 0) <= 0 OR coalesce(_pair.id, 0) <= 0 OR _pos IS NULL

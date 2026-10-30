@@ -70,6 +70,14 @@ type QueueSettings struct {
 	EmailLifecycleLockTimeout         time.Duration `json:"email_lifecycle_lock_timeout" flag:"email_lifecycle_lock_timeout|1s|Lock timeout of an Email lifecycle cycle" env:"EMAIL_LIFECYCLE_LOCK_TIMEOUT"`
 	EmailLifecycleStatementTimeout    time.Duration `json:"email_lifecycle_statement_timeout" flag:"email_lifecycle_statement_timeout|10s|Statement timeout of an Email lifecycle cycle" env:"EMAIL_LIFECYCLE_STATEMENT_TIMEOUT"`
 	EmailCommandLockTimeout           time.Duration `json:"email_command_lock_timeout" flag:"email_command_lock_timeout|1s|Lock timeout of an Email attempt command" env:"EMAIL_COMMAND_LOCK_TIMEOUT"`
+
+	// Snapshots of Email attempts for email-service.
+	EmailAttemptPublisher               bool          `json:"email_attempt_publisher" flag:"email_attempt_publisher|0|Publish Email attempt snapshots to email-service" env:"EMAIL_ATTEMPT_PUBLISHER"`
+	EmailAttemptPublisherInterval       time.Duration `json:"email_attempt_publisher_interval" flag:"email_attempt_publisher_interval|1s|Email snapshot publisher polling interval" env:"EMAIL_ATTEMPT_PUBLISHER_INTERVAL"`
+	EmailAttemptPublisherBatch          int           `json:"email_attempt_publisher_batch" flag:"email_attempt_publisher_batch|100|Maximum Email snapshots claimed in one cycle" env:"EMAIL_ATTEMPT_PUBLISHER_BATCH"`
+	EmailAttemptPublisherLease          time.Duration `json:"email_attempt_publisher_lease" flag:"email_attempt_publisher_lease|30s|Lease of claimed Email snapshots" env:"EMAIL_ATTEMPT_PUBLISHER_LEASE"`
+	EmailAttemptPublisherConfirmTimeout time.Duration `json:"email_attempt_publisher_confirm_timeout" flag:"email_attempt_publisher_confirm_timeout|5s|Broker confirm timeout of an Email snapshot" env:"EMAIL_ATTEMPT_PUBLISHER_CONFIRM_TIMEOUT"`
+	EmailAttemptOutboxRetention         time.Duration `json:"email_attempt_outbox_retention" flag:"email_attempt_outbox_retention|168h|Age of published Email snapshots without a command to delete" env:"EMAIL_ATTEMPT_OUTBOX_RETENTION"`
 }
 
 type Config struct {

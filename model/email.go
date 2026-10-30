@@ -1,8 +1,11 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pborman/uuid"
 )
 
 // Results of joining an email-service Thread to an Inbound Email Queue.
@@ -189,11 +192,118 @@ type EmailWakeUp struct {
 	ThreadId int64
 }
 
-// EmailWakeUpResult is the kept result of the event; AttemptId is nil for not_active.
+// EmailWakeUpResult is the kept result of the event; AttemptId is nil for not_active, and FallbackQueueId
+// is the queue of the last finished attempt for not_active.
 type EmailWakeUpResult struct {
-	Result         string  `db:"wakeup_result"`
-	AttemptId      *int64  `db:"wakeup_attempt_id"`
-	AttemptState   *string `db:"wakeup_attempt_state"`
-	AttemptVersion *int64  `db:"wakeup_attempt_version"`
-	Replayed       bool    `db:"wakeup_replayed"`
+	Result          string  `db:"wakeup_result"`
+	AttemptId       *int64  `db:"wakeup_attempt_id"`
+	AttemptState    *string `db:"wakeup_attempt_state"`
+	AttemptVersion  *int64  `db:"wakeup_attempt_version"`
+	Replayed        bool    `db:"wakeup_replayed"`
+	FallbackQueueId *int32  `db:"wakeup_fallback_queue_id"`
+}
+
+// Contract and topology of the Email attempt snapshots for email-service,
+// described in docs/events.md of webitel-emails. Every object is durable.
+const (
+	EmailSnapshotEventType   = "cc.email.attempt.snapshot"
+	EmailSnapshotSchema      = 1
+	EmailSnapshotExchange    = "cc.email.events"
+	EmailSnapshotRoutingKey  = "cc.email.attempt.snapshot.v1"
+	EmailSnapshotContentType = "application/json"
+
+	// Declared by email-service, the consumer; both queues are quorum.
+	EmailSnapshotQueue                = "email.thread.projection"
+	EmailSnapshotDeadLetterExchange   = "cc.email.events.dlx"
+	EmailSnapshotDeadLetterQueue      = "email.thread.projection.dlq"
+	EmailSnapshotDefaultDeliveryLimit = 20
+
+	EmailSnapshotHeaderEventId       = "x-event-id"
+	EmailSnapshotHeaderEventType     = "x-event-type"
+	EmailSnapshotHeaderSchemaVersion = "x-schema-version"
+
+	// Marker of a new email in a Thread without an active attempt; it has no attempt.
+	EmailTransitionInboundReopened = "inbound_reopened"
+)
+
+// emailSnapshotNamespace makes the event id of an outbox row stable across republishing.
+var emailSnapshotNamespace = uuid.Parse("9ea89e50-dddc-4e4e-b517-6be31cb9dfdc")
+
+// EmailSnapshotEvent is one cc_email_attempt_outbox row on the wire. Nulls are
+// sent explicitly; attempt fields are null only in the inbound_reopened marker.
+type EmailSnapshotEvent struct {
+	EventId       string    `json:"event_id"`
+	EventType     string    `json:"event_type"`
+	SchemaVersion int       `json:"schema_version"`
+	OccurredAt    time.Time `json:"occurred_at"`
+
+	DomainId          int64   `json:"domain_id"`
+	ThreadId          int64   `json:"thread_id"`
+	ProjectionVersion int64   `json:"projection_version"`
+	Transition        string  `json:"transition"`
+	Source            string  `json:"source"`
+	CausationId       *string `json:"causation_id"`
+
+	AttemptId      *int64     `json:"attempt_id"`
+	AttemptVersion *int64     `json:"attempt_version"`
+	AttemptState   *string    `json:"attempt_state"`
+	Result         *string    `json:"result"`
+	QueueId        *int32     `json:"queue_id"`
+	AgentId        *int32     `json:"agent_id"`
+	AgentUserId    *int64     `json:"agent_user_id"`
+	PostponedUntil *time.Time `json:"postponed_until"`
+}
+
+// EmailSnapshotEventId is the UUIDv5 of the event type and the outbox sequence.
+func EmailSnapshotEventId(sequence int64) string {
+	return uuid.NewSHA1(emailSnapshotNamespace, []byte(EmailSnapshotEventType+":"+strconv.FormatInt(sequence, 10))).String()
+}
+
+// EmailOutboxRow is a cc_email_attempt_outbox row claimed by the snapshot publisher.
+type EmailOutboxRow struct {
+	Sequence       int64      `db:"sequence"`
+	DomainId       int64      `db:"domain_id"`
+	ThreadId       int64      `db:"thread_id"`
+	AttemptId      *int64     `db:"attempt_id"`
+	AttemptVersion *int64     `db:"attempt_version"`
+	AttemptState   *string    `db:"attempt_state"`
+	Result         *string    `db:"result"`
+	QueueId        *int32     `db:"queue_id"`
+	AgentId        *int32     `db:"agent_id"`
+	AgentUserId    *int64     `db:"agent_user_id"`
+	PostponedUntil *time.Time `db:"postponed_until"`
+	Transition     string     `db:"transition"`
+	Source         string     `db:"source"`
+	CausationId    *string    `db:"causation_id"`
+	OccurredAt     time.Time  `db:"occurred_at"`
+}
+
+// Event renders the row as its cc.email.attempt.snapshot event.
+func (r *EmailOutboxRow) Event() EmailSnapshotEvent {
+	return EmailSnapshotEvent{
+		EventId:           EmailSnapshotEventId(r.Sequence),
+		EventType:         EmailSnapshotEventType,
+		SchemaVersion:     EmailSnapshotSchema,
+		OccurredAt:        r.OccurredAt.UTC(),
+		DomainId:          r.DomainId,
+		ThreadId:          r.ThreadId,
+		ProjectionVersion: r.Sequence,
+		Transition:        r.Transition,
+		Source:            r.Source,
+		CausationId:       r.CausationId,
+		AttemptId:         r.AttemptId,
+		AttemptVersion:    r.AttemptVersion,
+		AttemptState:      r.AttemptState,
+		Result:            r.Result,
+		QueueId:           r.QueueId,
+		AgentId:           r.AgentId,
+		AgentUserId:       r.AgentUserId,
+		PostponedUntil:    r.PostponedUntil,
+	}
+}
+
+// EmailOutboxBacklog is what the snapshot publisher has not sent yet.
+type EmailOutboxBacklog struct {
+	Pending  int64      `db:"pending"`
+	OldestAt *time.Time `db:"oldest_at"`
 }
