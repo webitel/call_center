@@ -50,9 +50,26 @@ BEGIN
 END
 $$;
 
--- Maximum of postponed Email attempts of the agent; 0 disables postponing.
+-- Maximum of postponed Email attempts of the agent; NULL means no limit, 0 disables postponing.
 ALTER TABLE call_center.cc_agent
-    ADD COLUMN IF NOT EXISTS email_postponed_count smallint DEFAULT 0 NOT NULL;
+    ADD COLUMN IF NOT EXISTS email_postponed_count smallint;
+
+-- An earlier version added the column as NOT NULL DEFAULT 0, which forbade postponing by
+-- default. Converted once, while it still has that shape: 0 becomes no limit.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = 'call_center.cc_agent'::regclass
+          AND attname = 'email_postponed_count' AND attnotnull AND NOT attisdropped
+    ) THEN
+        ALTER TABLE call_center.cc_agent
+            ALTER COLUMN email_postponed_count DROP DEFAULT,
+            ALTER COLUMN email_postponed_count DROP NOT NULL;
+        UPDATE call_center.cc_agent SET email_postponed_count = NULL WHERE email_postponed_count = 0;
+    END IF;
+END
+$$;
 
 DO $$
 BEGIN
@@ -595,8 +612,9 @@ BEGIN
         SELECT count(*) INTO _used
         FROM call_center.cc_member_attempt p
         WHERE p.agent_id = _a.agent_id AND p.channel = 'email' AND p.leaving_at IS NULL AND p.state = 'postponed';
-        IF _used >= coalesce(_limit, 0) THEN
-            RAISE EXCEPTION USING ERRCODE = 'EMAPL', MESSAGE = format('email attempt: agent %s has %s of %s postponed', _a.agent_id, _used, coalesce(_limit, 0));
+        -- NULL: no limit; 0 disables postponing.
+        IF _limit IS NOT NULL AND _used >= _limit THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAPL', MESSAGE = format('email attempt: agent %s has %s of %s postponed', _a.agent_id, _used, _limit);
         END IF;
         UPDATE call_center.cc_member_attempt a
         SET state = 'postponed', email_slot_type = NULL, postponed_until = _deadline, timeout = NULL, last_state_change = now(), version = a.version + 1
