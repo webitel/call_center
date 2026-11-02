@@ -499,8 +499,10 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 	            and p.updated_at >= now() at time zone 'UTC' - (:Sec || ' sec')::interval
 	    ) ws,
 	    t.updated_at as team_updated_at,
-		(lic.has_license is null) as reason_no_cc_license
+		(lic.has_license is null) as reason_no_cc_license,
+		(u.deleted_at notnull) as reason_deactivated
 	from call_center.cc_agent a
+	inner join directory.wbt_user u on u.id = a.user_id
 	left join call_center.cc_team t on t.id = a.team_id
 	left join lateral (
 	    select exists(
@@ -521,7 +523,8 @@ func (s *SqlAgentStore) OnlineWithOutActive(sec int) ([]model.AgentHashKey, *mod
 		  and (now() at time zone 'UTC' between p.not_before and p.not_after)
 		limit 1
 	) lic on true
-	where a.status in ('online', 'break_out')
+	where (a.status <> 'offline' and u.deleted_at notnull)
+	    or a.status in ('online', 'break_out')
 	    and (
 	    	lic.has_license is null or
 	        (

@@ -75,6 +75,7 @@ type AgentHashKey struct {
 	ReasonSca         bool  `json:"reason_sca" db:"reason_sca"`
 	TeamUpdatedAt     int64 `json:"team_updated_at" db:"team_updated_at"`
 	ReasonNoCCLicense bool  `json:"reason_no_cc_license" db:"reason_no_cc_license"`
+	ReasonDeactivated bool  `json:"reason_deactivated" db:"reason_deactivated"`
 }
 
 type AgentChannel struct {
