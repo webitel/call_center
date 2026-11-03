@@ -61,7 +61,7 @@ func (queue *OutboundCallQueue) DistributeAttempt(attempt *Attempt) *model.AppEr
 func (queue *OutboundCallQueue) run(attempt *Attempt, call call_manager.Call, agent agent_manager.AgentObject, team *agentTeam) {
 	defer attempt.Log("stopped queue")
 
-	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call, team.CallTimeout()))
 
 	team.Offering(attempt, agent, call, nil)
 	if call.BridgeAt() > 0 || queue.processingWithoutAnswer {

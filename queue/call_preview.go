@@ -204,7 +204,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		Args:    "tone_stream://L=3;%(400,400,425)",
 	})
 
-	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call))
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, call, team.CallTimeout()))
 	printfIfErr(call.Invite())
 	calling := true
 

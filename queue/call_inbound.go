@@ -154,7 +154,7 @@ func (queue *InboundQueue) run(attempt *Attempt, mCall call_manager.Call) {
 			agentCall = mCall.NewCall(cr)
 			attempt.agentChannel = agentCall
 
-			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall, team.CallTimeout()))
 			agentCall.Invite()
 
 			attempt.log.Debug(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))

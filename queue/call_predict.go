@@ -405,7 +405,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			agentCall = mCall.NewCall(cr)
 			attempt.agentChannel = agentCall
 
-			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mCall, agentCall, team.CallTimeout()))
 			agentCall.Invite()
 
 			attempt.Log(fmt.Sprintf("call [%s] && agent [%s]", mCall.Id(), agentCall.Id()))
