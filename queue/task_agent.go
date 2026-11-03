@@ -1,10 +1,11 @@
 package queue
 
 import (
-	"github.com/webitel/call_center/agent_manager"
-	"github.com/webitel/call_center/model"
 	"strconv"
 	"time"
+
+	"github.com/webitel/call_center/agent_manager"
+	"github.com/webitel/call_center/model"
 )
 
 const (
@@ -44,7 +45,7 @@ func (queue *TaskAgent) run(team *agentTeam, attempt *Attempt, agent agent_manag
 	timeout := time.NewTimer(time.Second * time.Duration(team.TaskAcceptTimeout()))
 	process := true
 
-	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task))
+	team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), nil, task, team.TaskAcceptTimeout()))
 	team.Offering(attempt, agent, task, nil)
 
 	for process {

@@ -26,22 +26,23 @@ type ChannelEvent struct {
 
 // TODO refactoring call event to CC
 type Distribute struct {
-	AppId            string                    `json:"app_id"`
-	Channel          string                    `json:"channel"`
-	QueueId          int                       `json:"queue_id"`
-	QueueName        string                    `json:"queue_name"`
-	QueueMaxWaitTime *int                      `json:"queue_max_wait_time,omitempty"`
-	MemberId         *int64                    `json:"member_id"`
-	MemberName       *string                   `json:"member_name"`
-	MemberJoinedAt   int64                     `json:"member_joined_at"`
-	AgentId          *int                      `json:"agent_id"`
-	MemberChannelId  *string                   `json:"member_channel_id"`
-	AgentChannelId   *string                   `json:"agent_channel_id"`
-	Communication    model.MemberCommunication `json:"communication"`
-	Variables        map[string]string         `json:"variables"`
-	HasReporting     bool                      `json:"has_reporting"`
-	HasForm          bool                      `json:"has_form,omitempty"`
-	Autosave         bool                      `json:"autosave,omitempty"`
+	AppId             string                    `json:"app_id"`
+	Channel           string                    `json:"channel"`
+	QueueId           int                       `json:"queue_id"`
+	QueueName         string                    `json:"queue_name"`
+	QueueMaxWaitTime  *int                      `json:"queue_max_wait_time,omitempty"`
+	MemberId          *int64                    `json:"member_id"`
+	MemberName        *string                   `json:"member_name"`
+	MemberJoinedAt    int64                     `json:"member_joined_at"`
+	AgentId           *int                      `json:"agent_id"`
+	MemberChannelId   *string                   `json:"member_channel_id"`
+	AgentChannelId    *string                   `json:"agent_channel_id"`
+	Communication     model.MemberCommunication `json:"communication"`
+	Variables         map[string]string         `json:"variables"`
+	HasReporting      bool                      `json:"has_reporting"`
+	HasForm           bool                      `json:"has_form,omitempty"`
+	Autosave          bool                      `json:"autosave,omitempty"`
+	TeamAcceptTimeout uint16                    `json:"team_accept_timeout"`
 }
 
 type Offering struct {
@@ -143,7 +144,15 @@ func MaxWaitTimeFromQueue(q QueueObject) int {
 	}
 }
 
-func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent_manager.AgentObject, hasReporting bool, mChannel, aChannel Channel) model.Event {
+func NewDistributeEvent(
+	a *Attempt,
+	userId int64,
+	queue QueueObject,
+	agent agent_manager.AgentObject,
+	hasReporting bool,
+	mChannel, aChannel Channel,
+	teamAcceptTimeout uint16,
+) model.Event {
 	e := DistributeEvent{
 		ChannelEvent: ChannelEvent{
 			Timestamp: model.GetMillis(), // todo from attempt!
@@ -152,17 +161,18 @@ func NewDistributeEvent(a *Attempt, userId int64, queue QueueObject, agent agent
 			Status:    model.ChannelStateDistribute,
 		},
 		Distribute: Distribute{
-			AppId:          queue.AppId(),
-			Communication:  a.communication,
-			Channel:        queue.Channel(),
-			QueueId:        queue.Id(),
-			QueueName:      queue.Name(),
-			MemberId:       a.MemberId(),
-			MemberName:     a.MemberName(),
-			MemberJoinedAt: a.JoinedAt(),
-			HasReporting:   hasReporting && !a.processTransfer,
-			HasForm:        queue.HasForm(),
-			Autosave:       queue.ProcessingAutosave(),
+			AppId:             queue.AppId(),
+			Communication:     a.communication,
+			Channel:           queue.Channel(),
+			QueueId:           queue.Id(),
+			QueueName:         queue.Name(),
+			MemberId:          a.MemberId(),
+			MemberName:        a.MemberName(),
+			MemberJoinedAt:    a.JoinedAt(),
+			HasReporting:      hasReporting && !a.processTransfer,
+			HasForm:           queue.HasForm(),
+			Autosave:          queue.ProcessingAutosave(),
+			TeamAcceptTimeout: teamAcceptTimeout,
 		},
 	}
 

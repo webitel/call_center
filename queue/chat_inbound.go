@@ -182,7 +182,7 @@ func (queue *InboundChatQueue) process(attempt *Attempt, inviterId, invUserId st
 			attempt.Emit(AttemptHookOfferingAgent, agent.Id())
 			// fixme new function
 			aSess = conv.LastSession()
-			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), mSess, aSess, team.InviteChatTimeout()))
 
 			attempt.log.Debug(fmt.Sprintf("conversation [%s] && agent [%s]", conv.MemberSession().Id(), conv.LastSession().Id()),
 				wlog.String("conversation_id", conv.MemberSession().Id()),

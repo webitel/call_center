@@ -267,7 +267,7 @@ func (queue *InboundIMQueue) run(attempt *Attempt, sess *im.Session, imInfo IMTh
 
 			inviteTimeout = time.NewTimer(inviteDur)
 
-			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task))
+			team.Distribute(queue, agent, NewDistributeEvent(attempt, agent.UserId(), queue, agent, queue.Processing(), sess, task, team.InviteChatTimeout()))
 			team.Offering(attempt, agent, task, sess)
 
 			if alreadyMember {
