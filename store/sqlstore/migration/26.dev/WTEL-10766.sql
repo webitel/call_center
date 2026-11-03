@@ -11,21 +11,21 @@ SELECT a.domain_id,
    a.progressive_count,
    ch.x AS channel,
    json_build_object('id', ct.id, 'name', COALESCE(ct.name, ct.username::text))::jsonb AS "user",
-   cc_get_lookup(a.greeting_media_id::bigint, g.name) AS greeting_media,
+   call_center.cc_get_lookup(a.greeting_media_id::bigint, g.name) AS greeting_media,
    a.allow_channels,
    a.chat_count,
    ( SELECT jsonb_agg(sag."user") AS jsonb_agg
-          FROM cc_agent_with_user sag
+          FROM call_center.cc_agent_with_user sag
          WHERE sag.id = ANY (a.supervisor_ids)) AS supervisor,
-   ( SELECT jsonb_agg(cc_get_lookup(aud.id, COALESCE(aud.name, aud.username::text)::character varying)) AS jsonb_agg
+   ( SELECT jsonb_agg(call_center.cc_get_lookup(aud.id, COALESCE(aud.name, aud.username::text)::character varying)) AS jsonb_agg
           FROM directory.wbt_user aud
          WHERE aud.id = ANY (a.auditor_ids)) AS auditor,
-   cc_get_lookup(t.id, t.name) AS team,
-   cc_get_lookup(r.id::bigint, r.name) AS region,
+   call_center.cc_get_lookup(t.id, t.name) AS team,
+   call_center.cc_get_lookup(r.id::bigint, r.name) AS region,
    a.supervisor AS is_supervisor,
-   ( SELECT jsonb_agg(cc_get_lookup(sa.skill_id::bigint, cs.name)) AS jsonb_agg
-          FROM cc_skill_in_agent sa
-            JOIN cc_skill cs ON sa.skill_id = cs.id
+   ( SELECT jsonb_agg(call_center.cc_get_lookup(sa.skill_id::bigint, cs.name)) AS jsonb_agg
+          FROM call_center.cc_skill_in_agent sa
+            JOIN call_center.cc_skill cs ON sa.skill_id = cs.id
          WHERE sa.agent_id = a.id) AS skills,
    a.team_id,
    a.region_id,
@@ -55,15 +55,15 @@ SELECT a.domain_id,
    a.extra_chat_count,
    COALESCE(a.status_payload, os.name::character varying, ''::character varying) AS status_type,
    ct.deleted_at IS NOT NULL AS user_deactivated
-  FROM cc_agent a
+  FROM call_center.cc_agent a
     LEFT JOIN directory.wbt_user ct ON ct.id = a.user_id
     LEFT JOIN storage.media_files g ON g.id = a.greeting_media_id
-    LEFT JOIN cc_team t ON t.id = a.team_id
+    LEFT JOIN call_center.cc_team t ON t.id = a.team_id
     LEFT JOIN flow.region r ON r.id = a.region_id
     LEFT JOIN LATERAL ( SELECT jsonb_agg(json_build_object('channel', c.channel, 'online', true, 'state', c.state, 'joined_at', (date_part('epoch'::text, c.joined_at) * 1000::double precision)::bigint)) AS x
-          FROM cc_agent_channel c
+          FROM call_center.cc_agent_channel c
          WHERE c.agent_id = a.id) ch ON true
-    LEFT JOIN cc_online_skills os ON a.status_id IS NOT NULL AND a.status_id = os.id AND os.is_system IS FALSE;
+    LEFT JOIN call_center.cc_online_skills os ON a.status_id IS NOT NULL AND a.status_id = os.id AND os.is_system IS FALSE;
 
 CREATE OR REPLACE FUNCTION call_center.cc_set_agent_online(
 	p_agent_id bigint,
