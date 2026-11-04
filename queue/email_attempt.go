@@ -36,6 +36,33 @@ func (qm *Manager) EmailAttemptCommand(ctx context.Context, cmd model.EmailAttem
 	return res, nil
 }
 
+// EmailAttemptTransfer moves the Email attempt of an operator to a queue or an agent in the database.
+func (qm *Manager) EmailAttemptTransfer(ctx context.Context, cmd model.EmailAttemptTransferCommand) (*model.EmailAttemptTransferResult, *model.AppError) {
+	log := qm.log.With(
+		wlog.String("operation", model.EmailAttemptTransfer),
+		wlog.String("command_id", cmd.CommandId),
+		wlog.Int64("domain_id", cmd.DomainId),
+		wlog.Int64("email_thread_id", cmd.ThreadId),
+		wlog.Int64("attempt_id", cmd.AttemptId),
+	)
+
+	res, err := qm.store.Member().EmailAttemptTransfer(ctx, cmd, qm.app.QueueSettings().EmailCommandLockTimeout)
+	if err != nil {
+		log.Warn("email attempt transfer failed", wlog.String("error_id", err.Id), wlog.Err(err))
+		return nil, err
+	}
+
+	log.Info("email attempt transfer",
+		wlog.Int64("new_attempt_id", res.TransferredTo.AttemptId),
+		wlog.String("new_state", res.TransferredTo.State),
+		wlog.Int("new_queue_id", int(res.TransferredTo.QueueId)),
+		wlog.Int64("projection_version", res.TransferredTo.ProjectionVersion),
+		wlog.Any("replayed", res.Email.Replayed),
+	)
+
+	return res, nil
+}
+
 // EmailWakeUp wakes the active attempt of a Thread once per inbound Email event.
 func (qm *Manager) EmailWakeUp(ctx context.Context, in model.EmailWakeUp) (*model.EmailWakeUpResult, *model.AppError) {
 	log := qm.log.With(

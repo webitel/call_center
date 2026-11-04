@@ -26,7 +26,7 @@ func (s *SqlMemberStore) EmailAttemptCommand(ctx context.Context, cmd model.Emai
        x.projection_version, x.result, x.queue_id, x.agent_id, x.postponed_until
 from call_center.cc_email_attempt_command(:Op::text, :Source::text, :CommandId::text, :DomainId::int8, :ThreadId::int8,
      :AttemptId::int8, :AgentId::int4, :ExpectedVersion::int8, :EmailEventId::uuid, :PostponedUntil::timestamptz,
-     :PostponeForSec::int4, :RenewalSec::int4) x`, map[string]any{
+     :PostponeForSec::int4, :RenewalSec::int4, :UserId::int8, :Reason::text) x`, map[string]any{
 			"Op":              cmd.Op,
 			"Source":          cmd.Source,
 			"CommandId":       cmd.CommandId,
@@ -39,11 +39,73 @@ from call_center.cc_email_attempt_command(:Op::text, :Source::text, :CommandId::
 			"PostponedUntil":  cmd.PostponedUntil,
 			"PostponeForSec":  cmd.PostponeForSec,
 			"RenewalSec":      cmd.RenewalSec,
+			"UserId":          cmd.UserId,
+			"Reason":          cmd.Reason,
 		})
 	})
 	if err != nil {
 		return nil, emailLifecycleError("SqlMemberStore.EmailAttemptCommand", fmt.Sprintf("Op=%s, Source=%s, CommandId=%s, DomainId=%d, ThreadId=%d",
 			cmd.Op, cmd.Source, cmd.CommandId, cmd.DomainId, cmd.ThreadId), err)
+	}
+
+	return &res, nil
+}
+
+// emailTransferRow is one part of a Transfer result: the transferred attempt or the new one.
+type emailTransferRow struct {
+	Part              string  `db:"part"`
+	Replayed          bool    `db:"replayed"`
+	AttemptId         int64   `db:"attempt_id"`
+	ThreadId          int64   `db:"thread_id"`
+	State             string  `db:"attempt_state"`
+	AttemptVersion    int64   `db:"attempt_version"`
+	ProjectionVersion int64   `db:"projection_version"`
+	Result            *string `db:"result"`
+	QueueId           int32   `db:"queue_id"`
+	AgentId           *int32  `db:"agent_id"`
+}
+
+// EmailAttemptTransfer runs cc_email_attempt_transfer in a short transaction under lockTimeout.
+func (s *SqlMemberStore) EmailAttemptTransfer(ctx context.Context, cmd model.EmailAttemptTransferCommand, lockTimeout time.Duration) (*model.EmailAttemptTransferResult, *model.AppError) {
+	var rows []emailTransferRow
+	err := s.inEmailTx(ctx, lockTimeout, func(ex gorp.SqlExecutor) error {
+		_, err := ex.Select(&rows, `select x.part, x.replayed, x.attempt_id, x.thread_id, x.attempt_state, x.attempt_version,
+       x.projection_version, x.result, x.queue_id, x.agent_id
+from call_center.cc_email_attempt_transfer(:CommandId::text, :DomainId::int8, :ThreadId::int8, :AttemptId::int8,
+     :AgentId::int4, :UserId::int8, :ExpectedVersion::int8, :ToQueueId::int4, :ToAgentId::int4, :Comment::text) x`, map[string]any{
+			"CommandId":       cmd.CommandId,
+			"DomainId":        cmd.DomainId,
+			"ThreadId":        cmd.ThreadId,
+			"AttemptId":       cmd.AttemptId,
+			"AgentId":         cmd.AgentId,
+			"UserId":          cmd.UserId,
+			"ExpectedVersion": cmd.ExpectedVersion,
+			"ToQueueId":       cmd.ToQueueId,
+			"ToAgentId":       cmd.ToAgentId,
+			"Comment":         cmd.Comment,
+		})
+		return err
+	})
+	where := fmt.Sprintf("CommandId=%s, DomainId=%d, ThreadId=%d", cmd.CommandId, cmd.DomainId, cmd.ThreadId)
+	if err != nil {
+		return nil, emailLifecycleError("SqlMemberStore.EmailAttemptTransfer", where, err)
+	}
+
+	var res model.EmailAttemptTransferResult
+	var parts int
+	for _, r := range rows {
+		a := model.EmailAttemptResult{Replayed: r.Replayed, AttemptId: r.AttemptId, ThreadId: r.ThreadId, State: r.State,
+			AttemptVersion: r.AttemptVersion, ProjectionVersion: r.ProjectionVersion, Result: r.Result, QueueId: r.QueueId, AgentId: r.AgentId}
+		switch r.Part {
+		case "email":
+			res.Email, parts = a, parts|1
+		case "transferred_to":
+			res.TransferredTo, parts = a, parts|2
+		}
+	}
+	if parts != 3 {
+		return nil, model.NewAppError("SqlMemberStore.EmailAttemptTransfer", model.EmailAttemptErrInternal, nil,
+			where+": incomplete transfer result", http.StatusInternalServerError)
 	}
 
 	return &res, nil
@@ -120,6 +182,14 @@ func emailLifecycleError(where, details string, err error) *model.AppError {
 			id, code = model.EmailAttemptErrPostponedLimit, http.StatusTooManyRequests
 		case "EMAPX":
 			id, code = model.EmailAttemptErrProlongationLimit, http.StatusTooManyRequests
+		case "EMAQN":
+			id, code = model.EmailAttemptErrQueueNotFound, http.StatusNotFound
+		case "EMAQP":
+			id, code = model.EmailAttemptErrQueuePrecondition, http.StatusPreconditionFailed
+		case "EMATN":
+			id, code = model.EmailAttemptErrTargetAgentNotFound, http.StatusNotFound
+		case "EMACL":
+			id, code = model.EmailAttemptErrQueueCalendarClosed, http.StatusPreconditionFailed
 		case "40001":
 			id, code = model.EmailAttemptErrSerializationConflict, http.StatusConflict
 		case "40P01":

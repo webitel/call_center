@@ -18,6 +18,8 @@ const (
 	emailOutboxCleanupEvery = time.Minute
 	emailOutboxCleanupBatch = 1000
 	emailOutboxStoreTimeout = 10 * time.Second
+	// emailMinCommandRetention keeps a repeated command answerable for at least a day.
+	emailMinCommandRetention = 24 * time.Hour
 )
 
 type EmailOutboxStore interface {
@@ -25,6 +27,7 @@ type EmailOutboxStore interface {
 	EmailOutboxPublished(ctx context.Context, owner string, sequences []int64) (int64, *model.AppError)
 	EmailOutboxRelease(ctx context.Context, owner string, sequences []int64, next time.Time, reason string, failed bool) *model.AppError
 	EmailOutboxCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError)
+	EmailOutboxCommandCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError)
 	EmailOutboxBacklog(ctx context.Context) (*model.EmailOutboxBacklog, *model.AppError)
 }
 
@@ -40,6 +43,8 @@ type EmailPublisherSettings struct {
 	Lease          time.Duration
 	ConfirmTimeout time.Duration
 	Retention      time.Duration
+	// CommandRetention bounds the time a repeated command gets its first response.
+	CommandRetention time.Duration
 }
 
 func (s EmailPublisherSettings) Validate() error {
@@ -48,6 +53,9 @@ func (s EmailPublisherSettings) Validate() error {
 	}
 	if s.Interval < time.Millisecond || s.Lease < time.Millisecond || s.ConfirmTimeout < time.Millisecond || s.Retention < time.Millisecond {
 		return errors.New("email publisher: interval, lease, confirm timeout and retention must be at least 1ms")
+	}
+	if s.CommandRetention < emailMinCommandRetention {
+		return errors.New("email publisher: command retention must be at least 24h")
 	}
 	if s.Lease <= s.ConfirmTimeout {
 		return errors.New("email publisher: lease must be longer than confirm timeout")
@@ -226,17 +234,21 @@ func (p *EmailPublisher) cleanup(now time.Time) {
 	if err != nil {
 		p.warn("cleanup", "email outbox cleanup failed", err)
 	}
+	deletedCommands, err := p.store.EmailOutboxCommandCleanup(ctx, now.Add(-p.settings.CommandRetention), emailOutboxCleanupBatch)
+	if err != nil {
+		p.warn("command_cleanup", "email outbox command cleanup failed", err)
+	}
 	backlog, err := p.store.EmailOutboxBacklog(ctx)
 	if err != nil {
 		p.warn("backlog", "email outbox backlog is unknown", err)
 		return
 	}
 
-	fields := []wlog.Field{wlog.Int64("deleted", deleted), wlog.Int64("backlog", backlog.Pending)}
+	fields := []wlog.Field{wlog.Int64("deleted", deleted), wlog.Int64("deleted_commands", deletedCommands), wlog.Int64("backlog", backlog.Pending)}
 	if backlog.OldestAt != nil {
 		fields = append(fields, wlog.Duration("oldest_pending_age", now.Sub(*backlog.OldestAt)))
 	}
-	if deleted > 0 || backlog.Pending > 0 {
+	if deleted > 0 || deletedCommands > 0 || backlog.Pending > 0 {
 		p.log.Info("email outbox", fields...)
 	} else {
 		p.log.Debug("email outbox", fields...)

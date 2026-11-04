@@ -264,22 +264,54 @@ Agents and Flows change an attempt through `cc.MemberService`:
   the allocator (skills of its online preset included) and has a free slot (base
   first, Extra only with the email's Extra permission); otherwise nothing
   changes;
-- `EmailAttemptReturn` — `offering`, `active` or `postponed` back to the queue;
+- `EmailAttemptReturn` — `offering`, `active` or `postponed` back to the queue,
+  with the `reason` of the agent (1–500 characters after trimming);
+- `Transfer` with `thread_id` and `operator` — `active` or `postponed` to a new
+  attempt, see below; without them `Transfer` keeps its IM path;
 - `EmailAttemptComplete` — `active` to `processing` when the queue has
   `processing` (deadline `processing_sec`), otherwise to `leaving` with result
   `processed`; `processing` to `leaving` with `processed`;
 - `AttemptRenewalResult` with the Email fields — extends the `processing`
   deadline, within the prolongations of the queue.
 
-An agent sends `attempt_id`, `agent_id`, `expected_version` and `command_id`; a
-Flow sends `email_event_id` only (Postpone and Resume), and `call_center` finds
-the attempt of the Thread. `call_center` tells the form by the fields, keys a
+An agent sends `attempt_id`, `agent_id`, `user_id`, `expected_version` and
+`command_id`; `user_id` is the session user of engine and must be the user of
+`agent_id` when the command runs. A Flow sends `email_event_id` only (Postpone
+and Resume) and no `user_id`, and `call_center` finds the attempt of the Thread. `call_center` tells the form by the fields, keys a
 Flow command by `<email_event_id>:<operation>` and refuses mixed forms. A
 command applies only to the current `version`; a repeated `command_id` returns
 the first response with `replayed`, the same id with other arguments is a
-conflict. A transition takes the agent, its `email` channel and the attempt in
-this order when it may take a slot, so slots and the postponed limit are never
-exceeded.
+conflict; the author and the reason are arguments of the command, so another
+user with the same id is a conflict too. A transition takes the agent, its
+`email` channel and the attempt in this order when it may take a slot, so slots
+and the postponed limit are never exceeded. Resume, a wake-up and a postponed
+deadline also lock the skills and online preset of the agent before the
+attempt; a deadline leaves the attempt to the next cycle when they are busy.
+Only an agent found eligible under these locks takes the email: otherwise Resume
+and a direct Transfer return `agent_ineligible`, and a wake-up or deadline puts
+the email in the queue. The allocator uses the same check after its attempt
+lock, skipping locked rows.
+
+An Email `Transfer` sets exactly one of `queue_id` and `agent_id`, an optional
+`comment` (up to 500 characters) and no `form_fields`; `attempt_id` is 0 or the
+attempt of `operator`. In one transaction the attempt leaves with the result
+`transfer` and the Thread gets a new attempt with the same address, Extra
+permission and `joined_at`, priority `greatest(priority, 10)` and a decided
+Sticky:
+
+- to a queue — an enabled Email queue of the domain other than the current one;
+  the new attempt waits there and avoids the sender as auto-release does, the
+  queue calendar is not checked;
+- to an agent — another agent of the domain gets an offer in the current queue
+  if the calendar of that queue is open and the agent is online, may take emails of the queue
+  with its online preset and has a free slot: base first, Extra only with the
+  email's Extra permission.
+
+Locks are taken as Thread, queues, both agents and then their `email` channels
+by id, skills and preset of the recipient, attempt. The response has the
+transferred attempt in `email` and the new one in `transferred_to`; a repeat
+returns both from the first execution. `cc_email_transfer_candidates` lists the
+agents engine may offer for a direct transfer, without locks.
 
 Every transition writes the full attempt to `cc_email_attempt_outbox` in its
 transaction; `sequence` is the `projection_version` of the Thread. The publisher
@@ -288,8 +320,8 @@ sends the rows to email-service (see below).
 | Error id | gRPC code |
 |---|---|
 | `cc.email_attempt.invalid_argument` | `InvalidArgument` |
-| `cc.email_attempt.not_found` | `NotFound` |
-| `cc.email_attempt.wakeup_required`, `owner_mismatch`, `invalid_state`, `agent_offline`, `agent_ineligible` | `FailedPrecondition` |
+| `cc.email_attempt.not_found`, `queue_not_found`, `target_agent_not_found` | `NotFound` |
+| `cc.email_attempt.wakeup_required`, `owner_mismatch`, `invalid_state`, `agent_offline`, `agent_ineligible`, `queue_precondition`, `queue_calendar_closed` | `FailedPrecondition` |
 | `cc.email_attempt.version_conflict`, `serialization_conflict`, `deadlock` | `Aborted` |
 | `cc.email_attempt.command_id_conflict`, `cc.email_wakeup.event_conflict` | `AlreadyExists` |
 | `cc.email_attempt.slot_exhausted`, `postponed_limit_exhausted`, `prolongation_exhausted` | `ResourceExhausted` |
@@ -316,10 +348,17 @@ gives the claimed rows back without spending attempts and pauses the
 publisher. A row may be sent twice; email-service ignores a snapshot that is
 not newer than its projection, so publishing order does not matter.
 
+Rows of engine commands also carry `actor_user_id`, the `comment` of a return
+or transfer and the `transfer_to_queue_id` or `transfer_to_user_id` of a
+transfer; other rows send them as `null`.
+
 Published rows without `command_id` are deleted after
-`email_attempt_outbox_retention`. Rows of operator and Flow commands are kept,
-since a repeated command returns their response; unpublished rows are never
-deleted.
+`email_attempt_outbox_retention`, rows of operator and Flow commands after
+`email_attempt_outbox_command_retention`: until then a repeated command returns
+its first response, after it a repeat may get `NotFound` or run again on the
+current state. Keep it at least as long as `EMAIL_EVENTS_RETENTION` of
+flow_manager and the longest retry of engine. Unpublished rows are never
+deleted, and nothing is deleted while the publisher is off.
 
 ### Wake-up by a new email
 
@@ -399,6 +438,7 @@ an unfinished email, as for other channels.
 | `email_attempt_publisher_lease` | `EMAIL_ATTEMPT_PUBLISHER_LEASE` | `30s` | Lease of claimed rows |
 | `email_attempt_publisher_confirm_timeout` | `EMAIL_ATTEMPT_PUBLISHER_CONFIRM_TIMEOUT` | `5s` | Bounds connecting, each network write and the broker confirm of one row |
 | `email_attempt_outbox_retention` | `EMAIL_ATTEMPT_OUTBOX_RETENTION` | `168h` | Age of published rows without `command_id` to delete |
+| `email_attempt_outbox_command_retention` | `EMAIL_ATTEMPT_OUTBOX_COMMAND_RETENTION` | `720h` | Age of published rows of commands to delete; at least `24h` |
 
 Queue `payload` keys: `email_auto_release_sec` (`0` or unset keeps an offer; an
 invalid value counts as unset and is logged as `payload_invalid`),
@@ -408,7 +448,8 @@ of them counts as unset. Agents have `email_count` and `email_postponed_count`.
 
 Startup fails when a batch is not positive, a duration is below 1 ms, a lock
 timeout is not below its statement timeout or the publisher lease is not longer
-than its confirm timeout.
+than its confirm timeout, or the command retention is below 24 hours while the
+publisher is on.
 
 Startup logs include interval, queue batch, the requested half-statement-timeout
 `max_duration` budget, lock timeout and statement timeout. These are configured
@@ -437,7 +478,7 @@ failures and time limit are logged like those of the allocator.
 A publisher cycle that published rows is logged at info level with `claimed`,
 `confirmed` (by the broker), `published` (marked in the database) and the
 latency, other cycles at debug level. Once a minute it deletes old rows and logs
-`deleted`, `backlog` and `oldest_pending_age`. A broker failure gives the rest
+`deleted`, `deleted_commands`, `backlog` and `oldest_pending_age`. A broker failure gives the rest
 of the batch back for 5 seconds and backs off like a failed allocator cycle;
 rows the broker confirmed but the database did not mark are sent again after
 their lease, and that cycle backs off too. Failures are logged as warnings at
@@ -447,8 +488,9 @@ most once in 5 minutes each.
 
 Follow the [EM-24 runbook](docs/email-routing-upgrade.md#em-24-status-sync-upgrade):
 matching extension 1.5, shared prepare/validate/runtime, lifecycle, then status
-sync and Inbox route migrations. Use the files from this release and stop Email
-writers throughout the upgrade; older SQL must not be replayed over the result.
+sync and Inbox route migrations, then the [EM-25 commands](docs/email-routing-upgrade.md#em-25-commands-upgrade)
+migration. Use the files from this release and stop Email writers throughout
+the upgrade; older SQL must not be replayed over the result.
 
 Deploy email-service with the compatible snapshot consumer, engine with the
 Email limits, then all call_center nodes with distribution/lifecycle/publisher

@@ -68,6 +68,8 @@ type MemberStore interface {
 	EmailLifecycleWatch(ctx context.Context, batch int, maxDuration, lockTimeout, statementTimeout time.Duration) (*model.EmailLifecycleResult, *model.AppError)
 	// EmailAttemptCommand runs one Email attempt command in its own transaction under lockTimeout.
 	EmailAttemptCommand(ctx context.Context, cmd model.EmailAttemptCommand, lockTimeout time.Duration) (*model.EmailAttemptResult, *model.AppError)
+	// EmailAttemptTransfer runs one Email Transfer in its own transaction under lockTimeout.
+	EmailAttemptTransfer(ctx context.Context, cmd model.EmailAttemptTransferCommand, lockTimeout time.Duration) (*model.EmailAttemptTransferResult, *model.AppError)
 	// EmailWakeUp wakes the active attempt of a Thread once per inbound Email event.
 	EmailWakeUp(ctx context.Context, in model.EmailWakeUp, lockTimeout time.Duration) (*model.EmailWakeUpResult, *model.AppError)
 	// IsEmailAttempt tells whether an active attempt of the domain is an Email one.
@@ -81,6 +83,8 @@ type MemberStore interface {
 	EmailOutboxRelease(ctx context.Context, owner string, sequences []int64, next time.Time, reason string, failed bool) *model.AppError
 	// EmailOutboxCleanup deletes published rows without a command older than before.
 	EmailOutboxCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError)
+	// EmailOutboxCommandCleanup deletes published rows of commands older than before; a repeat after it is not answered.
+	EmailOutboxCommandCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError)
 	// EmailOutboxBacklog counts unpublished rows.
 	EmailOutboxBacklog(ctx context.Context) (*model.EmailOutboxBacklog, *model.AppError)
 

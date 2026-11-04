@@ -3,7 +3,9 @@ package grpc_api
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,17 +14,34 @@ import (
 	"github.com/webitel/call_center/model"
 )
 
-const maxEmailCommandId = 128
+const (
+	maxEmailCommandId  = 128
+	maxEmailCommentLen = 500
+)
 
 var errEmailCommandForm = status.Error(codes.InvalidArgument,
-	"domain_id, thread_id and an operator with attempt_id, agent_id, expected_version and command_id are required")
+	"domain_id, thread_id and an operator with attempt_id, agent_id, user_id, expected_version and command_id are required")
+
+// errEmailInvalid carries the stable id for checks added with the commands of engine.
+var errEmailInvalid = status.Error(codes.InvalidArgument, model.EmailAttemptErrInvalidArgument)
 
 func (api *member) EmailAttemptTake(ctx context.Context, in *cc.EmailAttemptTakeRequest) (*cc.EmailAttemptResponse, error) {
 	return api.emailOperatorCommand(ctx, model.EmailAttemptTake, in.GetDomainId(), in.GetThreadId(), in.GetOperator())
 }
 
+// EmailAttemptReturn needs the reason of the operator.
 func (api *member) EmailAttemptReturn(ctx context.Context, in *cc.EmailAttemptReturnRequest) (*cc.EmailAttemptResponse, error) {
-	return api.emailOperatorCommand(ctx, model.EmailAttemptReturn, in.GetDomainId(), in.GetThreadId(), in.GetOperator())
+	cmd, err := emailOperatorForm(model.EmailAttemptReturn, in.GetDomainId(), in.GetThreadId(), in.GetOperator())
+	if err != nil {
+		return nil, err
+	}
+	reason, ok := emailText(in.GetReason(), true)
+	if !ok {
+		return nil, errEmailInvalid
+	}
+	cmd.Reason = &reason
+
+	return api.emailAttemptCommand(ctx, cmd)
 }
 
 func (api *member) EmailAttemptComplete(ctx context.Context, in *cc.EmailAttemptCompleteRequest) (*cc.EmailAttemptResponse, error) {
@@ -80,6 +99,7 @@ func (api *member) emailOperatorRenewal(ctx context.Context, in *cc.AttemptRenew
 		AgentId:         in.GetAgentId(),
 		ExpectedVersion: in.ExpectedVersion,
 		CommandId:       in.GetCommandId(),
+		UserId:          in.GetUserId(),
 	})
 	if err != nil {
 		return nil, err
@@ -103,7 +123,7 @@ func (api *member) emailResume(ctx context.Context, in *cc.ResumeAttemptRequest)
 	var cmd model.EmailAttemptCommand
 	var err error
 	if in.GetEmailEventId() != "" {
-		if in.GetAttemptId() != 0 || in.GetAgentId() != 0 || in.ExpectedVersion != nil || in.GetCommandId() != "" {
+		if in.GetAttemptId() != 0 || in.GetAgentId() != 0 || in.ExpectedVersion != nil || in.GetCommandId() != "" || in.GetUserId() != 0 {
 			return nil, status.Error(codes.InvalidArgument, "a Flow resume sets only domain_id, thread_id and email_event_id")
 		}
 		cmd, err = emailFlowForm(model.EmailAttemptResume, in.GetDomainId(), in.GetThreadId(), &cc.EmailAttemptFlow{EmailEventId: in.GetEmailEventId()})
@@ -113,6 +133,7 @@ func (api *member) emailResume(ctx context.Context, in *cc.ResumeAttemptRequest)
 			AgentId:         in.GetAgentId(),
 			ExpectedVersion: in.ExpectedVersion,
 			CommandId:       in.GetCommandId(),
+			UserId:          in.GetUserId(),
 		})
 	}
 	if err != nil {
@@ -139,21 +160,74 @@ func legacyResumeError(ctx context.Context, err *model.AppError) error {
 
 func isEmailResume(in *cc.ResumeAttemptRequest) bool {
 	return in.GetThreadId() != 0 || in.GetAgentId() != 0 || in.ExpectedVersion != nil ||
-		in.GetCommandId() != "" || in.GetEmailEventId() != ""
+		in.GetCommandId() != "" || in.GetEmailEventId() != "" || in.GetUserId() != 0
 }
 
 func isEmailRenewal(in *cc.AttemptRenewalResultRequest) bool {
-	return in.GetThreadId() != 0 || in.GetAgentId() != 0 || in.ExpectedVersion != nil || in.GetCommandId() != ""
+	return in.GetThreadId() != 0 || in.GetAgentId() != 0 || in.ExpectedVersion != nil || in.GetCommandId() != "" ||
+		in.GetUserId() != 0
+}
+
+// isEmailTransfer: the Email form has a Thread or an operator; without them the IM path runs.
+func isEmailTransfer(in *cc.TransferRequest) bool {
+	return in.GetThreadId() != 0 || in.GetOperator() != nil
+}
+
+// emailTransfer moves the attempt of the operator to a queue or to an agent of its queue.
+func (api *member) emailTransfer(ctx context.Context, in *cc.TransferRequest) (*cc.TransferResponse, error) {
+	cmd, err := emailOperatorForm(model.EmailAttemptTransfer, in.GetDomainId(), in.GetThreadId(), in.GetOperator())
+	if err != nil {
+		return nil, err
+	}
+	comment, ok := emailText(in.GetComment(), false)
+	if !ok || (in.GetAttemptId() != 0 && in.GetAttemptId() != *cmd.AttemptId) || len(in.GetFormFields()) > 0 ||
+		in.GetQueueId() < 0 || in.GetAgentId() < 0 || (in.GetQueueId() > 0) == (in.GetAgentId() > 0) {
+		return nil, errEmailInvalid
+	}
+
+	t := model.EmailAttemptTransferCommand{
+		CommandId:       cmd.CommandId,
+		DomainId:        cmd.DomainId,
+		ThreadId:        cmd.ThreadId,
+		AttemptId:       *cmd.AttemptId,
+		AgentId:         *cmd.AgentId,
+		UserId:          *cmd.UserId,
+		ExpectedVersion: *cmd.ExpectedVersion,
+	}
+	if q := in.GetQueueId(); q > 0 {
+		t.ToQueueId = &q
+	} else {
+		a := in.GetAgentId()
+		t.ToAgentId = &a
+	}
+	if comment != "" {
+		t.Comment = &comment
+	}
+
+	res, appErr := api.app.Queue().Manager().EmailAttemptTransfer(ctx, t)
+	if appErr != nil {
+		return nil, emailAttemptStatus(ctx, appErr)
+	}
+
+	return &cc.TransferResponse{Email: emailAttemptResponse(&res.Email), TransferredTo: emailAttemptResponse(&res.TransferredTo)}, nil
+}
+
+// emailText trims a reason or a comment: up to maxEmailCommentLen characters, present when required.
+func emailText(s string, required bool) (string, bool) {
+	s = strings.TrimSpace(s)
+	n := utf8.RuneCountInString(s)
+
+	return s, n <= maxEmailCommentLen && (n > 0 || !required)
 }
 
 // emailOperatorForm needs expected_version present; an explicit 0 is a real version.
 func emailOperatorForm(op string, domainId, threadId int64, o *cc.EmailAttemptOperator) (model.EmailAttemptCommand, error) {
-	if domainId <= 0 || threadId <= 0 || o == nil || o.GetAttemptId() <= 0 || o.GetAgentId() <= 0 ||
+	if domainId <= 0 || threadId <= 0 || o == nil || o.GetAttemptId() <= 0 || o.GetAgentId() <= 0 || o.GetUserId() <= 0 ||
 		o.ExpectedVersion == nil || o.GetExpectedVersion() < 0 || o.GetCommandId() == "" || len(o.GetCommandId()) > maxEmailCommandId {
 		return model.EmailAttemptCommand{}, errEmailCommandForm
 	}
 
-	attemptId, agentId, version := o.GetAttemptId(), o.GetAgentId(), o.GetExpectedVersion()
+	attemptId, agentId, version, userId := o.GetAttemptId(), o.GetAgentId(), o.GetExpectedVersion(), o.GetUserId()
 	return model.EmailAttemptCommand{
 		Op:              op,
 		Source:          model.EmailSourceEngine,
@@ -163,6 +237,7 @@ func emailOperatorForm(op string, domainId, threadId int64, o *cc.EmailAttemptOp
 		AttemptId:       &attemptId,
 		AgentId:         &agentId,
 		ExpectedVersion: &version,
+		UserId:          &userId,
 	}, nil
 }
 
@@ -228,10 +303,11 @@ func emailAttemptStatus(ctx context.Context, err *model.AppError) error {
 	switch err.Id {
 	case model.EmailAttemptErrInvalidArgument:
 		code = codes.InvalidArgument
-	case model.EmailAttemptErrNotFound:
+	case model.EmailAttemptErrNotFound, model.EmailAttemptErrQueueNotFound, model.EmailAttemptErrTargetAgentNotFound:
 		code = codes.NotFound
 	case model.EmailAttemptErrWakeupRequired, model.EmailAttemptErrOwnerMismatch, model.EmailAttemptErrInvalidState,
-		model.EmailAttemptErrAgentOffline, model.EmailAttemptErrAgentIneligible:
+		model.EmailAttemptErrAgentOffline, model.EmailAttemptErrAgentIneligible, model.EmailAttemptErrQueuePrecondition,
+		model.EmailAttemptErrQueueCalendarClosed:
 		code = codes.FailedPrecondition
 	case model.EmailAttemptErrVersionConflict, model.EmailAttemptErrSerializationConflict, model.EmailAttemptErrDeadlock:
 		code = codes.Aborted

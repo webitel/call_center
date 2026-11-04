@@ -3723,14 +3723,110 @@ $$;
 
 
 --
--- Name: cc_email_attempt_command(text, text, text, bigint, bigint, bigint, integer, bigint, uuid, timestamp with time zone, integer, integer); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_email_agent_lock_eligible(integer, integer, boolean); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_email_agent_lock_eligible(_queue_id integer, _agent_id integer, _skip_locked boolean)
+    RETURNS text
+    LANGUAGE plpgsql
+AS $$
+DECLARE
+    _status_id integer;
+    _system    boolean;
+BEGIN
+    -- The caller holds the agent and its Email channel; the allocator calls it after the attempt.
+    -- Domain, team and channels here, a qualifying skill in the locking query below.
+    SELECT a.status_id INTO _status_id
+    FROM call_center.cc_agent a
+             JOIN call_center.cc_queue q ON q.id = _queue_id AND q.domain_id = a.domain_id
+    WHERE a.id = _agent_id AND (q.team_id IS NULL OR a.team_id = q.team_id) AND 'email' = ANY (a.allow_channels);
+    IF NOT FOUND THEN
+        RETURN 'ineligible';
+    END IF;
+
+    IF _status_id IS NOT NULL THEN
+        IF _skip_locked THEN
+            SELECT os.is_system INTO _system FROM call_center.cc_online_skills os WHERE os.id = _status_id FOR SHARE SKIP LOCKED;
+        ELSE
+            SELECT os.is_system INTO _system FROM call_center.cc_online_skills os WHERE os.id = _status_id FOR SHARE;
+        END IF;
+        IF NOT FOUND THEN
+            RETURN CASE WHEN _skip_locked AND EXISTS (SELECT 1 FROM call_center.cc_online_skills os WHERE os.id = _status_id)
+                        THEN 'lock_skipped' ELSE 'ineligible' END;
+        END IF;
+    END IF;
+
+    -- Without a preset or with the system one any qualifying skill counts, otherwise only a skill of the preset.
+    IF _status_id IS NULL OR _system IS TRUE THEN
+        IF _skip_locked THEN
+            PERFORM 1
+            FROM call_center.cc_queue_skill qs
+                     JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
+            WHERE qs.queue_id = _queue_id AND qs.enabled
+              AND sia.agent_id = _agent_id AND sia.enabled
+              AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
+            LIMIT 1 FOR SHARE OF qs, sia SKIP LOCKED;
+        ELSE
+            PERFORM 1
+            FROM call_center.cc_queue_skill qs
+                     JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
+            WHERE qs.queue_id = _queue_id AND qs.enabled
+              AND sia.agent_id = _agent_id AND sia.enabled
+              AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
+            LIMIT 1 FOR SHARE OF qs, sia;
+        END IF;
+    ELSIF _skip_locked THEN
+        PERFORM 1
+        FROM call_center.cc_queue_skill qs
+                 JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
+                 JOIN call_center.cc_skills_in_online_skills sp ON sp.online_skill_id = _status_id AND sp.skill_id = sia.skill_id
+        WHERE qs.queue_id = _queue_id AND qs.enabled
+          AND sia.agent_id = _agent_id AND sia.enabled
+          AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
+        LIMIT 1 FOR SHARE OF qs, sia, sp SKIP LOCKED;
+    ELSE
+        PERFORM 1
+        FROM call_center.cc_queue_skill qs
+                 JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
+                 JOIN call_center.cc_skills_in_online_skills sp ON sp.online_skill_id = _status_id AND sp.skill_id = sia.skill_id
+        WHERE qs.queue_id = _queue_id AND qs.enabled
+          AND sia.agent_id = _agent_id AND sia.enabled
+          AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
+        LIMIT 1 FOR SHARE OF qs, sia, sp;
+    END IF;
+    IF FOUND THEN
+        RETURN 'eligible';
+    END IF;
+
+    -- Nothing was locked: a busy row in the skip-locked mode, otherwise no qualifying skill.
+    IF _skip_locked AND EXISTS (
+        SELECT 1
+        FROM call_center.cc_queue_skill qs
+                 JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
+        WHERE qs.queue_id = _queue_id AND qs.enabled
+          AND sia.agent_id = _agent_id AND sia.enabled
+          AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
+          AND (_status_id IS NULL OR _system IS TRUE OR EXISTS (
+              SELECT 1 FROM call_center.cc_skills_in_online_skills sp
+              WHERE sp.online_skill_id = _status_id AND sp.skill_id = sia.skill_id))
+    ) THEN
+        RETURN 'lock_skipped';
+    END IF;
+    RETURN 'ineligible';
+END;
+$$;
+
+
+--
+-- Name: cc_email_attempt_command(text, text, text, bigint, bigint, bigint, integer, bigint, uuid, timestamp with time zone, integer, integer, bigint, text); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
 CREATE FUNCTION call_center.cc_email_attempt_command(_op text, _source text, _command_id text, _domain_id bigint,
                                                                 _thread_id bigint, _attempt_id bigint, _agent_id integer,
                                                                 _expected_version bigint, _email_event_id uuid,
                                                                 _postponed_until timestamp with time zone,
-                                                                _postpone_for_sec integer, _renewal_sec integer)
+                                                                _postpone_for_sec integer, _renewal_sec integer,
+                                                                _user_id bigint DEFAULT NULL, _reason text DEFAULT NULL)
     RETURNS TABLE (replayed boolean, attempt_id bigint, thread_id bigint, attempt_state text, attempt_version bigint,
                    projection_version bigint, result text, queue_id integer, agent_id integer,
                    postponed_until timestamp with time zone)
@@ -3754,7 +3850,10 @@ DECLARE
     _w_response  jsonb;
     _transition  text;
     _sequence    bigint;
+    _queue_id    integer;
+    _eligible    text;
 BEGIN
+    _reason := nullif(btrim(_reason), '');
     IF _op NOT IN ('take', 'postpone', 'resume', 'return', 'complete', 'renew') OR _source NOT IN ('engine', 'flow')
         OR coalesce(char_length(_command_id), 0) NOT BETWEEN 1 AND 128
         OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0
@@ -3765,14 +3864,20 @@ BEGIN
         OR (_op = 'postpone' AND (_postponed_until IS NULL) = (_postpone_for_sec IS NULL))
         OR (_op = 'postpone' AND coalesce(_postpone_for_sec, 1) <= 0)
         OR (_op <> 'postpone' AND (_postponed_until IS NOT NULL OR _postpone_for_sec IS NOT NULL))
-        OR (_op = 'renew') <> (coalesce(_renewal_sec, 0) > 0) THEN
+        OR (_op = 'renew') <> (coalesce(_renewal_sec, 0) > 0)
+        -- The operator form carries the session user; a manual return needs its reason.
+        OR (_source = 'engine') <> (coalesce(_user_id, 0) > 0) OR (_source = 'flow' AND _user_id IS NOT NULL)
+        OR (_op = 'return' AND _source = 'engine') <> (_reason IS NOT NULL)
+        OR coalesce(char_length(_reason), 0) > 500 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMAAR', MESSAGE = 'email attempt: invalid command arguments';
     END IF;
 
     -- A relative deadline keeps its duration in the fingerprint, so a retry matches the first call.
-    _fingerprint := call_center.cc_email_command_fingerprint(_op, _source, _domain_id::text, _thread_id::text,
+    -- The author and the reason count for the operator form only, so Flow fingerprints keep their value.
+    _fingerprint := call_center.cc_email_command_fingerprint(VARIADIC ARRAY[_op, _source, _domain_id::text, _thread_id::text,
         _attempt_id::text, _agent_id::text, _expected_version::text, _email_event_id::text,
-        to_char(_postponed_until AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), _postpone_for_sec::text, _renewal_sec::text);
+        to_char(_postponed_until AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), _postpone_for_sec::text, _renewal_sec::text]
+        || CASE WHEN _source = 'engine' THEN ARRAY[_user_id::text, _reason] ELSE ARRAY[]::text[] END);
 
     RETURN QUERY SELECT * FROM call_center.cc_email_command_replay(_domain_id, _source, _command_id, _fingerprint);
     IF FOUND THEN
@@ -3807,7 +3912,7 @@ BEGIN
     END IF;
 
     -- The candidate is read without a lock; it is locked in the agreed order and checked again.
-    SELECT a.id, a.agent_id INTO _id, _owner
+    SELECT a.id, a.agent_id, a.queue_id INTO _id, _owner, _queue_id
     FROM call_center.cc_member_attempt a
     WHERE a.domain_id = _domain_id
       AND a.channel = 'email'
@@ -3817,10 +3922,24 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'EMANF', MESSAGE = 'email attempt: active attempt not found';
     END IF;
 
-    -- Metric and slot transitions: agent, Email channel, attempt.
+    -- The operator acts on its own attempt as the user its agent is linked to now.
+    IF _source = 'engine' THEN
+        IF _owner IS DISTINCT FROM _agent_id THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email attempt: attempt %s is not assigned to agent %s', _id, _agent_id);
+        END IF;
+        PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _agent_id AND ag.user_id = _user_id FOR SHARE;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email attempt: agent %s is not linked to user %s', _agent_id, _user_id);
+        END IF;
+    END IF;
+
+    -- Metric and slot transitions: agent, Email channel, skills and preset of a resume, attempt.
     IF _op IN ('take', 'postpone', 'resume', 'return', 'complete') AND _owner IS NOT NULL THEN
         PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _owner FOR SHARE;
         PERFORM 1 FROM call_center.cc_agent_channel ch WHERE ch.agent_id = _owner AND ch.channel = 'email' FOR UPDATE;
+        IF _op = 'resume' THEN
+            _eligible := call_center.cc_email_agent_lock_eligible(_queue_id, _owner, false);
+        END IF;
     END IF;
 
     SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _id FOR UPDATE;
@@ -3908,6 +4027,9 @@ BEGIN
         IF NOT coalesce(_online, false) THEN
             RAISE EXCEPTION USING ERRCODE = 'EMAOF', MESSAGE = format('email attempt: agent %s or its Email channel is not online', _a.agent_id);
         END IF;
+        IF _eligible IS DISTINCT FROM 'eligible' THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAEL', MESSAGE = format('email attempt: agent %s can no longer take emails of queue %s', _a.agent_id, _a.queue_id);
+        END IF;
         -- Under the channel lock, as the allocator: eligibility with the online preset, base first, Extra if allowed.
         SELECT c.slot_type INTO _slot
         FROM call_center.cc_email_queue_candidates(_a.queue_id, _a.agent_id, _a.email_extra_allowed) c;
@@ -3982,10 +4104,216 @@ BEGIN
             CASE WHEN _op = 'take' THEN _a.bridged_at END);
     END IF;
 
-    _sequence := call_center.cc_email_attempt_snapshot(_a, _transition, _source, _command_id, _fingerprint, _email_event_id::text);
+    _sequence := call_center.cc_email_attempt_snapshot(_a, _transition, _source, _command_id, _fingerprint, _email_event_id::text,
+        CASE WHEN _source = 'engine' THEN _user_id END, CASE WHEN _op = 'return' THEN _reason END);
 
     RETURN QUERY SELECT false, _a.id, _a.member_call_id::bigint, _a.state::text, _a.version, _sequence,
                         CASE WHEN _a.state = 'leaving' THEN _a.result::text END, _a.queue_id, _a.agent_id, _a.postponed_until;
+END;
+$$;
+
+
+--
+-- Name: cc_email_attempt_transfer(text, bigint, bigint, bigint, integer, bigint, bigint, integer, integer, text); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_email_attempt_transfer(_command_id text, _domain_id bigint, _thread_id bigint,
+                                                                 _attempt_id bigint, _agent_id integer, _user_id bigint,
+                                                                 _expected_version bigint, _to_queue_id integer,
+                                                                 _to_agent_id integer, _comment text)
+    RETURNS TABLE (part text, replayed boolean, attempt_id bigint, thread_id bigint, attempt_state text, attempt_version bigint,
+                   projection_version bigint, result text, queue_id integer, agent_id integer)
+    LANGUAGE plpgsql
+AS $$
+DECLARE
+    _fingerprint text;
+    _id          bigint;
+    _owner       integer;
+    _cur_queue   integer;
+    _q           call_center.cc_queue;
+    _to_user     bigint;
+    _online      boolean;
+    _slot        text;
+    _team_id     integer;
+    _used        integer;
+    _limit       integer;
+    _release     integer := 0;
+    _a           call_center.cc_member_attempt;
+    _n           call_center.cc_member_attempt;
+    _old_seq     bigint;
+    _new_seq     bigint;
+    _eligible    text;
+BEGIN
+    _comment := nullif(btrim(_comment), '');
+    _to_queue_id := nullif(_to_queue_id, 0);
+    _to_agent_id := nullif(_to_agent_id, 0);
+    IF coalesce(char_length(_command_id), 0) NOT BETWEEN 1 AND 128
+        OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0 OR coalesce(_attempt_id, 0) <= 0
+        OR coalesce(_agent_id, 0) <= 0 OR coalesce(_user_id, 0) <= 0 OR coalesce(_expected_version, -1) < 0
+        OR (_to_queue_id IS NULL) = (_to_agent_id IS NULL) OR coalesce(_to_queue_id, 1) <= 0 OR coalesce(_to_agent_id, 1) <= 0
+        OR _to_agent_id = _agent_id OR coalesce(char_length(_comment), 0) > 500 THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAAR', MESSAGE = 'email transfer: invalid command arguments';
+    END IF;
+
+    _fingerprint := call_center.cc_email_command_fingerprint('transfer', 'engine', _domain_id::text, _thread_id::text,
+        _attempt_id::text, _agent_id::text, _user_id::text, _expected_version::text, _to_queue_id::text,
+        _to_agent_id::text, _comment);
+
+    -- A repeat returns the first result before any check of the current state; same lock as other commands.
+    RETURN QUERY SELECT * FROM call_center.cc_email_transfer_replay(_domain_id, _command_id, _fingerprint);
+    IF FOUND THEN
+        RETURN;
+    END IF;
+    PERFORM pg_advisory_xact_lock(1162690883, hashtext(_domain_id::text || ':engine:' || _command_id));
+    RETURN QUERY SELECT * FROM call_center.cc_email_transfer_replay(_domain_id, _command_id, _fingerprint);
+    IF FOUND THEN
+        RETURN;
+    END IF;
+
+    -- Thread lock shared with join and wake-up.
+    PERFORM pg_advisory_xact_lock(1162690900, hashtext(_domain_id::text || ':' || _thread_id::text));
+
+    -- The candidate is read without a lock; it is locked in the agreed order and checked again.
+    SELECT a.id, a.agent_id, a.queue_id INTO _id, _owner, _cur_queue
+    FROM call_center.cc_member_attempt a
+    WHERE a.id = _attempt_id AND a.domain_id = _domain_id AND a.channel = 'email' AND a.leaving_at IS NULL
+      AND a.member_call_id = _thread_id::text;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMANF', MESSAGE = 'email transfer: active attempt not found';
+    END IF;
+    IF _owner IS DISTINCT FROM _agent_id THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email transfer: attempt %s is not assigned to agent %s', _id, _agent_id);
+    END IF;
+    IF _to_queue_id = _cur_queue THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAAR', MESSAGE = 'email transfer: the attempt is already in this queue';
+    END IF;
+
+    -- Queues by ID, then the calendar of a direct transfer.
+    PERFORM 1 FROM call_center.cc_queue q WHERE q.id IN (_cur_queue, _to_queue_id) ORDER BY q.id FOR SHARE;
+    SELECT q.* INTO _q FROM call_center.cc_queue q WHERE q.id = coalesce(_to_queue_id, _cur_queue);
+    IF NOT FOUND OR _q.domain_id <> _domain_id THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAQN', MESSAGE = format('email transfer: queue %s not found', coalesce(_to_queue_id, _cur_queue));
+    END IF;
+    IF _q.type <> 11 OR NOT _q.enabled THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAQP', MESSAGE = format('email transfer: queue %s is not an enabled Email queue', _q.id);
+    END IF;
+    IF _to_agent_id IS NOT NULL THEN
+        PERFORM 1 FROM flow.calendar c WHERE c.id = _q.calendar_id FOR SHARE;
+        IF call_center.cc_email_queue_calendar(_q.domain_id, _q.calendar_id) <> 'open' THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMACL', MESSAGE = format('email transfer: queue %s is outside its calendar', _q.id);
+        END IF;
+    END IF;
+
+    -- Agents by ID: the sender as the session user and the recipient of the same domain.
+    PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id IN (_agent_id, _to_agent_id) ORDER BY ag.id FOR SHARE;
+    PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _agent_id AND ag.user_id = _user_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email transfer: agent %s is not linked to user %s', _agent_id, _user_id);
+    END IF;
+    IF _to_agent_id IS NOT NULL THEN
+        SELECT ag.user_id INTO _to_user FROM call_center.cc_agent ag WHERE ag.id = _to_agent_id AND ag.domain_id = _domain_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMATN', MESSAGE = format('email transfer: agent %s not found', _to_agent_id);
+        END IF;
+    END IF;
+
+    -- Email channels by agent ID, then the skills and preset of the recipient, then the attempt.
+    PERFORM 1 FROM call_center.cc_agent_channel ch
+    WHERE ch.agent_id IN (_agent_id, _to_agent_id) AND ch.channel = 'email'
+    ORDER BY ch.agent_id FOR UPDATE;
+    IF _to_agent_id IS NOT NULL THEN
+        _eligible := call_center.cc_email_agent_lock_eligible(_q.id, _to_agent_id, false);
+    END IF;
+
+    SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _id FOR UPDATE;
+    IF NOT FOUND OR _a.leaving_at IS NOT NULL OR _a.state = 'leaving' OR _a.member_call_id <> _thread_id::text THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMANF', MESSAGE = 'email transfer: active attempt not found';
+    END IF;
+    IF _a.agent_id IS DISTINCT FROM _agent_id THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email transfer: attempt %s is not assigned to agent %s', _a.id, _agent_id);
+    END IF;
+    IF _a.version <> _expected_version THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAVR', MESSAGE = format('email transfer: version %s, expected %s', _a.version, _expected_version);
+    END IF;
+    IF _a.state NOT IN ('active', 'postponed') THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAST', MESSAGE = format('email transfer: cannot transfer in state %s', _a.state);
+    END IF;
+    IF _a.queue_id <> _cur_queue THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email transfer: queue changed while locking';
+    END IF;
+
+    -- A direct transfer is an offer: as the allocator, online, eligible with the preset, base first, Extra if allowed.
+    IF _to_agent_id IS NOT NULL THEN
+        SELECT ag.status = 'online' AND coalesce(ch.online, false) INTO _online
+        FROM call_center.cc_agent ag
+                 LEFT JOIN call_center.cc_agent_channel ch ON ch.agent_id = ag.id AND ch.channel = 'email'
+        WHERE ag.id = _to_agent_id;
+        IF NOT coalesce(_online, false) THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAOF', MESSAGE = format('email transfer: agent %s or its Email channel is not online', _to_agent_id);
+        END IF;
+        IF _eligible <> 'eligible' THEN
+            RAISE EXCEPTION USING ERRCODE = 'EMAEL', MESSAGE = format('email transfer: agent %s can not take emails of queue %s', _to_agent_id, _q.id);
+        END IF;
+        SELECT c.team_id, c.slot_type INTO _team_id, _slot
+        FROM call_center.cc_email_queue_candidates(_q.id, _to_agent_id, _a.email_extra_allowed) c;
+        IF _slot IS NULL THEN
+            SELECT c.slot_type, c.used_slots, c.base_limit + CASE WHEN _a.email_extra_allowed THEN c.extra_limit ELSE 0 END
+            INTO _slot, _used, _limit
+            FROM call_center.cc_email_agent_capacity(_to_agent_id, _a.email_extra_allowed) c;
+            IF _slot IS NULL THEN
+                RAISE EXCEPTION USING ERRCODE = 'EMASL', MESSAGE = format('email transfer: agent %s has %s of %s emails', _to_agent_id, _used, _limit);
+            END IF;
+            RAISE EXCEPTION USING ERRCODE = 'EMAEL', MESSAGE = format('email transfer: agent %s can not take emails of queue %s', _to_agent_id, _q.id);
+        END IF;
+        _release := coalesce(call_center.cc_email_payload_sec(_q.payload, 'email_auto_release_sec'), 0);
+    END IF;
+
+    UPDATE call_center.cc_member_attempt a
+    SET state = 'leaving', result = 'transfer', leaving_at = now(), reporting_at = now(), timeout = NULL, postponed_until = NULL,
+        last_state_change = now(), version = a.version + 1
+    WHERE a.id = _a.id
+    RETURNING * INTO _a;
+
+    -- The Thread keeps its address, Extra permission and waiting time; Sticky is decided, priority is at least High.
+    INSERT INTO call_center.cc_member_attempt
+        (domain_id, channel, state, queue_id, member_call_id, weight, destination, queue_params, queue_type, joined_at,
+         email_extra_allowed, sticky_agent_id, sticky_until, last_released_agent_id,
+         agent_id, team_id, email_slot_type, offering_at, offered_agent_ids, timeout)
+    VALUES (_domain_id, 'email', CASE WHEN _to_agent_id IS NULL THEN 'waiting' ELSE 'offering' END, _q.id, _a.member_call_id,
+            greatest(_a.weight, call_center.cc_email_high_priority()), _a.destination, call_center.cc_queue_params(_q), _q.type,
+            _a.joined_at, _a.email_extra_allowed, NULL, now(), CASE WHEN _to_agent_id IS NULL THEN _agent_id END,
+            _to_agent_id, _team_id, _slot, CASE WHEN _to_agent_id IS NOT NULL THEN now() END,
+            CASE WHEN _to_agent_id IS NOT NULL THEN ARRAY[_to_agent_id] END,
+            CASE WHEN _release > 0 THEN now() + make_interval(secs => _release) END)
+    RETURNING * INTO _n;
+
+    PERFORM call_center.cc_email_agent_strategy_refresh(_agent_id);
+    IF _to_agent_id IS NOT NULL THEN
+        PERFORM call_center.cc_email_agent_strategy_refresh(_to_agent_id);
+        UPDATE call_center.cc_agent_channel ch SET last_offering_at = now()
+        WHERE ch.agent_id = _to_agent_id AND ch.channel = 'email';
+    END IF;
+
+    _old_seq := call_center.cc_email_attempt_snapshot(_a, 'transferred', 'engine', _command_id, _fingerprint, NULL,
+        _user_id, _comment, _to_queue_id, _to_user);
+    _new_seq := call_center.cc_email_attempt_snapshot(_n, 'transfer_created', 'engine', NULL, NULL, NULL, _user_id);
+
+    -- The transferred row keeps the response of both attempts for a repeat.
+    UPDATE call_center.cc_email_attempt_outbox o
+    SET response = jsonb_build_object(
+        'email', jsonb_build_object('attempt_id', _a.id, 'thread_id', _thread_id, 'state', _a.state,
+                                    'attempt_version', _a.version, 'projection_version', _old_seq, 'result', _a.result,
+                                    'queue_id', _a.queue_id, 'agent_id', _a.agent_id),
+        'transferred_to', jsonb_build_object('attempt_id', _n.id, 'thread_id', _thread_id, 'state', _n.state,
+                                             'attempt_version', _n.version, 'projection_version', _new_seq, 'result', NULL,
+                                             'queue_id', _n.queue_id, 'agent_id', _n.agent_id))
+    WHERE o.sequence = _old_seq;
+
+    RETURN QUERY
+    SELECT v.* FROM (VALUES
+        ('email'::text, false, _a.id, _thread_id, _a.state::text, _a.version, _old_seq, _a.result::text, _a.queue_id, _a.agent_id),
+        ('transferred_to'::text, false, _n.id, _thread_id, _n.state::text, _n.version, _new_seq, NULL::text, _n.queue_id, _n.agent_id)
+    ) v;
 END;
 $$;
 
@@ -4028,6 +4356,76 @@ BEGIN
 
     RETURN QUERY SELECT true, _o.attempt_id, _o.thread_id, _o.attempt_state, _o.attempt_version, _o.sequence, _o.result,
                         _o.queue_id, _o.agent_id, _o.postponed_until;
+END;
+$$;
+
+
+--
+-- Name: cc_email_transfer_candidates(bigint, bigint, integer); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_email_transfer_candidates(_domain_id bigint, _attempt_id bigint, _agent_id integer)
+    RETURNS TABLE (agent_id integer, user_id bigint, online boolean, slot_type text, available boolean)
+    LANGUAGE plpgsql
+    STABLE
+AS $$
+DECLARE
+    _a call_center.cc_member_attempt;
+BEGIN
+    SELECT * INTO _a
+    FROM call_center.cc_member_attempt a
+    WHERE a.id = _attempt_id AND a.domain_id = _domain_id AND a.channel = 'email' AND a.leaving_at IS NULL;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMANF', MESSAGE = 'email transfer: active attempt not found';
+    END IF;
+    IF _a.agent_id IS DISTINCT FROM _agent_id THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMAOW', MESSAGE = format('email transfer: attempt %s is not assigned to agent %s', _a.id, _agent_id);
+    END IF;
+
+    -- Without locks: available repeats the allocator check, the transfer checks it again under its locks.
+    RETURN QUERY
+    SELECT ag.id, ag.user_id, ag.status = 'online' AND coalesce(ch.online, false), c.slot_type,
+           EXISTS (SELECT 1 FROM call_center.cc_email_queue_candidates(_a.queue_id, ag.id, _a.email_extra_allowed) k)
+    FROM call_center.cc_agent ag
+             LEFT JOIN call_center.cc_agent_channel ch ON ch.agent_id = ag.id AND ch.channel = 'email'
+             CROSS JOIN LATERAL call_center.cc_email_agent_capacity(ag.id, _a.email_extra_allowed) c
+    WHERE ag.domain_id = _domain_id AND ag.id <> _agent_id
+      AND call_center.cc_email_agent_assignable(_a.queue_id, ag.id)
+    ORDER BY ag.id;
+END;
+$$;
+
+
+--
+-- Name: cc_email_transfer_replay(bigint, text, text); Type: FUNCTION; Schema: call_center; Owner: -
+--
+
+CREATE FUNCTION call_center.cc_email_transfer_replay(_domain_id bigint, _command_id text, _fingerprint text)
+    RETURNS TABLE (part text, replayed boolean, attempt_id bigint, thread_id bigint, attempt_state text, attempt_version bigint,
+                   projection_version bigint, result text, queue_id integer, agent_id integer)
+    LANGUAGE plpgsql
+AS $$
+DECLARE
+    _o call_center.cc_email_attempt_outbox;
+BEGIN
+    SELECT * INTO _o
+    FROM call_center.cc_email_attempt_outbox o
+    WHERE o.domain_id = _domain_id AND o.source = 'engine' AND o.command_id = _command_id;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    IF _o.fingerprint <> _fingerprint THEN
+        RAISE EXCEPTION USING ERRCODE = 'EMACF', MESSAGE = format('email attempt: command %s was used with other arguments', _command_id);
+    END IF;
+
+    -- Both attempts as the first execution returned them.
+    RETURN QUERY
+    SELECT p.key, true, (p.value ->> 'attempt_id')::bigint, (p.value ->> 'thread_id')::bigint, p.value ->> 'state',
+           (p.value ->> 'attempt_version')::bigint, (p.value ->> 'projection_version')::bigint, p.value ->> 'result',
+           (p.value ->> 'queue_id')::integer, (p.value ->> 'agent_id')::integer
+    FROM jsonb_each(_o.response) p
+    WHERE p.key IN ('email', 'transferred_to')
+    ORDER BY p.key;
 END;
 $$;
 
@@ -4269,6 +4667,7 @@ DECLARE
     _r        record;
     _a        call_center.cc_member_attempt;
     _status   text;
+    _eligible text;
 BEGIN
     IF coalesce(_batch, 0) <= 0 OR _max_duration IS NULL OR _max_duration <= interval '0' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'email lifecycle: batch and max duration must be positive';
@@ -4344,9 +4743,9 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- A postponed deadline may take a slot: agent, then its Email channel, then the attempt, none waited for.
+    -- A postponed deadline may take a slot: agent, Email channel, skills and preset, attempt, none waited for.
     FOR _r IN
-        SELECT a.id, a.agent_id, a.postponed_until, a.version
+        SELECT a.id, a.agent_id, a.postponed_until, a.version, a.queue_id
         FROM call_center.cc_member_attempt a
         WHERE a.channel = 'email'
           AND a.state = 'postponed'
@@ -4371,6 +4770,12 @@ BEGIN
             lock_skipped := lock_skipped + 1;
             CONTINUE;
         END IF;
+        -- Skills and preset before the attempt; a busy row leaves the attempt to the next cycle.
+        _eligible := call_center.cc_email_agent_lock_eligible(_r.queue_id, _r.agent_id, true);
+        IF _eligible = 'lock_skipped' THEN
+            lock_skipped := lock_skipped + 1;
+            CONTINUE;
+        END IF;
         SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _r.id FOR UPDATE SKIP LOCKED;
         IF NOT FOUND THEN
             lock_skipped := lock_skipped + (SELECT count(*) FROM call_center.cc_member_attempt a WHERE a.id = _r.id)::integer;
@@ -4380,7 +4785,7 @@ BEGIN
         CONTINUE WHEN _a.leaving_at IS NOT NULL OR _a.state <> 'postponed' OR _a.postponed_until IS DISTINCT FROM _r.postponed_until
             OR _a.agent_id IS DISTINCT FROM _r.agent_id OR _a.version <> _r.version;
 
-        _a := call_center.cc_email_wake_postponed(_a, 'deadline_woken', 'deadline_queued', NULL);
+        _a := call_center.cc_email_wake_postponed(_a, 'deadline_woken', 'deadline_queued', NULL, _eligible = 'eligible');
         IF _a.state = 'active' THEN
             postponed_woken := postponed_woken + 1;
         ELSE
@@ -4663,7 +5068,6 @@ DECLARE
     _att       call_center.cc_member_attempt;
     _team_id   integer;
     _status_id integer;
-    _system    boolean;
     _slot      text;
     _wait      integer;
     _release   integer;
@@ -4711,34 +5115,8 @@ BEGIN
         RETURN false;
     END IF;
 
-    -- Keep a qualifying skill pair and online preset stable until commit.
-    IF _status_id IS NOT NULL THEN
-        SELECT os.is_system INTO _system FROM call_center.cc_online_skills os
-        WHERE os.id = _status_id FOR SHARE SKIP LOCKED;
-        IF NOT FOUND THEN
-            RETURN false;
-        END IF;
-    END IF;
-    IF _status_id IS NULL OR _system IS TRUE THEN
-        PERFORM 1
-        FROM call_center.cc_queue_skill qs
-                 JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
-        WHERE qs.queue_id = _q.id AND qs.enabled
-          AND sia.agent_id = _agent_id AND sia.enabled
-          AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
-        LIMIT 1 FOR SHARE OF qs, sia SKIP LOCKED;
-    ELSE
-        PERFORM 1
-        FROM call_center.cc_queue_skill qs
-                 JOIN call_center.cc_skill_in_agent sia ON sia.skill_id = qs.skill_id
-                 JOIN call_center.cc_skills_in_online_skills sp
-                      ON sp.online_skill_id = _status_id AND sp.skill_id = sia.skill_id
-        WHERE qs.queue_id = _q.id AND qs.enabled
-          AND sia.agent_id = _agent_id AND sia.enabled
-          AND sia.capacity BETWEEN qs.min_capacity AND qs.max_capacity
-        LIMIT 1 FOR SHARE OF qs, sia, sp SKIP LOCKED;
-    END IF;
-    IF NOT FOUND THEN
+    -- Keep a qualifying skill pair and online preset stable until commit, skipping locked rows.
+    IF call_center.cc_email_agent_lock_eligible(_q.id, _agent_id, true) <> 'eligible' THEN
         RETURN false;
     END IF;
 
@@ -7758,12 +8136,14 @@ COMMENT ON COLUMN call_center.cc_member_attempt.communication_idx IS 'fixme';
 
 
 --
--- Name: cc_email_attempt_snapshot(call_center.cc_member_attempt, text, text, text, text, text); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_email_attempt_snapshot(call_center.cc_member_attempt, text, text, text, text, text, bigint, text, integer, bigint); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
 CREATE FUNCTION call_center.cc_email_attempt_snapshot(_a call_center.cc_member_attempt, _transition text, _source text,
                                                                  _command_id text DEFAULT NULL, _fingerprint text DEFAULT NULL,
-                                                                 _causation_id text DEFAULT NULL)
+                                                                 _causation_id text DEFAULT NULL, _actor_user_id bigint DEFAULT NULL,
+                                                                 _comment text DEFAULT NULL, _transfer_to_queue_id integer DEFAULT NULL,
+                                                                 _transfer_to_user_id bigint DEFAULT NULL)
     RETURNS bigint
     LANGUAGE plpgsql
 AS $$
@@ -7773,13 +8153,14 @@ DECLARE
 BEGIN
     INSERT INTO call_center.cc_email_attempt_outbox (domain_id, thread_id, attempt_id, attempt_version, attempt_state, result,
                                                      queue_id, agent_id, agent_user_id, postponed_until, transition, source,
-                                                     command_id, fingerprint, response, causation_id)
+                                                     command_id, fingerprint, response, causation_id, actor_user_id, comment,
+                                                     transfer_to_queue_id, transfer_to_user_id)
     VALUES (_a.domain_id, _a.member_call_id::bigint, _a.id, _a.version, _a.state, _result, _a.queue_id, _a.agent_id,
             (SELECT ag.user_id FROM call_center.cc_agent ag WHERE ag.id = _a.agent_id),
             _a.postponed_until, _transition, _source, _command_id, _fingerprint,
             CASE WHEN _command_id IS NOT NULL THEN jsonb_build_object('attempt_id', _a.id, 'state', _a.state,
                 'attempt_version', _a.version, 'result', _result, 'agent_id', _a.agent_id, 'postponed_until', _a.postponed_until) END,
-            _causation_id)
+            _causation_id, _actor_user_id, _comment, _transfer_to_queue_id, _transfer_to_user_id)
     RETURNING sequence INTO _sequence;
 
     RETURN _sequence;
@@ -7811,11 +8192,11 @@ $$;
 
 
 --
--- Name: cc_email_wake_postponed(call_center.cc_member_attempt, text, text, text); Type: FUNCTION; Schema: call_center; Owner: -
+-- Name: cc_email_wake_postponed(call_center.cc_member_attempt, text, text, text, boolean); Type: FUNCTION; Schema: call_center; Owner: -
 --
 
 CREATE FUNCTION call_center.cc_email_wake_postponed(_a call_center.cc_member_attempt, _woken text, _queued text,
-                                                               _causation_id text)
+                                                               _causation_id text, _eligible boolean DEFAULT true)
     RETURNS call_center.cc_member_attempt
     LANGUAGE plpgsql
 AS $$
@@ -7828,8 +8209,11 @@ DECLARE
     _ignore boolean;
     _sticky boolean;
 BEGIN
-    SELECT c.slot_type INTO _slot
-    FROM call_center.cc_email_queue_candidates(_a.queue_id, _a.agent_id, _a.email_extra_allowed) c;
+    -- Only an owner found eligible under the skill and preset locks may take a slot again.
+    IF _eligible THEN
+        SELECT c.slot_type INTO _slot
+        FROM call_center.cc_email_queue_candidates(_a.queue_id, _a.agent_id, _a.email_extra_allowed) c;
+    END IF;
 
     IF _slot IS NOT NULL THEN
         UPDATE call_center.cc_member_attempt a
@@ -7887,6 +8271,8 @@ DECLARE
     _a        call_center.cc_member_attempt;
     _result   text;
     _fallback integer;
+    _queue_id integer;
+    _eligible boolean := true;
 BEGIN
     IF _event_id IS NULL OR coalesce(_domain_id, 0) <= 0 OR coalesce(_thread_id, 0) <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = 'EMAAR', MESSAGE = 'email wake-up: invalid arguments';
@@ -7909,15 +8295,18 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT a.id, a.agent_id, a.state INTO _id, _owner, _state
+    SELECT a.id, a.agent_id, a.state, a.queue_id INTO _id, _owner, _state, _queue_id
     FROM call_center.cc_member_attempt a
     WHERE a.domain_id = _domain_id AND a.member_call_id = _thread_id::text AND a.channel = 'email' AND a.leaving_at IS NULL;
 
     IF FOUND THEN
-        -- Wake-up metrics and slots: agent, Email channel, attempt.
+        -- Wake-up metrics and slots: agent, Email channel, skills and preset of a postponed owner, attempt.
         IF _state IN ('postponed', 'processing') AND _owner IS NOT NULL THEN
             PERFORM 1 FROM call_center.cc_agent ag WHERE ag.id = _owner FOR SHARE;
             PERFORM 1 FROM call_center.cc_agent_channel ch WHERE ch.agent_id = _owner AND ch.channel = 'email' FOR UPDATE;
+            IF _state = 'postponed' THEN
+                _eligible := call_center.cc_email_agent_lock_eligible(_queue_id, _owner, false) = 'eligible';
+            END IF;
         END IF;
         SELECT * INTO _a FROM call_center.cc_member_attempt a WHERE a.id = _id AND a.leaving_at IS NULL FOR UPDATE;
     END IF;
@@ -7947,7 +8336,7 @@ BEGIN
         IF _a.agent_id IS DISTINCT FROM _owner OR _state <> 'postponed' THEN
             RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'email wake-up: attempt changed while locking';
         END IF;
-        _a := call_center.cc_email_wake_postponed(_a, 'woken', 'queued', _event_id::text);
+        _a := call_center.cc_email_wake_postponed(_a, 'woken', 'queued', _event_id::text, _eligible);
         _result := CASE WHEN _a.state = 'active' THEN 'woken' ELSE 'queued' END;
     ELSIF _a.state = 'processing' THEN
         IF _a.agent_id IS DISTINCT FROM _owner OR _state <> 'processing' THEN
@@ -8934,19 +9323,26 @@ CREATE TABLE call_center.cc_email_attempt_outbox (
     next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
     attempts integer DEFAULT 0 NOT NULL,
     last_error text,
+    actor_user_id bigint,
+    comment text,
+    transfer_to_queue_id integer,
+    transfer_to_user_id bigint,
+    CONSTRAINT cc_email_attempt_outbox_actor_valid CHECK (((actor_user_id IS NULL) OR ((source = 'engine'::text) AND (actor_user_id > 0)))),
     CONSTRAINT cc_email_attempt_outbox_agent_user_valid CHECK (((agent_id IS NULL) = (agent_user_id IS NULL))),
     CONSTRAINT cc_email_attempt_outbox_agent_valid CHECK ((((attempt_state = 'waiting'::text) = (agent_id IS NULL)) OR (attempt_state = 'leaving'::text))),
     CONSTRAINT cc_email_attempt_outbox_command_complete CHECK ((((command_id IS NULL) AND (fingerprint IS NULL) AND (response IS NULL)) OR ((command_id IS NOT NULL) AND (source <> 'system'::text) AND (fingerprint IS NOT NULL) AND (response IS NOT NULL)))),
     CONSTRAINT cc_email_attempt_outbox_command_valid CHECK (((command_id IS NULL) OR ((char_length(command_id) >= 1) AND (char_length(command_id) <= 128)))),
+    CONSTRAINT cc_email_attempt_outbox_comment_valid CHECK (((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 500) AND (source = 'engine'::text) AND (transition = ANY (ARRAY['returned'::text, 'transferred'::text]))))),
     CONSTRAINT cc_email_attempt_outbox_ids_valid CHECK (((domain_id > 0) AND (thread_id > 0) AND (attempt_id > 0) AND (attempt_version >= 0) AND (queue_id > 0))),
     CONSTRAINT cc_email_attempt_outbox_lease_valid CHECK ((((locked_by IS NULL) = (locked_until IS NULL)) AND ((published_at IS NULL) OR (locked_by IS NULL)) AND (attempts >= 0) AND ((last_error IS NULL) OR (char_length(last_error) <= 1024)))),
     CONSTRAINT cc_email_attempt_outbox_marker_valid CHECK ((((transition = 'inbound_reopened'::text) AND (attempt_id IS NULL) AND (attempt_version IS NULL) AND (attempt_state IS NULL) AND (result IS NULL) AND (agent_id IS NULL) AND (agent_user_id IS NULL) AND (postponed_until IS NULL) AND (command_id IS NULL) AND (source = 'system'::text)) OR ((transition <> 'inbound_reopened'::text) AND (attempt_id IS NOT NULL) AND (attempt_version IS NOT NULL) AND (attempt_state IS NOT NULL) AND (queue_id IS NOT NULL)))),
     CONSTRAINT cc_email_attempt_outbox_postponed_valid CHECK (((attempt_state = 'postponed'::text) = (postponed_until IS NOT NULL))),
     CONSTRAINT cc_email_attempt_outbox_response_size CHECK (((response IS NULL) OR (pg_column_size(response) <= 4096))),
-    CONSTRAINT cc_email_attempt_outbox_result_valid CHECK (((result IS NULL) OR (result = ANY (ARRAY['processed'::text, 'processing_timeout'::text])))),
+    CONSTRAINT cc_email_attempt_outbox_result_valid CHECK (((result IS NULL) OR (result = ANY (ARRAY['processed'::text, 'processing_timeout'::text, 'transfer'::text])))),
     CONSTRAINT cc_email_attempt_outbox_source_valid CHECK ((source = ANY (ARRAY['engine'::text, 'flow'::text, 'system'::text]))),
     CONSTRAINT cc_email_attempt_outbox_state_valid CHECK ((attempt_state = ANY (ARRAY['waiting'::text, 'offering'::text, 'active'::text, 'postponed'::text, 'processing'::text, 'leaving'::text]))),
-    CONSTRAINT cc_email_attempt_outbox_transition_valid CHECK ((transition = ANY (ARRAY['created'::text, 'assigned'::text, 'taken'::text, 'postponed'::text, 'resumed'::text, 'woken'::text, 'queued'::text, 'reopened'::text, 'deadline_woken'::text, 'deadline_queued'::text, 'returned'::text, 'auto_released'::text, 'logged_out'::text, 'processing_started'::text, 'renewed'::text, 'completed'::text, 'processing_timeout'::text, 'inbound_reopened'::text])))
+    CONSTRAINT cc_email_attempt_outbox_transfer_valid CHECK ((((transition = 'transferred'::text) AND (num_nonnulls(transfer_to_queue_id, transfer_to_user_id) = 1)) OR ((transition <> 'transferred'::text) AND (transfer_to_queue_id IS NULL) AND (transfer_to_user_id IS NULL)))),
+    CONSTRAINT cc_email_attempt_outbox_transition_valid CHECK ((transition = ANY (ARRAY['created'::text, 'assigned'::text, 'taken'::text, 'postponed'::text, 'resumed'::text, 'woken'::text, 'queued'::text, 'reopened'::text, 'deadline_woken'::text, 'deadline_queued'::text, 'returned'::text, 'auto_released'::text, 'logged_out'::text, 'processing_started'::text, 'renewed'::text, 'completed'::text, 'processing_timeout'::text, 'inbound_reopened'::text, 'transferred'::text, 'transfer_created'::text])))
 );
 
 
@@ -12678,6 +13074,13 @@ CREATE UNIQUE INDEX cc_communication_fkey ON call_center.cc_communication USING 
 --
 
 CREATE UNIQUE INDEX cc_distribute_stats_uidx ON call_center.cc_distribute_stats USING btree (queue_id, bucket_id);
+
+
+--
+-- Name: cc_email_attempt_outbox_command_published_idx; Type: INDEX; Schema: call_center; Owner: -
+--
+
+CREATE INDEX cc_email_attempt_outbox_command_published_idx ON call_center.cc_email_attempt_outbox USING btree (published_at) WHERE ((published_at IS NOT NULL) AND (command_id IS NOT NULL));
 
 
 --
