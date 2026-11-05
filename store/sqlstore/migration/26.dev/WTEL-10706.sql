@@ -1,3 +1,10 @@
+alter table call_center.cc_audit_rate
+    add column if not exists call_root_id uuid;
+
+create index if not exists cc_audit_rate_call_root_id_idx
+    on call_center.cc_audit_rate (call_root_id)
+    where call_root_id is not null;
+
 create or replace function call_center.cc_call_root_id(_id uuid)
     returns uuid
     language sql
@@ -133,10 +140,11 @@ with fam as materialized (
                                                              e.created_at
          from fam e
                   left join call_center.cc_calls_history b on b.id = e.bridged_id
-         where (e.answered_at is not null and (select q.type from call_center.cc_queue q where q.id = e.queue_id) = 2)
+                  left join call_center.cc_queue q on q.id = e.queue_id
+         where (e.answered_at is not null and q.type = 2)
             or (b.id is not null and coalesce(b.user_id, e.user_id) is not null)
          order by coalesce(e.user_id, b.user_id),
-                  (select ar.id from call_center.cc_audit_rate ar where ar.call_id = e.id::text) is null,
+                  not exists (select 1 from call_center.cc_audit_rate ar where ar.call_id = e.id::text),
                   e.parent_id is not null,
                   e.created_at
      ),
@@ -388,21 +396,22 @@ CREATE OR REPLACE VIEW "call_center"."cc_calls_history_list" AS
            FROM call_center.cc_audit_rate r
              LEFT JOIN directory.wbt_user ru ON ru.id = r.rated_user_id
              LEFT JOIN directory.wbt_user rb ON rb.id = r.created_by
-          WHERE r.call_id::text = ANY (
-                CASE
-                    WHEN c.parent_id IS NULL THEN ARRAY( SELECT f.id::text
-                       FROM call_center.cc_call_family(c.id) f)
-                    ELSE ARRAY[c.id::text]
-                END)) AS rates,
+          WHERE r.call_root_id = c.id OR r.call_id::text = c.id::text) AS rates,
         CASE
-            WHEN c.parent_id IS NULL THEN ( SELECT jsonb_agg(jsonb_build_object('call_id', ea.call_id, 'user', ( SELECT call_center.cc_get_lookup(eu.id, COALESCE(eu.name::character varying, eu.username::character varying)) AS cc_get_lookup
-                       FROM directory.wbt_user eu
-                      WHERE eu.id = ea.user_id), 'bridged_at', call_center.cc_view_timestamp(ea.bridged_at), 'rate_id', ( SELECT er.id
-                       FROM call_center.cc_audit_rate er
-                      WHERE er.call_id::text = ANY (ARRAY( SELECT f.id::text
-                               FROM call_center.cc_call_family(c.id) f)) AND (er.call_id::text = ea.call_id::text OR er.rated_user_id = ea.user_id)
-                      ORDER BY er.created_at DESC, er.id DESC
-                     LIMIT 1)) ORDER BY ea.pos) AS jsonb_agg
+            WHEN c.parent_id IS NULL THEN (
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'call_id', ea.call_id,
+                  'user', ( SELECT call_center.cc_get_lookup(eu.id, COALESCE(eu.name::character varying, eu.username::character varying)) AS cc_get_lookup
+                            FROM directory.wbt_user eu
+                            WHERE eu.id = ea.user_id),
+                  'bridged_at', call_center.cc_view_timestamp(ea.bridged_at),
+                  'rate_id', ( SELECT er.id
+                               FROM call_center.cc_audit_rate er
+                               WHERE er.call_root_id = c.id AND (er.call_id::text = ea.call_id::text OR er.rated_user_id = ea.user_id)
+                               ORDER BY er.created_at DESC, er.id DESC
+                               LIMIT 1)
+                ) ORDER BY ea.pos) AS jsonb_agg
                FROM call_center.cc_call_evaluation_agents(c.id) ea)
             ELSE NULL::jsonb
         END AS evaluation_agents
@@ -422,12 +431,7 @@ CREATE OR REPLACE VIEW "call_center"."cc_calls_history_list" AS
             ar_1.score_optional,
             ar_1.score_required
            FROM call_center.cc_audit_rate ar_1
-          WHERE ar_1.call_id::text = ANY (
-                CASE
-                    WHEN c.parent_id IS NULL THEN ARRAY( SELECT f.id::text
-                       FROM call_center.cc_call_family(c.id) f)
-                    ELSE ARRAY[c.id::text]
-                END)
+          WHERE ar_1.call_root_id = c.id OR ar_1.call_id::text = c.id::text
           ORDER BY ar_1.created_at DESC, ar_1.id DESC
          LIMIT 1) ar ON true
      LEFT JOIN directory.wbt_user aru ON aru.id = ar.rated_user_id
