@@ -188,11 +188,12 @@ func New(options ...string) (outApp *App, outErr error) {
 	// Sends Email attempt snapshots to email-service; off until its consumer queue exists.
 	if qs := app.Config().QueueSettings; qs.EmailAttemptPublisher {
 		settings := engine.EmailPublisherSettings{
-			Interval:       qs.EmailAttemptPublisherInterval,
-			Batch:          qs.EmailAttemptPublisherBatch,
-			Lease:          qs.EmailAttemptPublisherLease,
-			ConfirmTimeout: qs.EmailAttemptPublisherConfirmTimeout,
-			Retention:      qs.EmailAttemptOutboxRetention,
+			Interval:         qs.EmailAttemptPublisherInterval,
+			Batch:            qs.EmailAttemptPublisherBatch,
+			Lease:            qs.EmailAttemptPublisherLease,
+			ConfirmTimeout:   qs.EmailAttemptPublisherConfirmTimeout,
+			Retention:        qs.EmailAttemptOutboxRetention,
+			CommandRetention: qs.EmailAttemptOutboxCommandRetention,
 		}
 		if err := settings.Validate(); err != nil {
 			return nil, err

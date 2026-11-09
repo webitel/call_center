@@ -78,6 +78,7 @@ type QueueSettings struct {
 	EmailAttemptPublisherLease          time.Duration `json:"email_attempt_publisher_lease" flag:"email_attempt_publisher_lease|30s|Lease of claimed Email snapshots" env:"EMAIL_ATTEMPT_PUBLISHER_LEASE"`
 	EmailAttemptPublisherConfirmTimeout time.Duration `json:"email_attempt_publisher_confirm_timeout" flag:"email_attempt_publisher_confirm_timeout|5s|Broker confirm timeout of an Email snapshot" env:"EMAIL_ATTEMPT_PUBLISHER_CONFIRM_TIMEOUT"`
 	EmailAttemptOutboxRetention         time.Duration `json:"email_attempt_outbox_retention" flag:"email_attempt_outbox_retention|168h|Age of published Email snapshots without a command to delete" env:"EMAIL_ATTEMPT_OUTBOX_RETENTION"`
+	EmailAttemptOutboxCommandRetention  time.Duration `json:"email_attempt_outbox_command_retention" flag:"email_attempt_outbox_command_retention|720h|Age of published Email snapshots of commands to delete; at least 24h" env:"EMAIL_ATTEMPT_OUTBOX_COMMAND_RETENTION"`
 }
 
 type Config struct {

@@ -1,5 +1,24 @@
 # Email routing schema upgrade
 
+## EM-25 commands upgrade
+
+Apply over a completed EM-24 schema, with Email writers stopped and the
+distribution, lifecycle and publisher flags off.
+
+1. Apply `email_attempt_transfer.sql` with `ON_ERROR_STOP` after
+   `email_status_sync.sql` and `email_route.sql`, outside an enclosing
+   transaction: the retention index of command rows is built CONCURRENTLY.
+   The new outbox CHECKs are added NOT VALID and validated in separate
+   statements. The snapshot and command functions get new signatures in one
+   transaction, without CASCADE. The file can be repeated.
+2. Deploy email-service with a consumer of `transferred`, `transfer_created` and
+   `result = transfer` on every instance before the first Transfer; an older
+   consumer sends these snapshots to its dead letter queue.
+3. Deploy every call_center node, then engine. Command rows of an older
+   fingerprint answer a repeat with `command_id_conflict`.
+4. Keep `email_attempt_outbox_command_retention` at least as long as
+   `EMAIL_EVENTS_RETENTION` of flow_manager.
+
 ## EM-24 status-sync upgrade
 
 Use a matching five-array `cc_sql` 1.5 binary and the SQL files from this EM-24

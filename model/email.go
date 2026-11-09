@@ -117,6 +117,7 @@ const (
 	EmailAttemptReturn   = "return"
 	EmailAttemptComplete = "complete"
 	EmailAttemptRenew    = "renew"
+	EmailAttemptTransfer = "transfer"
 
 	EmailSourceEngine = "engine"
 	EmailSourceFlow   = "flow"
@@ -137,6 +138,29 @@ type EmailAttemptCommand struct {
 	PostponedUntil  *time.Time
 	PostponeForSec  *int32
 	RenewalSec      *int32
+	// Operator form only: the session user of engine and the reason of a return.
+	UserId *int64
+	Reason *string
+}
+
+// EmailAttemptTransferCommand moves the attempt of an operator to a queue or to an agent of its queue.
+type EmailAttemptTransferCommand struct {
+	CommandId       string
+	DomainId        int64
+	ThreadId        int64
+	AttemptId       int64
+	AgentId         int32
+	UserId          int64
+	ExpectedVersion int64
+	ToQueueId       *int32
+	ToAgentId       *int32
+	Comment         *string
+}
+
+// EmailAttemptTransferResult is the transferred attempt and the attempt created for the Thread.
+type EmailAttemptTransferResult struct {
+	Email         EmailAttemptResult
+	TransferredTo EmailAttemptResult
 }
 
 // EmailAttemptResult is the attempt after the command, or after its first execution when Replayed.
@@ -172,6 +196,10 @@ const (
 	EmailAttemptErrLockTimeout           = "cc.email_attempt.lock_timeout"
 	EmailAttemptErrUnavailable           = "cc.email_attempt.unavailable"
 	EmailAttemptErrInternal              = "cc.email_attempt.app_error"
+	EmailAttemptErrQueueNotFound         = "cc.email_attempt.queue_not_found"
+	EmailAttemptErrQueuePrecondition     = "cc.email_attempt.queue_precondition"
+	EmailAttemptErrTargetAgentNotFound   = "cc.email_attempt.target_agent_not_found"
+	EmailAttemptErrQueueCalendarClosed   = "cc.email_attempt.queue_calendar_closed"
 )
 
 // Results of waking the active attempt of a Thread by an inbound Email event.
@@ -252,6 +280,12 @@ type EmailSnapshotEvent struct {
 	AgentId        *int32     `json:"agent_id"`
 	AgentUserId    *int64     `json:"agent_user_id"`
 	PostponedUntil *time.Time `json:"postponed_until"`
+
+	// Set by engine commands only: the author, the reason or comment, and the target of a transfer.
+	ActorUserId       *int64  `json:"actor_user_id"`
+	Comment           *string `json:"comment"`
+	TransferToQueueId *int32  `json:"transfer_to_queue_id"`
+	TransferToUserId  *int64  `json:"transfer_to_user_id"`
 }
 
 // EmailSnapshotEventId is the UUIDv5 of the event type and the outbox sequence.
@@ -276,6 +310,11 @@ type EmailOutboxRow struct {
 	Source         string     `db:"source"`
 	CausationId    *string    `db:"causation_id"`
 	OccurredAt     time.Time  `db:"occurred_at"`
+
+	ActorUserId       *int64  `db:"actor_user_id"`
+	Comment           *string `db:"comment"`
+	TransferToQueueId *int32  `db:"transfer_to_queue_id"`
+	TransferToUserId  *int64  `db:"transfer_to_user_id"`
 }
 
 // Event renders the row as its cc.email.attempt.snapshot event.
@@ -299,6 +338,10 @@ func (r *EmailOutboxRow) Event() EmailSnapshotEvent {
 		AgentId:           r.AgentId,
 		AgentUserId:       r.AgentUserId,
 		PostponedUntil:    r.PostponedUntil,
+		ActorUserId:       r.ActorUserId,
+		Comment:           r.Comment,
+		TransferToQueueId: r.TransferToQueueId,
+		TransferToUserId:  r.TransferToUserId,
 	}
 }
 

@@ -31,7 +31,8 @@ set locked_by = :Owner, locked_until = now() + :LeaseMs * interval '1 millisecon
 from ready
 where o.sequence = ready.sequence
 returning o.sequence, o.domain_id, o.thread_id, o.attempt_id, o.attempt_version, o.attempt_state, o.result, o.queue_id,
-          o.agent_id, o.agent_user_id, o.postponed_until, o.transition, o.source, o.causation_id, o.occurred_at`,
+          o.agent_id, o.agent_user_id, o.postponed_until, o.transition, o.source, o.causation_id, o.occurred_at,
+          o.actor_user_id, o.comment, o.transfer_to_queue_id, o.transfer_to_user_id`,
 		map[string]any{"Batch": batch, "Owner": owner, "LeaseMs": lease.Milliseconds()})
 	if err != nil {
 		return nil, model.NewAppError("SqlMemberStore.EmailOutboxClaim", emailOutboxErrorId, nil, err.Error(), extractCodeFromErr(err))
@@ -85,6 +86,26 @@ where sequence in (
 )`, map[string]any{"Before": before, "Limit": limit})
 	if err != nil {
 		return 0, model.NewAppError("SqlMemberStore.EmailOutboxCleanup", emailOutboxErrorId, nil, err.Error(), extractCodeFromErr(err))
+	}
+
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
+// EmailOutboxCommandCleanup deletes up to limit published rows of commands older than before; their
+// repeat is not answered with the first response after that.
+func (s *SqlMemberStore) EmailOutboxCommandCleanup(ctx context.Context, before time.Time, limit int) (int64, *model.AppError) {
+	res, err := s.GetMaster().WithContext(ctx).Exec(`delete from call_center.cc_email_attempt_outbox
+where sequence in (
+    select o.sequence
+    from call_center.cc_email_attempt_outbox o
+    where o.published_at is not null and o.published_at < :Before and o.command_id is not null
+    order by o.published_at
+    limit :Limit
+    for update skip locked
+)`, map[string]any{"Before": before, "Limit": limit})
+	if err != nil {
+		return 0, model.NewAppError("SqlMemberStore.EmailOutboxCommandCleanup", emailOutboxErrorId, nil, err.Error(), extractCodeFromErr(err))
 	}
 
 	n, _ := res.RowsAffected()
