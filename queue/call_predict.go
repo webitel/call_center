@@ -64,6 +64,9 @@ func NewPredictCallQueue(callQueue CallingQueue, settings PredictCallQueueSettin
 		callQueue.DelVariable(model.CallVarTransferAfter)
 	}
 
+	// TODO: remove after testing
+    settings.HoldReservedAgent = true
+
 	return &PredictCallQueue{
 		CallingQueue:             callQueue,
 		PredictCallQueueSettings: settings,
