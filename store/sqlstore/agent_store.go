@@ -25,8 +25,52 @@ func (s *SqlAgentStore) CreateTableIfNotExists() {
 
 func (s *SqlAgentStore) ReservedForAttemptByNode(nodeId string) ([]*model.AgentsForAttempt, *model.AppError) {
 	var agentsInAttempt []*model.AgentsForAttempt
+	// Дзвінок з черги віддається агенту, лише якщо в нього немає іншої
+	// активної спроби-дзвінка, і не більше однієї спроби на агента за прохід.
+	// Інакше два розподіли, що збіглися в часі, з'єднують агента з двома
+	// абонентами одночасно. Решта спроб втрачає agent_id і повертається
+	// в загальний розподіл. Чати/таски та прямі дзвінки на агента
+	// (queue_id isnull) проходять як раніше.
 	if _, err := s.GetMaster().Select(&agentsInAttempt, `
-	update call_center.cc_member_attempt a
+with c as (
+    select a.id,
+           a.agent_id,
+           a.answered_at,
+           (a.channel = 'call' and a.queue_id notnull) as one_per_agent
+    from call_center.cc_member_attempt a
+    where a.state = :WaitAgent
+      and a.agent_id notnull
+      and a.node_id = :Node
+    for update skip locked
+),
+pick as (
+    select c.id
+    from c
+    where not c.one_per_agent
+    union all
+    select x.id
+    from (
+        select distinct on (c.agent_id) c.id
+        from c
+        where c.one_per_agent
+          and not exists (select 1
+                          from call_center.cc_member_attempt b
+                          where b.agent_id = c.agent_id
+                            and b.id <> c.id
+                            and b.channel = 'call'
+                            and b.state in (:Active, :Offering, :Bridged))
+        order by c.agent_id, c.answered_at nulls last, c.id
+    ) x
+),
+released as (
+    update call_center.cc_member_attempt a
+    set agent_id = null
+    from c
+    where a.id = c.id
+      and c.one_per_agent
+      and not exists (select 1 from pick p where p.id = c.id)
+)
+update call_center.cc_member_attempt a
 set state = :Active
 from (
         select a.id as attempt_id,
@@ -40,19 +84,18 @@ from (
             a.team_id,
             team.updated_at as team_updated_at
         from call_center.cc_member_attempt a
+            inner join pick p on p.id = a.id
             inner join call_center.cc_agent ca on a.agent_id = ca.id
             inner join call_center.cc_team team on team.id = a.team_id
             inner join directory.wbt_user u on u.id = ca.user_id
-        where a.state = :WaitAgent
-            and a.agent_id notnull
-            and a.node_id = :Node
-        for update skip locked
     ) t
 where a.id = t.attempt_id
 returning t.*
 `, map[string]any{
 		"Node":      nodeId,
 		"Active":    model.MemberStateActive,
+		"Offering":  model.MemberStateOffering,
+		"Bridged":   model.MemberStateBridged,
 		"WaitAgent": model.MemberStateWaitAgent,
 	}); err != nil {
 		return nil, model.NewAppError("SqlAgentStore.ReservedForAttemptByNode", "store.sql_agent.reserved_for_attempt.app_error",
