@@ -356,16 +356,20 @@ func (queue *ProgressiveCallQueue) run(attempt *Attempt, team *agentTeam, agent 
 			if agentCall.HangupAt() == 0 && agentCall.TransferTo() == nil && mCall.HangupAt() > 0 {
 				time.Sleep(time.Millisecond * 200) // todo WTEL-4057
 				agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
+				// wait for the real hangup cause: the agent may have already rejected the call
+				select {
+				case <-agentCall.HangupChan():
+				case <-time.After(time.Second * 3):
+					attempt.Log(fmt.Sprintf("agent call %s wait hangup timeout", agentCall.Id()))
+				}
 			}
-
+			// FIXME cancel if progressive cnt > 1
 			if agentCall.ShouldMarkAsMissed() {
 				team.Missed(attempt, agent)
 			} else {
 				team.CancelAttemptAndReleaseAgent(attempt, agent)
 			}
-
-			// FIXME cancel if progressive cnt > 1
-
+			
 			queue.queueManager.LeavingMember(attempt)
 		}
 	}
