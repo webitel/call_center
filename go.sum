@@ -284,6 +284,8 @@ github.com/webitel/webitel-go-kit/infra/health v0.3.0 h1:CkmPHLHAFjWYgMtsjPY2Yig
 github.com/webitel/webitel-go-kit/infra/health v0.3.0/go.mod h1:qumOZfpiFfBSIxGd3CMiEyiNKY4xNaVpUh6nlnTgoPk=
 github.com/webitel/webitel-go-kit/infra/otel v0.6.0 h1:FK5Nq22MAYxS8To06oLccNAZLd7R2Lr0SU+wazk5QOM=
 github.com/webitel/webitel-go-kit/infra/otel v0.6.0/go.mod h1:STmo9n9XkIe5m39Djb3rtfek9fp+KeK/zVBkVVcJX9E=
+github.com/webitel/webitel-go-kit/pkg/hostaddr v0.1.0 h1:EifVZJ7FbtlBonDlQzyPIMW8ja8VSzop6SDhIx1GCL4=
+github.com/webitel/webitel-go-kit/pkg/hostaddr v0.1.0/go.mod h1:dwUg3lSRmx30tg7/OyceBBgs5AQlUHTpoa3npq+COsY=
 github.com/webitel/webitel-go-kit/pkg/logging v0.1.0 h1:v4jTtz4rMBNP0apjeJcunvLFweLEW+g71/QPO5Qm3xc=
 github.com/webitel/webitel-go-kit/pkg/logging v0.1.0/go.mod h1:pbc/NQTMSydE3VXzsYqa/WmmHnfqjPUfvQq9R4Dg5Lw=
 github.com/webitel/wlog v0.0.0-20260929140055-f81a38037840 h1:yuRJzLjThWrGQCK7yXnr473qNKYh9CxVODEWJiWX25k=

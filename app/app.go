@@ -160,13 +160,20 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.IM = im.NewClient(config.DiscoverySettings.Url, app.MQ.ConsumeIMEvent(), app.Log, t)
 	app.IM.Start()
 
-	app.GrpcServer = NewGrpcServer(app.Config().ServerSettings, app.Log)
+	if app.GrpcServer, err = NewGrpcServer(app.Config().ServerSettings, app.Log); err != nil {
+		return nil, errors.Wrapf(err, "unable to initialize grpc server")
+	}
 
 	if err := app.cluster.Setup(); err != nil {
 		return nil, errors.Wrapf(err, "unable to initialize cluster")
 	}
 
-	if err := app.cluster.Start(app.GrpcServer.GetPublicInterface()); err != nil {
+	advertise, err := app.GrpcServer.AdvertiseAddr()
+	if err != nil {
+		return nil, errors.Wrapf(err, "resolve grpc advertise address; set GRPC_ADDR to a specific IP")
+	}
+
+	if err := app.cluster.Start(advertise.Addr().String(), int(advertise.Port())); err != nil {
 		return nil, err
 	}
 

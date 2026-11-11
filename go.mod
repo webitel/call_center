@@ -16,6 +16,7 @@ require (
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156
 	github.com/webitel/webitel-go-kit/infra/health v0.3.0
 	github.com/webitel/webitel-go-kit/infra/otel v0.6.0
+	github.com/webitel/webitel-go-kit/pkg/hostaddr v0.1.0
 	github.com/webitel/wlog v0.0.0-20260929140055-f81a38037840
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
