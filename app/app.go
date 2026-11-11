@@ -168,7 +168,12 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, errors.Wrapf(err, "unable to initialize cluster")
 	}
 
-	if err := app.cluster.Start(app.GrpcServer.GetListeningInterface()); err != nil {
+	advertise, err := app.GrpcServer.AdvertiseAddr()
+	if err != nil {
+		return nil, errors.Wrapf(err, "resolve grpc advertise address; set GRPC_ADDR to a specific IP")
+	}
+
+	if err := app.cluster.Start(advertise.Addr().String(), int(advertise.Port())); err != nil {
 		return nil, err
 	}
 

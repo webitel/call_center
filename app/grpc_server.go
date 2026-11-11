@@ -2,14 +2,17 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/webitel-go-kit/pkg/hostaddr"
 	"github.com/webitel/wlog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,19 +29,12 @@ func (grpc *GrpcServer) Listener() net.Listener {
 	return grpc.lis
 }
 
-func (grpc *GrpcServer) GetListeningInterface() (string, int) {
-	h, p, _ := net.SplitHostPort(grpc.lis.Addr().String())
-
-	ip := net.ParseIP(h)
-	if ip != nil && ip.IsUnspecified() {
-		if addr, err := model.GetPrivateAddr(); err == nil {
-			h = addr
-		} else {
-			h = model.GetPublicAddr()
-		}
+func (grpc *GrpcServer) AdvertiseAddr() (netip.AddrPort, error) {
+	listen, err := netip.ParseAddrPort(grpc.lis.Addr().String())
+	if err != nil {
+		return netip.AddrPort{}, err
 	}
-	port, _ := strconv.Atoi(p)
-	return h, port
+	return hostaddr.Advertise(listen)
 }
 
 func GetUnaryInterceptor(log *wlog.Logger) grpc.UnaryServerInterceptor {
@@ -96,9 +92,15 @@ func httpCodeToGrpc(c int) codes.Code {
 func NewGrpcServer(settings model.ServerSettings, log *wlog.Logger) (*GrpcServer, error) {
 	host := strings.Trim(settings.Address, "[]")
 	if host == "" {
-		var err error
-		if host, err = model.GetPrivateAddr(); err != nil {
+		ip, err := hostaddr.PrivateIPv4()
+		switch {
+		case errors.Is(err, hostaddr.ErrNoPrivateIPv4):
+			host = "127.0.0.1"
+			log.Warn("no private IPv4 address found, grpc listens on loopback; set GRPC_ADDR to accept remote connections", wlog.String("address", host))
+		case err != nil:
 			return nil, fmt.Errorf("resolve default grpc address: %w; set GRPC_ADDR explicitly", err)
+		default:
+			host = ip.String()
 		}
 	}
 
