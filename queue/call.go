@@ -351,6 +351,11 @@ func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
 		return false
 	}
 
+	// NOTSURE: FreeSWITCH executes amd_on_notsure (hangup) unless AllowNotSure is set
+	if call.AmdResult() == call_manager.AmdNotSure {
+		return amd.AllowNotSure
+	}
+
 	return call.IsHuman()
 }
 
