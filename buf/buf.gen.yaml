@@ -22,4 +22,4 @@ inputs:
 #  - directory: "../protos/cc"
   - git_repo: "https://github.com/webitel/protos"
     branch: "main"
-    subdir: fs
+    subdir: cc
