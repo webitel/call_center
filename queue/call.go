@@ -340,7 +340,7 @@ func IsHuman(call call_manager.Call, amd *model.QueueAmdSettings) bool {
 		if aiAmd.Error != "" || aiAmd.Result == "undefined" {
 			return answered // TODO ? DEV-3338
 		}
-		for _, v := range amd.PositiveTags {
+		for _, v := range amd.PositiveLabels() {
 			if v == aiAmd.Result {
 				if !answered && call.HangupAt() == 0 { // TODO ? DEV-3338
 					call.Hangup(model.CALL_HANGUP_NORMAL_UNSPECIFIED, false, nil)
