@@ -279,10 +279,28 @@ func (amd *QueueAmdSettings) ToArgs() string {
 	return *amd.buildString
 }
 
-func (amd *QueueAmdSettings) AiTags() string {
+const (
+	AmdAiHumanTag   = "human"
+	AmdAiTimeoutTag = "timeout"
+)
+
+// PositiveLabels returns AI AMD positive labels; "timeout" is always positive
+func (amd *QueueAmdSettings) PositiveLabels() []string {
 	if len(amd.PositiveTags) == 0 {
-		return "human"
+		return []string{AmdAiHumanTag, AmdAiTimeoutTag}
 	}
 
-	return strings.Join(amd.PositiveTags, ",")
+	for _, v := range amd.PositiveTags {
+		if v == AmdAiTimeoutTag {
+			return amd.PositiveTags
+		}
+	}
+
+	labels := make([]string, 0, len(amd.PositiveTags)+1)
+	labels = append(labels, amd.PositiveTags...)
+	return append(labels, AmdAiTimeoutTag)
+}
+
+func (amd *QueueAmdSettings) AiTags() string {
+	return strings.Join(amd.PositiveLabels(), ",")
 }
