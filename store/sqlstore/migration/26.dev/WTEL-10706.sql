@@ -4,6 +4,8 @@ alter table call_center.cc_audit_rate
 create index if not exists cc_audit_rate_call_root_id_idx
     on call_center.cc_audit_rate (call_root_id)
     where call_root_id is not null;
+-- With many existing rates, create this index after WTEL-10706-backfill.sql instead,
+-- using "create index concurrently": maintaining it during the backfill slows the updates.
 
 create or replace function call_center.cc_call_root_id(_id uuid)
     returns uuid
@@ -12,13 +14,16 @@ create or replace function call_center.cc_call_root_id(_id uuid)
 as
 $$
 with recursive up as (
-    select h.id, h.parent_id, 0 as depth
+    select h.id, h.parent_id, h.created_at, 0 as depth
     from call_center.cc_calls_history h
     where h.id = _id
     union all
-    select h.id, h.parent_id, up.depth + 1
+    select h.id, h.parent_id, h.created_at, up.depth + 1
     from up
-             join call_center.cc_calls_history h on h.id = up.parent_id
+             join call_center.cc_calls_history h
+                  on h.id = up.parent_id
+                      and h.created_at <= up.created_at
+                      and h.created_at > up.created_at - interval '1 day'
     where up.depth < 16
 )
 select up.id
@@ -76,7 +81,10 @@ with recursive fam as (
            h.blind_transfer,
            fam.depth + 1
     from fam
-             join call_center.cc_calls_history h on h.parent_id = fam.id and h.created_at > fam.created_at::date
+             join call_center.cc_calls_history h
+                  on h.parent_id = fam.id
+                      and h.created_at >= fam.created_at
+                      and h.created_at < fam.created_at + interval '1 day'
     where fam.depth < 16
 )
 select fam.id,
@@ -139,7 +147,10 @@ with fam as materialized (
                                                              e.bridged_at,
                                                              e.created_at
          from fam e
-                  left join call_center.cc_calls_history b on b.id = e.bridged_id
+                  left join call_center.cc_calls_history b
+                            on b.id = e.bridged_id
+                                and b.created_at > e.created_at - interval '1 day'
+                                and b.created_at < e.created_at + interval '1 day'
                   left join call_center.cc_queue q on q.id = e.queue_id
          where (e.answered_at is not null and q.type = 2)
             or (b.id is not null and coalesce(b.user_id, e.user_id) is not null)
