@@ -41,6 +41,7 @@ const (
 	QUEUE_AGENT_ID_FIELD        = "cc_agent_id"
 	QUEUE_AGENT_NAME_FIELD      = "wbt_agent_name"
 	QUEUE_AGENT_CHAT_NAME_FIELD = "wbt_agent_chat_name"
+	QUEUE_AGENT_RINGTONE_FIELD  = "cc_agent_ringtone"
 	QUEUE_UPDATED_AT_FIELD      = "cc_queue_updated_at"
 
 	QUEUE_NAME_FIELD        = "cc_queue_name"
@@ -119,6 +120,7 @@ type Queue struct {
 	TeamId               *int              `json:"team_id" db:"team_id"`
 	RingtoneId           *int              `json:"ringtone_id" db:"ringtone_id"`
 	RingtoneType         *string           `json:"ringtone_type" db:"ringtone_type"`
+	AgentRingtone        *string           `json:"agent_ringtone" db:"agent_ringtone"`
 	SchemaId             *int              `json:"schema_id" db:"schema_id"`
 	DoSchemaId           *int32            `json:"do_schema_id" db:"do_schema_id"`
 	AfterSchemaId        *int32            `json:"after_schema_id" db:"after_schema_id"`

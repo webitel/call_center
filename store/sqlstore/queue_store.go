@@ -49,6 +49,7 @@ func (s SqlQueueStore) GetById(id int64) (*model.Queue, *model.AppError) {
 			q.prolongation_time_sec,
 			q.prolongation_is_timeout_retry,
 			q.processing_autosave,
+			nullif(q.payload->>'agent_ringtone', '') as agent_ringtone,
 			f.mime_type as ringtone_type,
 			(
 				select

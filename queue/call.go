@@ -211,6 +211,10 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		cr.Variables[model.QUEUE_ID_FIELD] = fmt.Sprintf("%d", queue.Id())
 	}
 
+	if queue.agentRingtone != "" {
+		cr.Variables[model.QUEUE_AGENT_RINGTONE_FIELD] = queue.agentRingtone
+	}
+
 	if attempt.MemberId() != nil {
 		cr.Variables["wbt_from_id"] = fmt.Sprintf("%d", *attempt.MemberId())
 		cr.Variables[model.QUEUE_MEMBER_ID_FIELD] = cr.Variables["wbt_from_id"]
