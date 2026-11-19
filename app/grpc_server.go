@@ -58,7 +58,7 @@ func GetUnaryInterceptor(log *wlog.Logger) grpc.UnaryServerInterceptor {
 			switch err.(type) {
 			case *model.AppError:
 				e := err.(*model.AppError)
-				return h, status.Error(httpCodeToGrpc(e.StatusCode), e.ToJson())
+				return h, status.Error(HTTPCodeToGRPC(e.StatusCode), e.ToJson())
 			default:
 				return h, err
 			}
@@ -73,10 +73,18 @@ func GetUnaryInterceptor(log *wlog.Logger) grpc.UnaryServerInterceptor {
 	}
 }
 
-func httpCodeToGrpc(c int) codes.Code {
+func HTTPCodeToGRPC(c int) codes.Code {
 	switch c {
 	case http.StatusBadRequest:
 		return codes.InvalidArgument
+	case http.StatusNotFound:
+		return codes.NotFound
+	case http.StatusConflict:
+		return codes.AlreadyExists
+	case http.StatusPreconditionFailed:
+		return codes.FailedPrecondition
+	case http.StatusServiceUnavailable:
+		return codes.Unavailable
 	case http.StatusAccepted:
 		return codes.ResourceExhausted
 	case http.StatusUnauthorized:

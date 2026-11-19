@@ -203,6 +203,8 @@ func NewQueue(queueManager *Manager, resourceManager *ResourceManager, settings 
 		return NewTaskOutboundQueue(base, TaskOutboundQueueSettingsFromBytes(settings.Payload)), nil
 	case model.QueueTypeInboundIM:
 		return NewInboundIMQueue(base, InboundIMQueueFromBytes(settings.Payload)), nil
+	case model.QueueTypeInboundEmail:
+		return NewInboundEmailQueue(base), nil
 
 	default:
 		return nil, model.NewAppError("Dialing.NewQueue", "dialing.queue.new_queue.app_error", nil,
@@ -317,6 +319,8 @@ func (queue *BaseQueue) TypeName() string {
 		return "im"
 	case model.QueueTypeOutboundCall:
 		return "outbound_call"
+	case model.QueueTypeInboundEmail:
+		return "inbound_email"
 	default:
 		return "NOT_IMPLEMENT"
 	}
