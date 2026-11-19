@@ -3,33 +3,28 @@ package grpc_api
 import (
 	"context"
 	"errors"
-	"net/http"
-	"regexp"
+	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/webitel/call_center/app"
 	"github.com/webitel/call_center/gen/cc"
 	"github.com/webitel/call_center/model"
 )
 
-var emailEventIdRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-
-// EmailJoinToQueue returns gRPC statuses itself: the shared AppError mapping
-// turns 404, 409 and 503 into Internal.
+// EmailJoinToQueue maps the request to model.EmailJoin, which validates itself in the Manager.
 func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
-	if in.GetDomainId() <= 0 || in.GetThreadId() <= 0 || in.GetQueueId() <= 0 || !emailEventIdRe.MatchString(in.GetEmailEventId()) {
-		return nil, status.Error(codes.InvalidArgument, "domain_id, thread_id, queue_id and a UUID email_event_id are required")
-	}
-
-	res, err := api.app.Queue().Manager().EmailJoinToQueue(ctx, model.EmailJoin{
+	join := model.EmailJoin{
 		EventId:  in.GetEmailEventId(),
 		DomainId: in.GetDomainId(),
 		ThreadId: in.GetThreadId(),
 		QueueId:  in.GetQueueId(),
-	})
+	}
+
+	res, err := api.app.Queue().Manager().EmailJoinToQueue(ctx, join)
 	if err != nil {
-		return nil, emailJoinStatus(ctx, err)
+		return nil, newEmailJoinError(ctx, join, err)
 	}
 
 	return &cc.EmailJoinToQueueResponse{
@@ -39,29 +34,35 @@ func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueue
 	}, nil
 }
 
-func emailJoinStatus(ctx context.Context, err *model.AppError) error {
+// emailJoinError answers with the gRPC code and the stable error id flow_manager matches,
+// where the interceptor would send the AppError as JSON. Error() keeps the full AppError
+// and the call, so the interceptor logs the failure once with its cause.
+type emailJoinError struct {
+	err     *model.AppError
+	join    model.EmailJoin
+	code    codes.Code
+	message string
+}
+
+func newEmailJoinError(ctx context.Context, join model.EmailJoin, err *model.AppError) *emailJoinError {
+	e := &emailJoinError{err: err, join: join, code: app.HTTPCodeToGRPC(err.StatusCode), message: err.Id}
 	if ctxErr := ctx.Err(); ctxErr != nil {
+		e.code, e.message = codes.Canceled, ctxErr.Error()
 		if errors.Is(ctxErr, context.DeadlineExceeded) {
-			return status.Error(codes.DeadlineExceeded, ctxErr.Error())
+			e.code = codes.DeadlineExceeded
 		}
-		return status.Error(codes.Canceled, ctxErr.Error())
 	}
 
-	code := codes.Internal
-	switch err.StatusCode {
-	case http.StatusBadRequest:
-		code = codes.InvalidArgument
-	case http.StatusNotFound:
-		code = codes.NotFound
-	case http.StatusPreconditionFailed:
-		code = codes.FailedPrecondition
-	case http.StatusConflict:
-		code = codes.AlreadyExists
-	case http.StatusServiceUnavailable:
-		code = codes.Unavailable
-	}
+	return e
+}
 
-	return status.Error(code, err.Id)
+func (e *emailJoinError) Error() string {
+	return fmt.Sprintf("email join event_id=%s domain_id=%d thread_id=%d requested_queue_id=%d: %s",
+		e.join.EventId, e.join.DomainId, e.join.ThreadId, e.join.QueueId, e.err.Error())
+}
+
+func (e *emailJoinError) GRPCStatus() *status.Status {
+	return status.New(e.code, e.message)
 }
 
 func emailJoinResult(result string) cc.EmailJoinToQueueResponse_Result {

@@ -21,7 +21,7 @@ func TestEmailJoinStatus(t *testing.T) {
 		http.StatusInternalServerError: codes.Internal,
 	}
 	for httpCode, want := range cases {
-		err := emailJoinStatus(context.Background(), model.NewAppError("t", "t.id", nil, "", httpCode))
+		err := newEmailJoinError(context.Background(), model.EmailJoin{}, model.NewAppError("t", "t.id", nil, "", httpCode))
 		if got := status.Code(err); got != want {
 			t.Errorf("http %d: got %s, want %s", httpCode, got, want)
 		}
@@ -29,7 +29,7 @@ func TestEmailJoinStatus(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err := emailJoinStatus(ctx, model.NewAppError("t", "t.id", nil, "", http.StatusServiceUnavailable))
+	err := newEmailJoinError(ctx, model.EmailJoin{}, model.NewAppError("t", "t.id", nil, "", http.StatusServiceUnavailable))
 	if got := status.Code(err); got != codes.Canceled {
 		t.Errorf("canceled context: got %s", got)
 	}

@@ -1,6 +1,5 @@
 -- Inbound Email Queue: one active attempt per email-service Thread and an
 -- idempotency journal of EmailJoinToQueue keyed by email_event_id.
--- Run with psql -v ON_ERROR_STOP=1 -f outside a transaction: the index is built CONCURRENTLY.
 -- Every step can be repeated after a partial failure.
 
 -- Stop on Email attempts that would break the new invariants; nothing is deleted.
@@ -51,22 +50,8 @@ $$;
 ALTER TABLE call_center.cc_member_attempt
     VALIDATE CONSTRAINT cc_member_attempt_email_member_call_id_chk;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip.
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM pg_index i
-        WHERE i.indexrelid = to_regclass('call_center.cc_member_attempt_email_active_uidx')
-          AND NOT i.indisvalid
-    ) THEN
-        DROP INDEX call_center.cc_member_attempt_email_active_uidx;
-    END IF;
-END
-$$;
-
 -- At most one active Email attempt per Thread.
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_active_uidx
+CREATE UNIQUE INDEX IF NOT EXISTS cc_member_attempt_email_active_uidx
     ON call_center.cc_member_attempt (domain_id, member_call_id)
     WHERE channel = 'email' AND leaving_at IS NULL;
 

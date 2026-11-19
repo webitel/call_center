@@ -18,9 +18,12 @@ func (qm *Manager) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*m
 		wlog.Int("requested_queue_id", int(in.QueueId)),
 	)
 
+	if err := in.IsValid(); err != nil {
+		return nil, err
+	}
+
 	res, err := qm.store.Member().EmailJoinToQueue(ctx, in)
 	if err != nil {
-		log.Error("email join failed", wlog.Err(err), wlog.String("error_id", err.Id))
 		return nil, err
 	}
 
@@ -29,8 +32,8 @@ func (qm *Manager) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*m
 		wlog.Int64("attempt_id", res.AttemptId),
 		wlog.String("result", res.Result),
 	)
-	if res.Result == model.EmailJoinReplayed && res.RequestedQueueId != in.QueueId {
-		log.Warn("email join replayed with another queue; the first queue is kept",
+	if res.ReplayedWithAnotherQueue(in.QueueId) {
+		log.Warn("email join replayed with another queue; the result of the first call is returned",
 			wlog.Int("first_requested_queue_id", int(res.RequestedQueueId)))
 	} else {
 		log.Info("email joined to queue")
