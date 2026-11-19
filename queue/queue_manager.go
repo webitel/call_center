@@ -1378,9 +1378,21 @@ func (qm *Manager) SetAttemptCancel(id int64, result string) bool {
 	return true
 }
 
-func (qm *Manager) ResumeAttempt(id, domainId int64) *model.AppError {
+func (qm *Manager) ResumeAttempt(ctx context.Context, id, domainId int64) *model.AppError {
 	att, ok := qm.GetAttempt(id)
 	if !ok || att.domainId != domainId {
+		// Email attempts are never cached; they are resumed only with the Email form of the request.
+		if !ok {
+			isEmail, err := qm.store.Member().IsEmailAttempt(ctx, domainId, id)
+			if err != nil {
+				// Not found only when the database confirmed it; a failed check is retryable.
+				return model.NewAppError("QM", model.EmailAttemptErrUnavailable, nil, err.Error(), http.StatusServiceUnavailable)
+			}
+			if isEmail {
+				return model.NewAppError("QM", model.EmailAttemptErrInvalidArgument, nil,
+					"an Email attempt is resumed with thread_id, agent_id, expected_version and command_id", http.StatusBadRequest)
+			}
+		}
 		return model.NewAppError("QM", "qm.resume_attempt.valid", nil, "Not found", http.StatusNotFound)
 	}
 

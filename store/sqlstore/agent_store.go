@@ -321,6 +321,22 @@ func (s *SqlAgentStore) SetStatus(agentId int, status string, payload, statusCom
 	return nil
 }
 
+func (s *SqlAgentStore) SetOffline(agentId int, payload, statusComment *string) (*model.AgentOfflineResult, *model.AppError) {
+	var res model.AgentOfflineResult
+	err := s.GetMaster().SelectOne(&res, `select outcome, emails_returned
+from call_center.cc_agent_set_offline(:AgentId::int4, :Payload::varchar, :StatusComment::varchar)`, map[string]any{
+		"AgentId":       agentId,
+		"Payload":       payload,
+		"StatusComment": statusComment,
+	})
+	if err != nil {
+		return nil, model.NewAppError("SqlAgentStore.SetOffline", "store.sql_agent.set_offline.app_error", nil,
+			fmt.Sprintf("AgentId=%d, %+v", agentId, err), http.StatusInternalServerError)
+	}
+
+	return &res, nil
+}
+
 func (s *SqlAgentStore) CheckAllowPause(domainId int64, agentId int) (bool, *model.AppError) {
 	var res bool
 	err := s.GetMaster().SelectOne(&res, `select exists(SELECT 1

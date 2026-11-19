@@ -18,11 +18,12 @@ BEGIN
         JOIN pg_proc p ON d.classid = 'pg_proc'::regclass AND d.objid = p.oid
         WHERE e.extname = 'cc_sql' AND e.extversion = '1.5'
           AND e.extnamespace = 'call_center'::regnamespace
-          AND p.oid = to_regprocedure('call_center.cc_sys_distribute_email(integer[],integer[],bigint[])')
+          AND p.oid = to_regprocedure('call_center.cc_sys_distribute_email(integer[],integer[],bigint[],bigint[],integer[])')
           AND p.prosrc = 'cc_sys_distribute_email' AND p.proretset
           AND NOT p.proisstrict AND p.provolatile = 'v' AND p.proparallel = 'u'
     ) OR to_regclass('call_center.cc_email_distribute_stage_1') IS NULL
        OR to_regprocedure('call_center.cc_email_apply_distributed(bigint,integer,integer)') IS NULL
+       OR to_regprocedure('call_center.cc_email_pair_available(call_center.cc_member_attempt,integer,integer,bigint[],integer[])') IS NULL
        OR to_regprocedure('call_center.cc_email_agent_strategy_refresh(integer,timestamp with time zone)') IS NULL
        OR NOT EXISTS (
            SELECT 1 FROM pg_attribute
@@ -130,7 +131,7 @@ BEGIN
                 _batch_agents := '{}';
                 _batch_attempts := '{}';
                 FOR _pair IN
-                    SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip) c
+                    SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip, '{}'::bigint[], '{}'::integer[]) c
                 LOOP
                     IF clock_timestamp() >= _deadline THEN
                         _timed_out := true;

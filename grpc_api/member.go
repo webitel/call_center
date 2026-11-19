@@ -325,7 +325,11 @@ func (api *member) DirectAgentToMember(_ context.Context, in *cc.DirectAgentToMe
 	}, nil
 }
 
-func (api *member) AttemptRenewalResult(_ context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
+func (api *member) AttemptRenewalResult(ctx context.Context, in *cc.AttemptRenewalResultRequest) (*cc.AttemptRenewalResultResponse, error) {
+	if isEmailRenewal(in) {
+		return api.emailOperatorRenewal(ctx, in)
+	}
+
 	err := api.app.Queue().Manager().RenewalAttempt(in.DomainId, in.AttemptId, in.Renewal)
 	if err != nil {
 		return nil, err
@@ -469,9 +473,13 @@ func (api *member) InterceptAttempt(ctx context.Context, in *cc.InterceptAttempt
 }
 
 func (api *member) ResumeAttempt(ctx context.Context, in *cc.ResumeAttemptRequest) (*cc.ResumeAttemptResponse, error) {
-	err := api.app.Queue().Manager().ResumeAttempt(in.AttemptId, in.DomainId)
+	if isEmailResume(in) {
+		return api.emailResume(ctx, in)
+	}
+
+	err := api.app.Queue().Manager().ResumeAttempt(ctx, in.AttemptId, in.DomainId)
 	if err != nil {
-		return nil, err
+		return nil, legacyResumeError(ctx, err)
 	}
 
 	return &cc.ResumeAttemptResponse{

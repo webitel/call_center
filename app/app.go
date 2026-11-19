@@ -48,6 +48,7 @@ type App struct {
 	cluster        cluster.Cluster
 	engine         engine.Engine
 	emailDist      *engine.EmailDistributor
+	emailLifecycle *engine.EmailLifecycleWatcher
 	dialing        queue.Dialing
 	GrpcServer     *GrpcServer
 	agentManager   agent_manager.AgentManager
@@ -169,6 +170,20 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.emailDist = engine.NewEmailDistributor(app.Store.Member(), settings, app.Log)
 		app.emailDist.Start()
 	}
+	// Releases offers and applies deadlines; off until Workspace can see the transitions.
+	if qs := app.Config().EmailSettings; qs.EmailLifecycle {
+		settings := engine.EmailLifecycleSettings{
+			Interval:         qs.EmailLifecycleInterval,
+			Batch:            qs.EmailLifecycleBatch,
+			LockTimeout:      qs.EmailLifecycleLockTimeout,
+			StatementTimeout: qs.EmailLifecycleStatementTimeout,
+		}
+		if err := settings.Validate(); err != nil {
+			return nil, err
+		}
+		app.emailLifecycle = engine.NewEmailLifecycleWatcher(app.Store.Member(), settings, app.Log)
+		app.emailLifecycle.Start()
+	}
 
 	app.agentManager = agent_manager.NewAgentManager(app.GetInstanceId(), app.Store, app.MQ, app.Log)
 	app.agentManager.SetHookAutoOfflineAgent(app.hookAutoOfflineAgent)
@@ -216,6 +231,10 @@ func (app *App) QueueSettings() model.QueueSettings {
 	return app.Config().QueueSettings
 }
 
+func (app *App) EmailSettings() model.EmailSettings {
+	return app.Config().EmailSettings
+}
+
 func (app *App) Shutdown() {
 	app.Log.Info("stopping Server...")
 
@@ -225,6 +244,9 @@ func (app *App) Shutdown() {
 
 	if app.emailDist != nil {
 		app.emailDist.Stop()
+	}
+	if app.emailLifecycle != nil {
+		app.emailLifecycle.Stop()
 	}
 
 	if app.engine != nil {
