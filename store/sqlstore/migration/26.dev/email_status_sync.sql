@@ -1,8 +1,8 @@
 -- Email status sync: the agent user in snapshots, the inbound_reopened marker of a Thread without an
 -- active attempt, the fallback queue of a wake-up, one lock per Thread for wake-up and join, and the
 -- lease of the snapshot publisher.
--- Run with psql -v ON_ERROR_STOP=1 -f after email_attempt_lifecycle.sql outside a transaction: the
--- indexes are built CONCURRENTLY, and psql runs the generated \gexec drops. Every step can be repeated.
+-- Run with psql -v ON_ERROR_STOP=1 -f after email_attempt_lifecycle.sql without an enclosing
+-- transaction: the file commits its own transaction. Every step can be repeated.
 
 DO $$
 BEGIN
@@ -424,24 +424,14 @@ $$;
 ALTER TABLE call_center.cc_email_attempt_outbox
     VALIDATE CONSTRAINT cc_email_attempt_outbox_lease_valid;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip; it is dropped
--- CONCURRENTLY too, so a repeated run does not lock the outbox.
-SELECT format('DROP INDEX CONCURRENTLY call_center.%I', c.relname)
-FROM pg_index i
-         JOIN pg_class c ON c.oid = i.indexrelid
-WHERE c.oid IN (to_regclass('call_center.cc_email_attempt_outbox_ready_idx'),
-                to_regclass('call_center.cc_email_attempt_outbox_published_idx'))
-  AND NOT i.indisvalid
-\gexec
-
 -- Rows the publisher may claim, in the order it claims them; replaces the pending index of stage 11.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_email_attempt_outbox_ready_idx
+CREATE INDEX IF NOT EXISTS cc_email_attempt_outbox_ready_idx
     ON call_center.cc_email_attempt_outbox (next_attempt_at, sequence)
     WHERE published_at IS NULL;
 
-DROP INDEX CONCURRENTLY IF EXISTS call_center.cc_email_attempt_outbox_pending_idx;
+DROP INDEX IF EXISTS call_center.cc_email_attempt_outbox_pending_idx;
 
 -- Published rows that retention may delete, oldest first; command rows keep their response.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_email_attempt_outbox_published_idx
+CREATE INDEX IF NOT EXISTS cc_email_attempt_outbox_published_idx
     ON call_center.cc_email_attempt_outbox (published_at)
     WHERE published_at IS NOT NULL AND command_id IS NULL;

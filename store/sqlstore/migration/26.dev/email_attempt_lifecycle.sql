@@ -1,6 +1,6 @@
 -- Email attempt lifecycle: postponed limit and deadlines, version, transition outbox, wake-up journal.
 -- After this release's shared prepare, validate and runtime with cc_sql 1.5; stop Email writers on all nodes.
--- Run with psql -v ON_ERROR_STOP=1 -f outside a transaction: the indexes are built CONCURRENTLY.
+-- Run with psql -v ON_ERROR_STOP=1 -f without an enclosing transaction: the file commits its own transactions.
 
 DO $$
 BEGIN
@@ -290,32 +290,13 @@ CREATE TABLE IF NOT EXISTS call_center.cc_email_wakeup
 ALTER TABLE call_center.cc_email_wakeup
     ADD COLUMN IF NOT EXISTS resume_response jsonb;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip.
-DO $$
-DECLARE
-    _name text;
-BEGIN
-    FOREACH _name IN ARRAY ARRAY ['cc_member_attempt_email_timeout_idx', 'cc_member_attempt_email_postponed_idx']
-    LOOP
-        IF EXISTS (
-            SELECT 1
-            FROM pg_index i
-            WHERE i.indexrelid = to_regclass('call_center.' || _name)
-              AND NOT i.indisvalid
-        ) THEN
-            EXECUTE format('DROP INDEX call_center.%I', _name);
-        END IF;
-    END LOOP;
-END
-$$;
-
 -- Due auto-release of offers and processing deadlines, earliest first.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_timeout_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_timeout_idx
     ON call_center.cc_member_attempt (timeout, id)
     WHERE channel = 'email' AND state IN ('offering', 'processing') AND timeout IS NOT NULL AND leaving_at IS NULL;
 
 -- Due postponed deadlines, earliest first.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_postponed_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_postponed_idx
     ON call_center.cc_member_attempt (postponed_until, id)
     WHERE channel = 'email' AND state = 'postponed' AND leaving_at IS NULL;
 
