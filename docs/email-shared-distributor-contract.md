@@ -1,7 +1,7 @@
 # Email shared-distributor SQL contract
 
-EM-23 extends the C interface of `cc_sql` 1.5. Apply the matching shared
-prerequisites before lifecycle, as described in the [upgrade runbook](email-routing-upgrade.md).
+EM-23 extends the C interface of `cc_sql` 1.5. Matching shared preparation,
+validation and runtime must precede lifecycle.
 
 ## C selection
 

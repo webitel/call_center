@@ -133,10 +133,7 @@ BEGIN
                 FOR _pair IN
                     SELECT c.* FROM call_center.cc_sys_distribute_email(_queue_ids, _queue_limits, _skip, '{}'::bigint[], '{}'::integer[]) c
                 LOOP
-                    IF clock_timestamp() >= _deadline THEN
-                        _timed_out := true;
-                        EXIT work;
-                    END IF;
+                    -- Apply the whole selected batch; the budget is checked before the next C call.
                     _selected := true;
                     _pos := array_position(_queue_ids, _pair.queue_id);
                     IF coalesce(_pair.agent_id, 0) <= 0 OR coalesce(_pair.id, 0) <= 0 OR _pos IS NULL

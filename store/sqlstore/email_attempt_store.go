@@ -53,7 +53,8 @@ from call_center.cc_email_attempt_command(:Op::text, :Source::text, :CommandId::
 func (s *SqlMemberStore) EmailWakeUp(ctx context.Context, in model.EmailWakeUp, lockTimeout time.Duration) (*model.EmailWakeUpResult, *model.AppError) {
 	var res model.EmailWakeUpResult
 	err := s.inEmailTx(ctx, lockTimeout, func(ex gorp.SqlExecutor) error {
-		return ex.SelectOne(&res, `select x.wakeup_result, x.wakeup_attempt_id, x.wakeup_attempt_state, x.wakeup_attempt_version, x.wakeup_replayed
+		return ex.SelectOne(&res, `select x.wakeup_result, x.wakeup_attempt_id, x.wakeup_attempt_state, x.wakeup_attempt_version, x.wakeup_replayed,
+       x.wakeup_fallback_queue_id
 from call_center.cc_email_wakeup_thread(:EventId::uuid, :DomainId::int8, :ThreadId::int8) x`,
 			map[string]any{"EventId": in.EventId, "DomainId": in.DomainId, "ThreadId": in.ThreadId})
 	})

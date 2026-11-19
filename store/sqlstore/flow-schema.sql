@@ -830,6 +830,21 @@ CREATE TABLE flow.email_event (
     last_error text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    route_state text,
+    route_source text,
+    route_queue_id integer,
+    fallback_queue_id integer,
+    route_due_at timestamp with time zone,
+    route_next_at timestamp with time zone,
+    route_locked_by text,
+    route_locked_until timestamp with time zone,
+    route_attempts integer DEFAULT 0 NOT NULL,
+    route_last_error text,
+    route_reason text,
+    route_priority integer,
+    route_sticky_agent_id integer,
+    route_extra_email_count boolean,
+    route_from_address text,
     CONSTRAINT email_event_accepted_complete CHECK (((state = 'accepted'::text) = (accepted_at IS NOT NULL))),
     CONSTRAINT email_event_attempts_valid CHECK ((attempts >= 0)),
     CONSTRAINT email_event_failed_has_error CHECK (((state <> 'failed'::text) OR (last_error IS NOT NULL))),
@@ -837,6 +852,14 @@ CREATE TABLE flow.email_event (
     CONSTRAINT email_event_ids_valid CHECK (((domain_id > 0) AND (thread_id > 0) AND (message_id > 0) AND (schema_version > 0))),
     CONSTRAINT email_event_last_error_length CHECK (((last_error IS NULL) OR (char_length(last_error) <= 1024))),
     CONSTRAINT email_event_lease_complete CHECK ((((state = 'processing'::text) AND (locked_by IS NOT NULL) AND (locked_until IS NOT NULL)) OR ((state <> 'processing'::text) AND (locked_by IS NULL) AND (locked_until IS NULL)))),
+    CONSTRAINT email_event_route_lease_valid CHECK ((((route_locked_by IS NULL) = (route_locked_until IS NULL)) AND ((route_locked_by IS NULL) OR (COALESCE(route_state, ''::text) = ANY (ARRAY['joining'::text, 'resolving'::text]))))),
+    CONSTRAINT email_event_route_open_valid CHECK (((COALESCE(route_state, ''::text) <> ALL (ARRAY['pending'::text, 'joining'::text, 'resolving'::text])) OR ((route_due_at IS NOT NULL) AND (route_next_at IS NOT NULL)))),
+    CONSTRAINT email_event_route_params_valid CHECK ((((route_priority IS NULL) = (route_sticky_agent_id IS NULL)) AND ((route_priority IS NULL) = (route_extra_email_count IS NULL)) AND ((COALESCE(route_state, ''::text) <> ALL (ARRAY['pending'::text, 'resolving'::text])) OR (NOT (((route_priority IS DISTINCT FROM 0) OR (route_sticky_agent_id IS DISTINCT FROM 0)) OR (route_extra_email_count IS DISTINCT FROM false)))) AND ((route_priority IS NULL) OR (route_priority >= 0)) AND ((route_sticky_agent_id IS NULL) OR (route_sticky_agent_id >= 0)) AND ((route_from_address IS NULL) OR (char_length(route_from_address) <= 320)))),
+    CONSTRAINT email_event_route_queue_valid CHECK ((((COALESCE(route_state, ''::text) <> ALL (ARRAY['joining'::text, 'routed'::text])) OR ((route_queue_id IS NOT NULL) AND (route_source IS NOT NULL))) AND ((COALESCE(route_state, ''::text) <> 'joining'::text) OR (route_source = 'flow'::text)) AND ((COALESCE(route_state, ''::text) <> ALL (ARRAY['pending'::text, 'resolving'::text])) OR ((route_queue_id IS NULL) AND (route_source IS NULL))))),
+    CONSTRAINT email_event_route_reason_valid CHECK (((COALESCE(route_state, ''::text) <> ALL (ARRAY['unrouted'::text, 'route_failed'::text])) OR (route_reason IS NOT NULL))),
+    CONSTRAINT email_event_route_source_valid CHECK (((route_source IS NULL) OR (route_source = ANY (ARRAY['flow'::text, 'fallback'::text])))),
+    CONSTRAINT email_event_route_state_valid CHECK (((route_state IS NULL) OR (route_state = ANY (ARRAY['not_needed'::text, 'pending'::text, 'joining'::text, 'resolving'::text, 'routed'::text, 'unrouted'::text, 'route_failed'::text])))),
+    CONSTRAINT email_event_route_values_valid CHECK ((((route_queue_id IS NULL) OR (route_queue_id > 0)) AND ((fallback_queue_id IS NULL) OR (fallback_queue_id > 0)) AND (route_attempts >= 0) AND ((route_last_error IS NULL) OR (char_length(route_last_error) <= 1024)))),
     CONSTRAINT email_event_state_valid CHECK ((state = ANY (ARRAY['pending'::text, 'processing'::text, 'accepted'::text, 'failed'::text]))),
     CONSTRAINT email_event_type_not_empty CHECK ((event_type <> ''::text))
 );
@@ -1443,6 +1466,13 @@ CREATE INDEX email_event_lease_idx ON flow.email_event USING btree (locked_until
 --
 
 CREATE INDEX email_event_ready_idx ON flow.email_event USING btree (next_attempt_at, created_at, event_id) WHERE (state = 'pending'::text);
+
+
+--
+-- Name: email_event_route_due_idx; Type: INDEX; Schema: flow; Owner: -
+--
+
+CREATE INDEX email_event_route_due_idx ON flow.email_event USING btree (route_next_at) WHERE (route_state = ANY (ARRAY['pending'::text, 'joining'::text, 'resolving'::text]));
 
 
 --
