@@ -23,10 +23,6 @@ const (
 )
 
 func (s *SqlMemberStore) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError) {
-	if in.Priority < 0 {
-		return nil, model.NewAppError("SqlMemberStore.EmailJoinToQueue", model.EmailJoinInvalidPriority, nil,
-			"Email priority must be nonnegative", http.StatusBadRequest)
-	}
 	var res model.EmailJoinResult
 
 	err := s.GetMaster().WithContext(ctx).SelectOne(&res, `select x.join_result, x.join_attempt_id, x.join_queue_id, x.join_requested_queue_id

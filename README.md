@@ -126,8 +126,9 @@ updated schema. Do not rerun only the original EM-21 migrations after this updat
 L4 follow-up: the full schema includes the two Email address indexes
 `cc_member_attempt_email_number_idx` and `cc_member_attempt_history_email_number_idx`.
 Existing installations apply `26.dev/email_last_bridged_indexes.sql` with psql
-outside a transaction after routing update/validation. It uses concurrent build
-and recovery of interrupted invalid indexes; see the runbook for precautions.
+outside a transaction after routing update/validation. It builds the history
+index concurrently and recovers an interrupted invalid one; see the runbook for
+precautions.
 Only L4 is included: no Extra-head index (L1) or head cache (P1-1).
 The index definitions have prior cloud-test evidence; this local follow-up and
 its recovery script have not been rerun, as requested. Earlier local catalog
