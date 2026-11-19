@@ -496,7 +496,11 @@ func (api *member) ProcessingFormSave(ctx context.Context, in *cc.ProcessingForm
 	return &cc.ProcessingFormSaveResponse{}, nil
 }
 
-func (api *member) Transfer(_ context.Context, in *cc.TransferRequest) (*cc.TransferResponse, error) {
+func (api *member) Transfer(ctx context.Context, in *cc.TransferRequest) (*cc.TransferResponse, error) {
+	if isEmailTransfer(in) {
+		return api.emailTransfer(ctx, in)
+	}
+
 	if (in.GetAgentId() == 0) == (in.GetQueueId() == 0) {
 		return nil, errors.New("exactly one of agent_id or queue_id is required")
 	}

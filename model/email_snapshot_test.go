@@ -33,6 +33,7 @@ func TestEmailSnapshotMarkerKeepsExplicitNullAttemptFields(t *testing.T) {
 	}
 	for _, name := range []string{
 		"attempt_id", "attempt_version", "attempt_state", "result", "queue_id", "agent_id", "agent_user_id", "postponed_until",
+		"actor_user_id", "comment", "transfer_to_queue_id", "transfer_to_user_id",
 	} {
 		if string(fields[name]) != "null" {
 			t.Errorf("%s = %s, want explicit null", name, fields[name])
