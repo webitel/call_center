@@ -243,7 +243,7 @@ func emailOperatorForm(op string, domainId, threadId int64, o *cc.EmailAttemptOp
 
 // emailFlowForm keys the command by the event that woke the Thread, so a Flow retry is deduplicated.
 func emailFlowForm(op string, domainId, threadId int64, f *cc.EmailAttemptFlow) (model.EmailAttemptCommand, error) {
-	if domainId <= 0 || threadId <= 0 || f == nil || !emailEventIdRe.MatchString(f.GetEmailEventId()) {
+	if domainId <= 0 || threadId <= 0 || f == nil || !model.IsEmailEventId(f.GetEmailEventId()) {
 		return model.EmailAttemptCommand{}, status.Error(codes.InvalidArgument, "domain_id, thread_id and a UUID email_event_id are required")
 	}
 
@@ -324,7 +324,7 @@ func emailAttemptStatus(ctx context.Context, err *model.AppError) error {
 
 // EmailWakeUp is called by flow_manager for every inbound Email event before its Flow.
 func (api *member) EmailWakeUp(ctx context.Context, in *cc.EmailWakeUpRequest) (*cc.EmailWakeUpResponse, error) {
-	if in.GetDomainId() <= 0 || in.GetThreadId() <= 0 || !emailEventIdRe.MatchString(in.GetEmailEventId()) {
+	if in.GetDomainId() <= 0 || in.GetThreadId() <= 0 || !model.IsEmailEventId(in.GetEmailEventId()) {
 		return nil, status.Error(codes.InvalidArgument, "domain_id, thread_id and a UUID email_event_id are required")
 	}
 

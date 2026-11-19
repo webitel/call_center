@@ -1,8 +1,7 @@
 -- Route of an email-service event in the flow_manager Inbox: the Flow may choose a queue until the
 -- deadline, after it the route watcher joins the fallback queue that call_center found at wake-up.
--- Run with psql -v ON_ERROR_STOP=1 -f after email_service_inbox.sql outside a transaction: the index
--- is built CONCURRENTLY, and psql runs the generated \gexec drop. Every step can be repeated. Rows
--- written before stay with route_state NULL.
+-- Run after email_service_inbox.sql. Every step can be repeated. Rows written before stay with
+-- route_state NULL.
 
 ALTER TABLE flow.email_event
     ADD COLUMN IF NOT EXISTS route_state        text,
@@ -87,15 +86,7 @@ ALTER TABLE flow.email_event
 -- Validate after the DDL statement commits.
 ALTER TABLE flow.email_event VALIDATE CONSTRAINT email_event_route_params_valid;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip; it is dropped
--- CONCURRENTLY too, so a repeated run does not lock the Inbox.
-SELECT 'DROP INDEX CONCURRENTLY flow.email_event_route_due_idx'
-FROM pg_index i
-WHERE i.indexrelid = to_regclass('flow.email_event_route_due_idx')
-  AND NOT i.indisvalid
-\gexec
-
 -- Unfinished routes in the order the route watcher takes them.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS email_event_route_due_idx
+CREATE INDEX IF NOT EXISTS email_event_route_due_idx
     ON flow.email_event (route_next_at)
     WHERE route_state IN ('pending', 'joining', 'resolving');

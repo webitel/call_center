@@ -2,7 +2,8 @@
 -- the Email Transfer to a queue or an agent, skill and preset locks before the attempt for a direct transfer,
 -- a resume and a wake-up, and the candidates of a direct transfer.
 -- Run with psql -v ON_ERROR_STOP=1 -f after email_status_sync.sql and email_route.sql, with Email writers
--- stopped and outside a transaction: the retention index is built CONCURRENTLY. Every step can be repeated.
+-- stopped and without an enclosing transaction: the file commits its own transaction. Every step can be
+-- repeated.
 
 DO $$
 BEGIN
@@ -1198,15 +1199,7 @@ BEGIN
 END;
 $$;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip.
-SELECT format('DROP INDEX CONCURRENTLY call_center.%I', c.relname)
-FROM pg_index i
-         JOIN pg_class c ON c.oid = i.indexrelid
-WHERE c.oid = to_regclass('call_center.cc_email_attempt_outbox_command_published_idx')
-  AND NOT i.indisvalid
-\gexec
-
 -- Published rows of commands that their retention may delete, oldest first.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_email_attempt_outbox_command_published_idx
+CREATE INDEX IF NOT EXISTS cc_email_attempt_outbox_command_published_idx
     ON call_center.cc_email_attempt_outbox (published_at)
     WHERE published_at IS NOT NULL AND command_id IS NOT NULL;

@@ -7,9 +7,8 @@ distribution, lifecycle and publisher flags off.
 
 1. Apply `email_attempt_transfer.sql` with `ON_ERROR_STOP` after
    `email_status_sync.sql` and `email_route.sql`, outside an enclosing
-   transaction: the retention index of command rows is built CONCURRENTLY.
-   The new outbox CHECKs are added NOT VALID and validated in separate
-   statements. The snapshot and command functions get new signatures in one
+   transaction: the file commits its own transaction, and the new outbox
+   CHECKs are added NOT VALID and validated in separate statements. The snapshot and command functions get new signatures in one
    transaction, without CASCADE. The file can be repeated.
 2. Deploy email-service with a consumer of `transferred`, `transfer_created` and
    `result = transfer` on every instance before the first Transfer; an older
@@ -37,8 +36,8 @@ snapshot publisher flags off throughout the upgrade.
    nonnegative int32 priority; pending/fallback defaults and frozen Flow intents
    remain unchanged. The route-parameter CHECK is added NOT VALID, then validated
    in a separate statement after the DDL commits. Other existing CHECKs still
-   validate inline. Both files use CONCURRENTLY indexes and must not be wrapped
-   in another transaction.
+   validate inline. Do not wrap either file in another transaction: status sync
+   commits its own transaction and route validation follows the DDL commit.
 4. Deploy email-service with the compatible snapshot consumer first, engine with
    Email limits, then every call_center node with its flags off, then Flow.
    Flow needs both the widened SQL range and the fallback-aware wake-up API.
@@ -79,8 +78,8 @@ For an upgrade from EM-21, after resolving the extension source state below:
 3. Apply shared prepare, validate and runtime from this release in that
    order. The original EM-21 files target the previous three-array interface.
 4. Apply `store/sqlstore/migration/26.dev/email_attempt_lifecycle.sql` with
-   `ON_ERROR_STOP` outside an enclosing transaction. It contains CONCURRENTLY
-   indexes and generated gexec commands; on failure keep writers stopped.
+   `ON_ERROR_STOP` outside an enclosing transaction: the file commits its own
+   transactions. On failure keep writers stopped.
 5. Continue with status-sync/route migrations above before deploying the complete
    EM-24 release and enabling its flags.
 
@@ -189,7 +188,8 @@ Email prerequisites in order: `email_queue_join.sql`,
 already completed; never replay this baseline over lifecycle or status sync.
 All paths are relative to `store/sqlstore/migration/26.dev/`. Use psql with
 `ON_ERROR_STOP`, outside an enclosing transaction; the validation follows the
-routing DDL commit and index maintenance uses CONCURRENTLY and psql gexec.
+routing DDL commit, and the history address index is built CONCURRENTLY with
+psql gexec.
 
 The first routing update refuses existing Email attempts when adding the slot
 model, including leaving rows not yet archived. Stop Email writers on all nodes,
