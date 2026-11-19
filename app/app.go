@@ -156,7 +156,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine.Start()
 
 	// Email polls in a separate transaction; lifecycle and events are required before enablement.
-	if qs := app.Config().QueueSettings; qs.EmailDistribution {
+	if qs := app.Config().EmailSettings; qs.EmailDistribution {
 		settings := engine.EmailDistributorSettings{
 			Interval:         qs.EmailDistributionInterval,
 			QueueBatch:       qs.EmailDistributionQueueBatch,

@@ -15,27 +15,18 @@ import (
 // EmailDistribute runs cc_email_distribute in a short transaction; maxDuration lets the cycle
 // commit its work before the timeouts, which only guard against a stuck cycle.
 func (s *SqlMemberStore) EmailDistribute(ctx context.Context, queueBatch int, maxDuration, lockTimeout, statementTimeout time.Duration) ([]*model.EmailDistributeResult, *model.AppError) {
-	// Begin waits for a pooled connection only until ctx expires.
-	tx, err := s.GetMaster().WithContext(ctx).(*gorp.DbMap).Begin()
-	if err != nil {
-		return nil, emailDistributeError(ctx, err)
-	}
-	defer tx.Rollback()
-
-	ex := tx.WithContext(ctx)
-	if _, err = ex.Exec(`select set_config('lock_timeout', $1, true), set_config('statement_timeout', $2, true)`,
-		strconv.FormatInt(lockTimeout.Milliseconds(), 10), strconv.FormatInt(statementTimeout.Milliseconds(), 10)); err != nil {
-		return nil, emailDistributeError(ctx, err)
-	}
-
 	var res []*model.EmailDistributeResult
-	if _, err = ex.Select(&res, `select result, queue_id, attempt_id, agent_id
+	err := s.WithTransaction(ctx, func(ex gorp.SqlExecutor) error {
+		if _, err := ex.Exec(`select set_config('lock_timeout', $1, true), set_config('statement_timeout', $2, true)`,
+			strconv.FormatInt(lockTimeout.Milliseconds(), 10), strconv.FormatInt(statementTimeout.Milliseconds(), 10)); err != nil {
+			return err
+		}
+		_, err := ex.Select(&res, `select result, queue_id, attempt_id, agent_id
 from call_center.cc_email_distribute(:QueueBatch::int4, make_interval(secs => :MaxSec::float8))`,
-		map[string]any{"QueueBatch": queueBatch, "MaxSec": maxDuration.Seconds()}); err != nil {
-		return nil, emailDistributeError(ctx, err)
-	}
-
-	if err = tx.Commit(); err != nil {
+			map[string]any{"QueueBatch": queueBatch, "MaxSec": maxDuration.Seconds()})
+		return err
+	})
+	if err != nil {
 		return nil, emailDistributeError(ctx, err)
 	}
 
