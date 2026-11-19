@@ -20,6 +20,7 @@ type App interface {
 	GetCall(id string) (*model.Call, *model.AppError)
 	GetChat(id string) (*chat.Conversation, *model.AppError)
 	QueueSettings() model.QueueSettings
+	EmailSettings() model.EmailSettings
 	NotificationHideMember(domainId int64, queueId int, memberId *int64, agentId int) *model.AppError
 	NotificationInterceptAttempt(domainId int64, queueId int, channel string, attemptId int64, skipAgentId int32) *model.AppError
 	NotificationWaitingList(e *model.MemberWaitingByUsers) *model.AppError
