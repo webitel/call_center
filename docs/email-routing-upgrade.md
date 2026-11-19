@@ -10,8 +10,8 @@ For an upgrade from EM-21:
 3. Apply shared prepare, validate and runtime from this EM-23 branch in that
    order. The original EM-21 files target the previous three-array interface.
 4. Apply `store/sqlstore/migration/26.dev/email_attempt_lifecycle.sql` with
-   `ON_ERROR_STOP` outside an enclosing transaction. It contains CONCURRENTLY
-   indexes and generated gexec commands; on failure keep writers stopped.
+   `ON_ERROR_STOP` outside an enclosing transaction: the file commits its own
+   transactions. On failure keep writers stopped.
 5. Deploy compatible engine/call_center, then Flow. EM-24 adaptation and release
    verification must finish before enabling the flags.
 
@@ -164,8 +164,7 @@ Do not change Call/Chat/IM configuration or data for this upgrade.
 
 For a migration-based clean installation, first apply the existing prerequisites
 and `email_queue_join.sql`, then `email_agent_distribution.sql`, using
-`psql -v ON_ERROR_STOP=1 -f` outside an enclosing transaction: the original files
-build indexes `CONCURRENTLY`. Finally apply:
+`psql -v ON_ERROR_STOP=1 -f`. Finally apply:
 
 ```sh
 psql -v ON_ERROR_STOP=1 -f store/sqlstore/migration/26.dev/email_routing_update.sql
@@ -212,9 +211,11 @@ psql -v ON_ERROR_STOP=1 -f store/sqlstore/migration/26.dev/email_last_bridged_in
 ```
 
 Use psql autocommit, not `BEGIN`, `--single-transaction` or a transactional
-migration wrapper. The file uses psql `\gexec` to drop only the two named invalid
-indexes, on their expected tables, as separate `DROP INDEX CONCURRENTLY`
-commands; then `CREATE INDEX CONCURRENTLY IF NOT EXISTS` builds the indexes.
+migration wrapper: the history index is built `CONCURRENTLY`, as
+`cc_member_attempt_history` can be large. The index on the active
+`cc_member_attempt` table is a plain `CREATE INDEX IF NOT EXISTS`. Before the
+history build, psql `\gexec` drops only an invalid history index left by an
+interrupted build, as a separate `DROP INDEX CONCURRENTLY` command.
 After a failed/interrupted build, investigate the cause and rerun the file.
 A completed first index is retained if the second build fails. Serialize runs
 of this migration; do not run concurrent index maintenance on these tables.
@@ -230,7 +231,7 @@ The keys are `(domain_id, (destination->>'number'), leaving_at DESC)`;
 the active-table predicate is `channel='email' AND state='leaving'`, the history
 predicate is `channel='email'`. Only Email rows are indexed; lookup SQL, routing
 functions, history columns and other-channel rules are unchanged. Normal DML
-can continue during concurrent builds, but history is scanned and the build
+can continue during the concurrent history build, but history is scanned and the build
 adds IO/CPU load, can wait for transactions and increases Email write/index
 maintenance costs. Schedule outside peak hours and monitor available disk.
 

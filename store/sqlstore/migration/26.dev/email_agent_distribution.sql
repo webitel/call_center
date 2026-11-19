@@ -1,5 +1,4 @@
 -- Inbound Email distribution: per-agent Email limit, Email channel rows and sticky deadline.
--- Run with psql -v ON_ERROR_STOP=1 -f outside a transaction: the indexes are built CONCURRENTLY.
 
 -- Hard limit of concurrently assigned Email attempts; 0 keeps Email off for the agent.
 ALTER TABLE call_center.cc_agent
@@ -982,46 +981,26 @@ BEGIN
 END;
 $$;
 
--- A failed CONCURRENTLY build leaves an invalid index that IF NOT EXISTS would skip.
-DO $$
-DECLARE
-    _name text;
-BEGIN
-    FOREACH _name IN ARRAY ARRAY ['cc_member_attempt_email_agent_idx', 'cc_member_attempt_email_queue_idx',
-        'cc_member_attempt_email_undecided_idx', 'cc_member_attempt_email_sticky_idx', 'cc_member_attempt_email_sticky_until_idx']
-    LOOP
-        IF EXISTS (
-            SELECT 1
-            FROM pg_index i
-            WHERE i.indexrelid = to_regclass('call_center.' || _name)
-              AND NOT i.indisvalid
-        ) THEN
-            EXECUTE format('DROP INDEX call_center.%I', _name);
-        END IF;
-    END LOOP;
-END
-$$;
-
 -- Used Email slots of an agent; state is kept for the future postponed exclusion.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_agent_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_agent_idx
     ON call_center.cc_member_attempt (agent_id) INCLUDE (state)
     WHERE channel = 'email' AND agent_id IS NOT NULL AND leaving_at IS NULL;
 
 -- General order of waiting Emails of a Queue: High, then oldest.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_queue_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_queue_idx
     ON call_center.cc_member_attempt (queue_id, weight DESC, joined_at, id)
     WHERE channel = 'email' AND state = 'waiting' AND agent_id IS NULL AND leaving_at IS NULL AND sticky_agent_id IS NULL;
 
 -- Waiting Emails without a sticky decision yet, oldest first.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_undecided_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_undecided_idx
     ON call_center.cc_member_attempt (queue_id, joined_at, id)
     WHERE channel = 'email' AND state = 'waiting' AND agent_id IS NULL AND leaving_at IS NULL AND sticky_until IS NULL;
 
 -- Emails waiting for their previous agent: per agent in order, and by the end of the wait.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_sticky_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_sticky_idx
     ON call_center.cc_member_attempt (queue_id, sticky_agent_id, weight DESC, joined_at, id)
     WHERE channel = 'email' AND state = 'waiting' AND agent_id IS NULL AND leaving_at IS NULL AND sticky_agent_id IS NOT NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS cc_member_attempt_email_sticky_until_idx
+CREATE INDEX IF NOT EXISTS cc_member_attempt_email_sticky_until_idx
     ON call_center.cc_member_attempt (queue_id, sticky_until)
     WHERE channel = 'email' AND state = 'waiting' AND agent_id IS NULL AND leaving_at IS NULL AND sticky_agent_id IS NOT NULL;

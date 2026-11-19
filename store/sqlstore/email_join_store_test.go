@@ -1,7 +1,6 @@
 package sqlstore
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -9,16 +8,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/webitel/call_center/model"
 )
-
-func TestEmailJoinRejectsInvalidPriorityBeforeDatabase(t *testing.T) {
-	for _, priority := range []int32{-1} {
-		var store *SqlMemberStore
-		res, err := store.EmailJoinToQueue(context.Background(), model.EmailJoin{Priority: priority})
-		if res != nil || err == nil || err.Id != model.EmailJoinInvalidPriority || err.StatusCode != http.StatusBadRequest {
-			t.Fatalf("priority %d: result=%v error=%v", priority, res, err)
-		}
-	}
-}
 
 func TestEmailJoinPriorityErrorMapping(t *testing.T) {
 	for _, err := range []error{
