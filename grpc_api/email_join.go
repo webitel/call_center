@@ -16,10 +16,14 @@ import (
 // EmailJoinToQueue maps the request to model.EmailJoin, which validates itself in the Manager.
 func (api *member) EmailJoinToQueue(ctx context.Context, in *cc.EmailJoinToQueueRequest) (*cc.EmailJoinToQueueResponse, error) {
 	join := model.EmailJoin{
-		EventId:  in.GetEmailEventId(),
-		DomainId: in.GetDomainId(),
-		ThreadId: in.GetThreadId(),
-		QueueId:  in.GetQueueId(),
+		EventId:         in.GetEmailEventId(),
+		DomainId:        in.GetDomainId(),
+		ThreadId:        in.GetThreadId(),
+		QueueId:         in.GetQueueId(),
+		Priority:        in.GetPriority(),
+		StickyAgentId:   in.GetStickyAgentId(),
+		ExtraEmailCount: in.GetExtraEmailCount(),
+		FromAddress:     in.GetFromAddress(),
 	}
 
 	res, err := api.app.Queue().Manager().EmailJoinToQueue(ctx, join)

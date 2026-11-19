@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/webitel/engine/pkg/discovery"
 
@@ -60,6 +61,9 @@ type MemberStore interface {
 	DistributeOutboundCall(node, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 	// EmailJoinToQueue puts an email-service Thread into an Inbound Email Queue once per event.
 	EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError)
+	// EmailDistribute runs one Email distribution cycle in its own transaction; the cycle stops
+	// itself after maxDuration and keeps its assignments.
+	EmailDistribute(ctx context.Context, queueBatch int, maxDuration, lockTimeout, statementTimeout time.Duration) ([]*model.EmailDistributeResult, *model.AppError)
 
 	/*
 		Flow control
