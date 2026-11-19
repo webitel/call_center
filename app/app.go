@@ -158,7 +158,7 @@ func New(options ...string) (outApp *App, outErr error) {
 	app.engine.Start()
 
 	// Email polls in a separate transaction; lifecycle and events are required before enablement.
-	if qs := app.Config().QueueSettings; qs.EmailDistribution {
+	if qs := app.Config().EmailSettings; qs.EmailDistribution {
 		settings := engine.EmailDistributorSettings{
 			Interval:         qs.EmailDistributionInterval,
 			QueueBatch:       qs.EmailDistributionQueueBatch,
@@ -172,7 +172,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.emailDist.Start()
 	}
 	// Releases offers and applies deadlines; off until Workspace can see the transitions.
-	if qs := app.Config().QueueSettings; qs.EmailLifecycle {
+	if qs := app.Config().EmailSettings; qs.EmailLifecycle {
 		settings := engine.EmailLifecycleSettings{
 			Interval:         qs.EmailLifecycleInterval,
 			Batch:            qs.EmailLifecycleBatch,
@@ -186,7 +186,7 @@ func New(options ...string) (outApp *App, outErr error) {
 		app.emailLifecycle.Start()
 	}
 	// Sends Email attempt snapshots to email-service; off until its consumer queue exists.
-	if qs := app.Config().QueueSettings; qs.EmailAttemptPublisher {
+	if qs := app.Config().EmailSettings; qs.EmailAttemptPublisher {
 		settings := engine.EmailPublisherSettings{
 			Interval:         qs.EmailAttemptPublisherInterval,
 			Batch:            qs.EmailAttemptPublisherBatch,
@@ -247,6 +247,10 @@ func (app *App) Master() bool {
 
 func (app *App) QueueSettings() model.QueueSettings {
 	return app.Config().QueueSettings
+}
+
+func (app *App) EmailSettings() model.EmailSettings {
+	return app.Config().EmailSettings
 }
 
 func (app *App) Shutdown() {

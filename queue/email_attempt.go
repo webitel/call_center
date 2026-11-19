@@ -19,7 +19,7 @@ func (qm *Manager) EmailAttemptCommand(ctx context.Context, cmd model.EmailAttem
 		wlog.Int64("email_thread_id", cmd.ThreadId),
 	)
 
-	res, err := qm.store.Member().EmailAttemptCommand(ctx, cmd, qm.app.QueueSettings().EmailCommandLockTimeout)
+	res, err := qm.store.Member().EmailAttemptCommand(ctx, cmd, qm.app.EmailSettings().EmailCommandLockTimeout)
 	if err != nil {
 		log.Warn("email attempt command failed", wlog.String("error_id", err.Id), wlog.Err(err))
 		return nil, err
@@ -46,7 +46,7 @@ func (qm *Manager) EmailAttemptTransfer(ctx context.Context, cmd model.EmailAtte
 		wlog.Int64("attempt_id", cmd.AttemptId),
 	)
 
-	res, err := qm.store.Member().EmailAttemptTransfer(ctx, cmd, qm.app.QueueSettings().EmailCommandLockTimeout)
+	res, err := qm.store.Member().EmailAttemptTransfer(ctx, cmd, qm.app.EmailSettings().EmailCommandLockTimeout)
 	if err != nil {
 		log.Warn("email attempt transfer failed", wlog.String("error_id", err.Id), wlog.Err(err))
 		return nil, err
@@ -71,7 +71,7 @@ func (qm *Manager) EmailWakeUp(ctx context.Context, in model.EmailWakeUp) (*mode
 		wlog.Int64("email_thread_id", in.ThreadId),
 	)
 
-	res, err := qm.store.Member().EmailWakeUp(ctx, in, qm.app.QueueSettings().EmailCommandLockTimeout)
+	res, err := qm.store.Member().EmailWakeUp(ctx, in, qm.app.EmailSettings().EmailCommandLockTimeout)
 	if err != nil {
 		log.Warn("email wake-up failed", wlog.String("error_id", err.Id), wlog.Err(err))
 		return nil, err

@@ -22,7 +22,7 @@ func (qm *Manager) EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*m
 		return nil, err
 	}
 
-	res, err := qm.store.Member().EmailJoinToQueue(ctx, in, qm.app.QueueSettings().EmailCommandLockTimeout)
+	res, err := qm.store.Member().EmailJoinToQueue(ctx, in, qm.app.EmailSettings().EmailCommandLockTimeout)
 	if err != nil {
 		return nil, err
 	}
