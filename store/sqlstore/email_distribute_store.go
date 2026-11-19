@@ -48,23 +48,13 @@ from call_center.cc_email_lifecycle_watch(:Batch::int4, make_interval(secs => :M
 
 // inEmailCycleTx runs fn in a short transaction with transaction-local lock and statement timeouts.
 func (s *SqlMemberStore) inEmailCycleTx(ctx context.Context, lockTimeout, statementTimeout time.Duration, fn func(ex gorp.SqlExecutor) error) error {
-	// Begin waits for a pooled connection only until ctx expires.
-	tx, err := s.GetMaster().WithContext(ctx).(*gorp.DbMap).Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	ex := tx.WithContext(ctx)
-	if _, err = ex.Exec(`select set_config('lock_timeout', $1, true), set_config('statement_timeout', $2, true)`,
-		strconv.FormatInt(lockTimeout.Milliseconds(), 10), strconv.FormatInt(statementTimeout.Milliseconds(), 10)); err != nil {
-		return err
-	}
-	if err = fn(ex); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return s.WithTransaction(ctx, func(ex gorp.SqlExecutor) error {
+		if _, err := ex.Exec(`select set_config('lock_timeout', $1, true), set_config('statement_timeout', $2, true)`,
+			strconv.FormatInt(lockTimeout.Milliseconds(), 10), strconv.FormatInt(statementTimeout.Milliseconds(), 10)); err != nil {
+			return err
+		}
+		return fn(ex)
+	})
 }
 
 // emailCycleOutcome is the failure kind kept in the error id, so the caller can back off on timeouts.

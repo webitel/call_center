@@ -68,21 +68,12 @@ from call_center.cc_email_wakeup_thread(:EventId::uuid, :DomainId::int8, :Thread
 
 // inEmailTx runs fn in a short transaction whose lock waits are bounded by lockTimeout.
 func (s *SqlMemberStore) inEmailTx(ctx context.Context, lockTimeout time.Duration, fn func(ex gorp.SqlExecutor) error) error {
-	tx, err := s.GetMaster().WithContext(ctx).(*gorp.DbMap).Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	ex := tx.WithContext(ctx)
-	if _, err = ex.Exec(`select set_config('lock_timeout', $1, true)`, strconv.FormatInt(lockTimeout.Milliseconds(), 10)); err != nil {
-		return err
-	}
-	if err = fn(ex); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return s.WithTransaction(ctx, func(ex gorp.SqlExecutor) error {
+		if _, err := ex.Exec(`select set_config('lock_timeout', $1, true)`, strconv.FormatInt(lockTimeout.Milliseconds(), 10)); err != nil {
+			return err
+		}
+		return fn(ex)
+	})
 }
 
 // emailLifecycleError gives a stable error id; grpc_api maps the id to a gRPC code.

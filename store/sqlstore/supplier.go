@@ -193,6 +193,22 @@ func (ss *SqlSupplier) GetMaster() *gorp.DbMap {
 	return ss.master
 }
 
+// WithTransaction runs fn in a master transaction bound to ctx: Begin waits for a pooled connection
+// only until ctx expires, and the transaction rolls back when fn fails and commits otherwise.
+func (ss *SqlSupplier) WithTransaction(ctx context.Context, fn func(ex gorp.SqlExecutor) error) error {
+	// gorp's WithContext returns a SqlExecutor, while Begin is only on *DbMap.
+	tx, err := ss.master.WithContext(ctx).(*gorp.DbMap).Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err = fn(tx.WithContext(ctx)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (ss *SqlSupplier) GetReplica() *gorp.DbMap {
 	if len(ss.settings.DataSourceReplicas) == 0 || ss.lockedToMaster {
 		return ss.GetMaster()

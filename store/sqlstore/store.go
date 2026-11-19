@@ -1,6 +1,8 @@
 package sqlstore
 
 import (
+	"context"
+
 	_ "github.com/lib/pq"
 	"github.com/webitel/call_center/store"
 
@@ -11,6 +13,8 @@ type SqlStore interface {
 	GetMaster() *gorp.DbMap
 	GetReplica() *gorp.DbMap
 	GetAllConns() []*gorp.DbMap
+	// WithTransaction runs fn in a master transaction bound to ctx.
+	WithTransaction(ctx context.Context, fn func(ex gorp.SqlExecutor) error) error
 
 	Cluster() store.ClusterStore
 	Queue() store.QueueStore
