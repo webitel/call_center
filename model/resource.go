@@ -102,6 +102,7 @@ type BridgeRequest struct {
 	Recordings bool
 	RecordMono bool
 	RecordAll  bool
+	RecordUri  string
 }
 
 func (g *SipGateway) Bridge(params BridgeRequest) string {
@@ -140,9 +141,8 @@ func (g *SipGateway) Bridge(params BridgeRequest) string {
 	}
 
 	if params.Recordings {
-		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_MIN_SEC=2,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=wbt_record_session http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s&.%s",
-			params.RecordAll, params.RecordAll, !params.RecordMono,
-			g.DomainId, params.ParentId, CallRecordFileTemplate, "mp3"))
+		res = append(res, fmt.Sprintf("hangup_after_bridge=true,recording_follow_transfer=true,RECORD_MIN_SEC=2,RECORD_BRIDGE_REQ=%v,media_bug_answer_req=%v,RECORD_STEREO=%v,execute_on_answer=wbt_record_session %s",
+			params.RecordAll, params.RecordAll, !params.RecordMono, params.RecordUri))
 	}
 
 	vars := g.Variables()

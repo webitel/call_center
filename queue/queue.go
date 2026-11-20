@@ -125,12 +125,12 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 			Id:   *settings.RingtoneId,
 			Type: *settings.RingtoneType,
 		}
-		base.ringtoneUri = model.NewString(model.RingtoneUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
+		base.ringtoneUri = model.NewString(queueManager.callManager.MediaUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
 	}
 
 	if settings.AmdPlaybackFile != nil {
 		base.amdPlaybackFile = settings.AmdPlaybackFile
-		base.amdPlaybackFileUri = model.NewString(model.RingtoneUri(base.domainId, settings.AmdPlaybackFile.Id, settings.AmdPlaybackFile.Type))
+		base.amdPlaybackFileUri = model.NewString(queueManager.callManager.MediaUri(base.domainId, settings.AmdPlaybackFile.Id, settings.AmdPlaybackFile.Type))
 	}
 
 	if settings.GranteeId != nil {
