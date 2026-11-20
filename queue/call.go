@@ -75,6 +75,12 @@ func (queue *CallingQueue) SetHoldMusic(callRequest *model.CallRequest) {
 	}
 }
 
+func (queue *CallingQueue) SetAgentRingtone(callRequest *model.CallRequest) {
+	if queue.agentRingtone != "" {
+		callRequest.Variables[model.QUEUE_AGENT_RINGTONE_FIELD] = queue.agentRingtone
+	}
+}
+
 func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model.QueueAmdSettings, onHuman string) bool {
 	if amd == nil || !amd.Enabled {
 		return false
@@ -206,13 +212,10 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 	}
 
 	queue.SetHoldMusic(cr)
+	queue.SetAgentRingtone(cr)
 
 	if queue.id > 0 {
 		cr.Variables[model.QUEUE_ID_FIELD] = fmt.Sprintf("%d", queue.Id())
-	}
-
-	if queue.agentRingtone != "" {
-		cr.Variables[model.QUEUE_AGENT_RINGTONE_FIELD] = queue.agentRingtone
 	}
 
 	if attempt.MemberId() != nil {
