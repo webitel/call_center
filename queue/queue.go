@@ -84,6 +84,7 @@ type BaseQueue struct {
 	prolongationSec            uint32
 	isProlongationTimeoutRetry bool
 	processingAutosave         bool
+	agentRingtone              string
 }
 
 func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, settings *model.Queue) BaseQueue {
@@ -126,6 +127,10 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 			Type: *settings.RingtoneType,
 		}
 		base.ringtoneUri = model.NewString(model.RingtoneUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
+	}
+
+	if settings.AgentRingtone != nil {
+		base.agentRingtone = *settings.AgentRingtone
 	}
 
 	if settings.AmdPlaybackFile != nil {
