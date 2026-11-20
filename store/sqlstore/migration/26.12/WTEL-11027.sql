@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION flow.calendar_check_timing(domain_id_ bigint, calendar_id_ integer, name_ character varying) RETURNS record
-    LANGUAGE plpgsql IMMUTABLE
+    LANGUAGE plpgsql STABLE
     AS $$
 declare
         res record;
@@ -17,7 +17,7 @@ begin
                ) end              accept,
            case
                when c.start_at > 0 and c.end_at > 0 then
-                   not current_date AT TIME ZONE ct.sys_name between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date + interval '1d'
+                   not (current_timestamp AT TIME ZONE ct.sys_name)::date between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date + interval '1d'
                else false end as expire
     into res
     from flow.calendar c
@@ -25,7 +25,7 @@ begin
              left join lateral (
                  select count(*) > 0 as has_except,
                         coalesce(bool_or(x.working is true and (to_char(current_timestamp AT TIME ZONE ct.sys_name, 'SSSS') :: int / 60) between x.work_start and x.work_stop), false) as open,
-                        min(x.name)::varchar as name
+                        (array_agg(x.name) filter (where not (x.working is true and (to_char(current_timestamp AT TIME ZONE ct.sys_name, 'SSSS') :: int / 60) between x.work_start and x.work_stop)))[1]::varchar as name
                  from unnest(c.excepts) as x
                  where not x.disabled is true
                    and case
