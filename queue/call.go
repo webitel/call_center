@@ -220,7 +220,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		cr.Applications = append([]*model.CallRequestApplication{
 			{
 				AppName: "playback",
-				Args:    model.RingtoneUri(agent.DomainId(), agent.GreetingMedia().Id, agent.GreetingMedia().Type),
+				Args:    queue.CallManager().MediaUri(agent.DomainId(), agent.GreetingMedia().Id, agent.GreetingMedia().Type),
 			},
 		}, apps...)
 	} else {

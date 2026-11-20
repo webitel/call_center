@@ -386,7 +386,7 @@ func (qm *Manager) DistributeCall(_ context.Context, in *cc.CallJoinToQueueReque
 	ringtone := ""
 	if in.WaitingMusic != nil {
 		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
-			ringtone = fmt.Sprintf("wbt_queue_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
+			ringtone = fmt.Sprintf("wbt_queue_playback::%s", qm.callManager.MediaUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
 		}
 	}
 
@@ -530,7 +530,7 @@ func (qm *Manager) DistributeCallToAgent(ctx context.Context, in *cc.CallJoinToA
 	ringtone := ""
 	if in.WaitingMusic != nil {
 		if in.WaitingMusic.Id != 0 && in.WaitingMusic.Type != "" {
-			ringtone = fmt.Sprintf("wbt_queue_playback::%s", model.RingtoneUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
+			ringtone = fmt.Sprintf("wbt_queue_playback::%s", qm.callManager.MediaUri(in.DomainId, int(in.WaitingMusic.Id), in.WaitingMusic.Type))
 		}
 	}
 

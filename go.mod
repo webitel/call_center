@@ -14,9 +14,11 @@ require (
 	github.com/webitel/engine/pkg/discovery v0.0.0-20260826062815-ac09649ed0d9
 	github.com/webitel/engine/pkg/wbt v0.0.0-20261027095731-a9df619bd3f4
 	github.com/webitel/flow_manager/pkg/processing v0.0.0-20260415062234-4c9c9dd0c156
+	github.com/webitel/storage/pkg/sysurl v0.1.0
 	github.com/webitel/webitel-go-kit/infra/health v0.3.0
 	github.com/webitel/webitel-go-kit/infra/otel v0.6.0
 	github.com/webitel/webitel-go-kit/pkg/hostaddr v0.1.0
+	github.com/webitel/webitel-go-kit/pkg/presign v0.1.0
 	github.com/webitel/wlog v0.0.0-20260929140055-f81a38037840
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
@@ -63,6 +65,8 @@ require (
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/webitel/crypto/cryptobox v0.3.1 // indirect
+	github.com/webitel/crypto/env v0.2.0 // indirect
 	github.com/webitel/webitel-go-kit/pkg/logging v0.1.0 // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -89,6 +93,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
