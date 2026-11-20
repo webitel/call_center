@@ -25,7 +25,7 @@ func TestCallManager(t *testing.T) {
 		return true, nil
 	})
 
-	cm := NewCallManager(TEST_NODE_ID, service, mq, &wlog.Logger{})
+	cm := NewCallManager(TEST_NODE_ID, service, mq, nil, &wlog.Logger{})
 	cm.Start()
 
 	var i = 0

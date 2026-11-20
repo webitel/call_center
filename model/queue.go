@@ -77,21 +77,6 @@ type RingtoneFile struct {
 	Type string `json:"type"`
 }
 
-func (r *RingtoneFile) Uri(domainId int64) string {
-	return RingtoneUri(domainId, r.Id, r.Type)
-}
-
-func RingtoneUri(domainId int64, id int, mimeType string) string {
-	switch mimeType {
-	case "audio/mp3", "audio/mpeg":
-		return fmt.Sprintf("shout://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.mp3", id, domainId)
-	case "audio/wav":
-		return fmt.Sprintf("http_cache://http://$${cdr_url}/sys/media/%d/stream?domain_id=%d&.wav", id, domainId)
-	default:
-		return ""
-	}
-}
-
 var ToneList = map[string]string{
 	"none":       "",
 	"default":    "L=1;%(500,500,1000)",

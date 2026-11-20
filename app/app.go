@@ -12,11 +12,13 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/webitel/engine/pkg/wbt/flow"
+	"github.com/webitel/storage/pkg/sysurl"
 	"github.com/webitel/webitel-go-kit/infra/health"
 	healthhttp "github.com/webitel/webitel-go-kit/infra/health/http"
 	"github.com/webitel/webitel-go-kit/infra/health/sdnotify"
 	otelhealth "github.com/webitel/webitel-go-kit/infra/otel/instrumentation/health"
 	otelsdk "github.com/webitel/webitel-go-kit/infra/otel/sdk"
+	"github.com/webitel/webitel-go-kit/pkg/presign"
 	"github.com/webitel/wlog"
 
 	"github.com/webitel/call_center/agent_manager"
@@ -177,7 +179,16 @@ func New(options ...string) (outApp *App, outErr error) {
 		return nil, err
 	}
 
-	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ, app.Log)
+	mac, err := presign.NewMAC()
+	if err != nil {
+		return nil, errors.Wrap(err, "sys url signer")
+	}
+	sysURL, err := sysurl.NewBuilder(mac)
+	if err != nil {
+		return nil, err
+	}
+
+	app.callManager = call_manager.NewCallManager(app.GetInstanceId(), app.Cluster().ServiceDiscovery(), app.MQ, sysURL, app.Log)
 	app.callManager.Start()
 
 	app.engine = engine.NewEngine(app, *app.id, app.Store, app.Config().QueueSettings.EnableOmnichannel,

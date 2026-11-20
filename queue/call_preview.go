@@ -196,6 +196,7 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 			Recordings:  recordings,
 			RecordMono:  recordMono,
 			RecordAll:   recordAll,
+			RecordUri:   queue.CallManager().RecordSessionUri(attempt.resource.Gateway().DomainId, call.Id()),
 		}),
 	})
 
