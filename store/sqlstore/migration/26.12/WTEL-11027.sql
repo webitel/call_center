@@ -17,7 +17,7 @@ begin
                ) end              accept,
            case
                when c.start_at > 0 and c.end_at > 0 then
-                   not (current_timestamp AT TIME ZONE ct.sys_name)::date between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date + interval '1d'
+                   not (current_timestamp AT TIME ZONE ct.sys_name)::date between (to_timestamp(c.start_at / 1000) at time zone ct.sys_name)::date and (to_timestamp(c.end_at / 1000) at time zone ct.sys_name)::date
                else false end as expire
     into res
     from flow.calendar c
