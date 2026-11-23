@@ -157,6 +157,8 @@ func (queue *PreviewCallQueue) run(team *agentTeam, attempt *Attempt, agent agen
 		callRequest.SetAutoDtmf(*attempt.communication.Dtmf)
 	}
 
+	queue.SetAgentRingtone(callRequest)
+
 	call, err := queue.NewCall(callRequest)
 	if err != nil {
 		attempt.Log(err.Error())
