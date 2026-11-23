@@ -10897,7 +10897,11 @@ CREATE TABLE call_center.cc_quick_reply (
     article bigint,
     domain_id bigint NOT NULL,
     teams bigint[],
-    queues integer[]
+    queues integer[],
+    channel text DEFAULT ''::text NOT NULL,
+    html text DEFAULT ''::text NOT NULL,
+    CONSTRAINT cc_quick_reply_channel_c CHECK ((channel = ANY (ARRAY[''::text, 'email'::text]))),
+    CONSTRAINT cc_quick_reply_html_c CHECK (((channel = 'email'::text) OR (html = ''::text)))
 );
 
 
@@ -10946,7 +10950,9 @@ CREATE VIEW call_center.cc_quick_reply_list AS
             WHEN (COALESCE(array_length(a.queues, 1), 0) > 0) THEN 1
             WHEN (COALESCE(array_length(a.teams, 1), 0) > 0) THEN 2
             ELSE 3
-        END) AS sort_priority
+        END) AS sort_priority,
+    a.channel,
+    a.html
    FROM ((call_center.cc_quick_reply a
      LEFT JOIN directory.wbt_user uc ON ((uc.id = a.created_by)))
      LEFT JOIN directory.wbt_user uu ON ((uu.id = a.updated_by)));
