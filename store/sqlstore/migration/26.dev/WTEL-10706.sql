@@ -7,16 +7,23 @@ create index if not exists cc_audit_rate_call_root_id_idx
 -- With many existing rates, create this index after WTEL-10706-backfill.sql instead,
 -- using "create index concurrently": maintaining it during the backfill slows the updates.
 
-create or replace function call_center.cc_call_root_id(_id uuid)
-    returns uuid
+create or replace function call_center.cc_call_root(_id uuid, _created_at timestamptz default null)
+    returns table
+            (
+                id         uuid,
+                created_at timestamptz
+            )
     language sql
     stable
+    rows 1
 as
 $$
 with recursive up as (
     select h.id, h.parent_id, h.created_at, 0 as depth
     from call_center.cc_calls_history h
     where h.id = _id
+      and h.created_at > coalesce(_created_at, '-infinity'::timestamptz) - interval '1 day'
+      and h.created_at < coalesce(_created_at, 'infinity'::timestamptz) + interval '1 day'
     union all
     select h.id, h.parent_id, h.created_at, up.depth + 1
     from up
@@ -26,13 +33,13 @@ with recursive up as (
                       and h.created_at > up.created_at - interval '1 day'
     where up.depth < 16
 )
-select up.id
+select up.id, up.created_at
 from up
 order by up.depth desc
 limit 1
 $$;
 
-create or replace function call_center.cc_call_family(_root_id uuid)
+create or replace function call_center.cc_call_family(_root_id uuid, _root_created_at timestamptz default null)
     returns table
             (
                 id             uuid,
@@ -67,6 +74,8 @@ with recursive fam as (
            0 as depth
     from call_center.cc_calls_history h
     where h.id = _root_id
+      and h.created_at > coalesce(_root_created_at, '-infinity'::timestamptz) - interval '1 day'
+      and h.created_at < coalesce(_root_created_at, 'infinity'::timestamptz) + interval '1 day'
     union all
     select h.id,
            h.parent_id,
@@ -101,7 +110,7 @@ select fam.id,
 from fam
 $$;
 
-create or replace function call_center.cc_call_evaluation_agents(_root_id uuid)
+create or replace function call_center.cc_call_evaluation_agents(_root_id uuid, _root_created_at timestamptz default null)
     returns table
             (
                 call_id    uuid,
@@ -116,7 +125,7 @@ as
 $$
 with fam as materialized (
     select *
-    from call_center.cc_call_family(_root_id)
+    from call_center.cc_call_family(_root_id, _root_created_at)
 ),
      kind as (
          select exists (select 1 from fam where fam.user_id is null) as has_customer,
@@ -364,11 +373,13 @@ CREATE OR REPLACE VIEW "call_center"."cc_calls_history_list" AS
         CASE
             WHEN c.bridged_at IS NULL AND c.bridged_id IS NULL AND c.answered_at IS NULL THEN false
             ELSE (EXISTS ( SELECT 1
-               FROM call_center.cc_call_evaluation_agents(
-                        CASE
-                            WHEN c.parent_id IS NULL THEN c.id
-                            ELSE call_center.cc_call_root_id(c.id)
-                        END) ea
+               FROM ( SELECT c.id AS id, c.created_at AS created_at
+                       WHERE c.parent_id IS NULL
+                       UNION ALL
+                       SELECT r.id, r.created_at
+                       FROM call_center.cc_call_root(c.id, c.created_at) r
+                       WHERE c.parent_id IS NOT NULL) root
+                 CROSS JOIN LATERAL call_center.cc_call_evaluation_agents(root.id, root.created_at) ea
               WHERE ea.call_id = c.id))
         END AS allow_evaluation,
     cma.form_fields,
@@ -423,7 +434,7 @@ CREATE OR REPLACE VIEW "call_center"."cc_calls_history_list" AS
                                ORDER BY er.created_at DESC, er.id DESC
                                LIMIT 1)
                 ) ORDER BY ea.pos) AS jsonb_agg
-               FROM call_center.cc_call_evaluation_agents(c.id) ea)
+               FROM call_center.cc_call_evaluation_agents(c.id, c.created_at) ea)
             ELSE NULL::jsonb
         END AS evaluation_agents
    FROM call_center.cc_calls_history c

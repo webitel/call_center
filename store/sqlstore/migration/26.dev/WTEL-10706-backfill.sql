@@ -16,7 +16,7 @@ begin
                        order by ar.id
                        limit _batch),
              upd as (update call_center.cc_audit_rate ar
-                     set call_root_id = call_center.cc_call_root_id(ar.call_id::uuid)
+                     set call_root_id = (select r.id from call_center.cc_call_root(ar.call_id::uuid, ar.call_created_at) r)
                      from batch b
                      where ar.id = b.id
                      returning ar.id)
