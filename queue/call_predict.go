@@ -8,6 +8,7 @@ import (
 	"github.com/webitel/call_center/agent_manager"
 	"github.com/webitel/call_center/call_manager"
 	"github.com/webitel/call_center/model"
+	"github.com/webitel/wlog"
 )
 
 const (
@@ -401,6 +402,7 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 			}, apps)
 
 			cr.Variables["wbt_parent_id"] = mCall.Id()
+			cr.Variables["return_ring_ready"] = "true"
 
 			agentCall = mCall.NewCall(cr)
 			attempt.agentChannel = agentCall
@@ -478,20 +480,33 @@ func (queue *PredictCallQueue) runOfferingAgents(attempt *Attempt, mCall call_ma
 						timeout.Stop()
 						team.Bridged(attempt, agent)
 					case call_manager.CALL_STATE_HANGUP:
-						attempt.Log(fmt.Sprintf("call hangup %s", mCall.Id()))
+						attempt.log.Debug("member call hangup", wlog.String("call_id", mCall.Id()))
 
-						if agentCall.HangupAt() == 0 {
-							if mCall.BridgeAt() > 0 {
-								agentCall.Hangup(model.CALL_HANGUP_NORMAL_CLEARING, false, nil)
-							} else {
-								agentCall.Hangup(model.CALL_HANGUP_ORIGINATOR_CANCEL, false, nil)
-							}
-
-							agentCall.WaitForHangup()
+						if err := agentCall.WaitForOriginate(); err != nil {
+							agentCall.Log().Error("waiting for originate result", wlog.Err(err))
 						}
 
-						attempt.Log(fmt.Sprintf("[%s] agent call %s receive hangup", agentCall.NodeName(), agentCall.Id()))
-						break top // FIXME
+						if agentCall.HangupAt() != 0 {
+							attempt.log.Debug(
+								"agent call already hung up",
+								wlog.String("node_name", agentCall.NodeName()),
+								wlog.String("call_id", agentCall.Id()),
+							)
+
+							break top
+						}
+
+						cause := agentHangupCause(mCall.BridgeAt() > 0)
+
+						if err := agentCall.Hangup(cause, false, nil); err != nil {
+							agentCall.Log().Error("hangup", wlog.Err(err), wlog.String("node_name", agentCall.NodeName()))
+						}
+
+						agentCall.WaitForHangup()
+
+						attempt.log.Debug("agent call receive hangup", wlog.String("node_name", agentCall.NodeName()), wlog.String("call_id", agentCall.Id()))
+
+						break top
 					}
 				}
 			}
