@@ -67,7 +67,6 @@ type BaseQueue struct {
 	teamId                     *int
 	schemaId                   *int
 	ringtone                   *model.RingtoneFile
-	ringtoneUri                *string
 	doSchema                   *int32
 	afterSchemaId              *int32
 	formSchemaId               *int
@@ -76,7 +75,6 @@ type BaseQueue struct {
 	processingRenewalSec       uint32
 	endless                    bool
 	hooks                      HookHub
-	amdPlaybackFileUri         *string
 	amdPlaybackFile            *model.RingtoneFile
 	log                        *wlog.Logger
 	prolongationSteps          uint32
@@ -125,12 +123,10 @@ func NewBaseQueue(queueManager *Manager, resourceManager *ResourceManager, setti
 			Id:   *settings.RingtoneId,
 			Type: *settings.RingtoneType,
 		}
-		base.ringtoneUri = model.NewString(queueManager.callManager.MediaUri(base.domainId, base.ringtone.Id, base.ringtone.Type))
 	}
 
 	if settings.AmdPlaybackFile != nil {
 		base.amdPlaybackFile = settings.AmdPlaybackFile
-		base.amdPlaybackFileUri = model.NewString(queueManager.callManager.MediaUri(base.domainId, settings.AmdPlaybackFile.Id, settings.AmdPlaybackFile.Type))
 	}
 
 	if settings.GranteeId != nil {
@@ -482,8 +478,8 @@ func (tm *agentTeam) Cancel(attempt *Attempt, agent agent_manager.AgentObject) {
 }
 
 func (queue *BaseQueue) RingtoneUri() string {
-	if queue.ringtoneUri != nil {
-		return *queue.ringtoneUri
+	if queue.ringtone != nil {
+		return queue.queueManager.callManager.MediaUri(queue.domainId, queue.ringtone.Id, queue.ringtone.Type)
 	}
 
 	return ""
