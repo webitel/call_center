@@ -27,6 +27,14 @@ const (
 	// goroutine that reads AMQP deliveries, so a repeated wait would stop every stream -
 	// a stuck chat consumer would take call events down with it.
 	ENQUEUE_TIMEOUT = time.Second * 2
+
+	// CALL_EVENT_LAG_WARN is the delay between FreeSWITCH creating a call event and this
+	// node reading it from AMQP above which the lag is logged as a warning. It measures FS
+	// publish plus RabbitMQ delivery and includes the clock offset between FS and this node.
+	CALL_EVENT_LAG_WARN = 500
+
+	QUEUE_TYPE_QUORUM  = "quorum"
+	QUEUE_TYPE_CLASSIC = "classic"
 )
 
 const (
@@ -86,6 +94,12 @@ func NewRabbitMQ(settings model.MessageQueueSettings, nodeName string, log *wlog
 			wlog.String("name", "rabbit"),
 		),
 	}
+	switch settings.QueueType {
+	case QUEUE_TYPE_QUORUM, QUEUE_TYPE_CLASSIC:
+	default:
+		mq_.log.Warn(fmt.Sprintf("unknown amqp queue type \"%s\", use %s", settings.QueueType, QUEUE_TYPE_QUORUM))
+		mq_.settings.QueueType = QUEUE_TYPE_QUORUM
+	}
 	mq_.queueEvent = NewQueueMQ(mq_)
 	mq_.initConnection()
 	go mq_.listen()
@@ -141,6 +155,18 @@ func (a *AMQP) readMessage(msg *amqp.Delivery) {
 		}
 		if ev.Event == "heartbeat" {
 			return // TODO
+		}
+		if ev.Timestamp > 0 {
+			lag := model.GetMillis() - ev.Timestamp
+			lagLog := log.Debug
+			if lag >= CALL_EVENT_LAG_WARN {
+				lagLog = log.Warn
+			}
+			lagLog(fmt.Sprintf("call %s event %s received with lag %dms", ev.Id, ev.Event, lag),
+				wlog.String("call_id", ev.Id),
+				wlog.String("event", ev.Event),
+				wlog.Int64("lag_ms", lag),
+			)
 		}
 		enqueue(a, a.callEvent, &a.callStalled, ev, "call")
 
@@ -272,18 +298,34 @@ func (a *AMQP) initConnection() {
 	}
 }
 
+// nodeQueueArgs are the arguments of the queues this node declares for itself.
+func (a *AMQP) nodeQueueArgs() amqp.Table {
+	return amqp.Table{
+		"x-queue-type": a.settings.QueueType,
+		"x-expires":    10000, // delete after 10s
+	}
+}
+
+// nodeQueueName keeps the quorum name unchanged and gives other types their own name:
+// redeclaring an existing queue with another type fails, and the old queue of this node
+// may still live for x-expires after a restart.
+func (a *AMQP) nodeQueueName() string {
+	name := fmt.Sprintf("callcenter.%s", a.nodeName)
+	if a.settings.QueueType != QUEUE_TYPE_QUORUM {
+		name += "." + a.settings.QueueType
+	}
+	return name
+}
+
 func (a *AMQP) connect() error {
 	var err error
 	a.queue, err = a.channel.QueueDeclare(
-		fmt.Sprintf("callcenter.%s", a.nodeName),
+		a.nodeQueueName(),
 		true,
 		false,
 		false,
 		false,
-		amqp.Table{
-			"x-queue-type": "quorum",
-			"x-expires":    10000, // delete after 10s
-		},
+		a.nodeQueueArgs(),
 	)
 	if err != nil {
 		return err
@@ -338,10 +380,7 @@ func (a *AMQP) subscribeIM() {
 		false,
 		false,
 		true,
-		amqp.Table{
-			"x-queue-type": "quorum",
-			"x-expires":    10000, // delete after 10s
-		},
+		a.nodeQueueArgs(),
 	)
 	if err != nil {
 		wlog.Critical(fmt.Sprintf("Failed to declare AMQP queue %v to err:%v", imQueueName, err.Error()))

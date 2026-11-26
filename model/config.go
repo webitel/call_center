@@ -41,6 +41,8 @@ type SqlSettings struct {
 type MessageQueueSettings struct {
 	Url   string `flag:"amqp|amqp://admin:admin@rabbit:5672?heartbeat=10|AMQP connection" env:"AMQP"`
 	UseIM bool   `json:"use_im" flag:"use_im|false|Use IM handlers" env:"USE_IM"`
+	// QueueType of the node's own event queues: quorum or classic
+	QueueType string `json:"queue_type" flag:"amqp_queue_type|classic|AMQP type of node event queues: quorum / classic" env:"AMQP_QUEUE_TYPE"`
 }
 
 type ServerSettings struct {
