@@ -56,7 +56,7 @@ jobs:
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
         -X github.com/webitel/call_center/model.CurrentVersion=${{ format('{0}{1}', needs.prepare.outputs.version, (github.event.repository.default_branch == github.ref_name || github.event.pull_request.number) && '-dev' || '') }}
-        
+        -X github.com/webitel/crypto/cryptobox.defaultSystemDir=/var/lib/webitel/crypto
 
       version: ${{ needs.prepare.outputs.version }}
       version-build: ${{ needs.prepare.outputs.version-build }}
