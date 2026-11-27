@@ -59,6 +59,8 @@ type MemberStore interface {
 	DistributeCallToAgent(node, callId string, vars map[string]string, agentId int32, force bool, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
 	DistributeTaskToAgent(node string, domainId int64, agentId int32, dest []byte, vars map[string]string, force bool, params *model.QueueDumpParams) (*model.TaskToAgent, *model.AppError)
 	DistributeOutboundCall(node, callId string, vars map[string]string, userId int64, params *model.QueueDumpParams) (*model.InboundCallAgent, *model.AppError)
+	// EmailJoinToQueue puts an email-service Thread into an Inbound Email Queue once per event.
+	EmailJoinToQueue(ctx context.Context, in model.EmailJoin) (*model.EmailJoinResult, *model.AppError)
 
 	/*
 		Flow control
