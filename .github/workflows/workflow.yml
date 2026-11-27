@@ -42,9 +42,52 @@ jobs:
     with:
       changes: ${{ needs.prepare.outputs.changes }}
 
+  crypto:
+    name: Crypto dependency
+    needs: [ prepare ]
+    runs-on: [ arc-runner-set ]
+    outputs:
+      depends: ${{ steps.depends.outputs.depends }}
+
+    steps:
+      - name: Checkout go.mod
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: go.mod
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve package dependencies
+        id: depends
+        shell: bash
+        env:
+          BRANCH: ${{ github.ref_name }}
+          STATIC_DEPENDS: 
+        run: |
+          deps=()
+          [[ -n $STATIC_DEPENDS ]] && deps+=("$STATIC_DEPENDS")
+
+          ver=$(awk '$1 == "github.com/webitel/webitel-cryptoctl/schema" { print $2; exit }
+            $1 == "require" && $2 == "github.com/webitel/webitel-cryptoctl/schema" { print $3; exit }' go.mod)
+          if [[ -n $ver ]]; then
+            if [[ $BRANCH =~ ^v[0-9]{2}\.[0-9]{1,2}$ ]]; then
+              if [[ ! $ver =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::webitel-cryptoctl/schema $ver is a pseudo-version; release branches require a tag"
+                exit 1
+              fi
+              deps+=("webitel-cryptoctl (>= ${ver#v})")
+            else
+              deps+=("webitel-cryptoctl")
+            fi
+          fi
+
+          depends=""
+          for dep in "${deps[@]}"; do depends+="${depends:+, }$dep"; done
+          echo "Depends: ${depends:-none}"
+          echo "depends=$depends" >> "$GITHUB_OUTPUT"
+
   compile:
     name: Build
-    needs: [ prepare ]
+    needs: [ prepare, crypto ]
     strategy:
       matrix:
         arch: ${{ fromJSON(needs.prepare.outputs.arch-matrix) }}
@@ -57,7 +100,7 @@ jobs:
         -s -w
         -X github.com/webitel/call_center/model.BuildNumber=${{ github.run_number }}
         -X github.com/webitel/call_center/model.CurrentVersion=${{ format('{0}{1}', needs.prepare.outputs.version, (github.event.repository.default_branch == github.ref_name || github.event.pull_request.number) && '-dev' || '') }}
-        
+        -X github.com/webitel/crypto/cryptobox.defaultSystemDir=/var/lib/webitel/crypto
 
       version: ${{ needs.prepare.outputs.version }}
       version-build: ${{ needs.prepare.outputs.version-build }}
@@ -69,7 +112,7 @@ jobs:
         src=.env.example dst=/etc/default/webitel-call-center type=config mode=0640
         
 
-      package-depends: 
+      package-depends: ${{ needs.crypto.outputs.depends }}
       scripts: |
         postinstall: deploy/debian/postinst.sh
         preremove: deploy/debian/prerm.sh
