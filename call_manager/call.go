@@ -61,6 +61,7 @@ type Call interface {
 	IsHuman() bool
 
 	WaitForHangup()
+	WaitForOriginate() *model.AppError
 	HangupChan() <-chan struct{}
 
 	NewCall(callRequest *model.CallRequest) Call
@@ -102,6 +103,7 @@ type CallImpl struct {
 	actions     chan CallAction
 	id          string
 	hangupCh    chan struct{}
+	originateCh chan struct{}
 	state       CallState
 	cancel      string
 
@@ -213,6 +215,7 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 		api:         api,
 		cm:          cm,
 		hangupCh:    make(chan struct{}),
+		originateCh: make(chan struct{}),
 		chState:     make(chan CallState, 5), // FIXME
 		state:       CALL_STATE_NEW,
 		log: cm.log.With(
@@ -224,6 +227,42 @@ func NewCall(direction CallDirection, callRequest *model.CallRequest, cm *CallMa
 	call.log.Debug(fmt.Sprintf("[%s] call %s init request", call.NodeName(), call.Id()))
 
 	return call
+}
+
+func (call *CallImpl) OriginateChan() <-chan struct{} { return call.originateCh }
+
+const waitingOriginateTimeout = time.Second * 10
+
+func (call *CallImpl) waitForOriginate(timeout time.Duration) *model.AppError {
+	if call.Err() != nil {
+		return call.Err()
+	}
+
+	//TODO: configurable call timeout?
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case <-call.OriginateChan():
+		return call.Err()
+
+	case <-timer.C:
+		return model.NewAppError(
+			"Call.WaitForOriginate",
+			"call_manager.call.wait_for_originate",
+			nil,
+			fmt.Sprintf(
+				"waiting call %q originate failed after %s",
+				call.Id(),
+				timeout,
+			),
+			http.StatusRequestTimeout,
+		)
+	}
+}
+
+func (call *CallImpl) WaitForOriginate() *model.AppError {
+	return call.waitForOriginate(waitingOriginateTimeout)
 }
 
 func (call *CallImpl) ShouldMarkAsMissed() bool {
@@ -375,39 +414,40 @@ func (call *CallImpl) setHold(e *model.CallActionHold) {
 
 func (call *CallImpl) setHangup(e *model.CallActionHangup) {
 	call.Lock()
-	if call.hangupAt == 0 {
-		call.hangup = e
-		call.cm.removeFromCacheCall(call)
+	defer call.Unlock()
 
-		if call.ringTimeout != nil {
-			call.ringTimeout.Stop()
-		}
-
-		call.hangupAt = e.Timestamp
-		if call.hangupAt == 0 {
-			call.log.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
-			call.hangupAt = model.GetMillis()
-		}
-
-		if e.ReportingAt != nil {
-			call.reportingAt = *e.ReportingAt
-		}
-
-		call.transferFrom = e.TransferFrom
-		call.transferFromAttemptId = e.TransferFromAttempt
-		call.transferTo = e.TransferTo
-		call.transferToAgentId = e.TransferToAgent
-		call.transferToAttemptId = e.TransferToAttempt
-
-		call.variables = e.Variables
-
-		close(call.hangupCh)
-		call.Unlock()
-
-		call.setState(CALL_STATE_HANGUP)
-	} else {
-		call.Unlock()
+	if call.hangupAt != 0 {
+		return
 	}
+
+	call.hangup = e
+	call.cm.removeFromCacheCall(call)
+
+	if call.ringTimeout != nil {
+		call.ringTimeout.Stop()
+	}
+
+	call.hangupAt = e.Timestamp
+	if call.hangupAt == 0 {
+		call.log.Warn(fmt.Sprintf("call %s set server hangup time", call.Id()))
+		call.hangupAt = model.GetMillis()
+	}
+
+	if e.ReportingAt != nil {
+		call.reportingAt = *e.ReportingAt
+	}
+
+	call.transferFrom = e.TransferFrom
+	call.transferFromAttemptId = e.TransferFromAttempt
+	call.transferTo = e.TransferTo
+	call.transferToAgentId = e.TransferToAgent
+	call.transferToAttemptId = e.TransferToAttempt
+
+	call.variables = e.Variables
+
+	close(call.hangupCh)
+
+	call.setState(CALL_STATE_HANGUP)
 }
 
 func (call *CallImpl) QueueId() *int {
@@ -443,20 +483,24 @@ func (call *CallImpl) Invite() *model.AppError {
 
 	call.log.Debug(fmt.Sprintf("[%s] call %s send invite", call.NodeName(), call.Id()))
 
-	go func() {
+	go func(originateCh chan<- struct{}) {
+		defer close(originateCh)
+		call.log.Error("start of originate")
+
 		_, cause, code, err := call.api.NewCall(call.callRequest)
 		if err != nil {
 			call.log.Debug(fmt.Sprintf("[%s] call %s invite error: %s", call.NodeName(), call.Id(), err.Error()),
 				wlog.Err(err),
 			)
+
 			call.setHangup(&model.CallActionHangup{
 				CallAction: call.action,
 				Cause:      cause,
 				SipCode:    &code,
 			})
-			return
 		}
-	}()
+		call.Log().Error("end of originate")
+	}(call.originateCh)
 
 	return nil
 }
