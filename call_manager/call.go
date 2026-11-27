@@ -263,8 +263,7 @@ func (call *CallImpl) SetRecordings(domainId int64, all, mono bool) {
 
 	call.callRequest.Applications = append(call.callRequest.Applications, &model.CallRequestApplication{
 		AppName: "wbt_record_session",
-		Args: fmt.Sprintf("http_cache://http://$${cdr_url}/sys/recordings?domain=%d&id=%s&name=%s&.%s", domainId,
-			call.Id(), model.CallRecordFileTemplate, "mp3"),
+		Args:    call.cm.RecordSessionUri(domainId, call.Id()),
 	})
 }
 
@@ -786,14 +785,14 @@ func (call *CallImpl) BroadcastPlaybackFile(domainId int64, file *model.Ringtone
 	if file == nil {
 		return nil
 	}
-	return call.api.BroadcastPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
+	return call.api.BroadcastPlaybackFile(call.id, call.cm.MediaUri(domainId, file.Id, file.Type), leg)
 }
 
 func (call *CallImpl) ParkPlaybackFile(domainId int64, file *model.RingtoneFile, leg string) *model.AppError {
 	if file == nil {
 		return nil
 	}
-	return call.api.ParkPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
+	return call.api.ParkPlaybackFile(call.id, call.cm.MediaUri(domainId, file.Id, file.Type), leg)
 }
 
 func (call *CallImpl) BroadcastTone(tone *string, leg string) *model.AppError {
@@ -818,10 +817,10 @@ func (call *CallImpl) BroadcastPlaybackSilenceBeforeFile(domainId int64, silence
 	}
 
 	if silence == 0 {
-		return call.api.BroadcastPlaybackFile(call.id, model.RingtoneUri(domainId, file.Id, file.Type), leg)
+		return call.api.BroadcastPlaybackFile(call.id, call.cm.MediaUri(domainId, file.Id, file.Type), leg)
 	}
 
-	return call.api.BroadcastPlaybackFile(call.id, fmt.Sprintf("file_string://silence_stream://%d!%s", silence, model.RingtoneUri(domainId, file.Id, file.Type)), leg)
+	return call.api.BroadcastPlaybackFile(call.id, fmt.Sprintf("file_string://silence_stream://%d!%s", silence, call.cm.MediaUri(domainId, file.Id, file.Type)), leg)
 }
 
 // FIXME

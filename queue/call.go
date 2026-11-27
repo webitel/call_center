@@ -60,7 +60,7 @@ func bridgeRecordings(recordAllCalls, recordings, mono, all bool) (bool, bool, b
 }
 
 func (queue *CallingQueue) HasRingtone() bool {
-	return queue.ringtoneUri != nil
+	return queue.ringtone != nil
 }
 
 func (queue *CallingQueue) Ringtone() *model.RingtoneFile {
@@ -118,11 +118,11 @@ func (queue *CallingQueue) SetAmdCall(callRequest *model.CallRequest, amd *model
 			Args:    amd.ToArgs(),
 		})
 
-		if queue.amdPlaybackFileUri != nil {
+		if queue.amdPlaybackFile != nil {
 			// TODO BroadcastPlaybackFile - blocking call
 			callRequest.Applications = append(callRequest.Applications, &model.CallRequestApplication{
 				AppName: "playback",
-				Args:    *queue.amdPlaybackFileUri,
+				Args:    queue.CallManager().MediaUri(queue.domainId, queue.amdPlaybackFile.Id, queue.amdPlaybackFile.Type),
 			})
 		}
 
@@ -227,7 +227,7 @@ func (queue *CallingQueue) AgentCallRequest(agent agent_manager.AgentObject, at 
 		cr.Applications = append([]*model.CallRequestApplication{
 			{
 				AppName: "playback",
-				Args:    model.RingtoneUri(agent.DomainId(), agent.GreetingMedia().Id, agent.GreetingMedia().Type),
+				Args:    queue.CallManager().MediaUri(agent.DomainId(), agent.GreetingMedia().Id, agent.GreetingMedia().Type),
 			},
 		}, apps...)
 	} else {

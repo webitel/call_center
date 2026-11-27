@@ -13,6 +13,7 @@ import (
 	"github.com/webitel/call_center/mq"
 	"github.com/webitel/call_center/utils"
 	"github.com/webitel/engine/pkg/discovery"
+	"github.com/webitel/storage/pkg/sysurl"
 	"github.com/webitel/wlog"
 )
 
@@ -40,6 +41,8 @@ type CallManager interface {
 	Ready(ctx context.Context) error
 	GetFlowUri() string
 	RingtoneUri(domainId int64, id int, mimeType string) string
+	MediaUri(domainId int64, id int, mimeType string) string
+	RecordSessionUri(domainId int64, id string) string
 	HangupManyCall(cause string, ids ...string)
 	HangupById(id, node string) *model.AppError
 }
@@ -59,13 +62,15 @@ type CallManagerImpl struct {
 	watcher   *utils.Watcher
 	proxy     string
 	cdr       string
+	sysurl    *sysurl.Builder
 	startOnce sync.Once
 	log       *wlog.Logger
 }
 
-func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ, log *wlog.Logger) CallManager {
+func NewCallManager(nodeId string, serviceDiscovery discovery.ServiceDiscovery, mq mq.MQ, sysURL *sysurl.Builder, log *wlog.Logger) CallManager {
 	return &CallManagerImpl{
 		nodeId: nodeId,
+		sysurl: sysURL,
 		log: log.With(
 			wlog.Namespace("context"),
 			wlog.String("name", "call manager"),
@@ -332,14 +337,41 @@ func (cm *CallManagerImpl) GetFlowUri() string {
 }
 
 func (cm *CallManagerImpl) RingtoneUri(domainId int64, id int, mimeType string) string {
+	return cm.mediaStreamUri(cm.cdr, domainId, id, mimeType)
+}
+
+func (cm *CallManagerImpl) MediaUri(domainId int64, id int, mimeType string) string {
+	return cm.mediaStreamUri("$${cdr_url}", domainId, id, mimeType)
+}
+
+func (cm *CallManagerImpl) RecordSessionUri(domainId int64, id string) string {
+	link, err := cm.sysurl.RecordingUpload(domainId, id, model.CallRecordFileTemplate, "mp3", nil)
+	if err != nil {
+		cm.log.Error("build record session link", wlog.Err(err))
+		return ""
+	}
+
+	return "http_cache://http://$${cdr_url}" + link
+}
+
+func (cm *CallManagerImpl) mediaStreamUri(host string, domainId int64, id int, mimeType string) string {
+	var protocol, format string
 	switch mimeType {
 	case "audio/mp3", "audio/mpeg":
-		return fmt.Sprintf("shout://%s/sys/media/%d/stream?domain_id=%d&.mp3", cm.cdr, id, domainId)
+		protocol, format = "shout://", "mp3"
 	case "audio/wav":
-		return fmt.Sprintf("http_cache://http://%s/sys/media/%d/stream?domain_id=%d&.wav", cm.cdr, id, domainId)
+		protocol, format = "http_cache://http://", "wav"
 	default:
 		return ""
 	}
+
+	link, err := cm.sysurl.MediaStream(domainId, int64(id), format)
+	if err != nil {
+		cm.log.Error("build media stream link", wlog.Err(err))
+		return ""
+	}
+
+	return protocol + host + link
 }
 
 func (cm *CallManagerImpl) registerConnection(v *discovery.ServiceConnection) {
